@@ -463,7 +463,7 @@ import { normalizeAccountSettingsVersionHint } from '@/settings/accountSettings/
 import { refreshAccountSettingsForMinimumVersion } from '@/settings/accountSettings/refreshAccountSettingsForMinimumVersion';
 import { warmActiveAccountSettingsSnapshotBestEffort } from '@/settings/accountSettings/warmActiveAccountSettingsSnapshot';
 import { getActiveAccountSettingsSnapshot } from '@/settings/accountSettings/activeAccountSettingsSnapshot';
-import { isBackendEnabledByAccountSettings } from '@/settings/backendEnabled';
+import { isBackendEnabledByAccountSettings, resolveBackendDisabledSpawnError } from '@/settings/backendEnabled';
 import { resolveConfiguredAcpBackendFromAccountSettings } from '@/agent/acp/catalog/configured/resolveConfiguredAcpBackendFromAccountSettings';
 import { fetchSessionByIdCompat, type RawSessionRecord } from '@/session/transport/http/sessionsHttp';
 import { listRetainedConnectedServiceMaterializationIdentityIds } from './connectedServices/materialize/cleanup/listRetainedConnectedServiceMaterializationIdentityIds';
@@ -3095,6 +3095,13 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                 spawnNonce: randomUUID(),
               };
             }
+            // Enforce the account's provider disable setting at spawn admission for explicitly
+            // requested backend targets, before any session, pending input, or runner exists.
+            const backendDisabledError = resolveBackendDisabledSpawnError({
+              backendTarget: normalizedOptions.backendTarget,
+              settings: getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined,
+            });
+            if (backendDisabledError) return backendDisabledError;
             if (normalizedExistingSessionId) {
               const inFlightStop = stopSessionInFlightBySessionId.get(normalizedExistingSessionId);
               let precedingStopResult: StopSessionResult | null = null;
