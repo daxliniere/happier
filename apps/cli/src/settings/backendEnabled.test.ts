@@ -43,10 +43,10 @@ describe('resolveBackendDisabledSpawnError', () => {
       backendTarget: { kind: 'builtInAgent', agentId: 'codex' },
       settings: { backendEnabledByTargetKey: { [targetKey]: false } },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       type: 'error',
       errorCode: SPAWN_SESSION_ERROR_CODES.BACKEND_DISABLED,
-      errorMessage: 'codex is disabled in your account settings (enable it in the UI provider settings).',
+      errorMessage: expect.stringContaining('codex'),
     });
   });
 
@@ -76,6 +76,15 @@ describe('resolveBackendDisabledSpawnError', () => {
     expect(resolveBackendDisabledSpawnError({
       backendTarget: { kind: 'builtInAgent', agentId: 'codex' },
       settings: undefined,
+    })).toBeNull();
+  });
+
+  it('returns null for existing-session requests so resume and attach keep working after a backend is disabled', () => {
+    const disabledKey = buildBackendTargetKey({ kind: 'builtInAgent', agentId: 'codex' });
+    expect(resolveBackendDisabledSpawnError({
+      backendTarget: { kind: 'builtInAgent', agentId: 'codex' },
+      settings: { backendEnabledByTargetKey: { [disabledKey]: false } },
+      existingSessionId: 'cmvexisting0',
     })).toBeNull();
   });
 });

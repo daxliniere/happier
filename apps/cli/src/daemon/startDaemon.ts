@@ -3097,9 +3097,12 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
             }
             // Enforce the account's provider disable setting at spawn admission for explicitly
             // requested backend targets, before any session, pending input, or runner exists.
+            // Existing-session requests (resume/attach) are exempt so disabling a backend
+            // never strands sessions that already run on it.
             const backendDisabledError = resolveBackendDisabledSpawnError({
               backendTarget: normalizedOptions.backendTarget,
               settings: getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined,
+              existingSessionId: normalizedExistingSessionId,
             });
             if (backendDisabledError) return backendDisabledError;
             if (normalizedExistingSessionId) {

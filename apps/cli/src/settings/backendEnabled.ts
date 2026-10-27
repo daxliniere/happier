@@ -43,14 +43,18 @@ export type BackendDisabledSpawnError = Readonly<{
 /**
  * Spawn-admission form of the disable check: returns a structured BACKEND_DISABLED spawn
  * error for an explicitly requested, disabled backend target, or null when the spawn may
- * proceed (target absent, settings unavailable, or backend enabled).
+ * proceed (target absent, settings unavailable, or backend enabled). Existing-session
+ * requests (resume/attach) are exempt: the setting governs new spawns, not continuation
+ * of sessions that already exist on that backend.
  */
 export function resolveBackendDisabledSpawnError(params: Readonly<{
   backendTarget: BackendTargetRefV1 | undefined;
   settings: Record<string, unknown> | undefined;
+  existingSessionId?: string | undefined;
 }>): BackendDisabledSpawnError | null {
   const backendTarget = params.backendTarget;
   if (!backendTarget || !params.settings) return null;
+  if (params.existingSessionId) return null;
   if (isBackendEnabledByAccountSettings({ backendTarget, settings: params.settings })) return null;
   const label = backendTarget.kind === 'configuredAcpBackend' ? backendTarget.backendId : backendTarget.agentId;
   return {
