@@ -1,0 +1,63 @@
+name: BUILD — Windows desktop (fork dev, unsigned)
+
+# Fork-only workflow: builds an unsigned NSIS installer for the "Happier (dev)" desktop app.
+# No release bot, signing keys or publishing; output is a downloadable workflow artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branch, tag, or SHA to build"
+        required: true
+        default: dev
+        type: string
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Enable Yarn 1
+        run: corepack enable
+
+      - name: Install dependencies
+        env:
+          npm_config_production: "false"
+          HAPPIER_INSTALL_SCOPE: "ui,protocol,agents,cli-common,release-runtime,transfers,connection-supervisor,audio-stream-native,sherpa-native"
+          npm_config_registry: https://registry.npmjs.org
+        uses: ./.github/actions/install-yarn-dependencies
+        with:
+          args: --frozen-lockfile --ignore-engines
+
+      - name: Build internal packages
+        run: yarn -s build:packages
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94.1"
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/ui/src-tauri
+
+      - name: Build Tauri NSIS installer
+        run: yarn --cwd apps/ui tauri:build:dev --bundles nsis
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: happier-windows-dev-nsis
+          path: apps/ui/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
