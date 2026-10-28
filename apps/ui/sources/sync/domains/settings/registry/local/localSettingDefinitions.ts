@@ -177,6 +177,13 @@ export const LOCAL_SETTING_DEFINITIONS = defineSettingDefinitions({
         description: 'Enable backdrop blur effects behind modals and overlay menus',
         storageScope: 'local',
     },
+    hideGuardianReviewSessions: {
+        // A malformed/newer value must not reset every other device preference.
+        schema: z.boolean().catch(true),
+        default: true,
+        description: 'Hide Codex Guardian approval-review sessions from session lists on this device',
+        storageScope: 'local',
+    },
     hapticsEnabled: {
         schema: z.boolean().catch(true),
         default: true,

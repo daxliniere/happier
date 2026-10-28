@@ -7095,6 +7095,7 @@ export const it: TranslationStructure = {
     stopSessionSubtitle: "Ferma il processo della sessione",
     archiveSessionSubtitle: "Sposta questa sessione in Archiviate",
     archivedSessions: "Session archiviate",
+    hideGuardianReviews: "Nascondi le revisioni Guardian",
     inactiveAndArchivedSessions: "Sessioni inattive e archiviate",
     unarchiveSession: "Rimuovi dall'archivio",
     unarchiveSessionConfirm: "Sei sicuro di voler rimuovere questa sessione dall'archivio?",

@@ -6882,6 +6882,7 @@ export const pt: TranslationStructure = {
     stopSessionSubtitle: "Parar o processo da sessão",
     archiveSessionSubtitle: "Mover esta sessão para Arquivadas",
     archivedSessions: "Sessões arquivadas",
+    hideGuardianReviews: "Ocultar revisões do Guardian",
     inactiveAndArchivedSessions: "Sessões inativas e arquivadas",
     unarchiveSession: "Desarquivar sessão",
     unarchiveSessionConfirm: "Tem certeza de que deseja desarquivar esta sessão?",

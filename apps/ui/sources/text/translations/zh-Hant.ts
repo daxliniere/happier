@@ -5734,6 +5734,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         stopSessionSubtitle: '停止工作階段程序',
         archiveSessionSubtitle: '將此工作階段移至封存',
         archivedSessions: '已封存工作階段',
+        hideGuardianReviews: '隱藏 Guardian 審查',
         inactiveAndArchivedSessions: '非活躍與已封存工作階段',
         unarchiveSession: '取消封存工作階段',
         unarchiveSessionConfirm: '您確定要取消封存此工作階段嗎？',

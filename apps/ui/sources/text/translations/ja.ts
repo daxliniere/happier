@@ -7025,6 +7025,7 @@ localTailscale: {
     stopSessionSubtitle: "セッションプロセスを停止",
     archiveSessionSubtitle: "このセッションをアーカイブへ移動",
     archivedSessions: "アーカイブ済みセッション",
+    hideGuardianReviews: "Guardian レビューを非表示",
     inactiveAndArchivedSessions: "非アクティブとアーカイブ済みのセッション",
     unarchiveSession: "アーカイブ解除",
     unarchiveSessionConfirm: "このセッションのアーカイブを解除してもよろしいですか？",

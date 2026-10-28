@@ -6386,6 +6386,7 @@ deps: {
         stopSessionSubtitle: 'Atura el procés de la sessió',
         archiveSessionSubtitle: 'Mou aquesta sessió a Arxivades',
         archivedSessions: 'Sessions arxivades',
+        hideGuardianReviews: 'Amaga les revisions de Guardian',
         inactiveAndArchivedSessions: 'Sessions inactives i arxivades',
         unarchiveSession: 'Desarxiva la sessió',
         unarchiveSessionConfirm: 'Segur que vols desarxivar aquesta sessió?',

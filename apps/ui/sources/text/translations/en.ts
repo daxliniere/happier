@@ -6404,6 +6404,7 @@ export const en = {
         stopSessionSubtitle: 'Stop the session process',
         archiveSessionSubtitle: 'Move this session to Archived',
         archivedSessions: 'Archived Sessions',
+        hideGuardianReviews: 'Hide Guardian reviews',
         inactiveAndArchivedSessions: 'Inactive and archived sessions',
         unarchiveSession: 'Unarchive Session',
         unarchiveSessionConfirm: 'Are you sure you want to unarchive this session?',

@@ -6548,6 +6548,7 @@ export const zhHans: TranslationStructure = {
     stopSessionSubtitle: "停止会话进程",
     archiveSessionSubtitle: "将此会话移至已归档",
     archivedSessions: "已归档会话",
+    hideGuardianReviews: "隐藏 Guardian 审查",
     inactiveAndArchivedSessions: "非活跃和已归档会话",
     unarchiveSession: "取消归档会话",
     unarchiveSessionConfirm: "您确定要取消归档此会话吗？",
