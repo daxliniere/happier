@@ -54,7 +54,7 @@ type StablePresentationSettingsRefs = Readonly<{
     identityDisplay: SessionListRowPresentationSettings['identityDisplay'];
     activeColorMode: SessionListRowPresentationSettings['activeColorMode'];
     workingIndicatorMode: SessionListRowPresentationSettings['workingIndicatorMode'];
-    obviousAttentionEnabled?: SessionListRowPresentationSettings['obviousAttentionEnabled'];
+    updatedSessionAnimation?: SessionListRowPresentationSettings['updatedSessionAnimation'];
     workingTextMode: SessionListRowPresentationSettings['workingTextMode'];
     backgroundWorkAttentionMode: SessionListRowPresentationSettings['backgroundWorkAttentionMode'];
     hideInactiveSessions: SessionListRowPresentationSettings['hideInactiveSessions'];
@@ -122,7 +122,7 @@ function buildStablePresentationSettingsRefs(
         identityDisplay: settings.identityDisplay,
         activeColorMode: settings.activeColorMode,
         workingIndicatorMode: settings.workingIndicatorMode,
-        obviousAttentionEnabled: settings.obviousAttentionEnabled,
+        updatedSessionAnimation: settings.updatedSessionAnimation,
         workingTextMode: settings.workingTextMode,
         backgroundWorkAttentionMode: settings.backgroundWorkAttentionMode,
         hideInactiveSessions: settings.hideInactiveSessions,
@@ -153,7 +153,7 @@ function areStablePresentationSettingsRefsEqual(
         && previous.identityDisplay === next.identityDisplay
         && previous.activeColorMode === next.activeColorMode
         && previous.workingIndicatorMode === next.workingIndicatorMode
-        && previous.obviousAttentionEnabled === next.obviousAttentionEnabled
+        && previous.updatedSessionAnimation === next.updatedSessionAnimation
         && previous.workingTextMode === next.workingTextMode
         && previous.backgroundWorkAttentionMode === next.backgroundWorkAttentionMode
         && previous.hideInactiveSessions === next.hideInactiveSessions
@@ -210,7 +210,7 @@ function buildInputSignature(input: Readonly<{
     appendSignaturePart(parts, settings.identityDisplay);
     appendSignaturePart(parts, settings.activeColorMode);
     appendSignaturePart(parts, settings.workingIndicatorMode);
-    appendSignaturePart(parts, settings.obviousAttentionEnabled ? 1 : 0);
+    appendSignaturePart(parts, settings.updatedSessionAnimation);
     appendSignaturePart(parts, settings.workingTextMode);
     appendSignaturePart(parts, settings.backgroundWorkAttentionMode);
     appendSignaturePart(parts, settings.hideInactiveSessions ? 1 : 0);

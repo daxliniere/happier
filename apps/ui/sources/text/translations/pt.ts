@@ -4639,9 +4639,13 @@ export const pt: TranslationStructure = {
     backdropBlur: "Desfoque de fundo",
     backdropBlurDescription:
       "Use desfoque de fundo atrás de modais e menus. Desative para melhorar o desempenho do navegador.",
-    obviousAttentionMode: "Modo de atenção evidente",
-    obviousAttentionModeDescription:
-      "Faz as sessões que precisam de você (permissão, ação necessária, falha) \"respirarem\" com cores invertidas para não passarem despercebidas.",
+    updatedSessionAnimation: "Animação de sessão atualizada",
+    updatedSessionAnimationDescription:
+      "Como uma sessão que precisa de você (permissão, ação necessária, falha) chama a atenção na lista.",
+    updatedSessionAnimationNone: "Nenhuma",
+    updatedSessionAnimationFade: "Esmaecer",
+    updatedSessionAnimationGlow: "Brilho",
+    updatedSessionAnimationSweep: "Varredura",
     multiPanePanels: "Painéis à direita",
     multiPanePanelsDescription:
       "Mostre painéis laterais redimensionáveis para arquivos e controle de código fonte (web/tablet)",

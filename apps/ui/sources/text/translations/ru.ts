@@ -4469,9 +4469,13 @@ export const ru: TranslationStructure = {
     backdropBlur: "Размытие фона",
     backdropBlurDescription:
       "Использовать размытие фона за модальными окнами и меню. Отключите, чтобы повысить производительность браузера.",
-    obviousAttentionMode: "Заметный режим внимания",
-    obviousAttentionModeDescription:
-      "Сессии, которым нужен ты (разрешение, требуется действие, ошибка), «дышат» в инвертированных цветах, чтобы их было трудно пропустить.",
+    updatedSessionAnimation: "Анимация обновлённой сессии",
+    updatedSessionAnimationDescription:
+      "Как сессия, которой нужен ты (разрешение, требуется действие, ошибка), привлекает внимание в списке.",
+    updatedSessionAnimationNone: "Нет",
+    updatedSessionAnimationFade: "Затухание",
+    updatedSessionAnimationGlow: "Свечение",
+    updatedSessionAnimationSweep: "Волна",
     multiPanePanels: "Правые панели",
     multiPanePanelsDescription:
       "Показывать изменяемые по размеру правые панели для файлов и контроля версий (web/tablet)",

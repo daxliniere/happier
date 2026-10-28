@@ -95,18 +95,18 @@ describe('settings', () => {
             expect(settings.sessionListNarrowWorkingIndicatorStyle).toBe('pulse');
         });
 
-        it('defaults obvious attention-required mode for session rows to off', () => {
+        it('defaults the updated session animation to none', () => {
             const settings = settingsParse({});
 
-            expect(settings.sessionListObviousAttentionModeEnabled).toBe(false);
+            expect(settings.sessionListUpdatedSessionAnimation).toBe('none');
         });
 
-        it('parses obvious attention-required mode for session rows', () => {
+        it.each(['fade', 'glow', 'sweep'] as const)('parses the %s updated session animation', (animation) => {
             const settings = settingsParse({
-                sessionListObviousAttentionModeEnabled: true,
+                sessionListUpdatedSessionAnimation: animation,
             });
 
-            expect(settings.sessionListObviousAttentionModeEnabled).toBe(true);
+            expect(settings.sessionListUpdatedSessionAnimation).toBe(animation);
         });
 
         it('includes installables policy map by default', () => {

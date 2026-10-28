@@ -24,7 +24,10 @@ import {
     type SessionNameSource,
 } from '@/utils/sessions/sessionUtils';
 
-import type { ActionOperationObservationPresentation } from './actionOperationPresentation';
+import {
+    resolveActionOperationDetailContent,
+    type ActionOperationObservationPresentation,
+} from './actionOperationPresentation';
 
 export type ActionOperationActivityModel = Readonly<{
     operations: readonly ActionOperationSnapshotV1[];
@@ -56,6 +59,23 @@ export function resolveActionOperationSessionNameById(
         }
     }
     return resolved;
+}
+
+/**
+ * Row context: the scoped session's name, or for an operation that produced a session
+ * (e.g. Create session) the new session's name plus the machine it runs on.
+ */
+export function resolveActionOperationContext(
+    operation: ActionOperationSnapshotV1,
+    sessionNameById: ReadonlyMap<string, string>,
+    machineName: string | null,
+): string | null {
+    if (operation.scope.sessionId) {
+        return sessionNameById.get(operation.scope.sessionId) ?? null;
+    }
+    const createdSessionName = resolveActionOperationDetailContent(operation).openSessionId;
+    const sessionName = createdSessionName ? sessionNameById.get(createdSessionName) : undefined;
+    return [sessionName, machineName].filter(Boolean).join(' · ') || null;
 }
 
 export function useActionOperationActivityModel(): ActionOperationActivityModel {
@@ -109,11 +129,12 @@ export function useActionOperationActivityModel(): ActionOperationActivityModel 
         [observations, unavailableOperationIds],
     );
     const contextForOperation = React.useCallback((operation: ActionOperationSnapshotV1): string | null => {
-        if (operation.scope.sessionId) {
-            return sessionNameById.get(operation.scope.sessionId) ?? null;
-        }
         const machine = machineById.get(operation.scope.machineId);
-        return machine ? getMachineDisplayName(machine) : null;
+        return resolveActionOperationContext(
+            operation,
+            sessionNameById,
+            machine ? getMachineDisplayName(machine) : null,
+        );
     }, [machineById, sessionNameById]);
     const markVisibleTerminalSeen = React.useCallback(() => {
         if (!accountId) return;

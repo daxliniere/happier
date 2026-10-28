@@ -4807,9 +4807,13 @@ localTailscale: {
     backdropBlur: "背景ぼかし",
     backdropBlurDescription:
       "モーダルやメニューの背後に背景ぼかしを適用します。ブラウザー性能を優先する場合は無効にしてください。",
-    obviousAttentionMode: "目立つ要対応モード",
-    obviousAttentionModeDescription:
-      "操作が必要なセッション（権限、対応が必要、失敗）を反転色で呼吸するように明滅させ、見逃しにくくします。",
+    updatedSessionAnimation: "更新されたセッションのアニメーション",
+    updatedSessionAnimationDescription:
+      "対応が必要なセッション（権限、対応が必要、失敗）がリスト内で注意を引く方法です。",
+    updatedSessionAnimationNone: "なし",
+    updatedSessionAnimationFade: "フェード",
+    updatedSessionAnimationGlow: "グロー",
+    updatedSessionAnimationSweep: "スイープ",
     multiPanePanels: "右パネル",
     multiPanePanelsDescription:
       "ファイルとソース管理のための右側パネルを表示（Web/タブレット）",

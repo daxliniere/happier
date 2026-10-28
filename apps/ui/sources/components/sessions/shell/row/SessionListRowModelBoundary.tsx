@@ -4,7 +4,6 @@ import { Platform } from 'react-native';
 import { storage, useActiveServerAccountScope } from '@/sync/domains/state/storage';
 import { createServerAccountScope, type ServerAccountScope } from '@/sync/domains/scope/serverAccountScope';
 import {
-    deleteSessionDraft,
     getExistingSessionDraftProjection,
     subscribeSessionDraft,
     type ExistingSessionDraftProjection,
@@ -225,7 +224,6 @@ export const SessionListRowModelBoundary = React.memo(function SessionListRowMod
         <SessionListRowModelBoundaryContent
             {...props}
             draftProjection={draftProjection}
-            draftScope={draftScope}
             rowStoreState={rowStoreState}
         />
     );
@@ -233,7 +231,6 @@ export const SessionListRowModelBoundary = React.memo(function SessionListRowMod
 
 type SessionListRowModelBoundaryContentProps = SessionListRowModelBoundaryProps & Readonly<{
     draftProjection: ExistingSessionDraftProjection | null;
-    draftScope: ServerAccountScope | null;
     rowStoreState: SessionListRowStoreState;
 }>;
 
@@ -297,16 +294,6 @@ const SessionListRowModelBoundaryContent = React.memo(function SessionListRowMod
         sourceRowId: rowModel.treeRowId,
         sourceLabel: props.item.session.id,
     });
-    const onDeleteDraft = React.useMemo(() => {
-        const scope = props.draftScope;
-        if (!scope || !props.draftProjection) return null;
-        return async () => {
-            await deleteSessionDraft({
-                scope,
-                address: { kind: 'session', sessionId: props.item.session.id },
-            });
-        };
-    }, [props.draftProjection, props.draftScope, props.item.session.id]);
 
     return (
         <SessionListRow
@@ -334,7 +321,6 @@ const SessionListRowModelBoundaryContent = React.memo(function SessionListRowMod
             showServerBadge={rowModel.showServerBadge}
             pinned={rowModel.isPinned}
             onTogglePinned={onTogglePinned}
-            onDeleteDraft={onDeleteDraft}
             tags={rowModel.tags}
             allKnownTags={rowModel.allKnownTags}
             onSetTags={onSetTags}

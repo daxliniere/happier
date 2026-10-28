@@ -56,6 +56,7 @@ import { SessionFolderScopeBreadcrumb } from './sessionFolderScopeBreadcrumb';
 import { DraggableSessionFolderHeaderFrame } from './DraggableSessionFolderHeaderFrame';
 import { ProjectGroupHeader } from './ProjectGroupHeader';
 import { SessionListHeaderFrame } from './SessionListHeaderFrame';
+import { normalizeUpdatedSessionAnimation } from './row/updatedSessionAnimation';
 import { resolveSessionListRowModelAdjacency } from './row/buildSessionListRowModels';
 import { SessionListRowModelBoundary } from './row/SessionListRowModelBoundary';
 import { useSessionListIdentityDisplay } from './SessionListIdentity';
@@ -640,7 +641,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         sessionListSurfaceDataActive: surfaceOwnership.dataActive,
     });
     const sessionListWorkingIndicatorStyle = useSetting('sessionListNarrowWorkingIndicatorStyle');
-    const sessionListObviousAttentionModeEnabled = useSetting('sessionListObviousAttentionModeEnabled');
+    const sessionListUpdatedSessionAnimation = useSetting('sessionListUpdatedSessionAnimation');
     const backgroundWorkAttentionMode = normalizeSessionListBackgroundWorkAttentionMode(useSetting('sessionListBackgroundWorkAttentionModeV1'));
     const sessionListAgentActivityCountEnabled = useSetting('sessionListAgentActivityCountEnabled');
     const sessionListIdentityDisplay = useSessionListIdentityDisplay();
@@ -938,7 +939,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
             identityDisplay: sessionListIdentityDisplay,
             activeColorMode: normalizeActiveColorMode(sessionListActiveColorMode),
             workingIndicatorMode: normalizeWorkingIndicatorMode(sessionListWorkingIndicatorStyle),
-            obviousAttentionEnabled: sessionListObviousAttentionModeEnabled === true,
+            updatedSessionAnimation: normalizeUpdatedSessionAnimation(sessionListUpdatedSessionAnimation),
             workingTextMode: 'static',
             backgroundWorkAttentionMode,
             statusColors: theme.colors.status,
@@ -977,7 +978,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         sessionListActiveColorMode,
         sessionListIdentityDisplay,
         sessionListWorkingIndicatorStyle,
-        sessionListObviousAttentionModeEnabled,
+        sessionListUpdatedSessionAnimation,
         backgroundWorkAttentionMode,
         sessionTagsEnabled,
         sessionTagsV1,

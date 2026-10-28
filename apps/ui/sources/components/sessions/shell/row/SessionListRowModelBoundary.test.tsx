@@ -43,12 +43,10 @@ const draftRepositoryHarness = vi.hoisted(() => {
     let projection: Readonly<{ preview: string }> | null = null;
     const listeners = new Set<() => void>();
     return {
-        deleteDraft: vi.fn(async () => undefined),
         getProjection: () => projection,
         reset() {
             projection = null;
             listeners.clear();
-            this.deleteDraft.mockClear();
         },
         setProjection(next: Readonly<{ preview: string }> | null) {
             projection = next;
@@ -90,7 +88,6 @@ installSessionShellCommonModuleMocks({
 });
 
 vi.mock('@/sync/ops/sessionDrafts/sessionDraftRepository', () => ({
-    deleteSessionDraft: draftRepositoryHarness.deleteDraft,
     getExistingSessionDraftProjection: () => draftRepositoryHarness.getProjection(),
     subscribeSessionDraft: (_scope: unknown, _address: unknown, listener: () => void) => draftRepositoryHarness.subscribe(listener),
 }));
@@ -332,7 +329,7 @@ describe('SessionListRowModelBoundary', () => {
         expect(movedRowProps?.rowModel).toBe(initialRowModel);
     });
 
-    it('projects canonical existing-session draft updates into the same row and deletes only the draft', async () => {
+    it('projects canonical existing-session draft updates into the same row without offering draft deletion', async () => {
         const { SessionListRowModelBoundary } = await import('./SessionListRowModelBoundary');
         const screen = await renderScreen(<SessionListRowModelBoundary {...createBoundaryProps()} />);
 
@@ -345,14 +342,7 @@ describe('SessionListRowModelBoundary', () => {
         const row = screen.findByTestId('session-list-row-boundary:sess_a');
         expect(row?.props.rowModel.draft).toEqual({ preview: 'Resume release validation' });
 
-        await act(async () => {
-            await row?.props.onDeleteDraft?.();
-        });
-
-        expect(draftRepositoryHarness.deleteDraft).toHaveBeenCalledWith({
-            scope: { serverId: 'server_a', accountId: 'account_a' },
-            address: { kind: 'session', sessionId: 'sess_a' },
-        });
+        expect(row?.props.onDeleteDraft).toBeUndefined();
         expect(rowRenderProps.every((props) => props.session.id === 'sess_a')).toBe(true);
     });
 

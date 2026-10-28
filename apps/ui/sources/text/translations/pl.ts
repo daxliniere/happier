@@ -4549,9 +4549,13 @@ export const pl: TranslationStructure = {
     backdropBlur: "Rozmycie tła",
     backdropBlurDescription:
       "Używaj rozmycia tła za modalami i menu. Wyłącz, aby poprawić wydajność przeglądarki.",
-    obviousAttentionMode: "Wyraźny tryb wymagania uwagi",
-    obviousAttentionModeDescription:
-      "Sesje, które cię potrzebują (zgoda, wymagane działanie, błąd), „oddychają” w odwróconych kolorach, żeby trudno je było przeoczyć.",
+    updatedSessionAnimation: "Animacja zaktualizowanej sesji",
+    updatedSessionAnimationDescription:
+      "Jak sesja, która cię potrzebuje (zgoda, wymagane działanie, błąd), zwraca na siebie uwagę na liście.",
+    updatedSessionAnimationNone: "Brak",
+    updatedSessionAnimationFade: "Zanikanie",
+    updatedSessionAnimationGlow: "Poświata",
+    updatedSessionAnimationSweep: "Przesunięcie",
     multiPanePanels: "Panele po prawej",
     multiPanePanelsDescription:
       "Pokaż skalowalne panele po prawej stronie dla plików i kontroli wersji (web/tablet)",
