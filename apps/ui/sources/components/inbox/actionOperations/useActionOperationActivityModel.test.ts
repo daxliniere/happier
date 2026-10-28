@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveActionOperationContext, resolveActionOperationSessionNameById } from './useActionOperationActivityModel';
+import { resolveActionOperationContext, resolveActionOperationSessionFolderById, resolveActionOperationSessionNameById } from './useActionOperationActivityModel';
 
 describe('resolveActionOperationSessionNameById', () => {
     it('uses a renderable title when the source session is not in the full-session cache', () => {
@@ -53,19 +53,31 @@ describe('resolveActionOperationContext', () => {
         expect(resolveActionOperationContext(
             spawnOperation,
             new Map([['session-9', 'Fix login bug']]),
+            new Map([['session-9', 'login-service']]),
             'concierge',
-        )).toBe('Fix login bug · concierge');
+        )).toBe('Fix login bug · login-service · concierge');
     });
 
     it('falls back to the machine when the created session is unknown', () => {
-        expect(resolveActionOperationContext(spawnOperation, new Map(), 'concierge')).toBe('concierge');
+        expect(resolveActionOperationContext(spawnOperation, new Map(), new Map(), 'concierge')).toBe('concierge');
     });
 
     it('keeps session-scoped operations labelled by their session alone', () => {
         expect(resolveActionOperationContext(
             { ...spawnOperation, actionId: 'session.fork', scope: { ...spawnOperation.scope, sessionId: 'session-1' } },
             new Map([['session-1', 'Source session']]),
+            new Map([['session-1', 'login-service']]),
             'concierge',
         )).toBe('Source session');
+    });
+});
+
+describe('resolveActionOperationSessionFolderById', () => {
+    it('maps each session to the last segment of its project path', () => {
+        const result = resolveActionOperationSessionFolderById([
+            { id: 'session-1', metadata: { path: '/workspace/login-service', host: 'workstation' } },
+        ]);
+
+        expect(result.get('session-1')).toBe('login-service');
     });
 });

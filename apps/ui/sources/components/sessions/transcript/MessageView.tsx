@@ -27,6 +27,7 @@ import { buildSessionFileDeepLink } from '@/utils/url/sessionFileDeepLink';
 import { fireAndForget } from '@/utils/system/fireAndForget';
 import { Text } from '@/components/ui/text/Text';
 import { useMessageStructuredReferences } from '@/components/sessions/transcript/references/messageStructuredReferences';
+import { NativeSessionReferencesProvider } from '@/components/sessions/transcript/references/NativeSessionReferencesProvider';
 import { StructuredReferencesRow } from '@/components/sessions/transcript/references/StructuredReferencesRow';
 import { useTranscriptMotion } from '@/components/sessions/transcript/motion/TranscriptMotionContext';
 import { PeerMessageRow } from '@/components/sessions/transcript/peer/PeerMessageRow';
@@ -366,6 +367,12 @@ export const MessageViewWithSessionCommon = React.memo(function MessageViewWithS
     props.messageDisplayCommon.debugInformationEnabled,
   ) === 'hidden') return null;
   return (
+    <NativeSessionReferencesProvider
+      sessionId={props.sessionId}
+      machineId={props.metadata?.machineId}
+      text={props.message.kind === 'agent-text' || props.message.kind === 'user-text' ? props.message.text : ''}
+      createdAt={props.message.sourceCreatedAt ?? (isRecoveredHistoryTranscriptObservationProvenance(props.message.transcriptObservationProvenance) ? Number.NaN : props.message.createdAt)}
+    >
     <View style={styles.messageContainer} renderToHardwareTextureAndroid={true}>
       <View style={[styles.messageContent, { maxWidth: contentMaxWidth }]}>
         <RecoveredHistoryIndicator message={props.message} />
@@ -397,6 +404,7 @@ export const MessageViewWithSessionCommon = React.memo(function MessageViewWithS
         />
       </View>
     </View>
+    </NativeSessionReferencesProvider>
   );
 });
 

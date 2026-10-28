@@ -17,6 +17,7 @@ import {
 import type { InboxActionOperationEntry } from '@/sync/domains/actionOperations/actionOperationSelectors';
 import { actionOperationStore } from '@/sync/domains/actionOperations/actionOperationStore';
 import { actionOperationReentry } from '@/sync/domains/actionOperations/actionOperationReentry';
+import { readDisplayPathForSession } from '@/sync/ops/sessionMachineTarget';
 import { getMachineDisplayName } from '@/utils/sessions/machineUtils';
 import {
     getSessionDisplayTitle,
@@ -63,19 +64,34 @@ export function resolveActionOperationSessionNameById(
 
 /**
  * Row context: the scoped session's name, or for an operation that produced a session
- * (e.g. Create session) the new session's name plus the machine it runs on.
+ * (e.g. Create session) the new session's name, project folder and the machine it runs on.
  */
 export function resolveActionOperationContext(
     operation: ActionOperationSnapshotV1,
     sessionNameById: ReadonlyMap<string, string>,
+    sessionFolderById: ReadonlyMap<string, string>,
     machineName: string | null,
 ): string | null {
     if (operation.scope.sessionId) {
         return sessionNameById.get(operation.scope.sessionId) ?? null;
     }
-    const createdSessionName = resolveActionOperationDetailContent(operation).openSessionId;
-    const sessionName = createdSessionName ? sessionNameById.get(createdSessionName) : undefined;
-    return [sessionName, machineName].filter(Boolean).join(' · ') || null;
+    const createdSessionId = resolveActionOperationDetailContent(operation).openSessionId;
+    const sessionName = createdSessionId ? sessionNameById.get(createdSessionId) : undefined;
+    const folder = createdSessionId ? sessionFolderById.get(createdSessionId) : undefined;
+    return [sessionName, folder !== sessionName ? folder : undefined, machineName].filter(Boolean).join(' · ') || null;
+}
+
+export function resolveActionOperationSessionFolderById(
+    sessions: readonly SessionNameSource[],
+): ReadonlyMap<string, string> {
+    const resolved = new Map<string, string>();
+    for (const session of sessions) {
+        if (!session.metadata) continue;
+        const folder = readDisplayPathForSession({ sessionId: session.id, metadata: session.metadata })
+            .split('/').filter(Boolean).pop();
+        if (folder) resolved.set(session.id, folder);
+    }
+    return resolved;
 }
 
 export function useActionOperationActivityModel(): ActionOperationActivityModel {
@@ -95,6 +111,10 @@ export function useActionOperationActivityModel(): ActionOperationActivityModel 
     const machines = useAllMachines();
     const sessionNameById = React.useMemo(
         () => resolveActionOperationSessionNameById(sessions, sessionListRenderables),
+        [sessionListRenderables, sessions],
+    );
+    const sessionFolderById = React.useMemo(
+        () => resolveActionOperationSessionFolderById([...sessionListRenderables, ...sessions]),
         [sessionListRenderables, sessions],
     );
     const machineById = React.useMemo(
@@ -133,9 +153,10 @@ export function useActionOperationActivityModel(): ActionOperationActivityModel 
         return resolveActionOperationContext(
             operation,
             sessionNameById,
+            sessionFolderById,
             machine ? getMachineDisplayName(machine) : null,
         );
-    }, [machineById, sessionNameById]);
+    }, [machineById, sessionFolderById, sessionNameById]);
     const markVisibleTerminalSeen = React.useCallback(() => {
         if (!accountId) return;
         actionOperationStore.markAccountTerminalSeen(accountId);
