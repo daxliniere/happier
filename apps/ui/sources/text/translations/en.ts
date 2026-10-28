@@ -6405,6 +6405,7 @@ export const en = {
         archiveSessionSubtitle: 'Move this session to Archived',
         archivedSessions: 'Archived Sessions',
         archivedAt: ({ date }: { date: string }) => `Archived ${date}`,
+        hideGuardianReviews: 'Hide Guardian reviews',
         inactiveAndArchivedSessions: 'Inactive and archived sessions',
         unarchiveSession: 'Unarchive Session',
         unarchiveSessionConfirm: 'Are you sure you want to unarchive this session?',

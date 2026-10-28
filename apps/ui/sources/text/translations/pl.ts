@@ -6771,6 +6771,7 @@ export const pl: TranslationStructure = {
     archiveSessionSubtitle: "Przenieś tę sesję do Archiwum",
     archivedSessions: "Zarchiwizowane sesje",
     archivedAt: ({ date }: { date: string }) => `Zarchiwizowano: ${date}`,
+    hideGuardianReviews: "Ukryj przeglądy Guardian",
     inactiveAndArchivedSessions: "Nieaktywne i zarchiwizowane sesje",
     unarchiveSession: "Przywróć z archiwum",
     unarchiveSessionConfirm: "Czy na pewno chcesz przywrócić tę sesję z archiwum?",

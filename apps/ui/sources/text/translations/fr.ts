@@ -6360,6 +6360,7 @@ export const fr: TranslationStructure = {
         archiveSessionSubtitle: 'Déplacer cette session vers Archivées',
         archivedSessions: 'Sessions archivées',
         archivedAt: ({ date }: { date: string }) => `Archivée le ${date}`,
+        hideGuardianReviews: 'Masquer les revues Guardian',
         inactiveAndArchivedSessions: 'Sessions inactives et archivées',
         unarchiveSession: 'Désarchiver la session',
         unarchiveSessionConfirm: 'Veux-tu vraiment désarchiver cette session ?',

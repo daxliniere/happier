@@ -10,7 +10,9 @@ import { Avatar } from '@/components/ui/avatar/Avatar';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useNavigateToSession } from '@/hooks/session/useNavigateToSession';
-import { useAllSessions, useProfile, useSessionListViewDataByServerId, useSessionOrganizationPinnedSessionKeys, useSetting } from '@/sync/domains/state/storage';
+import { useAllSessions, useLocalSettingMutable, useProfile, useSessionListViewDataByServerId, useSessionOrganizationPinnedSessionKeys, useSetting } from '@/sync/domains/state/storage';
+import { Switch } from '@/components/ui/forms/Switch';
+import { excludeGuardianReviewSessions } from '@/utils/sessions/guardianReviewSessions';
 import type { Session } from '@/sync/domains/state/storageTypes';
 import type { SessionListRenderableSession } from '@/sync/domains/session/listing/sessionListRenderable';
 import { getSessionAvatarId, getSessionName, getSessionStatus, getSessionSubtitle } from '@/utils/sessions/sessionUtils';
@@ -44,6 +46,19 @@ const styles = StyleSheet.create((theme) => ({
     },
     list: {
         flex: 1,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        backgroundColor: theme.colors.background.canvas,
+    },
+    filterLabel: {
+        fontSize: 15,
+        color: theme.colors.text.primary,
+        ...Typography.default(),
     },
     headerSection: {
         backgroundColor: theme.colors.background.canvas,
@@ -148,6 +163,8 @@ export default function ArchivedSessionsScreen() {
     const allSessions = useAllSessions();
     const sessionListViewDataByServerId = useSessionListViewDataByServerId();
     const hideInactiveSessions = useSetting('hideInactiveSessions') === true;
+    const [hideGuardianReviewSessions, setHideGuardianReviewSessions] = useLocalSettingMutable('hideGuardianReviewSessions');
+    const hideGuardianReviews = hideGuardianReviewSessions !== false;
     const pinnedSessionKeys = useSessionOrganizationPinnedSessionKeys();
     const profile = useProfile();
     const currentUserId = typeof profile?.id === 'string' ? profile.id : null;
@@ -196,19 +213,20 @@ export default function ArchivedSessionsScreen() {
             }
         }
 
-        return Array.from(byKey.values())
+        return excludeGuardianReviewSessions(Array.from(byKey.values()), hideGuardianReviews)
+            .slice()
             .sort((a, b) => {
                 const aAt = typeof a.archivedAt === 'number' ? a.archivedAt : 0;
                 const bAt = typeof b.archivedAt === 'number' ? b.archivedAt : 0;
                 if (bAt !== aAt) return bAt - aAt;
                 return b.updatedAt - a.updatedAt;
             });
-    }, [allSessions, cachedArchivedSessions]);
+    }, [allSessions, cachedArchivedSessions, hideGuardianReviews]);
 
     const hiddenInactiveSessions = React.useMemo(() => {
         if (!hideInactiveSessions) return [];
 
-        return allSessions
+        return excludeGuardianReviewSessions(allSessions, hideGuardianReviews)
             .filter((session) => {
                 if (session.archivedAt != null) return false;
                 if (session.active === true) return false;
@@ -218,7 +236,7 @@ export default function ArchivedSessionsScreen() {
             })
             .slice()
             .sort((a, b) => b.updatedAt - a.updatedAt);
-    }, [allSessions, hideInactiveSessions, pinnedSessionKeySet]);
+    }, [allSessions, hideGuardianReviews, hideInactiveSessions, pinnedSessionKeySet]);
 
     const sections = React.useMemo(() => {
         const nextSections: Array<{
@@ -394,6 +412,14 @@ export default function ArchivedSessionsScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.contentContainer}>
+                <View style={styles.filterRow}>
+                    <Text style={styles.filterLabel}>{t('sessionInfo.hideGuardianReviews')}</Text>
+                    <Switch
+                        value={hideGuardianReviews}
+                        onValueChange={setHideGuardianReviewSessions}
+                        accessibilityLabel={t('sessionInfo.hideGuardianReviews')}
+                    />
+                </View>
                 {sections.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <Text style={styles.emptyText}>{t('sessionHistory.empty')}</Text>

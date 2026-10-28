@@ -6753,6 +6753,7 @@ export const es: TranslationStructure = {
     archiveSessionSubtitle: "Mover esta sesión a Archivadas",
     archivedSessions: "Sesiones archivadas",
     archivedAt: ({ date }: { date: string }) => `Archivada el ${date}`,
+    hideGuardianReviews: "Ocultar revisiones de Guardian",
     inactiveAndArchivedSessions: "Sesiones inactivas y archivadas",
     unarchiveSession: "Desarchivar sesión",
     unarchiveSessionConfirm: "¿Seguro que quieres desarchivar esta sesión?",
