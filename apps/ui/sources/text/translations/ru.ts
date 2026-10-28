@@ -4599,6 +4599,8 @@ export const ru: TranslationStructure = {
     showFlavorIcons: "Показывать иконки провайдеров ИИ",
     showFlavorIconsDescription:
       "Отображать иконки провайдеров ИИ на аватарах сессий",
+    coloredUsageRings: "Цветные кольца использования",
+    coloredUsageRingsDescription: "Кольца меняют цвет с зелёного (полно) на красный (пусто) по мере расходования",
     compactSessionView: "Компактный вид сессий",
     compactSessionViewDescription:
       "Отображать активные сессии в более компактном виде",

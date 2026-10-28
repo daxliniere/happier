@@ -87,6 +87,7 @@ import { AgentInputEngineDetail } from './components/AgentInputEngineDetail';
 import { AgentInputModelDiscoveryDetail, type AgentInputModelDetailState, type SessionModelDiscoveryContext } from './components/AgentInputModelDiscoveryDetail';
 import { AgentInputContextUsageBadge } from './components/AgentInputContextUsageBadge';
 import { AgentInputProviderUsageBadge } from './components/AgentInputProviderUsageBadge';
+import { AgentPickerUsageRing } from '../agentPicker/AgentPickerUsageRing';
 import { mergeOptionPickerProbes } from '@/components/sessions/pickers/mergeOptionPickerProbes';
 import { AgentInputAttachmentsRow } from './components/AgentInputAttachmentsRow';
 import { AgentInputOverlayLayer } from './components/AgentInputOverlayLayer';
@@ -349,6 +350,11 @@ interface AgentInputProps {
     composeAgentPickerOptions?: (
         currentAgentOptions: ReadonlyArray<AgentInputChipPickerOption>,
     ) => ReadonlyArray<AgentInputChipPickerOption>;
+    /**
+     * Usage gauge per picker row id. When provided, every row shows a usage ring: coloured for a row
+     * with a gauge, an empty grey ring for one without.
+     */
+    agentPickerUsageGaugesByOptionId?: ReadonlyMap<string, ConnectedServiceQuotaGaugeViewModel>;
     /** One descriptor-level signal shared by direct and overflow picker entry points. */
     onAgentPickerIntent?: () => void;
     onAgentPickerVisibilityChange?: (visible: boolean) => void;
@@ -822,6 +828,11 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         flexDirection: 'row',
         alignItems: 'center',
         marginLeft: 12,
+    },
+    usageGaugesInline: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 4,
     },
     inputExpansionToggle: {
         position: 'absolute',
@@ -2278,7 +2289,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         renderResolvedEngineDetail,
     ]);
 
-    const agentPickerOptions = React.useMemo<ReadonlyArray<AgentInputChipPickerOption>>(() => {
+    const unmarkedAgentPickerOptions = React.useMemo<ReadonlyArray<AgentInputChipPickerOption>>(() => {
         if ((props.agentPickerOptions?.length ?? 0) > 0) {
             return props.agentPickerOptions ?? [];
         }
@@ -2304,6 +2315,19 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         props.agentPickerOptions,
         props.composeAgentPickerOptions,
     ]);
+    const usageGaugesByOptionId = props.agentPickerUsageGaugesByOptionId;
+    const agentPickerOptions = React.useMemo<ReadonlyArray<AgentInputChipPickerOption>>(() => {
+        if (!usageGaugesByOptionId) return unmarkedAgentPickerOptions;
+        return unmarkedAgentPickerOptions.map((option) => ({
+            ...option,
+            leadingMark: (
+                <AgentPickerUsageRing
+                    gauge={option.disabled || option.muted ? null : usageGaugesByOptionId.get(option.id) ?? null}
+                    testID={`agent-input-chip-picker.usage:${option.id}`}
+                />
+            ),
+        }));
+    }, [unmarkedAgentPickerOptions, usageGaugesByOptionId]);
 
     const effectiveAgentPickerSelectedOptionId = React.useMemo(() => {
         if (typeof props.agentPickerSelectedOptionId === 'string' && props.agentPickerSelectedOptionId.length > 0) {
@@ -2676,12 +2700,58 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         hasEnvVars,
         hasAgent,
     });
+    // Usage rings sit beside the model chip (not in the status row) so remaining
+    // quota is visible at the moment the model/agent is being chosen.
+    const usageGaugesNode = React.useMemo(() => {
+        if (!contextUsageState && !props.providerUsageGauge) return null;
+        const showOnlyOneGauge = screenWidth < 375 && Boolean(contextUsageState && props.providerUsageGauge);
+        const providerIsMoreUrgent = props.providerUsageGauge?.tone === 'critical'
+            || (props.providerUsageGauge?.tone === 'warning' && contextUsageState?.severity !== 'critical');
+        const showProviderGauge = Boolean(props.providerUsageGauge) && (!showOnlyOneGauge || providerIsMoreUrgent);
+        const showContextGauge = Boolean(contextUsageState) && (!showOnlyOneGauge || !providerIsMoreUrgent);
+        const hiddenContextUsageState = showOnlyOneGauge && !showContextGauge ? contextUsageState : null;
+        const hiddenProviderUsageGauge = showOnlyOneGauge && !showProviderGauge ? props.providerUsageGauge : null;
+        const showHiddenGaugeOverflow = Boolean(hiddenContextUsageState || hiddenProviderUsageGauge);
+        return (
+            <View testID="agent-input-usage-gauges" style={styles.usageGaugesInline}>
+                {showContextGauge && contextUsageState ? (
+                    <AgentInputContextUsageBadge showLabels={showUsageGaugeLabels} state={contextUsageState} />
+                ) : null}
+                {showProviderGauge && props.providerUsageGauge ? (
+                    <AgentInputProviderUsageBadge
+                        showLabels={showUsageGaugeLabels}
+                        viewModel={props.providerUsageGauge}
+                        marginLeft={showContextGauge ? 8 : 0}
+                        onRecoveryCreditPress={props.onProviderUsageRecoveryCreditPress}
+                        recoveryCreditActionPending={props.providerUsageRecoveryCreditPending}
+                    />
+                ) : null}
+                {showHiddenGaugeOverflow ? (
+                    <AgentInputHiddenUsageOverflow
+                        contextUsageState={hiddenContextUsageState}
+                        providerUsageGauge={hiddenProviderUsageGauge}
+                        onProviderUsageRecoveryCreditPress={props.onProviderUsageRecoveryCreditPress}
+                        providerUsageRecoveryCreditPending={props.providerUsageRecoveryCreditPending}
+                        marginLeft={(showContextGauge || showProviderGauge) ? 8 : 0}
+                    />
+                ) : null}
+            </View>
+        );
+    }, [
+        contextUsageState,
+        props.onProviderUsageRecoveryCreditPress,
+        props.providerUsageGauge,
+        props.providerUsageRecoveryCreditPending,
+        screenWidth,
+        showUsageGaugeLabels,
+    ]);
     const {
         controlNodes: renderedActionControlNodes,
         secondaryLeadingControls: secondaryLeadingControlsForWrap,
         extraChipAnchorRefsByKey,
     } = useRenderedAgentInputControlRows({
         layout: effectiveActionBarLayout,
+        usageGaugesNode,
         chips: props.extraActionChips,
         overlayAnchorRef,
         onToggleExtraChipCollapsedPopover: handleToggleExtraChipCollapsedPopover,
@@ -3292,7 +3362,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                     testID="agent-input-command-menu"
                 />
                 {/* Connection status, context usage, and permission mode */}
-                {(props.connectionStatus || contextUsageState || props.providerUsageGauge || props.statusTrailingActions || (props.statusBadges && props.statusBadges.length > 0)) && (
+                {(props.connectionStatus || props.statusTrailingActions || (props.statusBadges && props.statusBadges.length > 0)) && (
                     <View style={styles.statusContainer}>
                         <View style={styles.statusRow}>
                             {props.connectionStatus && (
@@ -3331,7 +3401,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             {props.showStatusPermissionMode !== false ? (
                                 <View style={[
                                     styles.permissionModeContainer,
-                                    (contextUsageState || props.providerUsageGauge) ? { marginRight: 8 } : null,
                                 ]}>
                                     {shouldRenderPermissionChip(permissionChipLabel) ? (
                                     <Text
@@ -3353,41 +3422,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     ) : null}
                                 </View>
                             ) : null}
-                            {(() => {
-                                const showOnlyOneGauge = screenWidth < 375 && Boolean(contextUsageState && props.providerUsageGauge);
-                                const providerIsMoreUrgent = props.providerUsageGauge?.tone === 'critical'
-                                    || (props.providerUsageGauge?.tone === 'warning' && contextUsageState?.severity !== 'critical');
-                                const showProviderGauge = Boolean(props.providerUsageGauge) && (!showOnlyOneGauge || providerIsMoreUrgent);
-                                const showContextGauge = Boolean(contextUsageState) && (!showOnlyOneGauge || !providerIsMoreUrgent);
-                                const hiddenContextUsageState = showOnlyOneGauge && !showContextGauge ? contextUsageState : null;
-                                const hiddenProviderUsageGauge = showOnlyOneGauge && !showProviderGauge ? props.providerUsageGauge : null;
-                                const showHiddenGaugeOverflow = Boolean(hiddenContextUsageState || hiddenProviderUsageGauge);
-                                return (
-                                    <>
-                                        {showContextGauge && contextUsageState ? (
-                                            <AgentInputContextUsageBadge showLabels={showUsageGaugeLabels} state={contextUsageState} />
-                                        ) : null}
-                                        {showProviderGauge && props.providerUsageGauge ? (
-                                            <AgentInputProviderUsageBadge
-                                                showLabels={showUsageGaugeLabels}
-                                                viewModel={props.providerUsageGauge}
-                                                marginLeft={showContextGauge ? 8 : 0}
-                                                onRecoveryCreditPress={props.onProviderUsageRecoveryCreditPress}
-                                                recoveryCreditActionPending={props.providerUsageRecoveryCreditPending}
-                                            />
-                                        ) : null}
-                                        {showHiddenGaugeOverflow ? (
-                                            <AgentInputHiddenUsageOverflow
-                                                contextUsageState={hiddenContextUsageState}
-                                                providerUsageGauge={hiddenProviderUsageGauge}
-                                                onProviderUsageRecoveryCreditPress={props.onProviderUsageRecoveryCreditPress}
-                                                providerUsageRecoveryCreditPending={props.providerUsageRecoveryCreditPending}
-                                                marginLeft={(showContextGauge || showProviderGauge) ? 8 : 0}
-                                            />
-                                        ) : null}
-                                    </>
-                                );
-                            })()}
                         </View>
                     </View>
                 )}

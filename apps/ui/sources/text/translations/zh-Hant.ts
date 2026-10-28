@@ -4275,6 +4275,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         },
         showFlavorIcons: '顯示 AI 提供者圖示',
         showFlavorIconsDescription: '在工作階段頭像上顯示 AI 提供者圖示',
+        coloredUsageRings: "彩色用量環",
+        coloredUsageRingsDescription: "隨著用量減少，圓環由綠色（充足）漸變為紅色（耗盡）",
         compactSessionView: '緊湊工作階段檢視',
         compactSessionViewDescription: '以更緊湊的版面配置顯示活躍工作階段',
         compactSessionViewMinimal: '極簡緊湊檢視',

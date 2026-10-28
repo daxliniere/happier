@@ -76,6 +76,8 @@ export type AgentInputChipPickerOption = Readonly<{
      * means what — the composer's applied-runtime marker owner does.
      */
     statusMarker?: React.ReactNode;
+    /** Drawn between the row's icon and label, such as a usage ring. */
+    leadingMark?: React.ReactNode;
     railAction?: AgentInputChipPickerOptionRailAction;
     onApply?: () => void;
     disabled?: boolean;

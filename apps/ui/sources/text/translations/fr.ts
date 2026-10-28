@@ -4336,6 +4336,8 @@ export const fr: TranslationStructure = {
         },
         showFlavorIcons: 'Afficher les icônes de provider IA',
         showFlavorIconsDescription: 'Afficher les icônes de provider IA sur les avatars de session',
+        coloredUsageRings: "Anneaux d'utilisation colorés",
+        coloredUsageRingsDescription: "Les anneaux passent du vert (plein) au rouge (vide) à mesure que l'usage diminue",
         compactSessionView: 'Vue de session compacte',
         compactSessionViewDescription: 'Afficher les sessions actives dans une mise en page plus compacte',
         compactSessionViewMinimal: 'Vue compacte minimale',

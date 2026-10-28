@@ -4356,6 +4356,8 @@ export const en = {
         },
         showFlavorIcons: 'Show AI Provider Icons',
         showFlavorIconsDescription: 'Display AI provider icons on session avatars',
+        coloredUsageRings: "Coloured usage indicator rings",
+        coloredUsageRingsDescription: "Rings turn from green (full) to red (empty) as usage runs down",
         compactSessionView: 'Compact Session View',
         compactSessionViewDescription: 'Show active sessions in a more compact layout',
         compactSessionViewMinimal: 'Minimal Compact View',

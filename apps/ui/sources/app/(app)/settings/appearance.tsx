@@ -99,6 +99,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const panelsSupported = Platform.OS === 'web' || deviceType === 'tablet';
     const [avatarStyle, setAvatarStyle] = useSettingMutable('avatarStyle');
     const [showFlavorIcons, setShowFlavorIcons] = useSettingMutable('showFlavorIcons');
+    const [coloredUsageRings, setColoredUsageRings] = useSettingMutable('coloredUsageRings');
     const [showChatCodeBlockWrapControls, setShowChatCodeBlockWrapControls] = useSettingMutable('showChatCodeBlockWrapControls');
     const [wrapChatCodeBlocks, setWrapChatCodeBlocks] = useSettingMutable('wrapChatCodeBlocks');
     const [themePreference, setThemePreference] = useLocalSettingMutable('themePreference');
@@ -611,6 +612,17 @@ export default React.memo(function AppearanceSettingsScreen() {
                         <Switch
                             value={showFlavorIcons}
                             onValueChange={setShowFlavorIcons}
+                        />
+                    }
+                />
+                <Item
+                    title={t('settingsAppearance.coloredUsageRings')}
+                    subtitle={t('settingsAppearance.coloredUsageRingsDescription')}
+                    icon={<Icon name="circle-half" size={29} color={theme.colors.accent.green} />}
+                    rightElement={
+                        <Switch
+                            value={coloredUsageRings}
+                            onValueChange={setColoredUsageRings}
                         />
                     }
                 />

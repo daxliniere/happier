@@ -4336,6 +4336,8 @@ export const de: TranslationStructure = {
         },
         showFlavorIcons: 'Icons der KI-Provider zeigen',
         showFlavorIconsDescription: 'Icons der KI-Provider auf Session-Avataren anzeigen',
+        coloredUsageRings: "Farbige Nutzungsringe",
+        coloredUsageRingsDescription: "Ringe wechseln von Grün (voll) zu Rot (leer), je weniger übrig ist",
         compactSessionView: 'Kompakte Session-Ansicht',
         compactSessionViewDescription: 'Aktive Sessions kompakter anzeigen',
         compactSessionViewMinimal: 'Minimal kompakte Ansicht',
