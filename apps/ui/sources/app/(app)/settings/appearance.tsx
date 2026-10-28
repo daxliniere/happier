@@ -112,6 +112,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const [uiMultiPanePanelsEnabled, setUiMultiPanePanelsEnabled] = useLocalSettingMutable('uiMultiPanePanelsEnabled');
     const [uiBackdropBlurEnabled, setUiBackdropBlurEnabled] = useLocalSettingMutable('uiBackdropBlurEnabled');
     const [hapticsEnabled, setHapticsEnabled] = useLocalSettingMutable('hapticsEnabled');
+    const [sessionListObviousAttentionModeEnabled, setSessionListObviousAttentionModeEnabled] = useSettingMutable('sessionListObviousAttentionModeEnabled');
     const [detailsPaneTabsBehavior, setDetailsPaneTabsBehavior] = useLocalSettingMutable('detailsPaneTabsBehavior');
     const [tabBarGitBadgeMode, setTabBarGitBadgeMode] = useSettingMutable('tabBarGitBadgeMode');
     const [tabBarFriendsBadgeEnabled, setTabBarFriendsBadgeEnabled] = useSettingMutable('tabBarFriendsBadgeEnabled');
@@ -515,6 +516,20 @@ export default React.memo(function AppearanceSettingsScreen() {
                         <Switch
                             value={uiBackdropBlurEnabled !== false}
                             onValueChange={setUiBackdropBlurEnabled}
+                        />
+                    }
+                    showChevron={false}
+                />
+                <Item
+                    title={t('settingsAppearance.obviousAttentionMode')}
+                    subtitle={t('settingsAppearance.obviousAttentionModeDescription')}
+                    icon={<Icon name="warning-circle" size={29} color={theme.colors.state.warning.foreground} />}
+                    rightElement={
+                        <Switch
+                            testID="settings-appearance-obvious-attention-mode-switch"
+                            accessibilityLabel={t('settingsAppearance.obviousAttentionMode')}
+                            value={sessionListObviousAttentionModeEnabled === true}
+                            onValueChange={setSessionListObviousAttentionModeEnabled}
                         />
                     }
                     showChevron={false}

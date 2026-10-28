@@ -4807,6 +4807,9 @@ localTailscale: {
     backdropBlur: "背景ぼかし",
     backdropBlurDescription:
       "モーダルやメニューの背後に背景ぼかしを適用します。ブラウザー性能を優先する場合は無効にしてください。",
+    obviousAttentionMode: "目立つ要対応モード",
+    obviousAttentionModeDescription:
+      "操作が必要なセッション（権限、対応が必要、失敗）を反転色で呼吸するように明滅させ、見逃しにくくします。",
     multiPanePanels: "右パネル",
     multiPanePanelsDescription:
       "ファイルとソース管理のための右側パネルを表示（Web/タブレット）",

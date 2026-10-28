@@ -31,6 +31,7 @@ import {
 } from '@/sync/domains/session/activeViewingSession';
 import { NotificationsSettingsV1Schema } from '@happier-dev/protocol';
 import { useTrackScreens } from '@/track/useTrackScreens';
+import { ShareIntakeRuntime } from '@/components/sessions/new/shareIntake/ShareIntakeRuntime';
 import { RealtimeProvider } from '@/realtime/RealtimeProvider';
 import { FaviconPermissionIndicator } from '@/components/web/FaviconPermissionIndicator';
 import { CommandPaletteProvider } from '@/components/appShell/commandPalette/CommandPaletteProvider';
@@ -782,6 +783,7 @@ function RootAppShell(props: Readonly<{
         <View style={{ flex: 1, position: 'relative' }}>
             <ActionOperationRuntime enabled={auth.isAuthenticated && !props.isDesktopPetOverlayWindow} />
             <UpdateFactsBackgroundRuntime enabled={auth.isAuthenticated && !props.isDesktopPetOverlayWindow} />
+            {Platform.OS === 'android' && auth.isAuthenticated ? <ShareIntakeRuntime /> : null}
             {/*
               * R5/INV4 — deliberately NOT behind `auth.isAuthenticated`. This is the app's one
               * pre-auth mount: the moment the desktop window opens it starts acquiring the

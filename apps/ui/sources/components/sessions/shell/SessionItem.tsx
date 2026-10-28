@@ -24,6 +24,8 @@ import { ContextMenu } from '@/components/ui/forms/dropdown/ContextMenu';
 import { CopiedPill } from '@/components/ui/copy/CopiedPill';
 import { useTemporaryCopyFeedback } from '@/components/ui/copy/useTemporaryCopyFeedback';
 import { SessionRowAttentionIndicator } from './row/SessionRowAttentionIndicator';
+import { ObviousAttentionSurface, ObviousAttentionText } from './row/ObviousAttention';
+import { isObviousAttentionState } from './row/obviousAttention';
 import type { SessionRowAttentionState, SessionRowPresentation } from './row/resolveSessionRowPresentation';
 import type { SessionListRowModel } from './row/sessionListRowModelTypes';
 import {
@@ -187,6 +189,7 @@ type SessionItemRenderProps = Omit<SessionItemBaseProps, 'activityTimeMode' | 's
     workingIndicatorMode: SessionItemWorkingIndicatorMode;
     workingIndicatorPaused?: boolean;
     rowAttentionAnimationEnabled: boolean;
+    obviousAttentionEnabled: boolean;
     sessionListIdentityDisplay: SessionListIdentityDisplay;
     sessionListActiveColorMode: SessionItemActiveColorMode;
     hideInactiveSessions: boolean;
@@ -738,6 +741,7 @@ const SessionItemContent = React.memo(
         workingIndicatorMode,
         workingIndicatorPaused,
         rowAttentionAnimationEnabled,
+        obviousAttentionEnabled,
         sessionListIdentityDisplay,
         sessionListActiveColorMode,
         hideInactiveSessions,
@@ -749,6 +753,8 @@ const SessionItemContent = React.memo(
         // session is held in the working group while its live signals are
         // stale, so animating would misrepresent live activity.
         const attentionIndicatorAnimationEnabled = rowAttentionAnimationEnabled && workingIndicatorPaused !== true;
+        // Obvious attention-required mode: the whole row breathes while it waits on the person.
+        const obviousAttentionActive = obviousAttentionEnabled && isObviousAttentionState(rowAttentionState);
         const router = useRouter();
         const agentSwitchingEnabled = useFeatureEnabled('sessions.agentSwitching', {
             scopeKind: 'spawn',
@@ -1357,6 +1363,12 @@ const SessionItemContent = React.memo(
                 onPressOut={enableLongPressContextMenu ? clearContextMenuPressInTimer : undefined}
                 onLongPress={enableLongPressContextMenu ? openContextMenuFromLongPress : undefined}
             >
+                {obviousAttentionActive ? (
+                    <ObviousAttentionSurface
+                        testID={`session-item-obvious-attention-${resolvedSession.id}`}
+                        animationEnabled={rowAttentionAnimationEnabled}
+                    />
+                ) : null}
                 {appearanceStripeColor ? (
                     <View
                         testID={`session-item-appearance-stripe:${resolvedSession.id}`}
@@ -1447,12 +1459,23 @@ const SessionItemContent = React.memo(
                                 ]}
                             />
                         ) : (
-                            <Text
-                                style={sessionTitleStyle}
-                                numberOfLines={1}
-                            >
-                                {sessionNameResolved}
-                            </Text>
+                            obviousAttentionActive ? (
+                                <ObviousAttentionText
+                                    style={sessionTitleStyle}
+                                    restColor={sessionTitleColor}
+                                    animationEnabled={rowAttentionAnimationEnabled}
+                                    numberOfLines={1}
+                                >
+                                    {sessionNameResolved}
+                                </ObviousAttentionText>
+                            ) : (
+                                <Text
+                                    style={sessionTitleStyle}
+                                    numberOfLines={1}
+                                >
+                                    {sessionNameResolved}
+                                </Text>
+                            )
                         )}
                         {showServerBadge && serverName ? (
                             <View style={styles.serverBadgeContainer}>
@@ -1537,17 +1560,32 @@ const SessionItemContent = React.memo(
                                         />
                                     ) : null}
                                 </View>
-                                <Text
-                                    testID={`session-list-status-subtitle-text-${resolvedSession.id}-${rowAttentionState}`}
-                                    style={[
-                                        styles.statusText,
-                                        compact ? styles.statusTextCompact : null,
-                                        { color: rowStatusColor },
-                                    ]}
-                                    numberOfLines={1}
-                                >
-                                    {statusLineText}
-                                </Text>
+                                {obviousAttentionActive ? (
+                                    <ObviousAttentionText
+                                        testID={`session-list-status-subtitle-text-${resolvedSession.id}-${rowAttentionState}`}
+                                        style={[
+                                            styles.statusText,
+                                            compact ? styles.statusTextCompact : null,
+                                        ]}
+                                        restColor={rowStatusColor}
+                                        animationEnabled={rowAttentionAnimationEnabled}
+                                        numberOfLines={1}
+                                    >
+                                        {statusLineText}
+                                    </ObviousAttentionText>
+                                ) : (
+                                    <Text
+                                        testID={`session-list-status-subtitle-text-${resolvedSession.id}-${rowAttentionState}`}
+                                        style={[
+                                            styles.statusText,
+                                            compact ? styles.statusTextCompact : null,
+                                            { color: rowStatusColor },
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {statusLineText}
+                                    </Text>
+                                )}
                                 {agentActivityLabel !== null ? (
                                     <Text
                                         testID={`session-list-agent-activity-count-${resolvedSession.id}`}
@@ -1741,12 +1779,23 @@ const SessionItemContent = React.memo(
                                 />
                             ) : null}
                             {showTrailingActivityTime ? (
-                                <Text
-                                    style={[styles.activityTime, isMinimal ? styles.activityTimeMinimal : null]}
-                                    numberOfLines={1}
-                                >
-                                    {activityTimeLabel}
-                                </Text>
+                                obviousAttentionActive ? (
+                                    <ObviousAttentionText
+                                        style={[styles.activityTime, isMinimal ? styles.activityTimeMinimal : null]}
+                                        restColor={theme.colors.text.secondary}
+                                        animationEnabled={rowAttentionAnimationEnabled}
+                                        numberOfLines={1}
+                                    >
+                                        {activityTimeLabel}
+                                    </ObviousAttentionText>
+                                ) : (
+                                    <Text
+                                        style={[styles.activityTime, isMinimal ? styles.activityTimeMinimal : null]}
+                                        numberOfLines={1}
+                                    >
+                                        {activityTimeLabel}
+                                    </Text>
+                                )
                             ) : null}
                         </View>
                     ) : null}
@@ -1916,6 +1965,7 @@ function SessionItemFromRowModel(props: SessionItemProps & { rowModel: SessionLi
             workingIndicatorMode={rowModel.workingIndicatorMode}
             workingIndicatorPaused={rowModel.workingIndicatorPaused}
             rowAttentionAnimationEnabled={itemProps.rowAttentionAnimationEnabled !== false}
+            obviousAttentionEnabled={rowModel.obviousAttentionEnabled}
             sessionListIdentityDisplay={normalizeSessionListIdentityDisplay(rowModel.identityDisplay)}
             sessionListActiveColorMode={normalizeSessionItemActiveColorMode(rowModel.activeColorMode)}
             hideInactiveSessions={itemProps.hideInactiveSessions ?? rowModel.hideInactiveSessions}

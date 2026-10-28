@@ -4219,6 +4219,8 @@ export const de: TranslationStructure = {
         hapticsDescription: "Berührungsfeedback für Aktionen und das Umordnen auf diesem Gerät verwenden.",
         backdropBlur: 'Hintergrund-Blur',
         backdropBlurDescription: 'Milchigen Hintergrund-Blur hinter Modals und Menüs nutzen. Deaktivieren verbessert die Browser-Performance.',
+        obviousAttentionMode: 'Auffälliger Aufmerksamkeitsmodus',
+        obviousAttentionModeDescription: 'Lässt Sitzungen, die dich brauchen (Berechtigung, Aktion erforderlich, Fehler), in invertierten Farben pulsieren, damit sie nicht zu übersehen sind.',
         multiPanePanels: 'Rechte Panels',
         multiPanePanelsDescription: 'Größenverstellbare Panels rechts für Dateien und Versionsverwaltung zeigen (Web/Tablet)',
         sessionsRightPaneDefaultOpen: 'Rechte Seitenleiste in Sessions immer zeigen',

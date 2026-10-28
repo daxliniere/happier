@@ -4402,6 +4402,8 @@ export const zhHans: TranslationStructure = {
     hapticsDescription: "在此设备上为操作和重新排序提供触感反馈。",
     backdropBlur: "背景模糊",
     backdropBlurDescription: "在弹窗和菜单后使用背景模糊。关闭后可提升浏览器性能。",
+    obviousAttentionMode: "醒目的待处理模式",
+    obviousAttentionModeDescription: "让需要你处理的会话（权限、需要操作、失败）以反色“呼吸”闪动，更难被忽略。",
     multiPanePanels: "右侧面板",
     multiPanePanelsDescription: "显示可调整大小的右侧文件/源代码控制面板（Web/平板）",
     sessionsRightPaneDefaultOpen: "在会话中始终显示右侧边栏",

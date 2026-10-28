@@ -467,6 +467,7 @@ export function buildSessionListRowModel(input: BuildSessionListRowModelInput): 
         identityDisplay: settings.identityDisplay,
         activeColorMode: settings.activeColorMode,
         workingIndicatorMode: settings.workingIndicatorMode,
+        obviousAttentionEnabled: settings.obviousAttentionEnabled === true,
         hideInactiveSessions: settings.hideInactiveSessions,
     };
 }

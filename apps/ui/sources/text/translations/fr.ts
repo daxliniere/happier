@@ -4219,6 +4219,8 @@ export const fr: TranslationStructure = {
         hapticsDescription: "Utilise le retour tactile pour les actions et la réorganisation sur cet appareil.",
         backdropBlur: 'Flou d’arrière-plan',
         backdropBlurDescription: 'Utilise un flou dépoli derrière les modales et les menus. Désactive-le pour améliorer les performances du navigateur.',
+        obviousAttentionMode: 'Mode d\'attention bien visible',
+        obviousAttentionModeDescription: 'Fait « respirer » en couleurs inversées les sessions qui ont besoin de toi (autorisation, action requise, échec) pour qu\'elles ne passent pas inaperçues.',
         multiPanePanels: 'Panneaux de droite',
         multiPanePanelsDescription: 'Afficher des panneaux redimensionnables à droite pour les fichiers et le source control (web/tablette)',
         sessionsRightPaneDefaultOpen: 'Toujours afficher la barre latérale droite dans les sessions',

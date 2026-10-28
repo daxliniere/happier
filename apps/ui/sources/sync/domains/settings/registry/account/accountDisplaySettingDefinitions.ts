@@ -218,6 +218,13 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'enum', privacy: 'safe', identityScope: 'person' },
     },
+    sessionListObviousAttentionModeEnabled: {
+        schema: z.boolean(),
+        default: false,
+        description: 'Make session-list rows that need the person (permission, action required, failed) breathe between their normal and inverted colours',
+        storageScope: 'account',
+        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
+    },
     mobileWorkspaceExperienceV1: {
         schema: z.enum(['classic', 'cockpit']),
         default: 'cockpit',

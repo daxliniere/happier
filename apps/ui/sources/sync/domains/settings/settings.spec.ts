@@ -95,6 +95,20 @@ describe('settings', () => {
             expect(settings.sessionListNarrowWorkingIndicatorStyle).toBe('pulse');
         });
 
+        it('defaults obvious attention-required mode for session rows to off', () => {
+            const settings = settingsParse({});
+
+            expect(settings.sessionListObviousAttentionModeEnabled).toBe(false);
+        });
+
+        it('parses obvious attention-required mode for session rows', () => {
+            const settings = settingsParse({
+                sessionListObviousAttentionModeEnabled: true,
+            });
+
+            expect(settings.sessionListObviousAttentionModeEnabled).toBe(true);
+        });
+
         it('includes installables policy map by default', () => {
             const settings = settingsParse({});
             expect((settings as any).installablesPolicyByMachineId).toEqual({});

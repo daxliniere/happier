@@ -4514,6 +4514,9 @@ export const es: TranslationStructure = {
     backdropBlur: "Desenfoque de fondo",
     backdropBlurDescription:
       "Usa desenfoque de fondo detrás de modales y menús. Desactívalo para mejorar el rendimiento del navegador.",
+    obviousAttentionMode: "Modo de atención evidente",
+    obviousAttentionModeDescription:
+      "Hace que las sesiones que te necesitan (permiso, acción requerida, error) respiren con los colores invertidos para que no pasen desapercibidas.",
     multiPanePanels: "Paneles derechos",
     multiPanePanelsDescription:
       "Muestra paneles laterales redimensionables para archivos y control de código fuente (web/tablet)",

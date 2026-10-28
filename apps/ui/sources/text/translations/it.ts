@@ -4861,6 +4861,9 @@ export const it: TranslationStructure = {
     backdropBlur: "Sfocatura sfondo",
     backdropBlurDescription:
       "Usa la sfocatura dello sfondo dietro modali e menu. Disattivala per migliorare le prestazioni del browser.",
+    obviousAttentionMode: "Modalità attenzione evidente",
+    obviousAttentionModeDescription:
+      "Fa «respirare» con i colori invertiti le sessioni che hanno bisogno di te (autorizzazione, azione richiesta, errore), così non passano inosservate.",
     multiPanePanels: "Pannelli destri",
     multiPanePanelsDescription:
       "Mostra pannelli laterali ridimensionabili per file e controllo versione (web/tablet)",

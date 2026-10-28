@@ -640,6 +640,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         sessionListSurfaceDataActive: surfaceOwnership.dataActive,
     });
     const sessionListWorkingIndicatorStyle = useSetting('sessionListNarrowWorkingIndicatorStyle');
+    const sessionListObviousAttentionModeEnabled = useSetting('sessionListObviousAttentionModeEnabled');
     const backgroundWorkAttentionMode = normalizeSessionListBackgroundWorkAttentionMode(useSetting('sessionListBackgroundWorkAttentionModeV1'));
     const sessionListAgentActivityCountEnabled = useSetting('sessionListAgentActivityCountEnabled');
     const sessionListIdentityDisplay = useSessionListIdentityDisplay();
@@ -937,6 +938,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
             identityDisplay: sessionListIdentityDisplay,
             activeColorMode: normalizeActiveColorMode(sessionListActiveColorMode),
             workingIndicatorMode: normalizeWorkingIndicatorMode(sessionListWorkingIndicatorStyle),
+            obviousAttentionEnabled: sessionListObviousAttentionModeEnabled === true,
             workingTextMode: 'static',
             backgroundWorkAttentionMode,
             statusColors: theme.colors.status,
@@ -975,6 +977,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         sessionListActiveColorMode,
         sessionListIdentityDisplay,
         sessionListWorkingIndicatorStyle,
+        sessionListObviousAttentionModeEnabled,
         backgroundWorkAttentionMode,
         sessionTagsEnabled,
         sessionTagsV1,

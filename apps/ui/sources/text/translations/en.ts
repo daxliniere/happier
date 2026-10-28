@@ -4239,6 +4239,8 @@ export const en = {
         hapticsDescription: "Use touch feedback for actions and reordering on this device.",
         backdropBlur: 'Backdrop blur',
         backdropBlurDescription: 'Use frosted background blur behind modals and menus. Disable to improve browser performance.',
+        obviousAttentionMode: 'Obvious attention-required mode',
+        obviousAttentionModeDescription: 'Make sessions that need you (permission, action required, failed) breathe in inverted colours so they are hard to miss.',
         multiPanePanels: 'Right panels',
         multiPanePanelsDescription: 'Show resizable right-side panels for files and source control (web/tablet)',
         sessionsRightPaneDefaultOpen: 'Always show right sidebar in sessions',
