@@ -303,6 +303,9 @@ describe('AgentInputChipPickerPopover', () => {
 
         expect(onSelect).toHaveBeenCalledWith('two');
         expect(onRequestClose).not.toHaveBeenCalled();
+        await screen.pressByTestIdAsync('agent-input-chip-picker.done');
+        expect(onRequestClose).toHaveBeenCalledTimes(1);
+        expect(onSelect.mock.calls).toEqual([['two']]);
     });
 
     it('keeps the popover open when switching focused options that have detail panes (engine-style)', async () => {
