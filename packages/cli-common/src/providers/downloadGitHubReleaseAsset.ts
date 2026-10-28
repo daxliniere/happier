@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
-import { mkdir, rename, rm } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { dirname } from 'node:path';
@@ -75,20 +75,27 @@ export async function downloadGitHubReleaseAsset(params: Readonly<{
 
   await mkdir(dirname(destinationPath), { recursive: true });
   const tempPath = `${destinationPath}.download`;
+  // Start clean: a leftover partial from an unrelated earlier download is not known to match this asset.
+  await rm(tempPath, { force: true });
 
-  const maxAttempts = DOWNLOAD_RETRY_DELAYS_MS.length + 1;
+  // The retry delays are consumed only by attempts that make no progress. A download that keeps
+  // advancing (resumed with HTTP Range) is not abandoned just because the link keeps dropping.
+  let stalledAttempts = 0;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  for (;;) {
+    const resumeFrom = await readPartialSize(tempPath);
     try {
-      const response = await openGitHubReleaseAssetResponse(url, headers);
+      const response = await openGitHubReleaseAssetResponse(
+        url,
+        resumeFrom > 0 ? { ...headers, range: `bytes=${resumeFrom}-` } : headers,
+      );
+      const resumed = resumeFrom > 0 && Number(response.statusCode) === 206;
       const hash = createHash('sha256');
-      const hashTap = new Transform({
-        transform(chunk, _encoding, callback) {
-          hash.update(chunk);
-          callback(null, chunk);
-        },
-      });
-      await pipeline(response, hashTap, createWriteStream(tempPath));
+      if (resumed) {
+        // The checksum covers the whole asset, so the bytes already on disk are hashed first.
+        await pipeline(createReadStream(tempPath), hashTap(hash), discard());
+      }
+      await pipeline(response, hashTap(hash), createWriteStream(tempPath, { flags: resumed ? 'a' : 'w' }));
       if (expectedSha256) {
         const actualSha256 = hash.digest('hex');
         if (actualSha256 !== expectedSha256) {
@@ -98,15 +105,47 @@ export async function downloadGitHubReleaseAsset(params: Readonly<{
       await rename(tempPath, destinationPath);
       return;
     } catch (error) {
-      await rm(tempPath, { force: true }).catch(() => undefined);
-      const retryDelayMs = DOWNLOAD_RETRY_DELAYS_MS[attempt - 1] ?? null;
-      if (!isRetryableDownloadError(error) || retryDelayMs === null) {
+      if (isRangeNotSatisfiable(error)) {
+        // The partial file is not a prefix this server can continue; discard it and start over.
+        await rm(tempPath, { force: true }).catch(() => undefined);
+        continue;
+      }
+      const progressed = (await readPartialSize(tempPath)) > resumeFrom;
+      if (progressed) {
+        stalledAttempts = 0;
+      } else {
+        stalledAttempts += 1;
+      }
+      const retryDelayMs = DOWNLOAD_RETRY_DELAYS_MS[Math.max(0, stalledAttempts - 1)] ?? null;
+      if (!isRetryableDownloadError(error) || (!progressed && retryDelayMs === null)) {
+        await rm(tempPath, { force: true }).catch(() => undefined);
         if (error instanceof Error) throw error;
         throw new Error(String(error));
       }
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      if (!progressed) await new Promise((resolve) => setTimeout(resolve, retryDelayMs ?? 0));
     }
   }
+}
+
+async function readPartialSize(path: string): Promise<number> {
+  return (await stat(path).catch(() => null))?.size ?? 0;
+}
+
+function hashTap(hash: ReturnType<typeof createHash>): Transform {
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      hash.update(chunk);
+      callback(null, chunk);
+    },
+  });
+}
+
+function discard(): Transform {
+  return new Transform({ transform: (_chunk, _encoding, callback) => callback() });
+}
+
+function isRangeNotSatisfiable(error: unknown): boolean {
+  return error instanceof Error && error.message === '[github-release] failed to download asset (416)';
 }
 
 function isRetryableDownloadError(error: unknown): boolean {
