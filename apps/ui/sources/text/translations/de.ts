@@ -6372,6 +6372,7 @@ export const de: TranslationStructure = {
         stopSessionSubtitle: 'Den Session-Prozess stoppen',
         archiveSessionSubtitle: 'Diese Session ins Archiv verschieben',
         archivedSessions: 'Archivierte Sessions',
+        archivedAt: ({ date }: { date: string }) => `Archiviert am ${date}`,
         inactiveAndArchivedSessions: 'Inaktive und archivierte Sessions',
         unarchiveSession: 'Session aus dem Archiv holen',
         unarchiveSessionConfirm: 'Willst du diese Session wirklich aus dem Archiv holen?',

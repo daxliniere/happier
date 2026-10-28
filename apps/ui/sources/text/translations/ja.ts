@@ -7025,6 +7025,7 @@ localTailscale: {
     stopSessionSubtitle: "セッションプロセスを停止",
     archiveSessionSubtitle: "このセッションをアーカイブへ移動",
     archivedSessions: "アーカイブ済みセッション",
+    archivedAt: ({ date }: { date: string }) => `アーカイブ日時: ${date}`,
     inactiveAndArchivedSessions: "非アクティブとアーカイブ済みのセッション",
     unarchiveSession: "アーカイブ解除",
     unarchiveSessionConfirm: "このセッションのアーカイブを解除してもよろしいですか？",

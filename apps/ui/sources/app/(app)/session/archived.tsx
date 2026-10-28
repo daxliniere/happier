@@ -305,6 +305,7 @@ export default function ArchivedSessionsScreen() {
             const sessionName = getSessionName(item);
             const sessionSubtitle = getSessionSubtitle(item);
             const avatarId = getSessionAvatarId(item);
+            const archivedDate = section.key === 'archived' ? new Date(item.archivedAt ?? NaN) : null;
 
             const isFirst = index === 0;
             const isLast = index === section.data.length - 1;
@@ -340,6 +341,15 @@ export default function ArchivedSessionsScreen() {
                         <Text style={styles.sessionSubtitle} numberOfLines={1}>
                             {sessionSubtitle}
                         </Text>
+                        {archivedDate ? (
+                            <Text style={styles.sessionSubtitle}>
+                                {t('sessionInfo.archivedAt', {
+                                    date: Number.isNaN(archivedDate.getTime())
+                                        ? t('status.unknown')
+                                        : archivedDate.toLocaleString(),
+                                })}
+                            </Text>
+                        ) : null}
                     </View>
                     {canShowUnarchive ? (
                         <Pressable

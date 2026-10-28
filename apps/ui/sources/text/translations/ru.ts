@@ -5696,6 +5696,7 @@ export const ru: TranslationStructure = {
     stopSessionSubtitle: "Остановить процесс сессии",
     archiveSessionSubtitle: "Переместить эту сессию в Архив",
     archivedSessions: "Архивированные сессии",
+    archivedAt: ({ date }: { date: string }) => `Архивировано: ${date}`,
     inactiveAndArchivedSessions: "Неактивные и архивированные сессии",
     unarchiveSession: "Разархивировать сессию",
     unarchiveSessionConfirm: "Вы уверены, что хотите разархивировать эту сессию?",
