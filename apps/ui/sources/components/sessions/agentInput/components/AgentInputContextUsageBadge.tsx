@@ -87,6 +87,7 @@ export const AgentInputContextUsageBadge = React.memo(function AgentInputContext
                     label={popoverDetail}
                     value={badgeValueLabel}
                     tone={tone}
+                    remainingPct={100 - props.state.usedPercentage}
                     ringTestID="agent-input-context-usage-ring"
                     valueTestID="agent-input-context-usage-value"
                 />

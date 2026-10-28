@@ -6,7 +6,8 @@ import { Text } from '@/components/ui/text/Text';
 import { CapacityRing } from '@/components/ui/progress/CapacityRing';
 
 import { resolveTokenUsageProgressRatio } from './tokenUsageFormatting';
-import { resolveTokenUsageToneColor, type TokenUsageTone } from './tokenUsageTone';
+import { useSetting } from '@/sync/domains/state/storage';
+import { resolveRemainingUsageColor, resolveTokenUsageToneColor, type TokenUsageTone } from './tokenUsageTone';
 
 export type TokenUsageRingProps = Readonly<{
     used: number;
@@ -14,6 +15,8 @@ export type TokenUsageRingProps = Readonly<{
     label: string;
     value: string;
     tone?: TokenUsageTone;
+    /** When set (and the coloured-rings setting is on) the ring colour follows this remaining %, overriding `tone`. */
+    remainingPct?: number;
     size?: number;
     strokeWidth?: number;
     testID?: string;
@@ -34,17 +37,29 @@ export function TokenUsageRing(props: TokenUsageRingProps) {
         () => resolveTokenUsageProgressRatio({ used: props.used, limit: props.limit }),
         [props.limit, props.used],
     );
+    const coloredUsageRings = useSetting('coloredUsageRings');
     const toneColor = React.useMemo(
-        () => resolveTokenUsageToneColor({
+        () => props.remainingPct !== undefined && coloredUsageRings
+            ? resolveRemainingUsageColor({
+                remainingPct: props.remainingPct,
+                fullColor: theme.colors.state.success.foreground,
+                midColor: theme.colors.state.warning.foreground,
+                emptyColor: theme.colors.state.danger.foreground,
+            })
+            : resolveTokenUsageToneColor({
             tone: props.tone ?? 'neutral',
             neutralColor: theme.colors.text.secondary,
             warningColor: theme.colors.state.neutral.foreground,
             criticalColor: theme.colors.state.danger.foreground,
         }),
         [
+            coloredUsageRings,
+            props.remainingPct,
             props.tone,
             theme.colors.state.danger.foreground,
             theme.colors.state.neutral.foreground,
+            theme.colors.state.success.foreground,
+            theme.colors.state.warning.foreground,
             theme.colors.text.secondary,
         ],
     );

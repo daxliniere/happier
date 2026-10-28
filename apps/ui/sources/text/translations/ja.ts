@@ -4931,6 +4931,8 @@ localTailscale: {
     showFlavorIcons: "AIプロバイダーアイコンを表示",
     showFlavorIconsDescription:
       "セッションアバターにAIプロバイダーアイコンを表示",
+    coloredUsageRings: "使用状況リングに色を付ける",
+    coloredUsageRingsDescription: "残量が減るにつれてリングが緑（満タン）から赤（空）に変わります",
     compactSessionView: "コンパクトセッション表示",
     compactSessionViewDescription:
       "アクティブなセッションをコンパクトなレイアウトで表示",

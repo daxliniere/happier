@@ -209,6 +209,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                                 label={rings.length === 1 ? accessibilityLabel : ringAccessibilityValues[index]}
                                 value={ring.ringValueLabel}
                                 tone={mapQuotaToneToTokenTone(ring.tone)}
+                                remainingPct={100 - ring.usedPct}
                                 ringTestID={`agent-input-provider-usage-ring${testIdSuffix}`}
                                 valueTestID={`agent-input-provider-usage-value${testIdSuffix}`}
                             />

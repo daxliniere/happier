@@ -4675,6 +4675,8 @@ export const pl: TranslationStructure = {
     showFlavorIcons: "Pokaż ikony dostawcy AI",
     showFlavorIconsDescription:
       "Wyświetlaj ikony dostawcy AI na awatarach sesji",
+    coloredUsageRings: "Kolorowe pierścienie użycia",
+    coloredUsageRingsDescription: "Pierścienie zmieniają kolor z zielonego (pełny) na czerwony (pusty) w miarę zużycia",
     compactSessionView: "Kompaktowy widok sesji",
     compactSessionViewDescription:
       "Pokazuj aktywne sesje w bardziej zwartym układzie",

@@ -4989,6 +4989,8 @@ export const it: TranslationStructure = {
     showFlavorIcons: "Mostra icone provider IA",
     showFlavorIconsDescription:
       "Mostra le icone del provider IA sugli avatar di sessione",
+    coloredUsageRings: "Anelli di utilizzo colorati",
+    coloredUsageRingsDescription: "Gli anelli passano da verde (pieno) a rosso (vuoto) man mano che l'uso cala",
     compactSessionView: "Vista sessioni compatta",
     compactSessionViewDescription:
       "Mostra le sessioni attive in un layout più compatto",

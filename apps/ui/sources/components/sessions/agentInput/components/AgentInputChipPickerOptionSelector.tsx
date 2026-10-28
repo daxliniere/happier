@@ -188,6 +188,7 @@ function AgentInputChipPickerOptionButton(
     <>
       <View style={styles.optionLeft}>
         {props.option.icon ? normalizeAgentInputChipPickerOptionIcon(props.option.icon) : null}
+        {props.option.leadingMark ? normalizeNodeForView(props.option.leadingMark) : null}
         <View style={styles.optionTextBlock}>
           <Text style={[styles.optionLabel, props.focused ? styles.optionLabelFocused : null]}>{props.option.label}</Text>
           {shouldShowSubtitle ? (

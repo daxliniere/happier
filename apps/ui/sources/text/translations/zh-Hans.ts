@@ -4517,6 +4517,8 @@ export const zhHans: TranslationStructure = {
     },
     showFlavorIcons: "显示 AI 提供商图标",
     showFlavorIconsDescription: "在会话头像上显示 AI 提供商图标",
+    coloredUsageRings: "彩色用量环",
+    coloredUsageRingsDescription: "随着用量减少，圆环由绿色（充足）渐变为红色（耗尽）",
     compactSessionView: "紧凑会话视图",
     compactSessionViewDescription: "以更紧凑的布局显示活跃会话",
     compactSessionViewMinimal: "极简紧凑视图",

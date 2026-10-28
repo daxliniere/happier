@@ -196,6 +196,8 @@ import type { AgentActivityCounts } from '@/sync/domains/session/agentActivity/d
 import { hasSessionSubagentLaunchCards } from '@/agents/registry/sessionSubagentUiBehavior';
 import { useSurfaceAnchorPathname } from '@/components/sessions/shell/surface/sessionSurfaceAnchorPathname';
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
+import { useAgentPickerUsageGauges } from '@/components/sessions/agentPicker/useAgentPickerUsageGauges';
+import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { nowServerMs } from '@/sync/runtime/time';
 import { readSessionUiTelemetryNowMs } from '@/sync/runtime/performance/sessionUiTelemetry';
 import { syncPerformanceTelemetry } from '@/sync/runtime/syncPerformanceTelemetry';
@@ -241,7 +243,6 @@ import { useCLIDetection } from '@/hooks/auth/useCLIDetection';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
     selectConnectedServiceSessionProviderUsageGaugeSource,
-    type ConnectedServiceQuotaGaugeLabelFormatter,
     type ConnectedServiceQuotaGaugeWindowMode,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import { resolveConnectedServiceQuotaRecoveryCreditReceiptNoticeKey } from '@/sync/domains/connectedServices/connectedServiceQuotaRecoveryCreditReceiptPresentation';
@@ -595,23 +596,6 @@ function resolveConnectedServiceProviderDisplayName(serviceId: string): string |
     if (!parsed.success) return null;
     return resolveConnectedServiceDisplayName(parsed.data, t);
 }
-
-const connectedServiceQuotaGaugeFormatter: ConnectedServiceQuotaGaugeLabelFormatter = {
-    unavailable: () => t('common.unavailable'),
-    remaining: ({ percent }) => t('agentInput.providerUsage.remaining', { percent }),
-    remainingWithReset: ({ percent, reset }) => t('agentInput.providerUsage.remainingWithReset', { percent, reset }),
-    used: ({ used, limit }) => t('agentInput.providerUsage.usedCount', { used, limit }),
-    durationNow: () => t('agentInput.providerUsage.duration.now'),
-    durationOutdated: () => t('agentInput.providerUsage.duration.outdated'),
-    durationDaysHours: ({ days, hours }) => t('agentInput.providerUsage.duration.daysHours', { days, hours }),
-    durationHoursMinutes: ({ hours, minutes }) => t('agentInput.providerUsage.duration.hoursMinutes', { hours, minutes }),
-    durationHours: ({ hours }) => t('agentInput.providerUsage.duration.hours', { hours }),
-    durationMinutes: ({ minutes }) => t('agentInput.providerUsage.duration.minutes', { minutes }),
-    subscriptionEnds: ({ date }) => t('connectedServices.subscription.ends', { date }),
-    subscriptionEndsInDays: ({ days }) => t('connectedServices.subscription.endsInDays', { days }),
-    subscriptionRenews: ({ date }) => t('connectedServices.subscription.renews', { date }),
-    subscriptionRenewsInDays: ({ days }) => t('connectedServices.subscription.renewsInDays', { days }),
-};
 
 function isOwnedSessionRootPathname(pathname: string | null | undefined, sessionId: string): boolean {
     const normalizedPathname = typeof pathname === 'string' ? pathname.trim() : '';
@@ -4070,6 +4054,19 @@ function SessionViewLoaded({
             resolveConnectedServiceCredentialHealthStatus(connectedServiceQuotaProfileRef.credentialHealthStatus),
         );
     }, [connectedServiceQuotaProfileRef?.credentialHealthStatus]);
+    // Usage rings in the Agent picker rail. Quota is fetched for the other Agents only once the
+    // picker has been approached; the running Agent reuses the composer's own gauge.
+    const [agentPickerUsageDemanded, setAgentPickerUsageDemanded] = React.useState(false);
+    const signalAgentPickerUsageIntent = React.useCallback(() => {
+        setAgentPickerUsageDemanded(true);
+        inSessionAgentPicker.onAgentPickerIntent();
+    }, [inSessionAgentPicker.onAgentPickerIntent]);
+    const otherAgentUsageGauges = useAgentPickerUsageGauges({
+        entries: sessionAgentCatalogEntries,
+        accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
+        windowMode: sessionProviderUsageGaugeWindowMode,
+        demanded: agentPickerUsageDemanded,
+    });
     const connectedServiceQuotaSnapshots = useConnectedServiceQuotaSnapshots(
         connectedServiceQuotaProfileRef ? [connectedServiceQuotaProfileRef] : [],
     );
@@ -4166,6 +4163,11 @@ function SessionViewLoaded({
         sessionProviderUsageGaugeWindowModesSetting,
         sessionProviderUsageGaugeWindowMode,
     ]);
+    const agentPickerUsageGaugesByOptionId = React.useMemo(() => {
+        const gauges = new Map(otherAgentUsageGauges);
+        if (providerUsageGauge) gauges.set(`engine:${liveComposerState.agentId}`, providerUsageGauge);
+        return gauges;
+    }, [liveComposerState.agentId, otherAgentUsageGauges, providerUsageGauge]);
     const providerUsageGaugeConnectedServiceProfileRef =
         providerUsageGaugeSource
         && isConnectedServiceBoundProviderUsageDisplaySource(providerUsageDisplaySnapshotSource)
@@ -6423,7 +6425,8 @@ function SessionViewLoaded({
                 agentType={liveComposerState.agentId}
                 armedContinuationTarget={armedContinuationTarget}
                 composeAgentPickerOptions={inSessionAgentPicker.composeAgentPickerOptions}
-                onAgentPickerIntent={inSessionAgentPicker.onAgentPickerIntent}
+                onAgentPickerIntent={signalAgentPickerUsageIntent}
+                agentPickerUsageGaugesByOptionId={agentPickerUsageGaugesByOptionId}
                 onAgentPickerVisibilityChange={inSessionAgentPicker.onAgentPickerVisibilityChange}
                 agentPickerSelectedOptionId={inSessionAgentPicker.agentPickerSelectedOptionId}
                 attachments={attachmentsUploadsEnabled ? agentInputAttachments : undefined}

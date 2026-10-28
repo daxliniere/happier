@@ -4423,6 +4423,8 @@ export const ca: TranslationStructure = {
         },
         showFlavorIcons: "Mostrar icones de proveïdors d'IA",
         showFlavorIconsDescription: "Mostrar icones del proveïdor d'IA als avatars de sessió",
+        coloredUsageRings: "Anells d'ús amb color",
+        coloredUsageRingsDescription: "Els anells passen de verd (ple) a vermell (buit) a mesura que es consumeix l'ús",
         compactSessionView: 'Vista compacta de sessions',
         compactSessionViewDescription: 'Mostra les sessions actives en un disseny més compacte',
         compactSessionViewMinimal: 'Vista compacta mínima',

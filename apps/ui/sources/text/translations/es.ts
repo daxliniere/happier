@@ -4643,6 +4643,8 @@ export const es: TranslationStructure = {
     showFlavorIcons: "Mostrar íconos de proveedor de IA",
     showFlavorIconsDescription:
       "Mostrar íconos del proveedor de IA en los avatares de sesión",
+    coloredUsageRings: "Anillos de uso en color",
+    coloredUsageRingsDescription: "Los anillos pasan de verde (lleno) a rojo (vacío) a medida que se agota el uso",
     compactSessionView: "Vista compacta de sesiones",
     compactSessionViewDescription:
       "Mostrar sesiones activas en un diseño más compacto",
