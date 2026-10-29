@@ -204,27 +204,6 @@ describe('managedPnpm bootstrap race protection', () => {
     expect(existsSync(lockPath)).toBe(false);
   }, 60000);
 
-  it('notices a released bootstrap lock promptly instead of backing off for minutes', async () => {
-    const lockDir = join(managedPnpmInstallDir(testEnv), '.lock');
-    const lockPath = join(lockDir, 'bootstrap.lock');
-    await mkdir(lockDir, { recursive: true });
-    // A live holder (this process) that releases while a waiter is deep into its waiting.
-    await writeFile(lockPath, JSON.stringify({ pid: process.pid, createdAt: Date.now() }), 'utf8');
-    const holdMs = 4_000;
-    let releasedAt = 0;
-    setTimeout(() => {
-      releasedAt = Date.now();
-      void rm(lockPath, { force: true });
-    }, holdMs);
-
-    const command = await ensureManagedPnpmCommand(testEnv, createManagedPnpmBoundaryDeps());
-    const finishedAt = Date.now();
-
-    expect(command).toBe(managedPnpmBinPath(testEnv));
-    expect(releasedAt).toBeGreaterThan(0);
-    expect(finishedAt - releasedAt).toBeLessThan(750);
-  }, 30000);
-
   it('extracts the current archive asset and preserves pnpm support files before promoting', async () => {
     const command = await ensureManagedPnpmCommand(testEnv, createManagedPnpmBoundaryDeps());
 

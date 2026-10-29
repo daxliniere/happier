@@ -23,7 +23,6 @@ function resolveManagedPnpmBinaryName(): string {
 }
 
 const STALE_PNPM_BOOTSTRAP_LOCK_MAX_AGE_MS = 5 * 60 * 1000;
-const PNPM_BOOTSTRAP_LOCK_POLL_INTERVAL_MS = 100;
 const MANAGED_PNPM_BOOTSTRAP_ENV_VAR = 'HAPPIER_MANAGED_PNPM_BOOTSTRAP';
 
 export function managedPnpmInstallDir(processEnv: NodeJS.ProcessEnv = process.env): string {
@@ -123,24 +122,33 @@ async function acquirePnpmBootstrapLock(processEnv: NodeJS.ProcessEnv): Promise<
   await mkdir(lockDir, { recursive: true });
   const lockPath = join(lockDir, 'bootstrap.lock');
 
-  // Open with exclusive flag. A waiter polls at a fixed interval for as long as the holder is
-  // alive; the holder's own bootstrap bounds the wait, and a dead or stale holder is recovered
-  // below. A growing backoff would leave waiters asleep long after the lock was released.
-  for (;;) {
+  // Open with exclusive flag; will wait/retry if another process holds the lock
+  // Use a simple retry loop with exponential backoff
+  const maxRetries = 30;
+  const baseDelayMs = 100;
+
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
     try {
       // Try to open exclusively; on Unix this uses O_EXCL, on Windows uses exclusive share mode
       const handle = await open(lockPath, 'wx');
       await handle.writeFile(JSON.stringify({ pid: process.pid, createdAt: Date.now() }), 'utf8');
       return handle;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-      if (await shouldRecoverStalePnpmBootstrapLock(lockPath).catch(() => false)) {
-        await rm(lockPath, { force: true }).catch(() => undefined);
+      // EEXIST means lock is held; retry with backoff
+      if ((err as NodeJS.ErrnoException).code === 'EEXIST' && attempt < maxRetries - 1) {
+        if (await shouldRecoverStalePnpmBootstrapLock(lockPath).catch(() => false)) {
+          await rm(lockPath, { force: true }).catch(() => undefined);
+          continue;
+        }
+        const delayMs = baseDelayMs * Math.pow(1.5, attempt);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
         continue;
       }
-      await new Promise(resolve => setTimeout(resolve, PNPM_BOOTSTRAP_LOCK_POLL_INTERVAL_MS));
+      throw err;
     }
   }
+
+  throw new Error('Failed to acquire pnpm bootstrap lock after retries');
 }
 
 export function resolveExistingPnpmCommand(processEnv: NodeJS.ProcessEnv = process.env): string | null {
