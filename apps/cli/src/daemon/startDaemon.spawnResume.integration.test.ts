@@ -7566,12 +7566,6 @@ describe('startDaemon spawn resume wiring (integration)', () => {
     >;
     let run: Promise<void> | null = null;
     try {
-      vi.mocked(fetchSessionByIdCompat).mockResolvedValueOnce(createSessionRecordFixture({
-        id: sessionId,
-        encryptionMode: 'plain',
-        metadata: JSON.stringify({ flavor: 'claude', claudeSessionId: 'vendor-disabled', path: '/tmp' }),
-        dataEncryptionKey: null,
-      }));
       await attachments.writeTerminalAttachmentInfo({ happyHomeDir: fixtureHome, sessionId, attachmentId,
         handle: {
           attachmentId, kind: 'zellij', sessionName: 'disabled-claude-zellij', paneId: 'terminal_2',
