@@ -1292,6 +1292,7 @@ export const ru: TranslationStructure = {
     send: "Отправить",
     attach: "Прикрепить",
     addImage: "Добавить изображение",
+    takePhoto: "Сделать фото",
     addFile: "Добавить файл",
     linkFile: "Связать файл",
     files: "Файлы",
@@ -3210,6 +3211,8 @@ export const ru: TranslationStructure = {
         `Пропущено ${count} ${plural({ count, one: "файл", few: "файла", many: "файлов" })}, превышающих максимальный размер вложений.`,
       noClipboardImageTitle: "В буфере нет изображения",
       noClipboardImageBody: "Скопируйте изображение, затем вставьте его как вложение.",
+      cameraPermissionDeniedTitle: "Нужен доступ к камере",
+      cameraPermissionDeniedBody: "Разрешите доступ к камере в настройках устройства, чтобы сделать фото.",
     },
   },
 

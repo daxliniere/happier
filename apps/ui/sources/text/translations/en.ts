@@ -1104,6 +1104,7 @@ export const en = {
         send: 'Send',
         attach: 'Attach',
         addImage: 'Add image',
+        takePhoto: 'Take photo',
         addFile: 'Add file',
         linkFile: 'Link file',
         files: 'Files',
@@ -3020,6 +3021,8 @@ export const en = {
                 `Skipped ${count} ${plural({ count, singular: 'file', plural: 'files' })} that exceed the max attachment size.`,
             noClipboardImageTitle: 'No clipboard image',
             noClipboardImageBody: 'Copy an image, then paste it as an attachment.',
+            cameraPermissionDeniedTitle: 'Camera access needed',
+            cameraPermissionDeniedBody: 'Allow camera access in your device settings to take a photo.',
         },
     },
 

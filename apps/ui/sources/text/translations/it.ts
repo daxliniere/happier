@@ -1263,6 +1263,7 @@ export const it: TranslationStructure = {
     send: "Invia",
     attach: "Allega",
     addImage: "Aggiungi immagine",
+    takePhoto: "Scatta foto",
     addFile: "Aggiungi file",
     linkFile: "Collega file",
     files: "File",
@@ -3601,6 +3602,8 @@ export const it: TranslationStructure = {
         `Saltati ${count} ${plural({ count, singular: "file", plural: "file" })} che superano la dimensione massima dell’allegato.`,
       noClipboardImageTitle: "Nessuna immagine negli appunti",
       noClipboardImageBody: "Copia un'immagine e incollala come allegato.",
+      cameraPermissionDeniedTitle: "Accesso alla fotocamera necessario",
+      cameraPermissionDeniedBody: "Consenti l'accesso alla fotocamera nelle impostazioni del dispositivo per scattare una foto.",
     },
   },
 

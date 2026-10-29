@@ -1106,6 +1106,7 @@ export const de: TranslationStructure = {
         send: 'Senden',
         attach: 'Anhängen',
         addImage: 'Bild hinzufügen',
+        takePhoto: 'Foto aufnehmen',
         addFile: 'Datei hinzufügen',
         linkFile: 'Datei verknüpfen',
         files: 'Dateien',
@@ -3019,6 +3020,8 @@ export const de: TranslationStructure = {
                 `Übersprungen: ${count} ${plural({ count, singular: 'Datei', plural: 'Dateien' })} die die maximale Anhanggröße überschreiten.`,
             noClipboardImageTitle: 'Kein Bild in der Zwischenablage',
             noClipboardImageBody: 'Kopier ein Bild und füg es dann als Anhang ein.',
+            cameraPermissionDeniedTitle: 'Kamerazugriff erforderlich',
+            cameraPermissionDeniedBody: 'Erlaube den Kamerazugriff in den Geräteeinstellungen, um ein Foto aufzunehmen.',
         },
     },
 

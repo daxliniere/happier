@@ -621,6 +621,12 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 const zhHantOverrides: DeepPartial<TranslationStructure> = {
+    attachments: {
+        alerts: {
+            cameraPermissionDeniedTitle: '需要相機權限',
+            cameraPermissionDeniedBody: '請在裝置設定中允許存取相機以拍照。',
+        },
+    },
   settingsKeyboard: {
       title: 'Keyboard shortcuts',
       entrySubtitle: 'Discover and control app shortcuts',
@@ -1981,6 +1987,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         send: '傳送',
         attach: '附加',
         addImage: '新增圖片',
+        takePhoto: '拍照',
         addFile: '新增檔案',
         linkFile: '連結檔案',
         files: '檔案',

@@ -1266,6 +1266,7 @@ export const es: TranslationStructure = {
     send: "Enviar",
     attach: "Adjuntar",
     addImage: "Agregar imagen",
+    takePhoto: "Tomar foto",
     addFile: "Agregar archivo",
     linkFile: "Vincular archivo",
     files: "Archivos",
@@ -3257,6 +3258,8 @@ export const es: TranslationStructure = {
         `Se omitieron ${count} ${plural({ count, singular: "archivo", plural: "archivos" })} que superan el tamaño máximo de adjunto.`,
       noClipboardImageTitle: "No hay imagen en el portapapeles",
       noClipboardImageBody: "Copia una imagen y pégala como adjunto.",
+      cameraPermissionDeniedTitle: "Se necesita acceso a la cámara",
+      cameraPermissionDeniedBody: "Permite el acceso a la cámara en los ajustes del dispositivo para tomar una foto.",
     },
   },
 
