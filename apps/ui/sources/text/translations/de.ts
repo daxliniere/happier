@@ -5394,6 +5394,10 @@ export const de: TranslationStructure = {
                 title: 'Hintergrundbefehl',
                 statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                 openCommand: 'Den Befehl im Transkript öffnen',
+                dismissStale: 'Veralteten Bericht ausblenden',
+                dismissStaleHint: 'Blendet diesen Bericht auf diesem Gerät aus den aktiven Aufgaben aus. Der Befehl wird nicht beendet.',
+                dismissedNote: 'Ausgeblendet. Der Befehl wurde nicht beendet, sein Ergebnis ist unbekannt.',
+                undoDismiss: 'Rückgängig',
             },
             preview: {
                 openDetails: 'Details öffnen',

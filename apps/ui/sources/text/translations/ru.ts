@@ -6290,6 +6290,10 @@ export const ru: TranslationStructure = {
               title: "Фоновая команда",
               statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
               openCommand: "Открыть команду в транскрипте",
+              dismissStale: "Скрыть устаревший отчёт",
+              dismissStaleHint: "Скрывает этот отчёт из активных задач на этом устройстве. Команда не останавливается.",
+              dismissedNote: "Скрыто. Команда не была остановлена, её результат неизвестен.",
+              undoDismiss: "Отменить",
           },
           preview: {
               openDetails: 'Открыть подробности',

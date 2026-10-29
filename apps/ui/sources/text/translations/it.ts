@@ -6080,6 +6080,10 @@ export const it: TranslationStructure = {
                 title: "Comando in background",
                 statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                 openCommand: "Apri il comando nella trascrizione",
+                dismissStale: "Ignora il report obsoleto",
+                dismissStaleHint: "Nasconde questo report dal lavoro attivo su questo dispositivo. Non interrompe il comando.",
+                dismissedNote: "Ignorato. Il comando non è stato interrotto e il suo esito è sconosciuto.",
+                undoDismiss: "Annulla",
             },
             preview: {
                 openDetails: 'Apri i dettagli',

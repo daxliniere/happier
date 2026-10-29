@@ -5733,6 +5733,10 @@ export const es: TranslationStructure = {
                 title: "Comando en segundo plano",
                 statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                 openCommand: "Abrir el comando en la transcripción",
+                dismissStale: "Descartar informe obsoleto",
+                dismissStaleHint: "Oculta este informe del trabajo activo en este dispositivo. No detiene el comando.",
+                dismissedNote: "Descartado. El comando no se detuvo y su resultado es desconocido.",
+                undoDismiss: "Deshacer",
             },
             preview: {
                 openDetails: 'Abrir detalles',

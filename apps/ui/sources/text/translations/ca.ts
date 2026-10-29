@@ -5394,6 +5394,10 @@ deps: {
                         title: 'Ordre en segon pla',
                         statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                         openCommand: 'Obre l’ordre a la transcripció',
+                        dismissStale: 'Descarta l’informe obsolet',
+                        dismissStaleHint: 'Amaga aquest informe de la feina activa en aquest dispositiu. No atura l’ordre.',
+                        dismissedNote: 'Descartat. L’ordre no s’ha aturat i no se’n coneix el resultat.',
+                        undoDismiss: 'Desfés',
                     },
                     preview: {
                         openDetails: 'Obre els detalls',

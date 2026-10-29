@@ -419,6 +419,12 @@ export const LOCAL_SETTING_DEFINITIONS = defineSettingDefinitions({
         description: 'Device-local dismissed pet companion activity bubble keys',
         storageScope: 'local',
     },
+    backgroundTaskAcknowledgedReports: {
+        schema: z.record(z.string().min(1), z.number().int().nonnegative()).catch({}),
+        default: {},
+        description: 'Device-local stale background command reports the user dismissed, as the report updatedAt keyed by session and task',
+        storageScope: 'local',
+    },
     petsCompanionSizeScale: {
         schema: PetCompanionSizeScaleSchema,
         default: PET_COMPANION_SIZE_SCALE_DEFAULT,

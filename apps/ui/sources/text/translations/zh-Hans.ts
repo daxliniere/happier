@@ -5549,6 +5549,10 @@ export const zhHans: TranslationStructure = {
             title: "后台命令",
             statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
             openCommand: "在记录中打开该命令",
+            dismissStale: "忽略过期报告",
+            dismissStaleHint: "在此设备上将此报告从进行中的工作中隐藏。这不会停止该命令。",
+            dismissedNote: "已忽略。该命令并未停止，其结果未知。",
+            undoDismiss: "撤销",
         },
         preview: {
             openDetails: '打开详情',
