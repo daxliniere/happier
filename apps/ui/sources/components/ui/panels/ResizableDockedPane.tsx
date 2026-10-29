@@ -62,17 +62,7 @@ export const ResizableDockedPane = React.memo((props: ResizableDockedPaneProps) 
                         userSelect: 'none' as any,
                         ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : null),
                     }}
-                >
-                    <View
-                        style={{
-                            position: 'absolute',
-                            ...(resizeEdge === 'left' ? { left: 4 } : { right: 4 }),
-                            top: 0,
-                            bottom: 0,
-                            width: 1,
-                        }}
-                    />
-                </Pressable>
+                />
             ) : null}
             <View style={{ flex: 1, width: '100%', minHeight: 0 }}>{props.children}</View>
         </View>
