@@ -589,6 +589,7 @@ export const MachineMetadataSchema = z.object({
     host: z.string(),
     platform: z.string(),
     happyCliVersion: z.string(),
+    happyForkVersion: z.string().optional(),
     happyHomeDir: z.string(), // Directory for Happier auth, settings, logs (usually .happy/ or .happy-dev/)
     homeDir: z.string(), // User's home directory (matches CLI field name)
     // Optional fields that may be added in future versions
