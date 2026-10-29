@@ -8,6 +8,8 @@ import { findConnectedServiceChildSelection } from '@/daemon/connectedServices/c
 import { inferCodexDirectSessionsSourceFromHome } from '../directSessions/resolveCodexHomeEntriesForDirectSessionsSource';
 import { resolveConfiguredCodexHome } from './resolveConfiguredCodexHome';
 import { resolveConfiguredCodexSqliteHome } from '../connectedServices/codexStateFileNames';
+import { readCodexNativeSessionAliases } from './nativeSessionAliases';
+import { mergeNativeSessionAliases } from '@/session/metadata/nativeSessionAliases';
 
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -314,4 +316,16 @@ export async function publishCodexSessionIdMetadata(params: {
     updateHappySessionMetadata: (updater) => params.session.updateMetadata(updater),
     lastPublished: params.lastPublished,
   });
+  const sessionId = normalizeOptionalString(params.getCodexThreadId());
+  const snapshot = params.session.getMetadataSnapshot?.();
+  if (!sessionId || snapshot?.codexSessionId !== sessionId) return;
+  const observations = await readCodexNativeSessionAliases({
+    codexHome: resolveCodexHome(params),
+    sessionId,
+    observedAt: Date.now(),
+  });
+  if (normalizeOptionalString(params.getCodexThreadId()) !== sessionId || mergeNativeSessionAliases(snapshot, observations) === snapshot) return;
+  await params.session.updateMetadata(metadata => metadata.codexSessionId === sessionId
+    ? mergeNativeSessionAliases(metadata, observations)
+    : metadata);
 }

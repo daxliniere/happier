@@ -11,6 +11,7 @@ import { useUnistyles } from 'react-native-unistyles';
 import { Switch } from '@/components/ui/forms/Switch';
 import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/forms/dropdown/DropdownMenu';
 import { ThemeSelectionDropdown, type ThemeSelectionOption } from '@/components/settings/appearance/themeProfiles/ThemeSelectionDropdown';
+import { normalizeUpdatedSessionAnimation } from '@/components/sessions/shell/row/updatedSessionAnimation';
 import { t, getLanguageNativeName, SUPPORTED_LANGUAGES } from '@/text';
 import { useDeviceType } from '@/utils/platform/responsive';
 import { useWindowFoldMetrics } from '@/utils/platform/useWindowFoldMetrics';
@@ -99,6 +100,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const panelsSupported = Platform.OS === 'web' || deviceType === 'tablet';
     const [avatarStyle, setAvatarStyle] = useSettingMutable('avatarStyle');
     const [showFlavorIcons, setShowFlavorIcons] = useSettingMutable('showFlavorIcons');
+    const [coloredUsageRings, setColoredUsageRings] = useSettingMutable('coloredUsageRings');
     const [showChatCodeBlockWrapControls, setShowChatCodeBlockWrapControls] = useSettingMutable('showChatCodeBlockWrapControls');
     const [wrapChatCodeBlocks, setWrapChatCodeBlocks] = useSettingMutable('wrapChatCodeBlocks');
     const [themePreference, setThemePreference] = useLocalSettingMutable('themePreference');
@@ -112,6 +114,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const [uiMultiPanePanelsEnabled, setUiMultiPanePanelsEnabled] = useLocalSettingMutable('uiMultiPanePanelsEnabled');
     const [uiBackdropBlurEnabled, setUiBackdropBlurEnabled] = useLocalSettingMutable('uiBackdropBlurEnabled');
     const [hapticsEnabled, setHapticsEnabled] = useLocalSettingMutable('hapticsEnabled');
+    const [sessionListUpdatedSessionAnimation, setSessionListUpdatedSessionAnimation] = useSettingMutable('sessionListUpdatedSessionAnimation');
     const [detailsPaneTabsBehavior, setDetailsPaneTabsBehavior] = useLocalSettingMutable('detailsPaneTabsBehavior');
     const [tabBarGitBadgeMode, setTabBarGitBadgeMode] = useSettingMutable('tabBarGitBadgeMode');
     const [tabBarFriendsBadgeEnabled, setTabBarFriendsBadgeEnabled] = useSettingMutable('tabBarFriendsBadgeEnabled');
@@ -127,6 +130,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const [openLightThemeMenu, setOpenLightThemeMenu] = React.useState(false);
     const [openDarkThemeMenu, setOpenDarkThemeMenu] = React.useState(false);
     const [openItemDensityMenu, setOpenItemDensityMenu] = React.useState(false);
+    const [openUpdatedSessionAnimationMenu, setOpenUpdatedSessionAnimationMenu] = React.useState(false);
     const [openContentWidthMenu, setOpenContentWidthMenu] = React.useState(false);
     const [openDetailsTabsMenu, setOpenDetailsTabsMenu] = React.useState(false);
     const [openAvatarStyleMenu, setOpenAvatarStyleMenu] = React.useState(false);
@@ -217,6 +221,13 @@ export default React.memo(function AppearanceSettingsScreen() {
             { id: 'strong', title: t('settingsAppearance.glass.intensityStrong') },
         ];
     }, []);
+
+    const updatedSessionAnimationMenuItems = React.useMemo(() => [
+        { id: 'none', title: t('settingsAppearance.updatedSessionAnimationNone') },
+        { id: 'fade', title: t('settingsAppearance.updatedSessionAnimationFade') },
+        { id: 'glow', title: t('settingsAppearance.updatedSessionAnimationGlow') },
+        { id: 'sweep', title: t('settingsAppearance.updatedSessionAnimationSweep') },
+    ], []);
 
     const itemDensityMenuItems = React.useMemo(() => {
         return [
@@ -520,6 +531,25 @@ export default React.memo(function AppearanceSettingsScreen() {
                     showChevron={false}
                 />
                 <DropdownMenu
+                    open={openUpdatedSessionAnimationMenu}
+                    onOpenChange={setOpenUpdatedSessionAnimationMenu}
+                    variant="selectable"
+                    search={false}
+                    selectedId={normalizeUpdatedSessionAnimation(sessionListUpdatedSessionAnimation)}
+                    showCategoryTitles={false}
+                    matchTriggerWidth={true}
+                    connectToTrigger={true}
+                    rowKind="item"
+                    itemTrigger={{
+                        title: t('settingsAppearance.updatedSessionAnimation'),
+                        subtitle: t('settingsAppearance.updatedSessionAnimationDescription'),
+                        icon: <Icon name="warning-circle" size={29} color={theme.colors.state.warning.foreground} />,
+                        showSelectedSubtitle: false,
+                    }}
+                    items={updatedSessionAnimationMenuItems}
+                    onSelect={(itemId) => setSessionListUpdatedSessionAnimation(normalizeUpdatedSessionAnimation(itemId))}
+                />
+                <DropdownMenu
                     open={openDetailsTabsMenu}
                     onOpenChange={setOpenDetailsTabsMenu}
                     variant="selectable"
@@ -596,6 +626,17 @@ export default React.memo(function AppearanceSettingsScreen() {
                         <Switch
                             value={showFlavorIcons}
                             onValueChange={setShowFlavorIcons}
+                        />
+                    }
+                />
+                <Item
+                    title={t('settingsAppearance.coloredUsageRings')}
+                    subtitle={t('settingsAppearance.coloredUsageRingsDescription')}
+                    icon={<Icon name="circle-half" size={29} color={theme.colors.accent.green} />}
+                    rightElement={
+                        <Switch
+                            value={coloredUsageRings}
+                            onValueChange={setColoredUsageRings}
                         />
                     }
                 />

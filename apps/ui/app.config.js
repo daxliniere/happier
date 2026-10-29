@@ -387,6 +387,15 @@ const baseExpoConfig = {
                     launchMode: devClientLaunchMode
                 }
             ]] : []),
+            [
+                "expo-share-intent",
+                {
+                    // Android Share sheet target only; iOS would need a share extension target.
+                    disableIOS: true,
+                    androidIntentFilters: ["text/*", "image/*", "video/*", "*/*"],
+                    androidMultiIntentFilters: ["image/*", "video/*", "*/*"]
+                }
+            ],
             "expo-updates",
             "expo-asset",
             "expo-localization",

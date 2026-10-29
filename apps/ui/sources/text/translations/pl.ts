@@ -4556,6 +4556,13 @@ export const pl: TranslationStructure = {
     backdropBlur: "Rozmycie tła",
     backdropBlurDescription:
       "Używaj rozmycia tła za modalami i menu. Wyłącz, aby poprawić wydajność przeglądarki.",
+    updatedSessionAnimation: "Animacja zaktualizowanej sesji",
+    updatedSessionAnimationDescription:
+      "Jak sesja, która cię potrzebuje (zgoda, wymagane działanie, błąd), zwraca na siebie uwagę na liście.",
+    updatedSessionAnimationNone: "Brak",
+    updatedSessionAnimationFade: "Zanikanie",
+    updatedSessionAnimationGlow: "Poświata",
+    updatedSessionAnimationSweep: "Przesunięcie",
     multiPanePanels: "Panele po prawej",
     multiPanePanelsDescription:
       "Pokaż skalowalne panele po prawej stronie dla plików i kontroli wersji (web/tablet)",
@@ -4682,6 +4689,8 @@ export const pl: TranslationStructure = {
     showFlavorIcons: "Pokaż ikony dostawcy AI",
     showFlavorIconsDescription:
       "Wyświetlaj ikony dostawcy AI na awatarach sesji",
+    coloredUsageRings: "Kolorowe pierścienie użycia",
+    coloredUsageRingsDescription: "Pierścienie zmieniają kolor z zielonego (pełny) na czerwony (pusty) w miarę zużycia",
     compactSessionView: "Kompaktowy widok sesji",
     compactSessionViewDescription:
       "Pokazuj aktywne sesje w bardziej zwartym układzie",

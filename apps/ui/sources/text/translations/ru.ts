@@ -4476,6 +4476,13 @@ export const ru: TranslationStructure = {
     backdropBlur: "Размытие фона",
     backdropBlurDescription:
       "Использовать размытие фона за модальными окнами и меню. Отключите, чтобы повысить производительность браузера.",
+    updatedSessionAnimation: "Анимация обновлённой сессии",
+    updatedSessionAnimationDescription:
+      "Как сессия, которой нужен ты (разрешение, требуется действие, ошибка), привлекает внимание в списке.",
+    updatedSessionAnimationNone: "Нет",
+    updatedSessionAnimationFade: "Затухание",
+    updatedSessionAnimationGlow: "Свечение",
+    updatedSessionAnimationSweep: "Волна",
     multiPanePanels: "Правые панели",
     multiPanePanelsDescription:
       "Показывать изменяемые по размеру правые панели для файлов и контроля версий (web/tablet)",
@@ -4603,6 +4610,8 @@ export const ru: TranslationStructure = {
     showFlavorIcons: "Показывать иконки провайдеров ИИ",
     showFlavorIconsDescription:
       "Отображать иконки провайдеров ИИ на аватарах сессий",
+    coloredUsageRings: "Цветные кольца использования",
+    coloredUsageRingsDescription: "Кольца меняют цвет с зелёного (полно) на красный (пусто) по мере расходования",
     compactSessionView: "Компактный вид сессий",
     compactSessionViewDescription:
       "Отображать активные сессии в более компактном виде",

@@ -4814,6 +4814,13 @@ localTailscale: {
     backdropBlur: "背景ぼかし",
     backdropBlurDescription:
       "モーダルやメニューの背後に背景ぼかしを適用します。ブラウザー性能を優先する場合は無効にしてください。",
+    updatedSessionAnimation: "更新されたセッションのアニメーション",
+    updatedSessionAnimationDescription:
+      "対応が必要なセッション（権限、対応が必要、失敗）がリスト内で注意を引く方法です。",
+    updatedSessionAnimationNone: "なし",
+    updatedSessionAnimationFade: "フェード",
+    updatedSessionAnimationGlow: "グロー",
+    updatedSessionAnimationSweep: "スイープ",
     multiPanePanels: "右パネル",
     multiPanePanelsDescription:
       "ファイルとソース管理のための右側パネルを表示（Web/タブレット）",
@@ -4938,6 +4945,8 @@ localTailscale: {
     showFlavorIcons: "AIプロバイダーアイコンを表示",
     showFlavorIconsDescription:
       "セッションアバターにAIプロバイダーアイコンを表示",
+    coloredUsageRings: "使用状況リングに色を付ける",
+    coloredUsageRingsDescription: "残量が減るにつれてリングが緑（満タン）から赤（空）に変わります",
     compactSessionView: "コンパクトセッション表示",
     compactSessionViewDescription:
       "アクティブなセッションをコンパクトなレイアウトで表示",

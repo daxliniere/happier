@@ -4521,6 +4521,13 @@ export const es: TranslationStructure = {
     backdropBlur: "Desenfoque de fondo",
     backdropBlurDescription:
       "Usa desenfoque de fondo detrás de modales y menús. Desactívalo para mejorar el rendimiento del navegador.",
+    updatedSessionAnimation: "Animación de sesión actualizada",
+    updatedSessionAnimationDescription:
+      "Cómo llama la atención en la lista una sesión que te necesita (permiso, acción requerida, error).",
+    updatedSessionAnimationNone: "Ninguna",
+    updatedSessionAnimationFade: "Fundido",
+    updatedSessionAnimationGlow: "Resplandor",
+    updatedSessionAnimationSweep: "Barrido",
     multiPanePanels: "Paneles derechos",
     multiPanePanelsDescription:
       "Muestra paneles laterales redimensionables para archivos y control de código fuente (web/tablet)",
@@ -4650,6 +4657,8 @@ export const es: TranslationStructure = {
     showFlavorIcons: "Mostrar íconos de proveedor de IA",
     showFlavorIconsDescription:
       "Mostrar íconos del proveedor de IA en los avatares de sesión",
+    coloredUsageRings: "Anillos de uso en color",
+    coloredUsageRingsDescription: "Los anillos pasan de verde (lleno) a rojo (vacío) a medida que se agota el uso",
     compactSessionView: "Vista compacta de sesiones",
     compactSessionViewDescription:
       "Mostrar sesiones activas en un diseño más compacto",

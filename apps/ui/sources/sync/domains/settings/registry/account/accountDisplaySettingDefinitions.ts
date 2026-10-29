@@ -218,6 +218,13 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'enum', privacy: 'safe', identityScope: 'person' },
     },
+    sessionListUpdatedSessionAnimation: {
+        schema: z.enum(['none', 'fade', 'glow', 'sweep']),
+        default: 'none',
+        description: 'How a session-list row that needs the person (permission, action required, failed) animates to get noticed',
+        storageScope: 'account',
+        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'enum', privacy: 'safe', identityScope: 'person' },
+    },
     mobileWorkspaceExperienceV1: {
         schema: z.enum(['classic', 'cockpit']),
         default: 'cockpit',

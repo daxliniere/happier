@@ -496,7 +496,35 @@ Messages are encrypted as `MessageContent` and then base64 encoded:
 }
 ```
 
+Development session metadata can also contain `nativeSessionAliasesV1` assignment
+history. The Claude runner captures an exact registration `sessionId` match with
+an explicit positive epoch-millisecond `nameSince`; `startedAt` alone cannot prove
+a name assignment. Codex captures its provider-assigned nickname from the exact
+owning thread's creation record through its session identity publisher; thread
+titles and parent spawn requests cannot establish that identity. The shared
+history and renderer accept provider-qualified evidence without assuming a
+particular alias spelling. Each entry records the provider session identity, alias, and
+the closed interval from assignment to last observation. Existing transcripts
+resolve references at their original authored timestamp, using current session
+titles and canonical navigation. Stored message text and option responses stay
+unchanged. Missing history, unknown timestamps, and ambiguous ownership leave the
+alias unresolved. Stopped sessions without captured evidence require surviving
+registration evidence before they can be recovered; this is not a claim that all
+historical aliases can be reconstructed.
+
+The development CLI exposes `session recover-aliases --provider <id> --snapshot
+<file> --observed-at <epoch-ms> --dry-run` through the normal
+`session.aliases.recover` Action. The snapshot contains a `registrations` array
+with `name`, `sessionId`, `nameSince`, and optional `startedAt`. Its original
+observation time is explicit; import time cannot extend the evidence. Recovery
+checks both archived and unarchived sessions, refuses an unreadable census or
+ambiguous provider identity, and rechecks identity during metadata conflict
+retries. Removing `--dry-run` writes through the existing mode-correct metadata
+updater. Account Action approvals still apply. Transcript messages are never
+rewritten.
+
 ### Agent state (encrypted)
+
 ```json
 {
   "controlledByUser": true,

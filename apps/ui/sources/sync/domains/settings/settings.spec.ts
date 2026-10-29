@@ -95,6 +95,20 @@ describe('settings', () => {
             expect(settings.sessionListNarrowWorkingIndicatorStyle).toBe('pulse');
         });
 
+        it('defaults the updated session animation to none', () => {
+            const settings = settingsParse({});
+
+            expect(settings.sessionListUpdatedSessionAnimation).toBe('none');
+        });
+
+        it.each(['fade', 'glow', 'sweep'] as const)('parses the %s updated session animation', (animation) => {
+            const settings = settingsParse({
+                sessionListUpdatedSessionAnimation: animation,
+            });
+
+            expect(settings.sessionListUpdatedSessionAnimation).toBe(animation);
+        });
+
         it('includes installables policy map by default', () => {
             const settings = settingsParse({});
             expect((settings as any).installablesPolicyByMachineId).toEqual({});

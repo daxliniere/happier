@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PermissionMode, ModelMode } from "@/sync/domains/permissions/permissionTypes";
 import { 
     CliUpdateFactsSchema,
+    NativeSessionAliasesV1Schema,
     createAgentRuntimeDescriptorV1Schema,
     createAcpConfigOptionOverridesV1Schema,
     createAcpSessionModeOverrideV1Schema,
@@ -58,6 +59,7 @@ const MetadataObjectSchema = z.object({
         targetWorkspaceRootPath: z.string().optional(),
     }).optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
+    nativeSessionAliasesV1: NativeSessionAliasesV1Schema.optional().catch(undefined),
     codexSessionId: z.string().optional(), // Codex session/conversation ID (uuid)
     codexBackendMode: z.enum(['mcp', 'acp', 'appServer']).optional(),
     agentRuntimeDescriptorV1: createAgentRuntimeDescriptorV1Schema(z).optional(),

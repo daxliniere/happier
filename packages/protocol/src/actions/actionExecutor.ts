@@ -43,6 +43,7 @@ import type { ActionsSettingsV1 } from './actionSettings.js';
 import { readPendingLocalId } from '../sessionMessages/pendingLocalId.js';
 import type { ReviewStartInput } from '../reviews/reviewStart.js';
 import type { AcpConfigOptionOverridesV1 } from '../sessionMetadata/metadataOverridesV1.js';
+import type { NativeSessionAliasAssignmentV1 } from '../sessionMetadata/nativeSessionAliasesV1.js';
 import type { ConnectedServiceBindingsV1 } from '../connect/connectedServiceBindings.js';
 import {
   PendingRequestedActionV1Schema,
@@ -281,6 +282,7 @@ export type ActionExecutorDeps = Readonly<{
     callerPermissionMode?: string | null;
   }>) => Promise<unknown>;
   sessionTitleSet?: (args: Readonly<{ sessionId: string; title: string; serverId?: string | null }>) => Promise<unknown>;
+  sessionAliasesRecover?: (args: Readonly<{ assignments: readonly NativeSessionAliasAssignmentV1[]; machineId?: string; dryRun?: boolean }>) => Promise<unknown>;
   sessionStop?: (args: Readonly<{ sessionId: string; serverId?: string | null }>) => Promise<SessionStopActionDependencyResult>;
   sessionPermissionModeSet?: (args: Readonly<{
     sessionId: string;
@@ -2290,6 +2292,15 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
           const failure = readActionExecuteFailure(res);
           if (failure) return { ok: false, ...failure };
           return { ok: true, result: res };
+        }
+
+        if (actionId === 'session.aliases.recover') {
+          if (!deps.sessionAliasesRecover) return { ok: false, errorCode: 'unsupported_action', error: 'unsupported_action:session.aliases.recover' };
+          const input = parsed.data as Parameters<NonNullable<ActionExecutorDeps['sessionAliasesRecover']>>[0];
+          const result = await deps.sessionAliasesRecover(input);
+          const failure = readActionExecuteFailure(result);
+          if (failure) return { ok: false, ...failure };
+          return { ok: true, result };
         }
 
         if (actionId === 'session.title.set') {

@@ -271,6 +271,13 @@ export const ACCOUNT_CORE_SETTING_DEFINITIONS = defineSettingDefinitions({
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
     },
+    coloredUsageRings: {
+        schema: z.boolean(),
+        default: true,
+        description: 'Colour usage indicator rings from green (full) to red (empty)',
+        storageScope: 'account',
+        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
+    },
     avatarStyle: {
         schema: AvatarStyleIdSchema,
         default: DEFAULT_AVATAR_STYLE_ID,

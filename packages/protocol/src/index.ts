@@ -1998,6 +1998,12 @@ export {
   type ProviderSessionInfoV1,
   createProviderSessionInfoV1Schema,
 } from './sessionMetadata/providerSessionInfoV1.js';
+export {
+  NativeSessionAliasAssignmentV1Schema,
+  NativeSessionAliasesV1Schema,
+  type NativeSessionAliasAssignmentV1,
+  type NativeSessionAliasesV1,
+} from './sessionMetadata/nativeSessionAliasesV1.js';
 
 export {
   WINDOWS_REMOTE_SESSION_LAUNCH_MODES,

@@ -21,6 +21,7 @@ import type {
   SessionTerminalMetadata,
   SessionMessageRole,
   ProviderSessionInfoV1,
+  NativeSessionAliasesV1,
   SessionRuntimeActivityState,
   SessionTranscriptObservationV1,
   SessionTranscriptObservationAckV1,
@@ -549,6 +550,7 @@ export type Metadata = {
   machineId?: string,
   sessionWorkspaceLocationV1?: SessionWorkspaceLocationV1,
   claudeSessionId?: string, // Claude Code session ID
+  nativeSessionAliasesV1?: NativeSessionAliasesV1,
   claudeTranscriptPath?: string | null, // Claude Code transcript path (hooks)
   claudeLastCheckpointId?: string | null, // Claude SDK file checkpoint UUID (remote)
   claudeLastAssistantUuid?: string | null, // Claude SDK assistant message UUID (resume anchoring)

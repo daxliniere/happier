@@ -4868,6 +4868,13 @@ export const it: TranslationStructure = {
     backdropBlur: "Sfocatura sfondo",
     backdropBlurDescription:
       "Usa la sfocatura dello sfondo dietro modali e menu. Disattivala per migliorare le prestazioni del browser.",
+    updatedSessionAnimation: "Animazione sessione aggiornata",
+    updatedSessionAnimationDescription:
+      "Come una sessione che ha bisogno di te (autorizzazione, azione richiesta, errore) attira l'attenzione nell'elenco.",
+    updatedSessionAnimationNone: "Nessuna",
+    updatedSessionAnimationFade: "Dissolvenza",
+    updatedSessionAnimationGlow: "Alone",
+    updatedSessionAnimationSweep: "Scorrimento",
     multiPanePanels: "Pannelli destri",
     multiPanePanelsDescription:
       "Mostra pannelli laterali ridimensionabili per file e controllo versione (web/tablet)",
@@ -4996,6 +5003,8 @@ export const it: TranslationStructure = {
     showFlavorIcons: "Mostra icone provider IA",
     showFlavorIconsDescription:
       "Mostra le icone del provider IA sugli avatar di sessione",
+    coloredUsageRings: "Anelli di utilizzo colorati",
+    coloredUsageRingsDescription: "Gli anelli passano da verde (pieno) a rosso (vuoto) man mano che l'uso cala",
     compactSessionView: "Vista sessioni compatta",
     compactSessionViewDescription:
       "Mostra le sessioni attive in un layout più compatto",

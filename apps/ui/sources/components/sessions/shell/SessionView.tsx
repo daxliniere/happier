@@ -193,6 +193,8 @@ import type { AgentActivityCounts } from '@/sync/domains/session/agentActivity/d
 import { hasSessionSubagentLaunchCards } from '@/agents/registry/sessionSubagentUiBehavior';
 import { useSurfaceAnchorPathname } from '@/components/sessions/shell/surface/sessionSurfaceAnchorPathname';
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
+import { useAgentPickerUsageGauges } from '@/components/sessions/agentPicker/useAgentPickerUsageGauges';
+import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { nowServerMs } from '@/sync/runtime/time';
 import { readSessionUiTelemetryNowMs } from '@/sync/runtime/performance/sessionUiTelemetry';
 import { syncPerformanceTelemetry } from '@/sync/runtime/syncPerformanceTelemetry';
@@ -3995,6 +3997,7 @@ function SessionViewLoaded({
         gaugeSource: providerUsageGaugeSource,
         displaySnapshotSource: providerUsageDisplaySnapshotSource,
         profileKey: connectedServiceQuotaProfileKey,
+        windowMode: sessionProviderUsageGaugeWindowMode,
     } = useProviderUsageGauge({
         providerId: liveComposerState.agentId,
         profileRef: connectedServiceQuotaProfileRef,
@@ -4004,6 +4007,24 @@ function SessionViewLoaded({
         sessionCheckNowSupported: usageLimitRecoveryCheckNowSupported,
         recoveryCredits: usageLimitRecoveryCredits,
     });
+    // Usage rings in the Agent picker rail. Quota is fetched for the other Agents only once the
+    // picker has been approached; the running Agent reuses the composer's own gauge.
+    const [agentPickerUsageDemanded, setAgentPickerUsageDemanded] = React.useState(false);
+    const signalAgentPickerUsageIntent = React.useCallback(() => {
+        setAgentPickerUsageDemanded(true);
+        inSessionAgentPicker.onAgentPickerIntent();
+    }, [inSessionAgentPicker.onAgentPickerIntent]);
+    const otherAgentUsageGauges = useAgentPickerUsageGauges({
+        entries: sessionAgentCatalogEntries,
+        accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
+        windowMode: sessionProviderUsageGaugeWindowMode,
+        demanded: agentPickerUsageDemanded,
+    });
+    const agentPickerUsageGaugesByOptionId = React.useMemo(() => {
+        const gauges = new Map(otherAgentUsageGauges);
+        if (providerUsageGauge) gauges.set(`engine:${liveComposerState.agentId}`, providerUsageGauge);
+        return gauges;
+    }, [liveComposerState.agentId, otherAgentUsageGauges, providerUsageGauge]);
     const providerUsageGaugeConnectedServiceProfileRef =
         providerUsageGaugeSource
         && isConnectedServiceBoundProviderUsageDisplaySource(providerUsageDisplaySnapshotSource)
@@ -6270,7 +6291,8 @@ function SessionViewLoaded({
                 agentType={liveComposerState.agentId}
                 armedContinuationTarget={armedContinuationTarget}
                 composeAgentPickerOptions={inSessionAgentPicker.composeAgentPickerOptions}
-                onAgentPickerIntent={inSessionAgentPicker.onAgentPickerIntent}
+                onAgentPickerIntent={signalAgentPickerUsageIntent}
+                agentPickerUsageGaugesByOptionId={agentPickerUsageGaugesByOptionId}
                 onAgentPickerVisibilityChange={inSessionAgentPicker.onAgentPickerVisibilityChange}
                 agentPickerSelectedOptionId={inSessionAgentPicker.agentPickerSelectedOptionId}
                 attachments={attachmentsUploadsEnabled ? agentInputAttachments : undefined}

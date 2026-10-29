@@ -48,6 +48,7 @@ export type ProviderUsageGaugeResult = Readonly<{
     gaugeSource: ConnectedServiceQuotaGaugeSource | null;
     displaySnapshotSource: ProviderUsageDisplaySnapshotSource | null;
     profileKey: string | null;
+    windowMode: ConnectedServiceQuotaGaugeWindowMode;
 }>;
 
 const EMPTY_RECORD_IDS: readonly string[] = [];
@@ -214,5 +215,6 @@ export function useProviderUsageGauge(params: Readonly<{
         gaugeSource,
         displaySnapshotSource,
         profileKey,
-    }), [displaySnapshotSource, gauge, gaugeSource, profileKey]);
+        windowMode,
+    }), [displaySnapshotSource, gauge, gaugeSource, profileKey, windowMode]);
 }
