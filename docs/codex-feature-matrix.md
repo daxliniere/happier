@@ -6,6 +6,18 @@ This document is an implementation inventory for the current low-level Codex int
 
 In development source, Direct discovery excludes Codex's internal Guardian approval-review sessions before paging and searching. Both rollout discovery and app-server listing use `isCodexGuardianReviewSource` to recognize the vendor source metadata; session titles do not control visibility. Ordinary review sessions and spawned coding agents retain their existing visibility. This is a discovery filter, so native session files and existing session links are preserved.
 
+Direct listing keeps the last successful app-server thread list per Codex home and environment. A listing first waits at most the list budget for app-server; a slower app-server listing continues in the background under the canonical app-server startup/request budgets. Operators can bound the entire refresh with `HAPPIER_CODEX_DIRECT_SESSIONS_APP_SERVER_REFRESH_TIMEOUT_MS`; cancellation includes initialization and subprocess cleanup. Later listings use its result immediately while one shared refresh runs when the result is older than 5 s. Activity is derived at read time. A failed refresh is file-logged and drops the snapshot, so subsequent rollout fallback listings report incompleteness until app-server recovery. Rollout discovery is unchanged and still fills in sessions app-server does not report.
+
+Development source connects to a running native daemon through Codex's raw proxy
+and performs the control socket's WebSocket handshake and framing in the existing
+app-server client. The native proxy owns platform-specific socket access. Direct
+Unix WebSocket clients share the same frame reader and character-budget policy;
+cleanup disposes the WebSocket and any proxy process through their existing owners.
+WebSocket transports retain the library's existing 100 MiB message ceiling.
+Exceeding it fails the connection; an oversized frame is rejected from its header
+before receiving its body. Within that transport boundary, the JSON reader rejects
+oversized responses by request so the same client can issue a lean recovery read.
+
 - `supported`: primary or fully wired path
 - `partial`: works, but only on some transports or with notable gaps
 - `legacy`: still wired, but no longer the preferred path
