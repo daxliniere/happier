@@ -1313,6 +1313,7 @@ export const pt: TranslationStructure = {
     send: "Enviar",
     attach: "Anexar",
     addImage: "Adicionar imagem",
+    takePhoto: "Tirar foto",
     addFile: "Adicionar arquivo",
     linkFile: "Vincular arquivo",
     files: "Arquivos",
@@ -3380,6 +3381,8 @@ export const pt: TranslationStructure = {
         `Ignorados ${count} ${plural({ count, singular: "arquivo", plural: "arquivos" })} que excedem o tamanho máximo de anexo.`,
       noClipboardImageTitle: "Nenhuma imagem na área de transferência",
       noClipboardImageBody: "Copie uma imagem e cole-a como anexo.",
+      cameraPermissionDeniedTitle: "Acesso à câmera necessário",
+      cameraPermissionDeniedBody: "Permita o acesso à câmera nas configurações do dispositivo para tirar uma foto.",
     },
   },
 

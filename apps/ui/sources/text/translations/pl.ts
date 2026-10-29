@@ -1286,6 +1286,7 @@ export const pl: TranslationStructure = {
     send: "Wyślij",
     attach: "Dołącz",
     addImage: "Dodaj obraz",
+    takePhoto: "Zrób zdjęcie",
     addFile: "Dodaj plik",
     linkFile: "Połącz plik",
     files: "Pliki",
@@ -3287,6 +3288,8 @@ export const pl: TranslationStructure = {
         `Pominięto ${count} ${plural({ count, one: "plik", few: "pliki", many: "plików" })}, które przekraczają maksymalny rozmiar załącznika.`,
       noClipboardImageTitle: "Brak obrazu w schowku",
       noClipboardImageBody: "Skopiuj obraz, a potem wklej go jako załącznik.",
+      cameraPermissionDeniedTitle: "Wymagany dostęp do aparatu",
+      cameraPermissionDeniedBody: "Zezwól na dostęp do aparatu w ustawieniach urządzenia, aby zrobić zdjęcie.",
     },
   },
 

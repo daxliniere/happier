@@ -1246,6 +1246,7 @@ export const ja: TranslationStructure = {
     send: "送信",
     attach: "添付",
     addImage: "画像を追加",
+    takePhoto: "写真を撮る",
     addFile: "ファイルを追加",
     linkFile: "ファイルをリンク",
     files: "ファイル",
@@ -3558,6 +3559,8 @@ localTailscale: {
         `最大添付サイズを超えるため、${count} 件のファイルをスキップしました。`,
       noClipboardImageTitle: "クリップボードに画像がありません",
       noClipboardImageBody: "画像をコピーしてから、添付ファイルとして貼り付けてください。",
+      cameraPermissionDeniedTitle: "カメラへのアクセスが必要です",
+      cameraPermissionDeniedBody: "写真を撮るには、デバイスの設定でカメラへのアクセスを許可してください。",
     },
   },
 

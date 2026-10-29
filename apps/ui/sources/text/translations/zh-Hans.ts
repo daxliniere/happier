@@ -1243,6 +1243,7 @@ export const zhHans: TranslationStructure = {
     send: "发送",
     attach: "附加",
     addImage: "添加图片",
+    takePhoto: "拍照",
     addFile: "添加文件",
     linkFile: "链接文件",
     files: "文件",
@@ -3177,6 +3178,8 @@ export const zhHans: TranslationStructure = {
         `已跳过 ${count} 个超过最大附件大小的文件。`,
       noClipboardImageTitle: "剪贴板中没有图片",
       noClipboardImageBody: "请先复制图片，然后将其粘贴为附件。",
+      cameraPermissionDeniedTitle: "需要相机权限",
+      cameraPermissionDeniedBody: "请在设备设置中允许访问相机以拍照。",
     },
   },
 

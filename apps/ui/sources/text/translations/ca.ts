@@ -1205,6 +1205,7 @@ export const ca: TranslationStructure = {
         send: 'Envia',
         attach: 'Adjunta',
         addImage: 'Afegeix imatge',
+        takePhoto: 'Fes una foto',
         addFile: 'Afegeix fitxer',
         linkFile: 'Enllaça fitxer',
         files: 'Fitxers',
@@ -3105,6 +3106,8 @@ export const ca: TranslationStructure = {
                 `S\'han omès ${count} ${plural({ count, singular: 'fitxer', plural: 'fitxers' })} que superen la mida màxima d\'adjunt.`,
             noClipboardImageTitle: 'No hi ha cap imatge al porta-retalls',
             noClipboardImageBody: 'Copia una imatge i enganxa-la com a adjunt.',
+            cameraPermissionDeniedTitle: 'Cal accés a la càmera',
+            cameraPermissionDeniedBody: 'Permet l\'accés a la càmera a la configuració del dispositiu per fer una foto.',
         },
     },
 

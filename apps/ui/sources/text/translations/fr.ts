@@ -1106,6 +1106,7 @@ export const fr: TranslationStructure = {
         send: 'Envoyer',
         attach: 'Joindre',
         addImage: 'Ajouter une image',
+        takePhoto: 'Prendre une photo',
         addFile: 'Ajouter un fichier',
         linkFile: 'Lier un fichier',
         files: 'Fichiers',
@@ -3019,6 +3020,8 @@ export const fr: TranslationStructure = {
                 `Ignorés : ${count} ${plural({ count, singular: 'fichier', plural: 'fichiers' })} au-delà de la taille max des pièces jointes.`,
             noClipboardImageTitle: 'Aucune image dans le presse-papiers',
             noClipboardImageBody: 'Copie une image, puis colle-la comme pièce jointe.',
+            cameraPermissionDeniedTitle: 'Accès à l\'appareil photo requis',
+            cameraPermissionDeniedBody: 'Autorise l\'accès à l\'appareil photo dans les réglages de l\'appareil pour prendre une photo.',
         },
     },
 
