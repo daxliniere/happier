@@ -7551,6 +7551,84 @@ describe('startDaemon spawn resume wiring (integration)', () => {
     }
   });
 
+  it('refuses a disabled Claude resume before endpoint recovery can retire its terminal attachment', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    const refreshEnvOriginal = process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED;
+    process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED = 'false';
+    const { configuration } = await import('@/configuration');
+    const originalHome = configuration.happyHomeDir;
+    const fixtureHome = await mkdtemp(join(tmpdir(), 'happier-disabled-claude-recovery-'));
+    Object.defineProperty(configuration, 'happyHomeDir', { value: fixtureHome });
+    const attachments = await vi.importActual<typeof import('@/terminal/attachment/terminalAttachmentInfo')>('@/terminal/attachment/terminalAttachmentInfo');
+    const sessionId = 'sess_disabled_claude_recovery';
+    const attachmentId = 'attachment-disabled-claude' as NonNullable<
+      import('@/integrations/terminalHost/_types').TerminalHostHandle['attachmentId']
+    >;
+    let run: Promise<void> | null = null;
+    try {
+      vi.mocked(fetchSessionByIdCompat).mockResolvedValueOnce(createSessionRecordFixture({
+        id: sessionId,
+        encryptionMode: 'plain',
+        metadata: JSON.stringify({ flavor: 'claude', claudeSessionId: 'vendor-disabled', path: '/tmp' }),
+        dataEncryptionKey: null,
+      }));
+      await attachments.writeTerminalAttachmentInfo({ happyHomeDir: fixtureHome, sessionId, attachmentId,
+        handle: {
+          attachmentId, kind: 'zellij', sessionName: 'disabled-claude-zellij', paneId: 'terminal_2',
+          socketDir: '/tmp/disabled-claude-zellij',
+          attachMetadata: { attachStrategy: 'terminal_host', topology: 'shared', locality: 'same_machine', liveProbe: 'required' },
+        },
+        terminal: { mode: 'zellij', zellij: { sessionName: 'disabled-claude-zellij', paneId: 'terminal_2', socketDirV1: '/tmp/disabled-claude-zellij' } } });
+      claudeEndpointRecoveryBoundaryMocks.readTerminalAttachmentInfo.mockImplementation(attachments.readTerminalAttachmentInfo);
+      claudeEndpointRecoveryBoundaryMocks.removeTerminalAttachmentInfo.mockImplementation(attachments.removeTerminalAttachmentInfo);
+      claudeEndpointRecoveryBoundaryMocks.evaluateLiveness.mockResolvedValue({ paneAlive: false, paneDead: true, observedAt: 1 });
+      const hosts = await import('@/integrations/terminalHost/defaultRegistry');
+      const adapters = await hosts.createDefaultTerminalHostRegistry();
+      vi.spyOn(adapters.zellij!, 'evaluateLiveness').mockImplementation(claudeEndpointRecoveryBoundaryMocks.evaluateLiveness);
+      vi.spyOn(adapters.zellij!, 'dispose').mockImplementation(claudeEndpointRecoveryBoundaryMocks.dispose);
+      vi.spyOn(hosts, 'createDefaultTerminalHostRegistry').mockResolvedValue(adapters);
+
+      const { startDaemon } = await import('./startDaemon');
+      run = startDaemon();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const spawnSession = await waitForSpawnSessionRegistration();
+      setActiveAccountSettingsSnapshot({
+        source: 'network', settingsVersion: Date.now(), loadedAtMs: Date.now(), settingsSecretsReadKeys: [],
+        settings: accountSettingsParse({ backendEnabledByTargetKey: { 'agent:claude': false } }),
+      });
+
+      const result = await spawnSession({
+        directory: '/tmp',
+        backendTarget: { kind: 'builtInAgent', agentId: 'claude' },
+        existingSessionId: sessionId,
+        token: 't',
+      });
+
+      expect(result).toMatchObject({ type: 'error', errorCode: SPAWN_SESSION_ERROR_CODES.BACKEND_DISABLED });
+      expect(spawnHappyCLI).not.toHaveBeenCalled();
+      expect(claudeEndpointRecoveryBoundaryMocks.dispose).not.toHaveBeenCalled();
+      await expect(attachments.readTerminalAttachmentInfo({ happyHomeDir: fixtureHome, sessionId }))
+        .resolves.toMatchObject({ attachmentId });
+    } finally {
+      if (run) {
+        harness.requestShutdown('happier-cli');
+        await run;
+      }
+      if (refreshEnvOriginal === undefined) delete process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED;
+      else process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED = refreshEnvOriginal;
+      claudeEndpointRecoveryBoundaryMocks.readTerminalAttachmentInfo.mockReset();
+      claudeEndpointRecoveryBoundaryMocks.readTerminalAttachmentInfo.mockResolvedValue(null);
+      claudeEndpointRecoveryBoundaryMocks.removeTerminalAttachmentInfo.mockReset();
+      claudeEndpointRecoveryBoundaryMocks.removeTerminalAttachmentInfo.mockResolvedValue(false);
+      claudeEndpointRecoveryBoundaryMocks.evaluateLiveness.mockReset();
+      claudeEndpointRecoveryBoundaryMocks.evaluateLiveness.mockResolvedValue({ paneAlive: true, observedAt: 1 });
+      claudeEndpointRecoveryBoundaryMocks.dispose.mockClear();
+      Object.defineProperty(configuration, 'happyHomeDir', { value: originalHome });
+      await rm(fixtureHome, { recursive: true, force: true });
+      await restoreDaemonExitBoundary(exitSpy);
+    }
+  });
+
   it('returns INVALID_REQUEST when the existing session cannot be fetched for resume', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
     const refreshEnvOriginal = process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED;

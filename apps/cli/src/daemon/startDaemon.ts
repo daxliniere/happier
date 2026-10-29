@@ -3317,6 +3317,16 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
               let effectiveResume = normalizedResume;
               const catalogAgentId = resolveCatalogAgentIdFromBackendTarget(backendTarget);
 
+              // A disabled backend never gets a new runner: fresh, forked/replayed, or resumed.
+              // Live runners were already adopted above and are not relaunched. Refuse before any
+              // existing-session recovery can retire terminal state for a launch that will not happen.
+              const launchAccountSettings = getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined;
+              const backendDisabledError = resolveBackendDisabledSpawnError({
+                backendTarget: backendTarget ?? { kind: 'builtInAgent', agentId: catalogAgentId },
+                settings: launchAccountSettings,
+              });
+              if (backendDisabledError) return backendDisabledError;
+
               let sessionAttachPayload: import('@/agent/runtime/sessionAttachPayload').SessionAttachFilePayload | null = null;
               let existingSessionPersistedMetadata: Record<string, unknown> | null = null;
               if (normalizedExistingSessionId) {
@@ -3488,15 +3498,6 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                   errorMessage: environmentVariablesValidation.error,
                 };
               }
-
-              // A disabled backend never gets a new runner: fresh, forked/replayed, or resumed.
-              // Live runners were already adopted above and are not relaunched.
-              const launchAccountSettings = getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined;
-              const backendDisabledError = resolveBackendDisabledSpawnError({
-                backendTarget: backendTarget ?? { kind: 'builtInAgent', agentId: catalogAgentId },
-                settings: launchAccountSettings,
-              });
-              if (backendDisabledError) return backendDisabledError;
 
               // Configured ACP resume is catalog-declared policy plus ACP initialize negotiation.
               // Never turn an inactive resume into a fresh provider session when either proof is absent.
