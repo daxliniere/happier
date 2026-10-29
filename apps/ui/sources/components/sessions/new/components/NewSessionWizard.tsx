@@ -170,6 +170,7 @@ export interface NewSessionWizardFooterProps {
     emptyAutocompleteKinds: React.ComponentProps<typeof AgentInput>['autocompleteKinds'];
     emptyAutocompleteSuggestions: React.ComponentProps<typeof AgentInput>['autocompleteSuggestions'];
     connectionStatus?: React.ComponentProps<typeof AgentInput>['connectionStatus'];
+    providerUsageGauge?: React.ComponentProps<typeof AgentInput>['providerUsageGauge'];
     machinePopover?: React.ComponentProps<typeof AgentInput>['machinePopover'];
     pathPopover?: React.ComponentProps<typeof AgentInput>['pathPopover'];
     resumeSessionId?: string | null;
@@ -412,6 +413,7 @@ export const NewSessionWizard = React.memo(function NewSessionWizard(props: NewS
         emptyAutocompleteKinds,
         emptyAutocompleteSuggestions,
         connectionStatus,
+        providerUsageGauge,
         resumeSessionId,
         resumeIsChecking,
         inputMaxHeight,
@@ -612,6 +614,7 @@ export const NewSessionWizard = React.memo(function NewSessionWizard(props: NewS
                                         acpConfigOptionOverridesOverride={props.agent.acpConfigOptionOverrides ?? null}
                                         onSessionConfigOptionChange={props.agent.setSessionConfigOptionOverride}
                                         connectionStatus={connectionStatus}
+                                        providerUsageGauge={providerUsageGauge}
                                         statusBadges={props.statusBadges}
                                         statusTrailingActions={props.statusTrailingActions}
                                         showStatusPermissionMode={false}

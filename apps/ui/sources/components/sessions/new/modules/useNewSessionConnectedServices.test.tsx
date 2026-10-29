@@ -1,5 +1,5 @@
 import { act } from 'react-test-renderer';
-import { renderHook } from '@/dev/testkit';
+import { flushHookEffects, renderHook } from '@/dev/testkit';
 import type { AgentInputExtraActionChip } from '@/components/sessions/agentInput/agentInputContracts';
 import type { ConnectedServicesDefaultAuthByAgentIdV1 } from '@happier-dev/protocol';
 import * as React from 'react';
@@ -91,8 +91,37 @@ vi.mock('@/hooks/server/useFeatureEnabled', () => ({
     useFeatureEnabled: (...args: any[]) => useFeatureEnabledMock(...args),
 }));
 
-vi.mock('@/sync/store/hooks', () => ({
-    useProfile: () => profileState.current,
+vi.mock('@/sync/store/hooks', async () => {
+    const { createUseSettingMock } = await import('@/dev/testkit/mocks/storage');
+    const { settingsDefaults } = await import('@/sync/domains/settings/settings');
+    return {
+        useProfile: () => profileState.current,
+        useSetting: createUseSettingMock({ fallback: (key) => settingsDefaults[key] }),
+    };
+});
+
+// Network boundaries behind the provider usage gauge: the account encryption mode and the
+// connected-service quota snapshot endpoints. Everything between them and the hook stays real.
+const quotaApiState = vi.hoisted(() => ({
+    plainSnapshot: null as unknown,
+    // Stable like the real auth context: credentials-dependent queries re-run when the identity changes.
+    auth: { credentials: { token: 't', secret: Buffer.from(new Uint8Array(32).fill(3)).toString('base64url') } },
+}));
+
+vi.mock('@/auth/context/AuthContext', () => ({
+    useAuth: () => quotaApiState.auth,
+}));
+
+vi.mock('@/sync/api/account/apiAccountEncryptionMode', () => ({
+    fetchAccountEncryptionMode: async () => ({ mode: 'plain', updatedAt: 0 }),
+}));
+
+vi.mock('@/sync/api/account/apiConnectedServicesQuotasV2', () => ({
+    getConnectedServiceQuotaSnapshotSealed: async () => null,
+}));
+
+vi.mock('@/sync/api/account/apiConnectedServicesQuotasV3', () => ({
+    getConnectedServiceQuotaSnapshotPlain: async () => quotaApiState.plainSnapshot,
 }));
 
 function requireCollapsedContentPopover(chip: AgentInputExtraActionChip | null) {
@@ -104,7 +133,9 @@ function requireCollapsedContentPopover(chip: AgentInputExtraActionChip | null) 
 }
 
 describe('useNewSessionConnectedServices', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+        const { __resetConnectedServiceQuotaSnapshotStore } = await import('@/sync/domains/connectedServices/connectedServiceQuotaSnapshotStore');
+        __resetConnectedServiceQuotaSnapshotStore();
         modalShowMock.mockReset();
         useFeatureEnabledMock.mockReset();
         useFeatureEnabledMock.mockReturnValue(true);
@@ -295,6 +326,63 @@ describe('useNewSessionConnectedServices', () => {
         });
 
         await hook.unmount();
+    });
+
+    it('meters the selected connected account quota for the new-session composer', async () => {
+        const { ConnectedServiceQuotaSnapshotV1Schema } = await import('@happier-dev/protocol');
+        quotaApiState.plainSnapshot = ConnectedServiceQuotaSnapshotV1Schema.parse({
+            v: 1,
+            serviceId: 'anthropic',
+            profileId: 'work',
+            fetchedAt: Date.now(),
+            staleAfterMs: 60_000,
+            planLabel: 'Pro',
+            accountLabel: null,
+            meters: [{
+                meterId: 'weekly',
+                label: 'Weekly',
+                used: 40,
+                limit: 100,
+                unit: 'count',
+                utilizationPct: null,
+                resetsAt: null,
+                status: 'ok',
+                confidence: 'exact',
+                details: { limitCategory: 'quota' },
+            }],
+        });
+        const { useNewSessionConnectedServices } = await import('./useNewSessionConnectedServices');
+
+        const hook = await renderHook(() =>
+            useNewSessionConnectedServices({
+                agentCore: {
+                    connectedServices: {
+                        supportedServiceIds: ['anthropic'],
+                        supportedKindsByServiceId: { anthropic: ['token'] },
+                    },
+                },
+                agentOptionState: {
+                    connectedServicesBindingsByServiceId: {
+                        anthropic: { source: 'connected', selection: 'profile', profileId: 'work' },
+                    },
+                },
+                modelId: null,
+                settings: {
+                    connectedServicesProfileLabelByKey: {},
+                    connectedServicesDefaultProfileByServiceId: {},
+                    connectedServicesDefaultAuthByAgentIdV1: { v: 1, bindingsByAgentId: {} },
+                },
+                targetServerId: null,
+                router: { push: vi.fn() },
+                setAgentOptionStateForCurrentAgent: vi.fn(),
+            }),
+        );
+        await flushHookEffects({ cycles: 5, turns: 5 });
+
+        expect(hook.getCurrent().providerUsageGauge?.remainingPct).toBe(60);
+
+        await hook.unmount();
+        quotaApiState.plainSnapshot = null;
     });
 
     it('uses spawn-scoped feature gating so the chip stays available for the selected target server', async () => {
