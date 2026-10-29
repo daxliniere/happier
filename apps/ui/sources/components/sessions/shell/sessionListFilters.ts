@@ -8,6 +8,7 @@ export type SessionListHeaderFilterInput = Readonly<{
     selectedTags: ReadonlyArray<string>;
     searchableTextBySessionKey: Readonly<Record<string, string>>;
     memoryMatchedSessionKeys?: ReadonlySet<string>;
+    controlsAnchorKey?: string | null;
 }>;
 
 export type SessionListHeaderFilterState = SessionListHeaderFilterInput & Readonly<{
@@ -82,26 +83,29 @@ export function hasActiveSessionListHeaderFilters(input: Pick<SessionListHeaderF
     return input.searchQuery.trim().length > 0 || input.selectedTags.length > 0;
 }
 
-// Main sections (and the server headings above them) always stay visible while filtering, even when empty.
-function isAlwaysVisibleSessionListHeader(item: Extract<SessionListViewItem, { type: 'header' }>): boolean {
-    return item.headerKind === 'server' || isSessionListPrimaryHeaderKind(item.headerKind);
+function isPrimarySessionListHeader(item: Extract<SessionListViewItem, { type: 'header' }>): boolean {
+    return isSessionListPrimaryHeaderKind(item.headerKind);
 }
 
-// Nesting level of a sub-heading: project/date/shared headings are 0, folders sit below them by depth.
-function resolveSubHeaderLevel(item: Extract<SessionListViewItem, { type: 'header' }>): number {
-    return item.headerKind === 'folder' ? 1 + (item.depth ?? 0) : 0;
+export function getSessionListHeaderControlsAnchorKey(item: Extract<SessionListViewItem, { type: 'header' }>): string {
+    const groupKey = String(item.groupKey ?? '').trim();
+    if (groupKey) return groupKey;
+    return [
+        String(item.headerKind ?? '').trim(),
+        String(item.serverId ?? '').trim(),
+        String(item.title ?? '').trim(),
+    ].join('\u0001');
 }
 
-// Level of the sub-heading a session belongs to. Folder sessions carry folderDepth = folder depth + 1.
-function resolveSessionParentLevel(item: Extract<SessionListViewItem, { type: 'session' }>): number {
-    return typeof item.folderDepth === 'number' && item.folderDepth > 0 ? item.folderDepth : 0;
+function ensureHeaderIncludedInOriginalOrder(
+    items: ReadonlyArray<SessionListViewItem>,
+    result: ReadonlyArray<SessionListViewItem>,
+    header: Extract<SessionListViewItem, { type: 'header' }>,
+): SessionListViewItem[] {
+    if (result.includes(header)) return result as SessionListViewItem[];
+    const resultSet = new Set(result);
+    return items.filter((item) => item === header || resultSet.has(item));
 }
-
-type OpenSubHeader = {
-    header: Extract<SessionListViewItem, { type: 'header' }>;
-    level: number;
-    shown: boolean;
-};
 
 export function filterSessionListItemsForHeaderControls(
     items: ReadonlyArray<SessionListViewItem>,
@@ -112,29 +116,23 @@ export function filterSessionListItemsForHeaderControls(
     const searchTokens = normalizeSearchTokens(input.searchQuery);
     const selectedTags = new Set(input.selectedTags);
     const result: SessionListViewItem[] = [];
-    // Sub-headings on the path to the current row; each is shown only once a session beneath it matches.
-    const openSubHeaders: OpenSubHeader[] = [];
-    const closeSubHeadersFrom = (level: number) => {
-        while (openSubHeaders.length > 0 && openSubHeaders[openSubHeaders.length - 1]!.level >= level) {
-            openSubHeaders.pop();
-        }
-    };
+    let pendingHeaders: Extract<SessionListViewItem, { type: 'header' }>[] = [];
+    let fallbackHeader: Extract<SessionListViewItem, { type: 'header' }> | null = null;
+    let anchorHeader: Extract<SessionListViewItem, { type: 'header' }> | null = null;
 
     for (const item of items) {
         if (item.type === 'header') {
-            if (isAlwaysVisibleSessionListHeader(item)) {
-                openSubHeaders.length = 0;
-                result.push(item);
+            if (isPrimarySessionListHeader(item)) {
+                fallbackHeader ??= item;
+                if (input.controlsAnchorKey && getSessionListHeaderControlsAnchorKey(item) === input.controlsAnchorKey) {
+                    anchorHeader = item;
+                }
+                pendingHeaders = [item];
             } else {
-                const level = resolveSubHeaderLevel(item);
-                closeSubHeadersFrom(level);
-                openSubHeaders.push({ header: item, level, shown: false });
+                pendingHeaders.push(item);
             }
             continue;
         }
-
-        // A session closes any deeper folder headings listed before it (child folders precede parent sessions).
-        closeSubHeadersFrom(resolveSessionParentLevel(item) + 1);
 
         const key = buildSessionKey(item);
         if (
@@ -144,13 +142,15 @@ export function filterSessionListItemsForHeaderControls(
             continue;
         }
 
-        for (const open of openSubHeaders) {
-            if (open.shown) continue;
-            open.shown = true;
-            result.push(open.header);
+        if (pendingHeaders.length > 0) {
+            result.push(...pendingHeaders);
+            pendingHeaders = [];
         }
         result.push(item);
     }
 
-    return result;
+    const preservedHeader = anchorHeader ?? fallbackHeader;
+    if (!preservedHeader) return result;
+    if (result.length === 0) return [preservedHeader];
+    return ensureHeaderIncludedInOriginalOrder(items, result, preservedHeader);
 }
