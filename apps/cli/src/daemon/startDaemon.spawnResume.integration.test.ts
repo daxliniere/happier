@@ -5508,6 +5508,11 @@ describe('startDaemon spawn resume wiring (integration)', () => {
       });
       expect(runtimeStatus.plannedRestart.disabledReason).not.toBe('missing_resume_identity');
       expect(trackedSessionCapture.current.get(12345)?.vendorResumeId).toBe('vendor-codex-fresh');
+      // Disabling a backend only refuses new runners; a live runner is still adopted.
+      setActiveAccountSettingsSnapshot({
+        source: 'network', settingsVersion: Date.now(), loadedAtMs: Date.now(), settingsSecretsReadKeys: [],
+        settings: accountSettingsParse({ backendEnabledByTargetKey: { 'agent:codex': false } }),
+      });
 
       const result = await spawnSession({
         directory: '/tmp',
