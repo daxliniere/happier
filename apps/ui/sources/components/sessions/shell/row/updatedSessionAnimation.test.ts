@@ -19,7 +19,14 @@ describe('resolveUpdatedAnimationTone', () => {
         expect(resolveUpdatedAnimationTone(state)).toBe(tone);
     });
 
-    it.each<SessionRowAttentionState>(['quiet', 'unread', 'pending', 'working', 'ready'])(
+    it.each<SessionRowAttentionState>(['unread', 'ready'])(
+        'colours %s light blue: an unseen update that needs no input',
+        (state) => {
+            expect(resolveUpdatedAnimationTone(state)).toBe('info');
+        },
+    );
+
+    it.each<SessionRowAttentionState>(['quiet', 'pending', 'working'])(
         'stays still for %s',
         (state) => {
             expect(resolveUpdatedAnimationTone(state)).toBeNull();
@@ -51,6 +58,8 @@ describe('resolveUpdatedAnimationPalette', () => {
     });
 
     it('takes the tone colour from the theme state roles', () => {
+        expect(resolveUpdatedAnimationPalette(lightTheme, 'info').toneColor).toBe(lightTheme.colors.state.info.foreground);
+        expect(resolveUpdatedAnimationPalette(darkTheme, 'info').toneColor).toBe(darkTheme.colors.state.info.foreground);
         expect(resolveUpdatedAnimationPalette(lightTheme, 'warning').toneColor).toBe(lightTheme.colors.state.warning.foreground);
         expect(resolveUpdatedAnimationPalette(lightTheme, 'danger').toneColor).toBe(lightTheme.colors.state.danger.foreground);
     });

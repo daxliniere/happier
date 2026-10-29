@@ -7,13 +7,16 @@ import type { SessionRowAttentionState } from './resolveSessionRowPresentation';
  * and in which colour, is decided here against that state rather than re-derived from the session.
  */
 export type UpdatedSessionAnimation = 'none' | 'fade' | 'glow' | 'sweep';
-export type UpdatedAnimationTone = 'warning' | 'danger';
+export type UpdatedAnimationTone = 'warning' | 'danger' | 'info';
 
 export function normalizeUpdatedSessionAnimation(value: unknown): UpdatedSessionAnimation {
     return value === 'fade' || value === 'glow' || value === 'sweep' ? value : 'none';
 }
 
-/** Waiting on the person is orange; failed is red; everything else stays still. */
+/**
+ * Waiting on the person is orange; failed is red; an unseen update that needs no input (unread, or
+ * ready for review) is light blue; everything else stays still.
+ */
 export function resolveUpdatedAnimationTone(attentionState: SessionRowAttentionState): UpdatedAnimationTone | null {
     switch (attentionState) {
         case 'permission_required':
@@ -21,6 +24,9 @@ export function resolveUpdatedAnimationTone(attentionState: SessionRowAttentionS
             return 'warning';
         case 'failed':
             return 'danger';
+        case 'unread':
+        case 'ready':
+            return 'info';
         default:
             return null;
     }
@@ -46,7 +52,9 @@ export type UpdatedAnimationPalette = Readonly<{
 export function resolveUpdatedAnimationPalette(theme: Theme, tone: UpdatedAnimationTone): UpdatedAnimationPalette {
     const toneColor = tone === 'danger'
         ? theme.colors.state.danger.foreground
-        : theme.colors.state.warning.foreground;
+        : tone === 'info'
+            ? theme.colors.state.info.foreground
+            : theme.colors.state.warning.foreground;
     return {
         restSurface: theme.colors.surface.base,
         invertedSurface: theme.colors.text.primary,

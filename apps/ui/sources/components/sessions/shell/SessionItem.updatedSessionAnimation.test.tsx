@@ -174,9 +174,12 @@ describe('SessionItem updated session animation', () => {
     });
 
     const waiting = ['permission_required', 'action_required', 'failed'] as const;
+    // An unseen update that needs no input is drawn too, in light blue.
+    const unseen = ['unread', 'ready'] as const;
+    const animated = [...waiting, ...unseen] as const;
     const styles = ['fade', 'glow', 'sweep'] as const;
 
-    it.each(styles.flatMap((animation) => waiting.map((rowState) => [animation, rowState] as const)))(
+    it.each(styles.flatMap((animation) => animated.map((rowState) => [animation, rowState] as const)))(
         'animates a %s row for %s',
         async (animation, rowState) => {
             const screen = await renderRow(rowState, animation);
@@ -195,7 +198,7 @@ describe('SessionItem updated session animation', () => {
         expect(screen.findByTestId(LAYER_TEST_ID)).toBeNull();
     });
 
-    it.each(['working', 'quiet', 'unread', 'ready'] as const)('never animates a %s row', async (rowState) => {
+    it.each(['working', 'quiet'] as const)('never animates a %s row', async (rowState) => {
         const screen = await renderRow(rowState, 'glow');
 
         expect(screen.findByTestId(LAYER_TEST_ID)).toBeNull();
