@@ -1,3 +1,7 @@
+import { resolveAccountThemeProfileView, type ThemeProfileView } from '../domains/settings/themeProfiles';
+import type { ThemeProfilesLocalStateV1 } from '@/theme/profiles/themeProfileTypes';
+import { applyThemeProfilesFromUi } from './settingsWriters';
+import { loadPendingAccountSettingsState } from '../domains/state/accountSettingsPersistence';
 import React from 'react';
 import type { SessionMessagesTailBoundary } from '@/sync/runtime/sessionMessagesTailDiscontinuity';
 import { useShallow } from 'zustand/react/shallow';
@@ -85,7 +89,7 @@ import {
 } from '../domains/session/subagents/subagentSourceMessageDetection';
 import { readExecutionRunResultStatus } from '../domains/session/subagents/executionRuns/executionRunSubagentStatus';
 import {
-  compareTranscriptMessagesOldestFirst,
+  sortTranscriptMessagesOldestFirst,
   normalizeTranscriptSeq,
 } from '../domains/messages/transcriptOrdering';
 import { readStoredSessionMessagesReadProjectionFromStateLike } from '../domains/messages/readStoredSessionMessages';
@@ -511,7 +515,7 @@ export function useSessionSubagentSourceMessages(sessionId: string): readonly Me
     const ids = session.messageIdsOldestFirst;
     const orderedMessages = Array.isArray(ids) && ids.length > 0
       ? ids.map((id) => session.messagesById[id]).filter((message): message is Message => message != null)
-      : Object.values(session.messagesById ?? {}).sort(compareTranscriptMessagesOldestFirst);
+      : sortTranscriptMessagesOldestFirst(Object.values(session.messagesById ?? {}));
 
     for (const message of orderedMessages) {
       if (!shouldIncludeSubagentSourceMessage(message)) continue;
@@ -575,7 +579,7 @@ export function useSessionMessages(
           return cached.messages as Message[];
         }
 
-        const out = Object.values(messagesById).slice().sort(compareTranscriptMessagesOldestFirst);
+        const out = sortTranscriptMessagesOldestFirst(Object.values(messagesById));
         sessionMessagesArrayCache.delete(sessionId);
         sessionMessagesArrayCache.set(sessionId, {
           idsRef: ids,
@@ -2420,4 +2424,26 @@ export function useRequestedFriends() {
       return Object.values(state.friends).filter((friend) => friend.status === 'requested');
     })
   );
+}
+/** Shared library plus device activation. The legacy library is migration input only. */
+function useThemeProfileView(): ThemeProfileView {
+  const profiles = useSetting('themeProfiles');
+  const legacy = useLocalSetting('themeProfiles');
+  const selection = useLocalSetting('themeProfileSelection');
+  const legacyScope = useLocalSetting('themeProfileLegacyAccountScope');
+  const scope = getStorage()((state) => state.settingsScope);
+  return React.useMemo(() => {
+    const pending = scope ? loadPendingAccountSettingsState(scope) : null;
+    return resolveAccountThemeProfileView({ profiles, legacy, selection, legacyScope, scope,
+      pendingProfiles: pending?.settings.themeProfiles, pendingIntent: pending?.themeProfileMigration });
+  }, [profiles, legacy, selection, legacyScope, scope]);
+}
+
+export function useThemeProfiles(): ThemeProfilesLocalStateV1 {
+  return useThemeProfileView().state;
+}
+
+export function useThemeProfilesMutable(): [ThemeProfilesLocalStateV1, (value: ThemeProfilesLocalStateV1) => ThemeProfileView, ThemeProfileView] {
+  const before = useThemeProfileView();
+  return [before.state, React.useCallback((value: ThemeProfilesLocalStateV1) => applyThemeProfilesFromUi(value, before), [before]), before];
 }

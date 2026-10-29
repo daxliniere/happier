@@ -75,6 +75,18 @@ Terminal successes record the observed answer instead of a canceled request.
 Unknown forms and conflicting local drafts fail closed to terminal interaction.
 This is development source behavior, not a released-channel guarantee.
 
+## Socket acknowledgment timeout recovery (development)
+
+The shared `session/transport/shared/socketAck` boundary normalizes Socket.IO's
+untyped acknowledgment timeout into the same typed, retryable error used by its
+local deadline. Socket.IO registers its timer during emit, before the local
+deadline with the same delay. Both CLI normalization and UI timeout handling use
+the classifier in `@happier-dev/protocol/rpcErrors`. Accepted-input settlement then
+uses its existing retry loop on the same local id, without replaying provider
+input or waiting for a reconnect. Other errors retain their original meaning;
+no timeout budget, wire format, or acceptance authority changes. This correction
+is development source, not a statement of stable release availability.
+
 ## Direct-session JSONL read progress (development)
 
 The shared readers in `api/directSessions/filePaging` own byte paging for native
@@ -888,6 +900,22 @@ is left exactly where it was — the same safe direction as a crash, and the rea
 stops the service on a path it cannot confirm. An `on-demand` service left running that way is stopped
 by the next in-app quit, `happier daemon service stop`, or the settings control.
 
+### Desktop main-window chrome (development)
+
+Current development source keeps compact integrated window controls in the left sidebar by
+default on Windows and Linux; macOS keeps its native traffic lights. Windows users can opt into
+**Use Windows title bar** in desktop settings to show the standard Windows frame and controls.
+The native policy in `apps/ui/src-tauri/src/window_chrome.rs` owns both modes, and the UI derives
+its controls and setting state from that policy's returned result. Both modes keep the same
+close-to-tray behavior: closing the main window hides it, and the tray reopens it.
+
+The native preference owner, `window_chrome_preferences.rs`, stores the choice in the channel's
+AppConfig directory at `window-state/main-window-chrome.json`. It loads before main-window
+creation, and the same creation path applies the resolved decorations when the tray recreates
+the window. Changing the setting applies the native frame immediately. A failed save retains the
+applied runtime mode and exposes the persistence failure in settings so another change can retry.
+This is unreleased development behavior; compatibility with ActualTitleButtons has not been tested.
+
 ### What may repoint this computer's daemon
 
 Moving an already-configured background service to a different relay originates from the **direct
@@ -1616,16 +1644,37 @@ unreadable custody and unsuccessful termination retain evidence and produce
 diagnostics. The tracked-runner guard
 also covers accepted runners whose durable session marker is not written yet.
 
-In development source, acquisition-triggered OpenCode pool cleanup and auth-switch
-release read current Session claims under the server's existing lock. Live records
-with unverified ownership or process identity, unavailable claim or turn evidence,
-and unsuccessful termination retain custody. A proved-dead PID or exact process
-identity mismatch permits discarding its stale record.
-Acquisition refuses to overwrite a live server's record when it cannot verify or
-terminate that server, and reports an error for operator verification before retry.
-Bounded direct-session, catalog, and native-fork operations hold that same lock through client disposal,
-so cleanup cannot retire their managed server during an outstanding read. This does
-not add periodic pool reclamation or certify unmarked execution-run lifetimes.
+Development source registers every shared OpenCode runtime client at the canonical
+client factory, including Session, execution-run and temporary inspection clients.
+Acquisition and client registration share the existing server lock. Disposal aborts
+and settles outstanding HTTP/SSE work before releasing its client record. Client
+records carry the caller PID and native process-birth identity; proved-dead or
+reused PIDs lose their records, while unknown identity retains custody.
+The runtime shares one pending acquisition and makes reset join or cancel it,
+preventing concurrent startup/catalog requests or early execution-run Stop from
+losing a client. Intentional restart after reset remains supported. Standalone
+native attachment retains the same client custody for its independent controller
+lifetime; it releases only after the existing terminal owner proves native exit
+or process-tree termination. Unknown cleanup retains custody and warns. Optional
+hosted TUI continues to follow its existing destroy-on-runner-absence policy.
+
+Last-client release and the existing serialized daemon heartbeat invoke the same
+pool reclamation owner in `sharedManagedServer.ts`. It reads client and Session
+claims under that lock and uses the existing process-identity verification before
+termination. Auth-switch release, daemon shutdown and live-server replacement also
+honor client custody. Unavailable claim, turn or identity evidence and unsuccessful
+termination retain evidence and produce warnings. Open idle Sessions remain users;
+this is resource cleanup, not an idle-Session timeout. Periodic retry requires a
+running daemon; standalone clients still release their servers normally.
+
+New automatic state lives in `opencode/managed-servers/clients-tracked/`. Released
+CLI 0.2.17 (`a2c45c86804b24e60ac0b76146a3ef36dfcaa15b`) scans only flat JSON
+files in the parent directory and cannot account for runtime clients. The separate
+subdirectory prevents that released scanner from reclaiming new servers. Explicit
+legacy URL/fingerprint lookup remains supported; legacy automatic reclamation is
+deferred because old clients lack complete custody. No migration, negotiation or
+new timer is introduced. External URLs without matching managed state confer no
+termination authority.
 
 ```mermaid
 graph TB
@@ -1759,7 +1808,22 @@ Active Session RPC checks and CLI/MCP checks route account-owned attempts to
 that same scheduler; ordinary live waits use the shared session controller.
 Account-switch and reset-credit controls keep their existing owners. A failed
 daemon check does not fall back to a competing provider-local scheduler.
-Native usage limits do not enter connected-service authentication recovery.
+Daemon source authorization declines recovery when the tracked Session has no
+Connected Account binding, so native-login waits remain Session-owned. A
+provider-started Codex goal turn can lack member attribution even in a pool
+Session; its accepted failure still reaches daemon intake. Intake binds it to
+the tracked pool while leaving the failed member unknown, and the existing
+switch pipeline probes candidates without assigning a limiter to an unproven
+member. The daemon projects that pool wait even when its profile is null.
+Codex app-server's accepted terminal failure owns the report; account-change and
+temporary-capacity presentation retain prompt-loop handling without a second
+report, and provider-owned intra-turn retries remain nonterminal.
+
+After a successful Codex continuation, the runtime re-reads a previously
+usage-limited native goal and uses the existing status-only goal setter to
+reactivate it if its status remains `usageLimited`. Objective, budget and counters
+are preserved, as are intervening Pause and Complete actions.
+
 Explicit user input is admitted through Pending rather
 than waking an automatic continuation during pre-admission revalidation; the
 existing dispatcher suppresses obsolete continuation when newer input is queued.
