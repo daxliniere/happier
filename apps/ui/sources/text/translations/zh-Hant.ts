@@ -5030,6 +5030,10 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
                     title: '背景指令',
                     statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                     openCommand: '在紀錄中開啟該指令',
+                    dismissStale: '忽略過期報告',
+                    dismissStaleHint: '在此裝置上將此報告從進行中的工作隱藏。這不會停止該指令。',
+                    dismissedNote: '已忽略。該指令並未停止，其結果未知。',
+                    undoDismiss: '復原',
                 },
                 preview: {
                     openDetails: '開啟詳細資料',
