@@ -78,13 +78,4 @@ describe('resolveBackendDisabledSpawnError', () => {
       settings: undefined,
     })).toBeNull();
   });
-
-  it('returns null for existing-session requests so resume and attach keep working after a backend is disabled', () => {
-    const disabledKey = buildBackendTargetKey({ kind: 'builtInAgent', agentId: 'codex' });
-    expect(resolveBackendDisabledSpawnError({
-      backendTarget: { kind: 'builtInAgent', agentId: 'codex' },
-      settings: { backendEnabledByTargetKey: { [disabledKey]: false } },
-      existingSessionId: 'cmvexisting0',
-    })).toBeNull();
-  });
 });

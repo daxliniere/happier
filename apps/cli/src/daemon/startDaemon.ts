@@ -463,7 +463,7 @@ import { normalizeAccountSettingsVersionHint } from '@/settings/accountSettings/
 import { refreshAccountSettingsForMinimumVersion } from '@/settings/accountSettings/refreshAccountSettingsForMinimumVersion';
 import { warmActiveAccountSettingsSnapshotBestEffort } from '@/settings/accountSettings/warmActiveAccountSettingsSnapshot';
 import { getActiveAccountSettingsSnapshot } from '@/settings/accountSettings/activeAccountSettingsSnapshot';
-import { isBackendEnabledByAccountSettings, resolveBackendDisabledSpawnError } from '@/settings/backendEnabled';
+import { resolveBackendDisabledSpawnError } from '@/settings/backendEnabled';
 import { resolveConfiguredAcpBackendFromAccountSettings } from '@/agent/acp/catalog/configured/resolveConfiguredAcpBackendFromAccountSettings';
 import { fetchSessionByIdCompat, type RawSessionRecord } from '@/session/transport/http/sessionsHttp';
 import { listRetainedConnectedServiceMaterializationIdentityIds } from './connectedServices/materialize/cleanup/listRetainedConnectedServiceMaterializationIdentityIds';
@@ -3095,16 +3095,6 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                 spawnNonce: randomUUID(),
               };
             }
-            // Enforce the account's provider disable setting at spawn admission for explicitly
-            // requested backend targets, before any session, pending input, or runner exists.
-            // Existing-session requests (resume/attach) are exempt so disabling a backend
-            // never strands sessions that already run on it.
-            const backendDisabledError = resolveBackendDisabledSpawnError({
-              backendTarget: normalizedOptions.backendTarget,
-              settings: getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined,
-              existingSessionId: normalizedExistingSessionId,
-            });
-            if (backendDisabledError) return backendDisabledError;
             if (normalizedExistingSessionId) {
               const inFlightStop = stopSessionInFlightBySessionId.get(normalizedExistingSessionId);
               let precedingStopResult: StopSessionResult | null = null;
@@ -3506,18 +3496,22 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                 };
               }
 
+              // A disabled backend never gets a new runner: fresh, forked/replayed, or resumed.
+              // Live runners were already adopted above and are not relaunched.
+              const launchAccountSettings = getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined;
+              const backendDisabledError = resolveBackendDisabledSpawnError({
+                backendTarget: backendTarget ?? { kind: 'builtInAgent', agentId: catalogAgentId },
+                settings: launchAccountSettings,
+              });
+              if (backendDisabledError) return backendDisabledError;
+
               // Configured ACP resume is catalog-declared policy plus ACP initialize negotiation.
               // Never turn an inactive resume into a fresh provider session when either proof is absent.
               if (backendTarget?.kind === 'configuredAcpBackend' && (effectiveResume || normalizedExistingSessionId)) {
-                const accountSettings = getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined;
-                const configuredBackend = accountSettings
-                  ? resolveConfiguredAcpBackendFromAccountSettings(accountSettings, backendTarget.backendId)
+                const configuredBackend = launchAccountSettings
+                  ? resolveConfiguredAcpBackendFromAccountSettings(launchAccountSettings, backendTarget.backendId)
                   : null;
-                const supportsConfiguredResume = Boolean(
-                  configuredBackend?.capabilities.supportsLoadSession
-                  && accountSettings
-                  && isBackendEnabledByAccountSettings({ backendTarget, settings: accountSettings }),
-                );
+                const supportsConfiguredResume = Boolean(configuredBackend?.capabilities.supportsLoadSession);
                 if (!supportsConfiguredResume) {
                   return {
                     type: 'error',
