@@ -824,9 +824,10 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         });
     }, [selectedBackendTargetKey]);
 
-    const { connectedServicesBindingsPayload, connectedServicesAuthChip } = useNewSessionConnectedServices({
+    const { connectedServicesBindingsPayload, connectedServicesAuthChip, providerUsageGauge } = useNewSessionConnectedServices({
         agentCore,
         agentOptionState,
+        modelId: modelMode,
         settings,
         targetServerId,
         targetMachineId: selectedMachineId,
@@ -2086,6 +2087,7 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         emptyAutocompleteKinds,
         emptyAutocompleteSuggestions,
         connectionStatus,
+        providerUsageGauge: providerUsageGauge ?? null,
         machinePopover,
         resumeSessionId,
         resumePopover,
@@ -2154,6 +2156,7 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         acpConfigOptionOverrides: sessionConfigOptionOverrides,
         setSessionConfigOptionOverride: setRememberedSessionConfigOptionOverride,
         connectionStatus,
+        providerUsageGauge: providerUsageGauge ?? null,
         machineName: selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host,
         machinePopover,
         selectedMachineId,

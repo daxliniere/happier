@@ -30,10 +30,15 @@ import {
 } from '@/components/sessions/new/modules/connectedServicesNewSessionBindings';
 import type { ConnectedServicesAuthWarningCode } from '@/components/settings/connectedServices/model/resolveConnectedServicesAuthLabel';
 import { stableJsonStringify } from '@/utils/json/stableJsonStringify';
+import { resolveConnectedServiceQuotaProfileRefFromBindings } from '@/components/sessions/shell/resolveConnectedServiceQuotaProfileRefForSession';
+import { useProviderUsageGauge } from '@/hooks/server/connectedServices/useProviderUsageGauge';
+import type { ConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 
 export type NewSessionConnectedServicesResult = Readonly<{
   connectedServicesBindingsPayload: ConnectedServiceBindingsV1 | null;
   connectedServicesAuthChip: AgentInputExtraActionChip | null;
+  /** Quota gauge for the connected account the new session will spawn with, when one is selected. */
+  providerUsageGauge: ConnectedServiceQuotaGaugeViewModel | null;
 }>;
 
 function resolveDefaultAuthWarningLabel(warningCode: ConnectedServicesAuthWarningCode | undefined): string | undefined {
@@ -53,6 +58,7 @@ function buildConnectedServiceProfileSettingsPath(route: ConnectedServiceProfile
 export function useNewSessionConnectedServices(params: Readonly<{
   agentCore: NewSessionConnectedServicesAgentCore;
   agentOptionState: Record<string, unknown> | null;
+  modelId?: string | null;
   settings: {
     connectedServicesProfileLabelByKey: Record<string, string | undefined>;
     connectedServicesDefaultProfileByServiceId: Record<string, string | undefined>;
@@ -266,5 +272,17 @@ export function useNewSessionConnectedServices(params: Readonly<{
       supportedConnectedServiceIds,
     ]);
 
-  return { connectedServicesBindingsPayload, connectedServicesAuthChip };
+  const providerUsageProfileRef = React.useMemo(() => resolveConnectedServiceQuotaProfileRefFromBindings({
+    supportedServiceIds: supportedConnectedServiceIds,
+    agentOptionState: null,
+    connectedServicesPayload: connectedServicesBindingsPayload,
+    accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
+  }), [accountProfile?.connectedServicesV2, connectedServicesBindingsPayload, supportedConnectedServiceIds]);
+  const { gauge: providerUsageGauge } = useProviderUsageGauge({
+    providerId: agentId || null,
+    profileRef: providerUsageProfileRef,
+    modelId: params.modelId ?? null,
+  });
+
+  return { connectedServicesBindingsPayload, connectedServicesAuthChip, providerUsageGauge };
 }
