@@ -5496,6 +5496,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
     sessionDrafts: {
         sectionTitle: '草稿', badge: '草稿', untitled: '未命名草稿', continueEditing: '繼續編輯', startAnother: '開始另一份',
         status: { offline: '離線', syncing: '同步中', conflict: '衝突', machineUnavailable: '機器無法使用', attachmentNeedsAttention: '附件需要處理', startInterrupted: '啟動中斷' },
+        error: { title: '草稿錯誤', storageDescription: '無法在此裝置上儲存此草稿。離開前請將文字複製到安全的位置；下次編輯時會重新嘗試儲存。', encryptionDescription: '無法為同步加密或解密此草稿，因此它不會同步到你的其他裝置。文字仍保留在此裝置上。', showDetailsHint: '顯示此草稿出錯的原因' },
         new: { action: '新增草稿' }, delete: { action: '刪除草稿', confirmTitle: '刪除草稿？', confirmDescription: '此草稿將從你的裝置移除。' },
         conflict: { title: '草稿衝突', description: '此欄位已在其他裝置上變更。', mine: '此裝置', synced: '已同步', useSynced: '使用同步版本', keepDevice: '保留裝置版本', copyMine: '複製我的版本', copied: '已複製', copyFailed: '無法複製', field: { text: '文字', mentions: '提及', attachments: '附件', recipient: '收件者', agentContinuation: '代理延續', executionRunDelivery: '執行傳送' } },
     },

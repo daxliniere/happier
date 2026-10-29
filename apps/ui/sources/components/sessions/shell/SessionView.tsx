@@ -81,6 +81,7 @@ import { VoiceSurface } from '@/components/voice/surface/VoiceSurface';
 import { useDraft } from '@/hooks/session/useDraft';
 import {
     areSessionDraftCurrentnessCapturesEqual,
+    getSessionDraftErrorReason,
     type SessionDraftCurrentness,
 } from '@/sync/ops/sessionDrafts/sessionDraftRepository';
 import {
@@ -4210,8 +4211,13 @@ function SessionViewLoaded({
     } = useDraft(sessionId, composerTextStore, { active: surfaceFocused });
     const draftConflictBanner = useSessionDraftConflictComposerBanner(draftConflict);
     const draftSyncStatusBadge = React.useMemo(
-        () => buildSessionDraftSyncStatusBadge(draftStatus ?? 'clean'),
-        [draftStatus],
+        () => buildSessionDraftSyncStatusBadge(
+            draftStatus ?? 'clean',
+            draftScope
+                ? { readErrorReason: () => getSessionDraftErrorReason(draftScope, { kind: 'session', sessionId }) }
+                : undefined,
+        ),
+        [draftScope, draftStatus, sessionId],
     );
     const [pendingMessageEdit, setPendingMessageEdit] = React.useState<PendingMessageComposerEditState | null>(null);
     const pendingMessageEditRef = React.useRef(pendingMessageEdit);
