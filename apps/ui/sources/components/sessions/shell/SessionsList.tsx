@@ -113,11 +113,6 @@ import { SessionListHeaderControls } from './SessionListHeaderControls';
 import { useSessionListSearchTextByKey } from './useSessionListSearchTextByKey';
 import { useSessionListMemorySearchAugmentation } from './search/useSessionListMemorySearchAugmentation';
 import { useSessionListHeaderFilterRetention } from './search/useSessionListHeaderFilterRetention';
-import { isSessionListPrimaryHeaderKind } from './sessionListPrimaryHeader';
-import {
-    getSessionListHeaderControlsAnchorKey,
-    hasActiveSessionListHeaderFilters,
-} from './sessionListFilters';
 import { useSessionListScrollRetention } from './scroll/useSessionListScrollRetention';
 import { buildSessionListRetentionKey } from './scroll/sessionListRetentionKey';
 import {
@@ -179,10 +174,14 @@ const stylesheet = StyleSheet.create((theme) => ({
         alignItems: 'stretch',
         backgroundColor: theme.colors.background.canvas,
     },
+    // Holds the top search bar above the list viewport.
+    column: {
+        flex: 1,
+        maxWidth: layout.maxWidth,
+    },
     contentContainer: {
         position: 'relative',
         flex: 1,
-        maxWidth: layout.maxWidth,
     },
     footerContainer: {
         marginTop: -4,
@@ -535,7 +534,6 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         selectedHeaderTags,
         setSelectedHeaderTags,
     } = useSessionListHeaderFilterRetention(retentionKey);
-    const [activeSearchHeaderControlsAnchorKey, setActiveSearchHeaderControlsAnchorKey] = React.useState<string | null>(null);
     const [refreshingSessions, setRefreshingSessions] = React.useState(false);
     const refreshingSessionsRef = React.useRef(false);
     const getSessionListMemoryCandidateKeys = React.useCallback(
@@ -563,12 +561,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         selectedTags: selectedHeaderTags,
         searchableTextBySessionKey,
         memoryMatchedSessionKeys: activeMemoryMatchedSessionKeys,
-        controlsAnchorKey: activeSearchHeaderControlsAnchorKey,
-    }), [activeMemoryMatchedSessionKeys, activeSearchHeaderControlsAnchorKey, searchQuery, searchableTextBySessionKey, selectedHeaderTags]);
-
-    const handleHeaderSearchOpenChange = React.useCallback((anchorKey: string, open: boolean) => {
-        setActiveSearchHeaderControlsAnchorKey((current) => open ? anchorKey : current === anchorKey ? null : current);
-    }, []);
+    }), [activeMemoryMatchedSessionKeys, searchQuery, searchableTextBySessionKey, selectedHeaderTags]);
 
     const stopScrollEventPropagationOnWeb = React.useCallback((event: any) => {
         // Expo Router (Vaul/Radix) modals on web often install document-level scroll-lock listeners
@@ -1809,23 +1802,6 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         return `session:${index}`;
     }, []);
 
-    const headerControlsAnchorKey = React.useMemo(() => {
-        if (activeSearchHeaderControlsAnchorKey === null && !hasActiveSessionListHeaderFilters(headerFilters)) return null;
-        let fallback: string | null = null;
-        for (const item of listItems) {
-            if (item.type !== 'header' || !isSessionListPrimaryHeaderKind(item.headerKind)) continue;
-            const key = getSessionListHeaderControlsAnchorKey(item);
-            fallback ??= key;
-            if (key === activeSearchHeaderControlsAnchorKey) return key;
-        }
-        return fallback;
-    }, [activeSearchHeaderControlsAnchorKey, headerFilters, listItems]);
-    React.useEffect(() => {
-        if (activeSearchHeaderControlsAnchorKey !== null && activeSearchHeaderControlsAnchorKey !== headerControlsAnchorKey) {
-            setActiveSearchHeaderControlsAnchorKey(headerControlsAnchorKey);
-        }
-    }, [activeSearchHeaderControlsAnchorKey, headerControlsAnchorKey]);
-
     const collapsedKeys = collapsedGroupKeysV1 ?? EMPTY_COLLAPSED_GROUP_KEYS;
     const searchTrailingAccessory = React.useMemo(() => (
         memorySearch.isSearchingMemory ? (
@@ -1838,7 +1814,8 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
             />
         ) : null
     ), [memorySearch.isSearchingMemory, theme.colors.text.secondary]);
-    const renderHeaderControls = React.useCallback((anchorKey: string) => {
+    // One top bar for the whole list; it sits outside the virtualized list so it stays mounted and in place while filtering.
+    const headerControls = React.useMemo(() => {
         const menu = (
             <SessionListViewMenuButton
                 folderViewMode={sessionFolderViewMode}
@@ -1857,19 +1834,14 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
                 allKnownTags={sessionTagsEnabled === true ? allKnownTags : EMPTY_SESSION_KEYS}
                 selectedTags={selectedHeaderTags}
                 searchQuery={searchQuery}
-                searchOpen={activeSearchHeaderControlsAnchorKey !== null && headerControlsAnchorKey === anchorKey}
                 onSelectedTagsChange={setSelectedHeaderTags}
                 onSearchQueryChange={setSearchQuery}
-                onSearchOpenChange={(open) => handleHeaderSearchOpenChange(anchorKey, open)}
                 searchTrailingAccessory={searchTrailingAccessory}
                 viewMenu={menu}
             />
         );
     }, [
         allKnownTags,
-        headerControlsAnchorKey,
-        activeSearchHeaderControlsAnchorKey,
-        handleHeaderSearchOpenChange,
         selectedHeaderTags,
         searchQuery,
         searchTrailingAccessory,
@@ -1883,7 +1855,8 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         setSessionListFolderSortModeV1,
         setHideInactiveSessions,
         setSessionFolderViewModeV1,
-        setActiveSearchHeaderControlsAnchorKey,
+        setSearchQuery,
+        setSelectedHeaderTags,
     ]);
     const renderHeaderItem = React.useCallback((item: Extract<SessionListViewItem, { type: 'header' }>, index: number) => {
         const headerTestId = item.headerKind === 'project'
@@ -1981,9 +1954,6 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
             item.headerKind === 'server'
                 ? t('sessionsList.serverHeader', { server: item.title })
                 : item.title;
-        const controlsAnchorKey = getSessionListHeaderControlsAnchorKey(item);
-        const shouldRenderHeaderControls = isSessionListPrimaryHeaderKind(item.headerKind)
-            && (headerControlsAnchorKey === null || controlsAnchorKey === headerControlsAnchorKey);
 
         return (
             <SessionListHeaderFrame
@@ -1997,7 +1967,6 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
                     collapsed={isCollapsed}
                     onPress={() => handleToggleCollapse(collapseKey)}
                     headerTestId={headerTestId}
-                    rightElement={shouldRenderHeaderControls ? renderHeaderControls(controlsAnchorKey) : null}
                 />
             </SessionListHeaderFrame>
         );
@@ -2019,11 +1988,9 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         handleResetWorkspaceName,
         setWorkspaceColor,
         handleToggleCollapse,
-        headerControlsAnchorKey,
         hasMultipleMachines,
         getRowMoveActionHandlers,
         registerTreeRowBounds,
-        renderHeaderControls,
         resolveDropResult,
         unregisterTreeRowBounds,
         workspaceLabelsV1,
@@ -2059,13 +2026,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         () => buildReachableDisplaySignature(reachableSessionDisplayByKey),
         [reachableSessionDisplayByKey],
     );
-    const selectedHeaderTagsSignature = buildStringListSignature(selectedHeaderTags);
     const virtualizedRowExtraData = React.useMemo(() => ({
-        headerControlsAnchorKey,
-        activeSearchHeaderControlsAnchorKey,
-        headerSearchQuery: searchQuery,
-        headerSelectedTagsSignature: selectedHeaderTagsSignature,
-        headerSearchLoading: memorySearch.isSearchingMemory,
         // Stable renderItem refs do not update mounted engine cells. Viewport membership
         // must reach the row boundary before its local store subscription can activate.
         rowStoreSubscriptionKeys,
@@ -2105,11 +2066,6 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         workspaceLabelsSignature,
         workspaceMachineSubtitlesEnabled,
     }), [
-        headerControlsAnchorKey,
-        activeSearchHeaderControlsAnchorKey,
-        searchQuery,
-        selectedHeaderTagsSignature,
-        memorySearch.isSearchingMemory,
         rowStoreSubscriptionKeys,
         selection.activeServerId,
         allKnownTagsSignature,
@@ -2359,30 +2315,33 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
     return (
         <SessionListSelectionStoreProvider store={sessionListSelectionStore}>
             <View ref={focusReturnFallbackRef} style={styles.container} {...keyboardZoneProps}>
-                <View
-                    ref={listViewportRef}
-                    style={styles.contentContainer}
-                    onLayout={() => handleTreeViewportMeasure(listViewportRef.current)}
-                >
-                    <SyncPerformanceReactProfiler id="sessions.list.virtualized">
-                        {virtualizedListContent}
-                    </SyncPerformanceReactProfiler>
-                    {/*
-                     * The single list-level drop indicator. It is a viewport-level,
-                     * non-interactive sibling of the scroll container: its geometry
-                     * flows through numeric shared values, so a pointer move never
-                     * reconciles the list rows.
-                     */}
-                    <SessionListDropOverlay
-                        shared={dropOverlayShared}
-                        testID="session-list-drop-overlay"
-                    />
-                    <SessionListSelectionActionBarHost
-                        targetsByKey={sessionListSelectionTargetsByKey}
-                        bulkActionContext={sessionListBulkActionContext}
-                        tagsEnabled={sessionTagsEnabled === true}
-                        onRequestMoveToFolder={folderActionsEnabled ? handleRequestBulkMoveToFolder : undefined}
-                    />
+                <View style={styles.column}>
+                    {headerControls}
+                    <View
+                        ref={listViewportRef}
+                        style={styles.contentContainer}
+                        onLayout={() => handleTreeViewportMeasure(listViewportRef.current)}
+                    >
+                        <SyncPerformanceReactProfiler id="sessions.list.virtualized">
+                            {virtualizedListContent}
+                        </SyncPerformanceReactProfiler>
+                        {/*
+                         * The single list-level drop indicator. It is a viewport-level,
+                         * non-interactive sibling of the scroll container: its geometry
+                         * flows through numeric shared values, so a pointer move never
+                         * reconciles the list rows.
+                         */}
+                        <SessionListDropOverlay
+                            shared={dropOverlayShared}
+                            testID="session-list-drop-overlay"
+                        />
+                        <SessionListSelectionActionBarHost
+                            targetsByKey={sessionListSelectionTargetsByKey}
+                            bulkActionContext={sessionListBulkActionContext}
+                            tagsEnabled={sessionTagsEnabled === true}
+                            onRequestMoveToFolder={folderActionsEnabled ? handleRequestBulkMoveToFolder : undefined}
+                        />
+                    </View>
                 </View>
             </View>
         </SessionListSelectionStoreProvider>
