@@ -4,7 +4,7 @@ import { act, create } from 'react-test-renderer';
 
 import type { ConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 
-import { AgentPickerUsageRing } from './AgentPickerUsageRing';
+import { ProviderUsageRing } from './ProviderUsageRing';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -19,13 +19,13 @@ function render(element: React.ReactElement) {
     act(() => {
         tree = create(element);
     });
-    if (tree === null) throw new Error('AgentPickerUsageRing did not mount');
+    if (tree === null) throw new Error('ProviderUsageRing did not mount');
     return tree as ReturnType<typeof create>;
 }
 
-describe('AgentPickerUsageRing', () => {
+describe('ProviderUsageRing', () => {
     it('shows an empty number-less ring when the row has no usage gauge', () => {
-        const tree = render(<AgentPickerUsageRing gauge={null} testID="rail-usage" />);
+        const tree = render(<ProviderUsageRing gauge={null} testID="rail-usage" />);
         expect(tree.root.findAllByProps({ testID: 'rail-usage' }).length).toBeGreaterThan(0);
         expect(tree.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.length > 0)).toHaveLength(0);
     });
@@ -37,7 +37,7 @@ describe('AgentPickerUsageRing', () => {
             badgeLabel: '87% left',
             usageRings: [{ meterId: 'primary', label: 'Primary', usedPct: 13, ringValueLabel: '87', valueLabel: '87% left', tone: 'ok' }],
         } as unknown as ConnectedServiceQuotaGaugeViewModel;
-        const tree = render(<AgentPickerUsageRing gauge={gauge} testID="rail-usage" />);
+        const tree = render(<ProviderUsageRing gauge={gauge} testID="rail-usage" />);
         expect(tree.root.findAll((node) => node.props.children === '87').length).toBeGreaterThan(0);
     });
 });

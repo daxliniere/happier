@@ -588,7 +588,15 @@ export function deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(
                     resetAtMs: usageLimit.resetAtMs ?? undefined,
                     status: 'ok',
                 }]
-            : [];
+            // The issue itself says the limit was hit; without a measured percentage the
+            // gauge stays and reads empty instead of disappearing.
+            : [{
+                meterId: usageLimit.providerLimitId ?? usageLimit.effectiveMeterId ?? 'usage_limit',
+                scope: usageLimit.providerLimitId ?? usageLimit.effectiveMeterId ?? usageLimit.quotaScope,
+                remainingPct: 0,
+                resetAtMs: usageLimit.resetAtMs ?? undefined,
+                status: 'ok',
+            }];
     const meters: ConnectedServiceQuotaMeterV1[] = windows
         .map((window): ConnectedServiceQuotaMeterV1 | null => {
             if (typeof window.remainingPct !== 'number' || !Number.isFinite(window.remainingPct)) return null;

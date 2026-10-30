@@ -86,7 +86,7 @@ import { AgentInputEngineDetail } from './components/AgentInputEngineDetail';
 import { AgentInputModelDiscoveryDetail, type AgentInputModelDetailState, type SessionModelDiscoveryContext } from './components/AgentInputModelDiscoveryDetail';
 import { AgentInputContextUsageBadge } from './components/AgentInputContextUsageBadge';
 import { AgentInputProviderUsageBadge } from './components/AgentInputProviderUsageBadge';
-import { AgentPickerUsageRing } from '../agentPicker/AgentPickerUsageRing';
+import { ProviderUsageRing } from '../usage/ProviderUsageRing';
 import { mergeOptionPickerProbes } from '@/components/sessions/pickers/mergeOptionPickerProbes';
 import { AgentInputAttachmentsRow } from './components/AgentInputAttachmentsRow';
 import { AgentInputOverlayLayer } from './components/AgentInputOverlayLayer';
@@ -2305,7 +2305,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return unmarkedAgentPickerOptions.map((option) => ({
             ...option,
             leadingMark: (
-                <AgentPickerUsageRing
+                <ProviderUsageRing
                     gauge={option.disabled || option.muted ? null : usageGaugesByOptionId.get(option.id) ?? null}
                     testID={`agent-input-chip-picker.usage:${option.id}`}
                 />
