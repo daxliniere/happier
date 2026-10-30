@@ -5368,6 +5368,10 @@ export const fr: TranslationStructure = {
                 title: 'Commande en arrière-plan',
                 statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                 openCommand: 'Ouvrir la commande dans le transcript',
+                dismissStale: 'Ignorer le rapport obsolète',
+                dismissStaleHint: 'Masque ce rapport des tâches actives sur cet appareil. La commande n’est pas arrêtée.',
+                dismissedNote: 'Ignoré. La commande n’a pas été arrêtée et son résultat est inconnu.',
+                undoDismiss: 'Annuler',
             },
             preview: {
                 openDetails: 'Ouvrir les détails',

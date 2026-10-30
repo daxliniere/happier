@@ -5839,6 +5839,10 @@ export const pt: TranslationStructure = {
               title: "Comando em segundo plano",
               statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
               openCommand: "Abrir o comando na transcrição",
+              dismissStale: "Dispensar relatório desatualizado",
+              dismissStaleHint: "Oculta este relatório do trabalho ativo neste dispositivo. Não interrompe o comando.",
+              dismissedNote: "Dispensado. O comando não foi interrompido e o resultado é desconhecido.",
+              undoDismiss: "Desfazer",
           },
           preview: {
               openDetails: 'Abrir detalhes',

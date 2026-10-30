@@ -5402,6 +5402,10 @@ export const en = {
                 title: 'Background command',
                 statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
                 openCommand: 'Open the command in the transcript',
+                dismissStale: 'Dismiss stale report',
+                dismissStaleHint: 'Hides this report from active work on this device. It does not stop the command.',
+                dismissedNote: 'Dismissed. This did not stop the command, and its outcome is unknown.',
+                undoDismiss: 'Undo',
             },
             preview: {
                 openDetails: 'Open details',
