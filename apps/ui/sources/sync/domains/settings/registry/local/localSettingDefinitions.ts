@@ -13,6 +13,7 @@ import {
     ThemeProfilesLocalStateSchema,
 } from '@/theme/profiles/themeProfilePersistence';
 import { SessionListFocusedFolderV1Schema } from '@/sync/domains/session/folders';
+import { DesktopPathMappingsSchema } from '@/sync/domains/files/localFilePath';
 import {
     DEFAULT_LOADING_INDICATOR_PAUSE_ID,
     DEFAULT_LOADING_INDICATOR_SPEED_ID,
@@ -608,6 +609,12 @@ export const LOCAL_SETTING_DEFINITIONS = defineSettingDefinitions({
             identityScope: 'device_user',
             serializeCurrent: objectKeyCount,
         },
+    },
+    desktopPathMappingsV1: {
+        schema: DesktopPathMappingsSchema,
+        default: [],
+        description: 'Device-local folders on session machines and where this computer reaches them, for opening session files with local programs',
+        storageScope: 'local',
     },
 });
 

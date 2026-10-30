@@ -3839,6 +3839,15 @@ localTailscale: {
     nativeTitleBarSubtitle: 'Windows 標準のウィンドウ枠と操作ボタンを表示します。',
     nativeTitleBarChangeFailed: 'タイトルバーを変更できませんでした。もう一度お試しください。',
     nativeTitleBarPersistenceFailed: 'タイトルバーの設定を読み込むか保存することができませんでした。設定をもう一度変更して再試行してください。',
+    pathMappingsTitle: "このコンピューターでファイルを開く",
+    pathMappingsFooter: "このコンピューターと共有しているフォルダーを通じて、他のマシンのセッションのファイルを「アプリで開く…」と「ファイルの場所を開く」で開けるようにします。フォルダーをタップすると削除できます。",
+    pathMappingsAdd: "共有フォルダーを追加",
+    pathMappingsRemotePrompt: "マシン上のフォルダー",
+    pathMappingsRemotePromptMessage: "セッションのマシンから見たフォルダー。例: /srv/projects",
+    pathMappingsLocalPrompt: "このコンピューター上の同じフォルダー",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `このコンピューターから ${remotePath} にアクセスする場所。例: \\\\server\\projects または Z:\\projects`,
+    pathMappingsRemoveTitle: "この共有フォルダーを削除しますか？",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: 'デスクトップ',
     footer: 'このコンピューターでの Happier の動作を設定します。',
     backgroundServiceTitle: 'バックグラウンドで接続を維持',
@@ -6151,6 +6160,12 @@ localTailscale: {
           closeTabA11y: "タブを閉じる",
           enterFocusModeA11y: "ペイン集中モードに入る",
           exitFocusModeA11y: "ペイン集中モードを終了",
+          tabMenu: {
+              openInNewWindow: "新しいウィンドウで開く",
+              openWithDefaultApp: "アプリで開く…",
+              revealInFileManager: "ファイルの場所を開く",
+              actionFailedTitle: "ファイルを開けませんでした",
+          },
       },
   
       actionsDraft: {

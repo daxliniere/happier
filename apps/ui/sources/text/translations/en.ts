@@ -3268,6 +3268,15 @@ export const en = {
         nativeTitleBarSubtitle: 'Show the standard Windows frame and window controls.',
         nativeTitleBarChangeFailed: 'The title bar could not be changed. Try again.',
         nativeTitleBarPersistenceFailed: 'The title bar preference could not be loaded or saved. Change it again to retry.',
+        pathMappingsTitle: "Open files on this computer",
+        pathMappingsFooter: "Lets Open in… and Open file location reach files of sessions on other machines, through a folder they share with this computer. Tap a folder to remove it.",
+        pathMappingsAdd: "Add shared folder",
+        pathMappingsRemotePrompt: "Folder on the machine",
+        pathMappingsRemotePromptMessage: "The folder as the session’s machine sees it, for example /srv/projects.",
+        pathMappingsLocalPrompt: "Same folder on this computer",
+        pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Where this computer reaches ${remotePath}, for example \\\\server\\projects or Z:\\projects.`,
+        pathMappingsRemoveTitle: "Remove this shared folder?",
+        pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
         title: 'Desktop',
         footer: 'Controls how Happier behaves on this computer.',
         backgroundServiceTitle: 'Stay reachable in the background',
@@ -5558,6 +5567,12 @@ export const en = {
             closeTabA11y: 'Close tab',
             enterFocusModeA11y: 'Enter pane focus mode',
             exitFocusModeA11y: 'Exit pane focus mode',
+            tabMenu: {
+                openInNewWindow: "Open in new window",
+                openWithDefaultApp: "Open in…",
+                revealInFileManager: "Open file location",
+                actionFailedTitle: "Couldn’t open the file",
+            },
         },
 
         actionsDraft: {

@@ -22,7 +22,8 @@
     "security": {
       "capabilities": [
         "default",
-        "pet_overlay"
+        "pet_overlay",
+        "file_window"
       ]
     },
     "windows": [

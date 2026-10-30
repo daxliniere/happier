@@ -3353,6 +3353,15 @@ export const ca: TranslationStructure = {
         nativeTitleBarSubtitle: 'Mostra el marc i els controls de finestra estàndard del Windows.',
         nativeTitleBarChangeFailed: 'No s’ha pogut canviar la barra de títol. Torna-ho a provar.',
         nativeTitleBarPersistenceFailed: 'No s’ha pogut carregar o desar la preferència de la barra de títol. Torna-la a canviar per reintentar-ho.',
+        pathMappingsTitle: "Obre fitxers en aquest ordinador",
+        pathMappingsFooter: "Permet que «Obre amb…» i «Obre la ubicació del fitxer» arribin a fitxers de sessions en altres màquines, mitjançant una carpeta compartida amb aquest ordinador. Toca una carpeta per treure-la.",
+        pathMappingsAdd: "Afegeix una carpeta compartida",
+        pathMappingsRemotePrompt: "Carpeta a la màquina",
+        pathMappingsRemotePromptMessage: "La carpeta tal com la veu la màquina de la sessió, per exemple /srv/projects.",
+        pathMappingsLocalPrompt: "La mateixa carpeta en aquest ordinador",
+        pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `On arriba aquest ordinador a ${remotePath}, per exemple \\\\server\\projects o Z:\\projects.`,
+        pathMappingsRemoveTitle: "Vols treure aquesta carpeta compartida?",
+        pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
         title: 'Escriptori',
         footer: 'Controla com es comporta el Happier en aquest ordinador.',
         backgroundServiceTitle: 'Segueix disponible en segon pla',
@@ -5537,6 +5546,12 @@ deps: {
                         closeTabA11y: 'Tanca la pestanya',
                         enterFocusModeA11y: 'Entra al mode de focus del panell',
                         exitFocusModeA11y: 'Surt del mode de focus del panell',
+                        tabMenu: {
+                            openInNewWindow: "Obre en una finestra nova",
+                            openWithDefaultApp: "Obre amb…",
+                            revealInFileManager: "Obre la ubicació del fitxer",
+                            actionFailedTitle: "No s’ha pogut obrir el fitxer",
+                        },
               },
   
           actionsDraft: {

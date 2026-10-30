@@ -3576,6 +3576,15 @@ export const pl: TranslationStructure = {
     nativeTitleBarSubtitle: 'Pokaż standardową ramkę i przyciski sterowania oknem systemu Windows.',
     nativeTitleBarChangeFailed: 'Nie udało się zmienić paska tytułu. Spróbuj ponownie.',
     nativeTitleBarPersistenceFailed: 'Nie udało się wczytać lub zapisać ustawienia paska tytułu. Zmień je ponownie, aby spróbować jeszcze raz.',
+    pathMappingsTitle: "Otwieraj pliki na tym komputerze",
+    pathMappingsFooter: "Pozwala opcjom „Otwórz w…” i „Otwórz lokalizację pliku” sięgać do plików sesji na innych maszynach przez folder udostępniony temu komputerowi. Dotknij folderu, aby go usunąć.",
+    pathMappingsAdd: "Dodaj udostępniony folder",
+    pathMappingsRemotePrompt: "Folder na maszynie",
+    pathMappingsRemotePromptMessage: "Folder tak, jak widzi go maszyna sesji, na przykład /srv/projects.",
+    pathMappingsLocalPrompt: "Ten sam folder na tym komputerze",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Gdzie ten komputer widzi ${remotePath}, na przykład \\\\server\\projects lub Z:\\projects.`,
+    pathMappingsRemoveTitle: "Usunąć ten udostępniony folder?",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: 'Pulpit',
     footer: 'Określa, jak Happier działa na tym komputerze.',
     backgroundServiceTitle: 'Pozostań dostępny w tle',
@@ -5900,6 +5909,12 @@ export const pl: TranslationStructure = {
           closeTabA11y: "Zamknij kartę",
           enterFocusModeA11y: "Włącz tryb skupienia panelu",
           exitFocusModeA11y: "Wyłącz tryb skupienia panelu",
+          tabMenu: {
+              openInNewWindow: "Otwórz w nowym oknie",
+              openWithDefaultApp: "Otwórz w…",
+              revealInFileManager: "Otwórz lokalizację pliku",
+              actionFailedTitle: "Nie udało się otworzyć pliku",
+          },
       },
   
       actionsDraft: {

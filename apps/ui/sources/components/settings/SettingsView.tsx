@@ -39,6 +39,7 @@ import { navigateWithBlurOnWeb } from '@/utils/platform/navigateWithBlurOnWeb';
 import { deferOnWeb } from '@/utils/platform/deferOnWeb';
 import { isTauriDesktop } from '@/utils/platform/tauri';
 import { DesktopSettingsSection } from '@/components/settings/desktop/DesktopSettingsSection';
+import { DesktopPathMappingsSettings } from '@/components/settings/desktop/DesktopPathMappingsSettings';
 import { SettingsBelowFoldSections } from '@/components/settings/SettingsBelowFoldSections';
 import { runAfterInteractionsWithFallback } from '@/utils/timing/runAfterInteractionsWithFallback';
 import { Icon } from '@/components/ui/icons/Icon';
@@ -362,6 +363,7 @@ export const SettingsView = React.memo(function SettingsView() {
             ) : null}
 
             {showDesktopSettings ? <DesktopSettingsSection /> : null}
+            {showDesktopSettings ? <DesktopPathMappingsSettings /> : null}
 
             {/* Connect Terminal */}
             {!isRunningOnMac() && (Platform.OS !== 'web' || isPhoneSizedWeb) && (

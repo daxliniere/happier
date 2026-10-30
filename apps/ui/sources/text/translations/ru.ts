@@ -3498,6 +3498,15 @@ export const ru: TranslationStructure = {
     nativeTitleBarSubtitle: 'Показывать стандартную рамку и кнопки управления окном Windows.',
     nativeTitleBarChangeFailed: 'Не удалось изменить строку заголовка. Попробуйте ещё раз.',
     nativeTitleBarPersistenceFailed: 'Не удалось загрузить или сохранить настройку строки заголовка. Измените её снова, чтобы повторить попытку.',
+    pathMappingsTitle: "Открытие файлов на этом компьютере",
+    pathMappingsFooter: "Позволяет командам «Открыть в…» и «Открыть расположение файла» открывать файлы сессий на других машинах через папку, общую с этим компьютером. Нажмите на папку, чтобы удалить её.",
+    pathMappingsAdd: "Добавить общую папку",
+    pathMappingsRemotePrompt: "Папка на машине",
+    pathMappingsRemotePromptMessage: "Папка так, как её видит машина сессии, например /srv/projects.",
+    pathMappingsLocalPrompt: "Та же папка на этом компьютере",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Где этот компьютер видит ${remotePath}, например \\\\server\\projects или Z:\\projects.`,
+    pathMappingsRemoveTitle: "Удалить эту общую папку?",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: 'Рабочий стол',
     footer: 'Управляет поведением Happier на этом компьютере.',
     backgroundServiceTitle: 'Оставаться доступным в фоне',
@@ -6433,6 +6442,12 @@ export const ru: TranslationStructure = {
           closeTabA11y: "Закрыть вкладку",
           enterFocusModeA11y: "Включить режим фокуса панели",
           exitFocusModeA11y: "Выключить режим фокуса панели",
+          tabMenu: {
+              openInNewWindow: "Открыть в новом окне",
+              openWithDefaultApp: "Открыть в…",
+              revealInFileManager: "Открыть расположение файла",
+              actionFailedTitle: "Не удалось открыть файл",
+          },
       },
   
       actionsDraft: {
