@@ -6005,6 +6005,10 @@ localTailscale: {
               title: "バックグラウンドコマンド",
               statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
               openCommand: "トランスクリプトでコマンドを開く",
+              dismissStale: "古いレポートを閉じる",
+              dismissStaleHint: "このデバイスでこのレポートを実行中の作業から非表示にします。コマンドは停止しません。",
+              dismissedNote: "非表示にしました。コマンドは停止しておらず、結果は不明です。",
+              undoDismiss: "元に戻す",
           },
           preview: {
               openDetails: '詳細を開く',

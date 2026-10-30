@@ -5754,6 +5754,10 @@ export const pl: TranslationStructure = {
               title: "Polecenie w tle",
               statusWithDuration: ({ status, duration }: { status: string; duration: string }) => `${status} · ${duration}`,
               openCommand: "Otwórz polecenie w transkrypcji",
+              dismissStale: "Odrzuć nieaktualny raport",
+              dismissStaleHint: "Ukrywa ten raport w aktywnej pracy na tym urządzeniu. Nie zatrzymuje polecenia.",
+              dismissedNote: "Odrzucono. Polecenie nie zostało zatrzymane, a jego wynik jest nieznany.",
+              undoDismiss: "Cofnij",
           },
           preview: {
               openDetails: 'Otwórz szczegóły',
