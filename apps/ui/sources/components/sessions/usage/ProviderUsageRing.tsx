@@ -13,7 +13,7 @@ const RAIL_RING_SIZE = 18;
  * installed, not configured, or with no usage source) shows an empty, light-grey
  * ring with no number, so it reads as "nothing to show" rather than a selection control.
  */
-export function AgentPickerUsageRing(props: Readonly<{
+export function ProviderUsageRing(props: Readonly<{
     gauge: ConnectedServiceQuotaGaugeViewModel | null;
     testID?: string;
 }>) {

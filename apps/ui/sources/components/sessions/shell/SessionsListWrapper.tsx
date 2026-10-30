@@ -27,6 +27,7 @@ import {
     updateRetainedSessionListPaneActiveSessionId,
     useSessionListPaneSourceScopeKey,
 } from '@/components/sessions/shell/surface/sessionListPaneRetention';
+import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 import { useNewSessionDraftProjections } from '@/components/sessions/shell/NewSessionDraftsSection';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -224,6 +225,7 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
             onSelectStorageKind={setStorageKind}
         />
     );
+    const usageStrip = <ProviderUsageStrip />;
     const sessionListContent = React.useMemo(
         () => (
             <SessionsListContent
@@ -245,6 +247,7 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
         content = (
             <View style={styles.container}>
                 {storageChrome}
+                {usageStrip}
                 <View style={styles.loadingContainerWrapper}>
                     <View style={styles.loadingContainer}>
                         <ActivitySpinner size={HERO_SPINNER_SIZE} color={theme.colors.text.secondary} />
@@ -256,6 +259,7 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
         content = (
             <View style={styles.container}>
                 {storageChrome}
+                {usageStrip}
                 <View style={styles.emptyStateContainer}>
                     <View style={styles.emptyStateContentContainer}>
                         {hasHiddenInactiveSessions ? (
@@ -271,6 +275,7 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
         content = (
             <View style={styles.container}>
                 {storageChrome}
+                {usageStrip}
                 {sessionListContent}
             </View>
         );
