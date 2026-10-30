@@ -197,6 +197,7 @@ import { hasSessionSubagentLaunchCards } from '@/agents/registry/sessionSubagent
 import { useSurfaceAnchorPathname } from '@/components/sessions/shell/surface/sessionSurfaceAnchorPathname';
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
 import { resolveProviderUsageGaugeWindowMode } from '@/components/sessions/usage/resolveProviderUsageGaugeWindowMode';
+import { useProviderUsageRefresh } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
 import { useProviderUsageGauges } from '@/components/sessions/usage/useProviderUsageGauges';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { nowServerMs } from '@/sync/runtime/time';
@@ -4058,7 +4059,7 @@ function SessionViewLoaded({
     const catalogAgentIds = React.useMemo(() => sessionAgentCatalogEntries.flatMap((entry) => (
         entry.builtInAgentId ? [entry.builtInAgentId] : []
     )), [sessionAgentCatalogEntries]);
-    const providerUsageGaugesByAgentId = useProviderUsageGauges({
+    const { gauges: providerUsageGaugesByAgentId } = useProviderUsageGauges({
         agentIds: catalogAgentIds,
         accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
         windowMode: sessionProviderUsageGaugeWindowMode,
@@ -4171,6 +4172,10 @@ function SessionViewLoaded({
         if (currentGauge) gauges.set(`engine:${liveComposerState.agentId}`, currentGauge);
         return gauges;
     }, [liveComposerState.agentId, providerUsageGauge, providerUsageGaugesByAgentId, sessionAgentCatalogEntries]);
+    const refreshProviderUsage = useProviderUsageRefresh({
+        connectedProfileRef: connectedServiceQuotaProfileRef,
+        recordIds: providerAccountUsageRecordIds,
+    });
     const providerUsageGaugeConnectedServiceProfileRef =
         providerUsageGaugeSource
         && isConnectedServiceBoundProviderUsageDisplaySource(providerUsageDisplaySnapshotSource)
@@ -6430,6 +6435,7 @@ function SessionViewLoaded({
                 composeAgentPickerOptions={inSessionAgentPicker.composeAgentPickerOptions}
                 onAgentPickerIntent={signalAgentPickerUsageIntent}
                 agentPickerUsageGaugesByOptionId={agentPickerUsageGaugesByOptionId}
+                onProviderUsageRefresh={refreshProviderUsage}
                 onAgentPickerVisibilityChange={inSessionAgentPicker.onAgentPickerVisibilityChange}
                 agentPickerSelectedOptionId={inSessionAgentPicker.agentPickerSelectedOptionId}
                 attachments={attachmentsUploadsEnabled ? agentInputAttachments : undefined}

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { AgentIcon } from '@/agents/registry/AgentIcon';
@@ -23,7 +23,7 @@ export const ProviderUsageStrip = React.memo(function ProviderUsageStrip() {
     const agentIds = useEnabledAgentIds();
     const accountProfile = useProfile();
     const windowMode = resolveProviderUsageGaugeWindowMode(useSetting('sessionProviderUsageGaugeWindowMode'));
-    const gauges = useProviderUsageGauges({
+    const { gauges, refreshAgent } = useProviderUsageGauges({
         agentIds,
         accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
         windowMode,
@@ -33,10 +33,16 @@ export const ProviderUsageStrip = React.memo(function ProviderUsageStrip() {
     return (
         <View testID="sessions-provider-usage-strip" style={styles.strip} accessibilityLabel={t('agentInput.providerUsage.title')}>
             {[...gauges].map(([agentId, gauge]) => (
-                <View key={agentId} style={styles.item}>
+                <Pressable
+                    key={agentId}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('agentInput.providerUsage.accessibilityLabel', { value: gauge.badgeLabel })}
+                    onPress={() => refreshAgent(agentId)}
+                    style={styles.item}
+                >
                     <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
                     <ProviderUsageRing gauge={gauge} testID={`sessions-provider-usage:${agentId}`} />
-                </View>
+                </Pressable>
             ))}
         </View>
     );

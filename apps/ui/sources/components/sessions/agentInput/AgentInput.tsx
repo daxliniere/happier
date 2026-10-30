@@ -331,6 +331,8 @@ interface AgentInputProps {
         contextWindowTokens?: number;
     };
     providerUsageGauge?: ConnectedServiceQuotaGaugeViewModel | null;
+    /** Asks the provider for fresh usage figures; runs when the usage rings are pressed. */
+    onProviderUsageRefresh?: () => void;
     onProviderUsageRecoveryCreditPress?: () => void;
     providerUsageRecoveryCreditPending?: boolean;
     alwaysShowContextSize?: boolean;
@@ -2708,6 +2710,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                         marginLeft={showContextGauge ? 8 : 0}
                         onRecoveryCreditPress={props.onProviderUsageRecoveryCreditPress}
                         recoveryCreditActionPending={props.providerUsageRecoveryCreditPending}
+                        onRefresh={props.onProviderUsageRefresh}
                     />
                 ) : null}
                 {showHiddenGaugeOverflow ? (
@@ -2724,6 +2727,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [
         contextUsageState,
         props.onProviderUsageRecoveryCreditPress,
+        props.onProviderUsageRefresh,
         props.providerUsageGauge,
         props.providerUsageRecoveryCreditPending,
         screenWidth,
