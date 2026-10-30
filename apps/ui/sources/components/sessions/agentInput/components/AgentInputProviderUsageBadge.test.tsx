@@ -115,6 +115,8 @@ describe('AgentInputProviderUsageBadge', () => {
         const screen = await renderScreen(<AgentInputProviderUsageBadge viewModel={vm} />);
 
         expect(screen.findByTestId('agent-input-provider-usage-value')?.props.children).toBe('18');
+        const progress = screen.findByTestId('agent-input-provider-usage-ring')?.findAll((node) => String(node.type) === 'Circle' && typeof node.props.strokeDashoffset === 'number')[0];
+        expect(progress?.props.strokeDashoffset).toBeCloseTo(2 * Math.PI * 9 * 0.82);
         expect(screen.findByTestId('agent-input-provider-usage-value:daily')?.props.children).toBe('70');
         const imageLabels = screen.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'image')
             .map((node) => node.props.accessibilityLabel);

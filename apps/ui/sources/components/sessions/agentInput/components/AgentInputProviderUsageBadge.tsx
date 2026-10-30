@@ -68,6 +68,7 @@ function areProviderUsageWindowRingsEqual(
             && ring.label === other.label
             && ring.meterId === other.meterId
             && ring.usedPct === other.usedPct
+            && ring.remainingPct === other.remainingPct
             && ring.ringValueLabel === other.ringValueLabel
             && ring.valueLabel === other.valueLabel
             && ring.tone === other.tone;
@@ -155,7 +156,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
     const rings = props.viewModel.usageRings.length > 0
         ? props.viewModel.usageRings
         : [{ meterId: props.viewModel.effectiveMeter.meterId, label: props.viewModel.effectiveMeter.label,
-            usedPct: props.viewModel.usedPct, ringValueLabel: props.viewModel.ringValueLabel,
+            usedPct: props.viewModel.usedPct, remainingPct: props.viewModel.remainingPct, ringValueLabel: props.viewModel.ringValueLabel,
             valueLabel: props.viewModel.valueLabel, tone: props.viewModel.tone }];
     // Remaining-first, like the ring numbers. Extra rings are named so each one can be told apart.
     const ringAccessibilityValues = rings.length === 1
@@ -207,7 +208,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                                 </Text>
                             ) : null}
                             <TokenUsageRing
-                                used={ring.usedPct}
+                                used={ring.remainingPct ?? 100 - ring.usedPct}
                                 limit={100}
                                 label={rings.length === 1 ? accessibilityLabel : ringAccessibilityValues[index]}
                                 value={ring.ringValueLabel}
