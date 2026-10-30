@@ -801,6 +801,35 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(viewModel?.badgeLabel).toBe('12% left');
     });
 
+    it('keeps an exhausted gauge (0% left) when a usage-limit issue carries no percentage', () => {
+        const quotaSnapshot = deriveConnectedServiceQuotaSnapshotFromRuntimeIssue({
+            v: 1,
+            scope: 'primary_session',
+            status: 'failed',
+            code: 'usage_limit',
+            source: 'usage_limit',
+            occurredAt: 1_000,
+            provider: 'codex',
+            usageLimit: {
+                v: 1,
+                resetAtMs: 8_200_000,
+                retryAfterMs: null,
+                quotaScope: 'account',
+                recoverability: 'wait',
+                limitCategory: 'usage_limit',
+            },
+        });
+
+        const viewModel = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: quotaSnapshot,
+            windowMode: 'most_constrained',
+            nowMs: 2_000,
+            formatter,
+        });
+        expect(viewModel?.remainingPct).toBe(0);
+        expect(viewModel?.ringValueLabel).toBe('0');
+    });
+
     it('resolves runtime-evidence service ids through the agents registry for every connected-services provider', () => {
         const buildIssue = (provider: string) => ({
             v: 1,

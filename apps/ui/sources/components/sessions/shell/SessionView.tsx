@@ -193,7 +193,8 @@ import type { AgentActivityCounts } from '@/sync/domains/session/agentActivity/d
 import { hasSessionSubagentLaunchCards } from '@/agents/registry/sessionSubagentUiBehavior';
 import { useSurfaceAnchorPathname } from '@/components/sessions/shell/surface/sessionSurfaceAnchorPathname';
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
-import { useAgentPickerUsageGauges } from '@/components/sessions/agentPicker/useAgentPickerUsageGauges';
+import { resolveProviderUsageGaugeWindowMode } from '@/components/sessions/usage/resolveProviderUsageGaugeWindowMode';
+import { useProviderUsageGauges } from '@/components/sessions/usage/useProviderUsageGauges';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { nowServerMs } from '@/sync/runtime/time';
 import { readSessionUiTelemetryNowMs } from '@/sync/runtime/performance/sessionUiTelemetry';
@@ -240,6 +241,7 @@ import { useCLIDetection } from '@/hooks/auth/useCLIDetection';
 import { resolveConnectedServiceQuotaRecoveryCreditReceiptNoticeKey } from '@/sync/domains/connectedServices/connectedServiceQuotaRecoveryCreditReceiptPresentation';
 import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
 import { useProviderUsageGauge } from '@/hooks/server/connectedServices/useProviderUsageGauge';
+import type { ConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import type { ProviderUsageDisplaySnapshotSource } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceQuotaProfileRefForSession } from './resolveConnectedServiceQuotaProfileRefForSession';
@@ -4014,17 +4016,26 @@ function SessionViewLoaded({
         setAgentPickerUsageDemanded(true);
         inSessionAgentPicker.onAgentPickerIntent();
     }, [inSessionAgentPicker.onAgentPickerIntent]);
-    const otherAgentUsageGauges = useAgentPickerUsageGauges({
-        entries: sessionAgentCatalogEntries,
+    const catalogAgentIds = React.useMemo(() => sessionAgentCatalogEntries.flatMap((entry) => (
+        entry.builtInAgentId ? [entry.builtInAgentId] : []
+    )), [sessionAgentCatalogEntries]);
+    const providerUsageGaugesByAgentId = useProviderUsageGauges({
+        agentIds: catalogAgentIds,
         accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
         windowMode: sessionProviderUsageGaugeWindowMode,
-        demanded: agentPickerUsageDemanded,
+        fetchEnabled: agentPickerUsageDemanded,
     });
     const agentPickerUsageGaugesByOptionId = React.useMemo(() => {
-        const gauges = new Map(otherAgentUsageGauges);
-        if (providerUsageGauge) gauges.set(`engine:${liveComposerState.agentId}`, providerUsageGauge);
+        const gauges = new Map<string, ConnectedServiceQuotaGaugeViewModel>();
+        for (const entry of sessionAgentCatalogEntries) {
+            const gauge = entry.builtInAgentId ? providerUsageGaugesByAgentId.get(entry.builtInAgentId) : undefined;
+            if (gauge) gauges.set(entry.targetKey, gauge);
+        }
+        // The running Agent's own composer gauge is the most precise one for this session.
+        const currentGauge = providerUsageGauge ?? providerUsageGaugesByAgentId.get(liveComposerState.agentId);
+        if (currentGauge) gauges.set(`engine:${liveComposerState.agentId}`, currentGauge);
         return gauges;
-    }, [liveComposerState.agentId, otherAgentUsageGauges, providerUsageGauge]);
+    }, [liveComposerState.agentId, providerUsageGauge, providerUsageGaugesByAgentId, sessionAgentCatalogEntries]);
     const providerUsageGaugeConnectedServiceProfileRef =
         providerUsageGaugeSource
         && isConnectedServiceBoundProviderUsageDisplaySource(providerUsageDisplaySnapshotSource)
