@@ -224,6 +224,26 @@ describe('buildSessionListViewData', () => {
         ]);
     });
 
+    it('keeps a project header for sessions without a path so a stored workspace label can name it', () => {
+        const machine = makeMachine({ id: 'm1', metadata: { host: 'm1', platform: 'darwin', happyCliVersion: '0.0.0', happyHomeDir: '/h', homeDir: '/home/u' } });
+        const sessions: Record<string, Session> = {
+            pathless: makeSession({
+                id: 'pathless',
+                active: true,
+                metadata: { machineId: 'm1', path: '', homeDir: '/home/u', host: 'm1', version: '0.0.0', flavor: 'claude' },
+            }),
+        };
+
+        const data = buildSessionListViewData(sessions, { [machine.id]: machine }, {
+            groupInactiveSessionsByProject: true,
+            activeGroupingV1: 'project',
+        });
+
+        const projectHeaders = data.filter((item) => item.type === 'header' && item.headerKind === 'project');
+        expect(projectHeaders).toHaveLength(1);
+        expect(projectHeaders[0]).toMatchObject({ workspaceKey: expect.stringMatching(/^wl_/) });
+    });
+
     it('uses section-agnostic project group keys for split activity sections', () => {
         const machine = makeMachine({ id: 'm1', metadata: { host: 'm1', platform: 'darwin', happyCliVersion: '0.0.0', happyHomeDir: '/h', homeDir: '/home/u' } });
 

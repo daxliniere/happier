@@ -294,9 +294,9 @@ function pushProjectGroupsToList(params: Readonly<{
 
         const workspace = resolveDurableWorkspaceRefForSessionListHeader(projectHeader);
 
-        if (hasGroupHeader) {
-            params.listData.push(projectHeader);
-        }
+        // Path-less groups keep their header too: a stored workspace label is applied to it afterwards,
+        // and the renderer hides the header while it still has neither a label nor a title.
+        params.listData.push(projectHeader);
 
         const variant: 'default' | 'no-path' = hasGroupHeader ? 'no-path' : 'default';
         const folderOptions = params.sessionFolders?.enabled === true && hasGroupHeader ? params.sessionFolders : null;

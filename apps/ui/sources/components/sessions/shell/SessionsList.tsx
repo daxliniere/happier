@@ -1903,7 +1903,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
                 </DraggableSessionFolderHeaderFrame>
             );
         }
-        if (item.title && item.headerKind === 'project') {
+        if ((item.workspaceLabel || item.title) && item.headerKind === 'project') {
             const collapseKey = item.groupKey ?? '';
             const treeRow = treeRowId.workspaceRoot(item.groupKey ?? item.title);
             const moveActionHandlers = getRowMoveActionHandlers({ sourceRowId: treeRow, sourceLabel: item.title });
