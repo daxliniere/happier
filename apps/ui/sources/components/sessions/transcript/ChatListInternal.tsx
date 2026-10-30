@@ -2201,6 +2201,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         executeViewportCommand,
         executeViewportCommandWithAnimation,
         forkedTranscriptEnabled: props.forkedTranscriptEnabled,
+        hasMoreOlder: olderPagination.hasMore,
         hasMoreOlderRef,
         observeOlderLoadResult: olderPagination.observeLoadResult,
         invalidateViewportAnchorCapture,
@@ -2218,6 +2219,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         listData,
         listLayoutHeight,
         listRef,
+        loadOlder,
         messagesById: props.messagesById,
         onJumpLanded: props.onJumpLanded,
         onRouteJumpSettled,
@@ -2261,6 +2263,9 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         handleTranscriptNavigationRailJump,
         jumpToBottom,
         jumpToBottomAffordance,
+        jumpToTop,
+        jumpToTopAffordance,
+        jumpToTopLoading,
         jumpToTranscriptTarget,
         observeWebGenuineScrollMovement,
         observeWebTranscriptNavigationVisibilityForSession,
@@ -2588,6 +2593,21 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                 />
                 {showFirstPaintPlaceholder ? (
                     <TranscriptFirstPaintPlaceholder reducedMotion={reducedMotionPreferred} />
+                ) : null}
+                {jumpToTopAffordance.isVisible ? (
+                    <ComposerKeyboardFloatingInset
+                        testID="transcript-jump-to-top-keyboard-offset"
+                        baseBottom={jumpToBottomAffordance.isVisible ? 64 : 12}
+                        style={{ position: 'absolute', right: 12 }}
+                    >
+                        <JumpToBottomButton
+                            testID="transcript-jump-to-top"
+                            count={0}
+                            busy={jumpToTopLoading}
+                            direction="top"
+                            onPress={() => { fireAndForget(jumpToTop(), { tag: 'ChatListInternal.jumpToTop' }); }}
+                        />
+                    </ComposerKeyboardFloatingInset>
                 ) : null}
                 {jumpToBottomAffordance.isVisible ? (
                     <ComposerKeyboardFloatingInset

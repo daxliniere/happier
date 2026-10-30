@@ -8217,6 +8217,8 @@ settingsSession: {
             scrollPinSubtitle: 'Suit les nouveaux messages tant que tu es en bas.',
             jumpToBottomTitle: 'Aller en bas',
             jumpToBottomButtonLabel: 'Aller en bas',
+            jumpToTopButtonLabel: 'Aller en haut',
+            jumpToTopButtonLoadingLabel: 'Chargement de l\'historique…',
             jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `${count} ${count === 1 ? 'nouvel élément' : 'nouveaux éléments'} d’activité, aller en bas`,
             jumpToBottomSubtitle: 'Affiche un bouton quand tu remontes et que de la nouvelle activité arrive.',
               advancedScrollTitle: 'Défilement avancé…',

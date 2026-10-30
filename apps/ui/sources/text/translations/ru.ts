@@ -8693,6 +8693,8 @@ settingsSession: {
             "Следовать за новыми сообщениями, когда вы внизу.",
           jumpToBottomTitle: "Перейти вниз",
           jumpToBottomButtonLabel: "К низу",
+          jumpToTopButtonLabel: "К верху",
+          jumpToTopButtonLoadingLabel: "Загрузка истории…",
           jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `Новая активность: ${count}. К низу`,
           jumpToBottomSubtitle:
             "Показывать кнопку, когда вы прокрутили вверх и пришла новая активность.",
