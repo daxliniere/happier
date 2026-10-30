@@ -8702,6 +8702,8 @@ settingsSession: {
           scrollPinSubtitle: "Podążaj za nowymi wiadomościami, gdy jesteś na dole.",
           jumpToBottomTitle: "Skocz na dół",
           jumpToBottomButtonLabel: "Skocz na dół",
+          jumpToTopButtonLabel: "Skocz na górę",
+          jumpToTopButtonLoadingLabel: "Wczytywanie historii…",
           jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `${count} ${count === 1 ? "nowy element aktywności" : "nowe elementy aktywności"}, skocz na dół`,
           jumpToBottomSubtitle:
             "Pokaż przycisk, gdy przewiniesz w górę i pojawi się nowa aktywność.",

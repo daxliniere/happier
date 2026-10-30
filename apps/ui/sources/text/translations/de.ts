@@ -8224,6 +8224,8 @@ settingsSession: {
             scrollPinSubtitle: 'Neuen Nachrichten folgen, solange du am Ende bist.',
             jumpToBottomTitle: 'Zum Ende springen',
             jumpToBottomButtonLabel: 'Zum Ende springen',
+            jumpToTopButtonLabel: 'Zum Anfang springen',
+            jumpToTopButtonLoadingLabel: 'Verlauf wird geladen…',
             jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `${count} neue Aktivität ${count === 1 ? 'Eintrag' : 'Einträge'}, zum Ende springen`,
             jumpToBottomSubtitle: 'Einen Button zeigen, wenn du nach oben scrollst und neue Aktivität eintrifft.',
               advancedScrollTitle: 'Erweitertes Scrollen…',
