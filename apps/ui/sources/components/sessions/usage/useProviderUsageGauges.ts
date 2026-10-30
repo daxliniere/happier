@@ -2,10 +2,10 @@ import * as React from 'react';
 import type { AccountProfile } from '@happier-dev/protocol';
 import {
     isConnectedServiceCredentialHealthStatusUsable,
-    readProviderAccountUsageRecordIdsFromMetadata,
 } from '@happier-dev/protocol';
 
-import { getAgentCore, isAgentId, resolveAgentIdFromFlavor, type AgentId } from '@/agents/catalog/catalog';
+import { getAgentCore, type AgentId } from '@/agents/catalog/catalog';
+import { selectLatestProviderUsageRecordIdsByAgent } from '@/sync/domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
 import { runProviderUsageRefresh, useProviderUsageRefreshContext } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
@@ -40,7 +40,7 @@ export function useProviderUsageGauges(params: Readonly<{
     fetchEnabled: boolean;
 }>): Readonly<{
     gauges: ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>;
-    /** Queries the provider for fresh figures for this Agent. */
+    /** Queries every configured provider, including this Agent's displayed account. */
     refreshAgent: (agentId: AgentId) => void;
 }> {
     const windowModes = useSetting('sessionProviderUsageGaugeWindowModes');
@@ -70,14 +70,8 @@ export function useProviderUsageGauges(params: Readonly<{
     const sessions = useAllSessions();
     const recordIdsByAgentId = React.useMemo(() => {
         const wanted = new Set<string>(params.agentIds);
-        const byAgentId = new Map<AgentId, string[]>();
-        for (const session of sessions) {
-            const agentId = resolveAgentIdFromFlavor(session.metadata?.flavor);
-            if (!agentId || !isAgentId(agentId) || !wanted.has(agentId) || byAgentId.has(agentId)) continue;
-            const recordIds = readProviderAccountUsageRecordIdsFromMetadata(session.metadata);
-            if (recordIds.length > 0) byAgentId.set(agentId, recordIds);
-        }
-        return byAgentId;
+        return new Map([...selectLatestProviderUsageRecordIdsByAgent(sessions)]
+            .filter(([agentId]) => wanted.has(agentId)));
     }, [params.agentIds, sessions]);
     const allRecordIds = React.useMemo(
         () => params.fetchEnabled ? [...recordIdsByAgentId.values()].flat() : [],

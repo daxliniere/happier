@@ -6,7 +6,7 @@ import { useProfile } from '@/sync/domains/state/storage';
 import { useProviderUsageGauges } from './useProviderUsageGauges';
 
 /**
- * "Query the provider now" for one Agent before any session exists (New Session). The gauge itself
+ * "Query all configured providers now" before any session exists (New Session). The gauge itself
  * comes from the composer's usage-gauge owner; this only supplies the refresh target.
  */
 export function useAgentProviderUsageRefresh(agentId: AgentId | null | undefined): () => void {

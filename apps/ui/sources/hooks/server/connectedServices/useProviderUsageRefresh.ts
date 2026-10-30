@@ -7,6 +7,10 @@ import { resolveAuthCredentialsScopeKey } from '@/auth/storage/resolveAuthCreden
 import type { AuthCredentials } from '@/auth/storage/tokenStorage';
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
 import { refreshProviderAccountUsage } from '@/sync/domains/connectedServices/accountUsage/refreshProviderAccountUsage';
+import { collectConfiguredProviderUsageRefreshTargets, type ProviderUsageRefreshTarget } from '@/sync/domains/connectedServices/accountUsage/providerUsageRefreshTargets';
+import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
+import { useProfile } from '@/sync/domains/state/storage';
+import { useAllSessions } from '@/sync/store/hooks';
 import {
     buildQuotaSnapshotScopeKey,
     refreshQuotaSnapshot,
@@ -16,37 +20,45 @@ import { fireAndForget } from '@/utils/system/fireAndForget';
 
 import { useCredentialScopedAccountModeResolver } from './useCredentialScopedAccountModeResolver';
 
-export type ProviderUsageRefreshTarget = Readonly<{
-    connectedProfileRef: Readonly<{ serviceId: string; profileId: string }> | null;
-    recordIds: readonly string[];
-}>;
+export type { ProviderUsageRefreshTarget } from '@/sync/domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 
 export type ProviderUsageRefreshContext = Readonly<{
     credentials: AuthCredentials;
     credentialScope: string;
     resolveAccountMode: () => Promise<CredentialScopedAccountMode>;
+    configuredTargets?: readonly ProviderUsageRefreshTarget[];
 }>;
 
-/** The auth facts a refresh needs, or null when quotas are off or nobody is signed in. */
+/** The signed-in scope and configured usage sources, or null when quotas are off or nobody is signed in. */
 export function useProviderUsageRefreshContext(): ProviderUsageRefreshContext | null {
     const credentials = useAuth().credentials;
     const quotasEnabled = useFeatureEnabled('connectedServices.quotas');
     const credentialScope = quotasEnabled && credentials ? resolveAuthCredentialsScopeKey(credentials) : '';
     const resolveAccountMode = useCredentialScopedAccountModeResolver({ credentials, credentialScope });
+    const connectedServices = useProfile()?.connectedServicesV2;
+    const sessions = useAllSessions();
+    const configuredTargets = React.useMemo(() => collectConfiguredProviderUsageRefreshTargets({
+        connectedServices: connectedServices ?? [], sessions,
+    }), [connectedServices, sessions]);
     return React.useMemo(
-        () => (credentials && credentialScope ? { credentials, credentialScope, resolveAccountMode } : null),
-        [credentialScope, credentials, resolveAccountMode],
+        () => (credentials && credentialScope ? { credentials, credentialScope, resolveAccountMode, configuredTargets } : null),
+        [credentialScope, credentials, resolveAccountMode, configuredTargets],
     );
 }
 
 /**
- * "Query the provider now" for one provider: refreshes its connected-service quota profile and
+ * "Query the provider now" includes all configured providers: refreshes connected-service quota profiles and
  * each provider account usage record it reads from. Both routes ask the server to have the
  * owning daemon re-query the provider; the new figures arrive through the usual snapshot caches.
  */
 export function runProviderUsageRefresh(context: ProviderUsageRefreshContext, target: ProviderUsageRefreshTarget): void {
-    const { connectedProfileRef } = target;
-    if (connectedProfileRef) {
+    const profiles = new Map<string, NonNullable<ProviderUsageRefreshTarget['connectedProfileRef']>>();
+    const recordIds = new Set<string>();
+    for (const candidate of [target, ...(context.configuredTargets ?? [])]) {
+        if (candidate.connectedProfileRef) profiles.set(connectedServiceProfileKey(candidate.connectedProfileRef), candidate.connectedProfileRef);
+        for (const recordId of candidate.recordIds) recordIds.add(recordId);
+    }
+    for (const connectedProfileRef of profiles.values()) {
         const serviceId = ConnectedServiceIdSchema.safeParse(connectedProfileRef.serviceId);
         if (serviceId.success) {
             fireAndForget(
@@ -64,7 +76,7 @@ export function runProviderUsageRefresh(context: ProviderUsageRefreshContext, ta
             );
         }
     }
-    for (const recordId of target.recordIds) {
+    for (const recordId of recordIds) {
         fireAndForget((async () => {
             await refreshProviderAccountUsage({
                 credentials: context.credentials,
@@ -76,7 +88,7 @@ export function runProviderUsageRefresh(context: ProviderUsageRefreshContext, ta
     }
 }
 
-/** A stable press handler for a surface that owns a single provider's refresh target. */
+/** A stable refresh-all press handler, retaining the surface's explicit account as an additional target. */
 export function useProviderUsageRefresh(target: ProviderUsageRefreshTarget): () => void {
     const context = useProviderUsageRefreshContext();
     const { connectedProfileRef, recordIds } = target;

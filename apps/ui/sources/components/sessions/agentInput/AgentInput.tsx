@@ -86,7 +86,7 @@ import { AgentInputEngineDetail } from './components/AgentInputEngineDetail';
 import { AgentInputModelDiscoveryDetail, type AgentInputModelDetailState, type SessionModelDiscoveryContext } from './components/AgentInputModelDiscoveryDetail';
 import { AgentInputContextUsageBadge } from './components/AgentInputContextUsageBadge';
 import { AgentInputProviderUsageBadge } from './components/AgentInputProviderUsageBadge';
-import { ProviderUsageRing } from '../usage/ProviderUsageRing';
+import { AgentInputProviderUsageMark } from './components/AgentInputProviderUsageMark';
 import { mergeOptionPickerProbes } from '@/components/sessions/pickers/mergeOptionPickerProbes';
 import { AgentInputAttachmentsRow } from './components/AgentInputAttachmentsRow';
 import { AgentInputOverlayLayer } from './components/AgentInputOverlayLayer';
@@ -515,6 +515,7 @@ function AgentInputAttentionRequestsWithLocations(
 
 type AgentInputHiddenUsageOverflowProps = Readonly<{
     contextUsageState?: ContextUsageState | null;
+    onRefresh?: () => void;
     providerUsageGauge?: ConnectedServiceQuotaGaugeViewModel | null;
     onProviderUsageRecoveryCreditPress?: () => void;
     providerUsageRecoveryCreditPending?: boolean;
@@ -540,7 +541,10 @@ function AgentInputHiddenUsageOverflow(props: AgentInputHiddenUsageOverflowProps
                 testID="agent-input-hidden-usage-overflow"
                 accessibilityRole="button"
                 accessibilityLabel={t('agentInput.usageOverflow.accessibilityLabel')}
-                onPress={() => setOpen((value) => !value)}
+                onPress={() => {
+                    props.onRefresh?.();
+                    setOpen((value) => !value);
+                }}
                 style={({ pressed }) => [
                     styles.hiddenUsageOverflow,
                     { marginLeft: props.marginLeft ?? 0 },
@@ -2307,13 +2311,14 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return unmarkedAgentPickerOptions.map((option) => ({
             ...option,
             leadingMark: (
-                <ProviderUsageRing
-                    gauge={option.disabled || option.muted ? null : usageGaugesByOptionId.get(option.id) ?? null}
-                    testID={`agent-input-chip-picker.usage:${option.id}`}
+                <AgentInputProviderUsageMark
+                    option={option}
+                    gaugesByOptionId={usageGaugesByOptionId}
+                    onRefresh={props.onProviderUsageRefresh}
                 />
             ),
         }));
-    }, [unmarkedAgentPickerOptions, usageGaugesByOptionId]);
+    }, [unmarkedAgentPickerOptions, usageGaugesByOptionId, props.onProviderUsageRefresh]);
 
     const effectiveAgentPickerSelectedOptionId = React.useMemo(() => {
         if (typeof props.agentPickerSelectedOptionId === 'string' && props.agentPickerSelectedOptionId.length > 0) {
@@ -2701,7 +2706,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return (
             <View testID="agent-input-usage-gauges" style={styles.usageGaugesInline}>
                 {showContextGauge && contextUsageState ? (
-                    <AgentInputContextUsageBadge showLabels={showUsageGaugeLabels} state={contextUsageState} />
+                    <AgentInputContextUsageBadge showLabels={showUsageGaugeLabels} state={contextUsageState} onRefresh={props.onProviderUsageRefresh} />
                 ) : null}
                 {showProviderGauge && props.providerUsageGauge ? (
                     <AgentInputProviderUsageBadge
@@ -2715,6 +2720,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 ) : null}
                 {showHiddenGaugeOverflow ? (
                     <AgentInputHiddenUsageOverflow
+                        onRefresh={props.onProviderUsageRefresh}
                         contextUsageState={hiddenContextUsageState}
                         providerUsageGauge={hiddenProviderUsageGauge}
                         onProviderUsageRecoveryCreditPress={props.onProviderUsageRecoveryCreditPress}

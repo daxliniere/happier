@@ -22,6 +22,7 @@ type AgentInputContextUsageBadgeProps = Readonly<{
     state: ContextUsageState;
     marginLeft?: number;
     showLabels?: boolean;
+    onRefresh?: () => void;
 }>;
 
 function areContextUsageBadgePropsEqual(
@@ -29,6 +30,7 @@ function areContextUsageBadgePropsEqual(
     right: AgentInputContextUsageBadgeProps,
 ): boolean {
     return left.showLabels === right.showLabels
+        && left.onRefresh === right.onRefresh
         && left.marginLeft === right.marginLeft
         && left.state.severity === right.state.severity
         && left.state.usedTokens === right.state.usedTokens
@@ -63,6 +65,7 @@ export const AgentInputContextUsageBadge = React.memo(function AgentInputContext
                 accessibilityRole="button"
                 accessibilityLabel={popoverDetail}
                 onPress={() => {
+                    props.onRefresh?.();
                     setIsPinnedOpen((previous) => !previous);
                 }}
                 onHoverIn={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}

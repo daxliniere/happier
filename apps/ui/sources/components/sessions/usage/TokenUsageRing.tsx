@@ -64,10 +64,12 @@ export function TokenUsageRing(props: TokenUsageRingProps) {
             rings={props.rings?.map((meter) => ({
                 ratio: resolveTokenUsageProgressRatio(meter),
                 color: resolveColor(meter),
+                trackColor: meter.remainingPct !== undefined && meter.remainingPct <= 0 ? resolveColor(meter) : undefined,
             }))}
             size={props.size ?? 20}
             strokeWidth={props.strokeWidth ?? 2}
             color={toneColor}
+            trackColor={props.remainingPct !== undefined && props.remainingPct <= 0 ? toneColor : undefined}
             testID={props.testID}
             ringTestID={props.ringTestID}
             progressTestID={props.progressTestID}

@@ -18,7 +18,7 @@ export type CapacityRingProps = Readonly<{
     /** Single-arc resolved color (used when `rings` is not provided). */
     color?: string;
     /** Concentric arcs, OUTERMOST first. Overrides `ratio`/`color` when non-empty. */
-    rings?: ReadonlyArray<{ ratio: number; color: string }>;
+    rings?: ReadonlyArray<{ ratio: number; color: string; trackColor?: string }>;
     /** Outer diameter in px. */
     size?: number;
     strokeWidth?: number;
@@ -52,7 +52,7 @@ export function CapacityRing(props: CapacityRingProps) {
     const trackColor = props.trackColor ?? theme.colors.border.default;
     const outerRadius = (size - strokeWidth) / 2;
 
-    const arcs = props.rings && props.rings.length > 0
+    const arcs: NonNullable<CapacityRingProps['rings']> = props.rings && props.rings.length > 0
         ? props.rings
         : [{ ratio: props.ratio ?? 0, color: props.color ?? trackColor }];
 
@@ -83,7 +83,7 @@ export function CapacityRing(props: CapacityRingProps) {
                                 cy={size / 2}
                                 r={radius}
                                 fill="none"
-                                stroke={trackColor}
+                                stroke={arc.trackColor ?? trackColor}
                                 strokeWidth={strokeWidth}
                             />
                             <Circle
