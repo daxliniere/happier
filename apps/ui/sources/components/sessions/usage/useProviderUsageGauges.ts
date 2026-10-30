@@ -8,6 +8,7 @@ import {
 import { getAgentCore, isAgentId, resolveAgentIdFromFlavor, type AgentId } from '@/agents/catalog/catalog';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
+import { runProviderUsageRefresh, useProviderUsageRefreshContext } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
 import { useProviderAccountUsageSnapshots } from '@/hooks/server/connectedServices/useProviderAccountUsageSnapshots';
 import { selectProviderUsageDisplaySnapshot } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import {
@@ -36,7 +37,11 @@ export function useProviderUsageGauges(params: Readonly<{
     windowMode: ConnectedServiceQuotaGaugeWindowMode;
     /** Usage is only fetched while a surface wants it; until then only cached values render. */
     fetchEnabled: boolean;
-}>): ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel> {
+}>): Readonly<{
+    gauges: ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>;
+    /** Queries the provider for fresh figures for this Agent. */
+    refreshAgent: (agentId: AgentId) => void;
+}> {
     const profileRefByAgentId = React.useMemo(() => {
         const refs = new Map<AgentId, { serviceId: string; profileId: string }>();
         for (const agentId of params.agentIds) {
@@ -78,7 +83,16 @@ export function useProviderUsageGauges(params: Readonly<{
     );
     const accountUsageSnapshots = useProviderAccountUsageSnapshots(allRecordIds);
 
-    return React.useMemo(() => {
+    const refreshContext = useProviderUsageRefreshContext();
+    const refreshAgent = React.useCallback((agentId: AgentId) => {
+        if (!refreshContext) return;
+        runProviderUsageRefresh(refreshContext, {
+            connectedProfileRef: profileRefByAgentId.get(agentId) ?? null,
+            recordIds: recordIdsByAgentId.get(agentId) ?? [],
+        });
+    }, [profileRefByAgentId, recordIdsByAgentId, refreshContext]);
+
+    const gauges = React.useMemo(() => {
         const gauges = new Map<AgentId, ConnectedServiceQuotaGaugeViewModel>();
         const nowMs = nowServerMs();
         for (const agentId of params.agentIds) {
@@ -101,4 +115,5 @@ export function useProviderUsageGauges(params: Readonly<{
         }
         return gauges;
     }, [accountUsageSnapshots, params.agentIds, params.windowMode, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId]);
+    return React.useMemo(() => ({ gauges, refreshAgent }), [gauges, refreshAgent]);
 }

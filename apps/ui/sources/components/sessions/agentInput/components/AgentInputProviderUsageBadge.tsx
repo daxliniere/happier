@@ -24,6 +24,8 @@ type AgentInputProviderUsageBadgeProps = Readonly<{
     showLabels?: boolean;
     onRecoveryCreditPress?: () => void;
     recoveryCreditActionPending?: boolean;
+    /** Asks the provider for fresh figures; runs on every press of the rings. */
+    onRefresh?: () => void;
 }>;
 
 function areProviderUsageMeterRowsEqual(
@@ -126,6 +128,7 @@ function areProviderUsageBadgePropsEqual(
         && left.marginLeft === right.marginLeft
         && left.onRecoveryCreditPress === right.onRecoveryCreditPress
         && left.recoveryCreditActionPending === right.recoveryCreditActionPending
+        && left.onRefresh === right.onRefresh
         && areProviderUsageViewModelsEqual(left.viewModel, right.viewModel);
 }
 
@@ -176,6 +179,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                 accessibilityRole="button"
                 accessibilityLabel={accessibilityLabel}
                 onPress={() => {
+                    props.onRefresh?.();
                     setIsPinnedOpen((previous) => !previous);
                 }}
                 onHoverIn={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}
