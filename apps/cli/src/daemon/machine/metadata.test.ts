@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from './metadata';
+import forkBuild from '../../../../../fork/build-version.json';
 
 describe('initialMachineMetadata', () => {
   it('advertises daemon-owned runtime control capabilities', () => {
+    expect(initialMachineMetadata.happyForkVersion).toBe(forkBuild.version);
     expect(initialMachineMetadata.daemonTerminalSessionAttachSupported).toBe(true);
     expect(initialMachineMetadata.daemonSessionGoalControlsSupported).toBe(true);
   });

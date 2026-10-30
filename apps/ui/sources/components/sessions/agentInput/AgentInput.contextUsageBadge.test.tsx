@@ -70,6 +70,7 @@ installAgentInputCommonModuleMocks({
                 if (key === 'agentInput.context.usedDetail') {
                     return `${params?.percent} • ${params?.used}/${params?.total} context used`;
                 }
+                if (key === 'connectedServices.account.usedDetail') return `${params?.used}/${params?.limit} used`;
                 if (key === 'agentInput.context.windowTitle') return 'Context Window';
                 if (key === 'agentInput.context.description') return 'Automatically compacts its context when needed.';
                 if (key === 'agentInput.providerUsage.titleForProvider') return `${params?.provider} usage`;
@@ -368,7 +369,7 @@ describe('AgentInput (context usage badge)', () => {
         const badge = screen.findByTestId('agent-input-context-usage-badge');
         expect(badge).toBeTruthy();
         expect(screen.findByTestId('agent-input-context-usage-ring')).toBeTruthy();
-        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('19');
+        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('81');
         expect(String(badge?.props.accessibilityLabel ?? '')).toContain('38.7k/200k');
         expect(Boolean(screen.findByTestId('agent-input-context-usage-label'))).toBe(showLabels);
 
@@ -404,7 +405,7 @@ describe('AgentInput (context usage badge)', () => {
 
         const badge = screen.findByTestId('agent-input-context-usage-badge');
         expect(badge).toBeTruthy();
-        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('90');
+        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('10');
         expect(String(badge?.props.accessibilityLabel ?? '')).toContain('180k/200k');
 
         act(() => screen.tree.unmount());
@@ -429,7 +430,7 @@ describe('AgentInput (context usage badge)', () => {
         );
 
         expect(screen.findByTestId('agent-input-context-usage-badge')).toBeTruthy();
-        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('0');
+        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('100');
 
         act(() => screen.tree.unmount());
     });

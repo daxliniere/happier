@@ -34,6 +34,7 @@ export type ConnectedServiceQuotaGaugeRing = Readonly<{
     meterId: string;
     label: string;
     usedPct: number;
+    remainingPct?: number;
     ringValueLabel: string;
     /** Remaining-first value text, e.g. "18% left". */
     valueLabel: string;
@@ -490,6 +491,7 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
                 meterId: meter.meterId,
                 label: row.label,
                 usedPct: row.usedPct,
+                remainingPct: row.remainingPct,
                 ringValueLabel: String(ringRemaining),
                 valueLabel: params.formatter.remaining({ percent: `${ringRemaining}%` }),
                 tone: row.tone,

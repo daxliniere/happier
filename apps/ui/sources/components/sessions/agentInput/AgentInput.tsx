@@ -75,8 +75,7 @@ import {
     type AgentInputPanelMaxHeightMode,
 } from './inputMaxHeight';
 import {
-    formatContextTokenCount,
-    formatContextUsagePercent,
+    formatContextUsageDetail,
     getContextUsageState,
     type ContextUsageState,
 } from './contextWarning';
@@ -520,22 +519,7 @@ function AgentInputHiddenUsageOverflow(props: AgentInputHiddenUsageOverflowProps
     const anchorRef = React.useRef<any>(null);
     const [open, setOpen] = React.useState(false);
     const contextUsageState = props.contextUsageState ?? null;
-    const usedPercentageLabel = contextUsageState
-        ? formatContextUsagePercent(contextUsageState.usedPercentage)
-        : null;
-    const usedTokensLabel = contextUsageState
-        ? formatContextTokenCount(contextUsageState.usedTokens)
-        : null;
-    const contextWindowTokensLabel = contextUsageState
-        ? formatContextTokenCount(contextUsageState.contextWindowTokens)
-        : null;
-    const contextDetail = contextUsageState && usedPercentageLabel && usedTokensLabel && contextWindowTokensLabel
-        ? t('agentInput.context.usedDetail', {
-            percent: usedPercentageLabel,
-            used: usedTokensLabel,
-            total: contextWindowTokensLabel,
-        })
-        : null;
+    const contextDetail = contextUsageState ? formatContextUsageDetail(contextUsageState) : null;
     const providerUsageGauge = props.providerUsageGauge ?? null;
     const providerRecoveryCreditSummary = providerUsageGauge?.recoveryCreditSummary ?? null;
 

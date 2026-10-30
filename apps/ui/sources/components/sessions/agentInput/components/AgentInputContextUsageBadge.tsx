@@ -8,8 +8,7 @@ import { Text } from '@/components/ui/text/Text';
 import { TokenUsageRing, type TokenUsageTone } from '@/components/sessions/usage';
 
 import {
-    formatContextTokenCount,
-    formatContextUsagePercent,
+    formatContextUsageDetail,
     type ContextUsageState,
 } from '../contextWarning';
 import { AgentInputContentPopover } from './AgentInputContentPopover';
@@ -45,29 +44,14 @@ export const AgentInputContextUsageBadge = React.memo(function AgentInputContext
     const [isPinnedOpen, setIsPinnedOpen] = React.useState(false);
     const [isHovered, setIsHovered] = React.useState(false);
     const tone: TokenUsageTone = props.state.severity;
+    const remainingPercentage = Math.max(0, Math.min(100, 100 - props.state.usedPercentage));
     const badgeValueLabel = React.useMemo(
-        () => String(Math.max(0, Math.round(props.state.usedPercentage))),
-        [props.state.usedPercentage],
-    );
-    const usedPercentageLabel = React.useMemo(
-        () => formatContextUsagePercent(props.state.usedPercentage),
-        [props.state.usedPercentage],
-    );
-    const usedTokensLabel = React.useMemo(
-        () => formatContextTokenCount(props.state.usedTokens),
-        [props.state.usedTokens],
-    );
-    const contextWindowTokensLabel = React.useMemo(
-        () => formatContextTokenCount(props.state.contextWindowTokens),
-        [props.state.contextWindowTokens],
+        () => String(Math.round(remainingPercentage)),
+        [remainingPercentage],
     );
     const popoverDetail = React.useMemo(
-        () => t('agentInput.context.usedDetail', {
-            percent: usedPercentageLabel,
-            used: usedTokensLabel,
-            total: contextWindowTokensLabel,
-        }),
-        [contextWindowTokensLabel, usedPercentageLabel, usedTokensLabel],
+        () => formatContextUsageDetail(props.state),
+        [props.state],
     );
     const open = isPinnedOpen || isHovered;
 
@@ -98,7 +82,7 @@ export const AgentInputContextUsageBadge = React.memo(function AgentInputContext
                     {t('agentInput.context.badgeLabel')}
                 </Text> : null}
                 <TokenUsageRing
-                    used={props.state.usedTokens}
+                    used={Math.max(0, props.state.contextWindowTokens - props.state.usedTokens)}
                     limit={props.state.contextWindowTokens}
                     label={popoverDetail}
                     value={badgeValueLabel}
