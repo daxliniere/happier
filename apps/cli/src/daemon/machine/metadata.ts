@@ -7,7 +7,6 @@ import { projectPath } from '@/projectPath';
 import type { MachineMetadata } from '@/api/types';
 import type { CliUpdateFacts } from '@happier-dev/protocol';
 import packageJson from '../../../package.json';
-import forkBuild from '../../../../../fork/build-version.json';
 
 const execFileAsync = promisify(execFile);
 
@@ -51,7 +50,7 @@ export function refreshMachineMetadataForCurrentDaemon(
     host,
     platform: os.platform(),
     happyCliVersion: packageJson.version,
-    happyForkVersion: forkBuild.version,
+    happyForkVersion: packageJson.happierForkVersion,
     homeDir: os.homedir(),
     happyHomeDir: configuration.happyHomeDir,
     happyLibDir: projectPath(),

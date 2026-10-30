@@ -9,4 +9,9 @@ if ($current -notmatch '^(.*\.)(\d+)$') { throw "fork/VERSION must end in a buil
 $next = $Matches[1] + ([int]$Matches[2] + 1)
 [IO.File]::WriteAllText($file, "$next`n", (New-Object Text.UTF8Encoding($false)))
 [IO.File]::WriteAllText((Join-Path $root 'fork/build-version.json'), "{`"version`":`"$next`"}`n", (New-Object Text.UTF8Encoding($false)))
+# Keep the CLI's embedded label package-local: its build compiles a temporary source copy.
+$cliManifestPath = Join-Path $root 'apps/cli/package.json'
+$cliManifest = Get-Content -LiteralPath $cliManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$cliManifest | Add-Member -NotePropertyName happierForkVersion -NotePropertyValue $next -Force
+[IO.File]::WriteAllText($cliManifestPath, (($cliManifest | ConvertTo-Json -Depth 100) + "`n"), (New-Object Text.UTF8Encoding($false)))
 Write-Output $next

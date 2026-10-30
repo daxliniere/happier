@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import { initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from './metadata';
-import forkBuild from '../../../../../fork/build-version.json';
 
 describe('initialMachineMetadata', () => {
   it('advertises daemon-owned runtime control capabilities', () => {
-    expect(initialMachineMetadata.happyForkVersion).toBe(forkBuild.version);
+    expect(initialMachineMetadata.happyForkVersion).toBe(
+      readFileSync(new URL('../../../../../fork/VERSION', import.meta.url), 'utf8').trim(),
+    );
     expect(initialMachineMetadata.daemonTerminalSessionAttachSupported).toBe(true);
     expect(initialMachineMetadata.daemonSessionGoalControlsSupported).toBe(true);
   });
