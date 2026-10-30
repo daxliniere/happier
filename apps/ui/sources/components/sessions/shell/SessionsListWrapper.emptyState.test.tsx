@@ -2,7 +2,8 @@ import React from 'react';
 import { act } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { flushHookEffects, renderScreen, standardCleanup } from '@/dev/testkit';
+import { flushHookEffects, renderScreen as renderBareScreen, standardCleanup } from '@/dev/testkit';
+import { AuthProvider } from '@/auth/context/AuthContext';
 import type { VisibleSessionListViewDataOptions } from '@/hooks/session/useVisibleSessionListViewData';
 import { installSessionShellCommonModuleMocks } from './sessionShellTestHelpers';
 
@@ -188,6 +189,16 @@ async function setRoutePathname(pathname: string) {
     await flushHookEffects();
 }
 
+// The usage strip reads auth even when there are no usage records. Keep its real
+// hooks mounted under the app provider; null credentials prevent quota requests.
+function SessionListTestProviders({ children }: React.PropsWithChildren) {
+    return <AuthProvider initialCredentials={null}>{children}</AuthProvider>;
+}
+
+function renderScreen(element: React.ReactElement) {
+    return renderBareScreen(element, { wrapper: SessionListTestProviders });
+}
+
 async function renderSessionsListWrapper() {
     const { SessionsListWrapper } = await import('./SessionsListWrapper');
     return renderScreen(<SessionsListWrapper />);
@@ -257,7 +268,7 @@ describe('SessionsListWrapper (empty state)', () => {
         await screen.unmount();
     });
 
-    it('shows storage tabs and uses the selected direct storage filter when direct sessions are enabled', async () => {
+    it('keeps browse enabled while passing the storage filter to the list', async () => {
         featureDecisionState.enabled = true;
         storageKindState.storageKind = 'direct';
         sessionListState.data = [{ type: 'session', session: { id: 'session-1' } }];
@@ -267,7 +278,7 @@ describe('SessionsListWrapper (empty state)', () => {
         expect(sessionListState.storageKinds.length).toBeGreaterThan(0);
         expect(sessionListState.storageKinds.every((kind) => kind === 'direct')).toBe(true);
         expect(() => screen.findByType('SessionsListStorageChrome' as any)).not.toThrow();
-        expect(screen.findByType('SessionsListStorageChrome' as any).props.storageKind).toBe('direct');
+        expect(screen.findByType('SessionsListStorageChrome' as any).props.directSessionsEnabled).toBe(true);
         expect(screen.findByType('SessionsListContent' as any).props.storageKind).toBe('direct');
         expect(screen.findByType('SessionsListContent' as any).props.data).toBe(sessionListState.data);
 
@@ -282,7 +293,7 @@ describe('SessionsListWrapper (empty state)', () => {
         const screen = await renderSessionsListWrapper();
 
         expect(() => screen.findByType('SessionsListStorageChrome' as any)).not.toThrow();
-        expect(screen.findByType('SessionsListStorageChrome' as any).props.storageKind).toBe('direct');
+        expect(screen.findByType('SessionsListStorageChrome' as any).props.directSessionsEnabled).toBe(true);
 
         await screen.unmount();
     });
@@ -310,7 +321,7 @@ describe('SessionsListWrapper (empty state)', () => {
         await screen.unmount();
     });
 
-    it('keeps the storage chrome visible when the direct tab already has sessions', async () => {
+    it('keeps the storage chrome visible when direct sessions are populated', async () => {
         featureDecisionState.enabled = true;
         storageKindState.storageKind = 'direct';
         sessionListState.data = [{ type: 'session', session: { id: 'session-1' } }];
@@ -318,7 +329,7 @@ describe('SessionsListWrapper (empty state)', () => {
         const screen = await renderSessionsListWrapper();
 
         expect(() => screen.findByType('SessionsListStorageChrome' as any)).not.toThrow();
-        expect(screen.findByType('SessionsListStorageChrome' as any).props.storageKind).toBe('direct');
+        expect(screen.findByType('SessionsListStorageChrome' as any).props.directSessionsEnabled).toBe(true);
         expect(screen.findByType('SessionsListContent' as any).props.storageKind).toBe('direct');
 
         await screen.unmount();
