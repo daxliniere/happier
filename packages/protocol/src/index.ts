@@ -2005,6 +2005,8 @@ export {
   type NativeSessionAliasesV1,
 } from './sessionMetadata/nativeSessionAliasesV1.js';
 
+export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
+
 export {
   WINDOWS_REMOTE_SESSION_LAUNCH_MODES,
   WindowsRemoteSessionLaunchModeSchema,
@@ -3284,6 +3286,7 @@ export {
   isCodingPromptSessionTitleUpdatesEnabled,
   resolveCodingPromptBehaviorV1,
   resolveCodingPromptSessionTitleUpdatesModeV1,
+  resolveCodingPromptSessionTitleInstructionModeV1,
   type CodingPromptBehaviorModeV1,
   type CodingPromptSessionTitleUpdatesModeV1,
   type CodingPromptBehaviorV1,
