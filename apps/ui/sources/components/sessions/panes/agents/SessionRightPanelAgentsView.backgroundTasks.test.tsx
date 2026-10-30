@@ -227,9 +227,7 @@ describe('SessionRightPanelAgentsView background tasks', () => {
         await act(async () => {
             screen.findByTestId(`${detailTestId}:open-command`)?.props.onPress();
         });
-        // The mocked `react-native` reports web, and the session route pushes on web (navigate is the
-        // native branch of `navigateToSessionRoute`).
-        expect(routerPush).toHaveBeenCalledWith(`/session/${SESSION_ID}?jumpSeq=${LAUNCH_SEQ}`);
+        expect(routerNavigate).toHaveBeenCalledWith(`/session/${SESSION_ID}?jumpSeq=${LAUNCH_SEQ}`, expect.any(Object));
 
         await screen.unmount();
     });
