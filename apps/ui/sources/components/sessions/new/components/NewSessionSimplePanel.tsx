@@ -22,6 +22,7 @@ import {
 } from '@/components/sessions/new/components/NewSessionComposerCloseButton';
 import { safeRouterBack } from '@/utils/navigation/safeRouterBack';
 import { AgentInput } from '@/components/sessions/agentInput';
+import { useAgentProviderUsageGauge } from '@/components/sessions/usage/useAgentProviderUsageGauge';
 import { AttachmentFilePicker } from '@/components/sessions/attachments/AttachmentFilePicker';
 import { PopoverBoundaryProvider } from '@/components/ui/popover';
 import { t } from '@/text';
@@ -474,6 +475,7 @@ function NewSessionSimplePanelComposer({
     // The composer scaffold computes the available panel height synchronously at mount
     // (seeded from the viewport + safe-area insets), so the bottom-anchored panel can
     // size from the settled value on its first frame.
+    const { gauge: providerUsageGauge, refresh: refreshProviderUsage } = useAgentProviderUsageGauge(props.agentType);
     const availablePanelHeight = useComposerAvailablePanelHeight();
     const isFloatingComposer = isNewSessionFloatingComposerPresentation({
         variant: 'simple',
@@ -522,6 +524,8 @@ function NewSessionSimplePanelComposer({
                         panelMaxHeightMode="host-constrained"
                         submitAccessibilityLabel={props.submitAccessibilityLabel}
                         agentType={props.agentType}
+                        providerUsageGauge={providerUsageGauge}
+                        onProviderUsageRefresh={refreshProviderUsage}
                         agentLabel={props.agentLabel}
                         onAgentClick={props.handleAgentClick}
                         agentPickerOptions={props.agentPickerOptions}

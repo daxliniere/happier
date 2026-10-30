@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Color from 'color';
 import { Typography } from '@/constants/Typography';
 import { AgentInput } from '@/components/sessions/agentInput';
+import { useAgentProviderUsageGauge } from '@/components/sessions/usage/useAgentProviderUsageGauge';
 import { AttachmentFilePicker } from '@/components/sessions/attachments/AttachmentFilePicker';
 import { PopoverBoundaryProvider } from '@/components/ui/popover';
 import { Item } from '@/components/ui/lists/Item';
@@ -1117,6 +1118,7 @@ function NewSessionWizardComposerInput(props: NewSessionWizardComposerInputProps
         onAttachmentsPicked,
         ...agentInputProps
     } = props;
+    const { gauge: providerUsageGauge, refresh: refreshProviderUsage } = useAgentProviderUsageGauge(agentInputProps.agentType);
     const availablePanelHeight = useComposerAvailablePanelHeight();
     const { height: windowHeight } = useWindowDimensions();
     const maxPanelHeight = computeNewSessionComposerPanelMaxHeight({
@@ -1130,6 +1132,8 @@ function NewSessionWizardComposerInput(props: NewSessionWizardComposerInputProps
         <>
             <AgentInput
                 {...agentInputProps}
+                providerUsageGauge={agentInputProps.providerUsageGauge ?? providerUsageGauge}
+                onProviderUsageRefresh={agentInputProps.onProviderUsageRefresh ?? refreshProviderUsage}
                 maxPanelHeight={maxPanelHeight}
                 panelMaxHeightMode="host-constrained"
             />
