@@ -88,16 +88,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingBottom: 8,
         color: theme.colors.input.placeholder,
     },
-    submenuAnchorFrame: {
-        position: 'relative',
-    },
-    submenuAnchor: {
-        position: 'absolute',
-        top: 0,
-        right: -2,
-        bottom: 0,
-        width: 4,
-    },
     // Targets abut (no gap) so 44pt hit areas never overlap; the visible geometry is concentric:
     // highlight 34 → ring 26 (2px stroke, 2px gap) → fill 18.
     swatchRow: {
@@ -223,7 +213,6 @@ export function SelectableMenuResults(props: {
     const styles = stylesheet;
     const mouseDownActivatedItemIdRef = React.useRef<string | null>(null);
     const rowAnchorRefs = React.useRef(new Map<string, React.RefObject<View | null>>());
-    const submenuAnchorRefs = React.useRef(new Map<string, React.RefObject<View | null>>());
 
     const allItems = React.useMemo(() => props.categories.flatMap((c) => c.items), [props.categories]);
     const getRowAnchorRef = React.useCallback((itemId: string): React.RefObject<View | null> => {
@@ -235,13 +224,11 @@ export function SelectableMenuResults(props: {
     }, []);
     const submenuAnchorRegistry = props.submenuAnchorRegistry;
     const getSubmenuAnchorRef = React.useCallback((itemId: string): React.RefObject<View | null> => {
-        const existing = submenuAnchorRefs.current.get(itemId);
-        if (existing) return existing;
-        const created = React.createRef<View>();
-        submenuAnchorRefs.current.set(itemId, created);
-        submenuAnchorRegistry?.set(itemId, created as React.RefObject<unknown>);
-        return created;
-    }, [submenuAnchorRegistry]);
+        // Both edges must belong to the row so a left-opening submenu clears the parent menu.
+        const anchor = getRowAnchorRef(itemId);
+        submenuAnchorRegistry?.set(itemId, anchor as React.RefObject<unknown>);
+        return anchor;
+    }, [getRowAnchorRef, submenuAnchorRegistry]);
     const handleOpenSubmenu = React.useCallback((item: SelectableMenuItem, anchorRef: React.RefObject<unknown>) => {
         if (!item.hasSubmenu || item.disabled) return false;
         props.onOpenSubmenu?.(item.id, anchorRef);
@@ -417,9 +404,9 @@ export function SelectableMenuResults(props: {
                     return { swatchGroup: null, node: (
                         <View
                             ref={rowAnchorRef}
+                            collapsable={item.hasSubmenu ? false : undefined}
                             key={item.id}
                             testID={`${optionTestID}:scroll-frame`}
-                            style={item.hasSubmenu ? styles.submenuAnchorFrame : undefined}
                             onPointerEnter={Platform.OS === 'web' && item.hasSubmenu ? () => {
                                 props.onSelectionChange(itemIndex);
                                 handleOpenItemSubmenu();
@@ -427,15 +414,6 @@ export function SelectableMenuResults(props: {
                             {...(scrollFrameLayout ? { onLayout: scrollFrameLayout } : {})}
                         >
                             {itemNode}
-                            {item.hasSubmenu ? (
-                                <View
-                                    ref={submenuAnchorRef}
-                                    collapsable={false}
-                                    pointerEvents="none"
-                                    testID={`${optionTestID}:submenu-anchor`}
-                                    style={styles.submenuAnchor}
-                                />
-                            ) : null}
                         </View>
                     ) };
                 });
