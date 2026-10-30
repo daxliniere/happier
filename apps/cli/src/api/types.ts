@@ -328,6 +328,7 @@ export const MachineMetadataSchema = z.object({
   host: z.string(),
   platform: z.string(),
   happyCliVersion: z.string(),
+  happyForkVersion: z.string().optional(),
   homeDir: z.string(),
   happyHomeDir: z.string(),
   happyLibDir: z.string(),

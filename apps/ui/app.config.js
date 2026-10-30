@@ -70,6 +70,14 @@ const androidPackageOverride = (process.env.EXPO_ANDROID_PACKAGE || '').trim();
 const ownerOverride = (process.env.EXPO_APP_OWNER || '').trim();
 const slugOverride = (process.env.EXPO_APP_SLUG || '').trim();
 const versionOverride = (process.env.EXPO_APP_VERSION || '').trim();
+// The fork build identifier is separate from the upstream package version.
+const forkVersion = (() => {
+    try {
+        return require('fs').readFileSync(require('path').join(__dirname, '../../fork/VERSION'), 'utf8').trim();
+    } catch {
+        return '';
+    }
+})();
 const appVariantOverride = normalizeVariantOverride(process.env.HAPPIER_APP_VARIANT_OVERRIDE);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJson = (() => {
@@ -468,6 +476,7 @@ const baseExpoConfig = {
                 // production bundle IDs without disabling production-only native configuration.
                 variant: appVariantOverride || appVariant,
                 identityVariant: appIdentityVariant,
+                ...(forkVersion ? { forkVersion } : {}),
                 postHogKey: process.env.EXPO_PUBLIC_POSTHOG_KEY || process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
                 revenueCatAppleKey: process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE,
                 revenueCatGoogleKey: process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE,
