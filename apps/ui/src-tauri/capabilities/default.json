@@ -46,6 +46,9 @@
     "allow-desktop-show-main-window",
     "allow-desktop-start-window-dragging",
     "allow-desktop-finish-shutdown",
+    "allow-desktop-open-file-window",
+    "allow-desktop-open-path-with-default-app",
+    "allow-desktop-reveal-path-in-file-manager",
     {
       "identifier": "http:default",
       "allow": [

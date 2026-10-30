@@ -3545,6 +3545,15 @@ export const es: TranslationStructure = {
     nativeTitleBarSubtitle: "Mostrar el marco y los controles de ventana estándar de Windows.",
     nativeTitleBarChangeFailed: "No se pudo cambiar la barra de título. Inténtalo de nuevo.",
     nativeTitleBarPersistenceFailed: "No se pudo cargar o guardar la preferencia de la barra de título. Cámbiala de nuevo para reintentarlo.",
+    pathMappingsTitle: "Abrir archivos en este equipo",
+    pathMappingsFooter: "Permite que «Abrir con…» y «Abrir ubicación del archivo» lleguen a archivos de sesiones en otras máquinas, mediante una carpeta compartida con este equipo. Toca una carpeta para quitarla.",
+    pathMappingsAdd: "Añadir carpeta compartida",
+    pathMappingsRemotePrompt: "Carpeta en la máquina",
+    pathMappingsRemotePromptMessage: "La carpeta tal como la ve la máquina de la sesión, por ejemplo /srv/projects.",
+    pathMappingsLocalPrompt: "La misma carpeta en este equipo",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Dónde llega este equipo a ${remotePath}, por ejemplo \\\\server\\projects o Z:\\projects.`,
+    pathMappingsRemoveTitle: "¿Quitar esta carpeta compartida?",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: 'Escritorio',
     footer: 'Controla cómo se comporta Happier en este ordenador.',
     backgroundServiceTitle: 'Seguir disponible en segundo plano',
@@ -5876,6 +5885,12 @@ export const es: TranslationStructure = {
                 closeTabA11y: "Cerrar pestaña",
                 enterFocusModeA11y: "Entrar en modo de enfoque del panel",
                 exitFocusModeA11y: "Salir del modo de enfoque del panel",
+                tabMenu: {
+                    openInNewWindow: "Abrir en una ventana nueva",
+                    openWithDefaultApp: "Abrir con…",
+                    revealInFileManager: "Abrir ubicación del archivo",
+                    actionFailedTitle: "No se pudo abrir el archivo",
+                },
         },
   
       actionsDraft: {

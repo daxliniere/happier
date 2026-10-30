@@ -3267,6 +3267,15 @@ export const de: TranslationStructure = {
         nativeTitleBarSubtitle: 'Den standardmäßigen Windows-Rahmen und die Fenstersteuerung anzeigen.',
         nativeTitleBarChangeFailed: 'Die Titelleiste konnte nicht geändert werden. Versuche es erneut.',
         nativeTitleBarPersistenceFailed: 'Die Einstellung für die Titelleiste konnte nicht geladen oder gespeichert werden. Ändere sie erneut, um es noch einmal zu versuchen.',
+        pathMappingsTitle: "Dateien auf diesem Computer öffnen",
+        pathMappingsFooter: "Damit „Öffnen in…“ und „Dateispeicherort öffnen“ Dateien von Sitzungen auf anderen Rechnern erreichen, über einen Ordner, den sie mit diesem Computer teilen. Tippe auf einen Ordner, um ihn zu entfernen.",
+        pathMappingsAdd: "Freigegebenen Ordner hinzufügen",
+        pathMappingsRemotePrompt: "Ordner auf dem Rechner",
+        pathMappingsRemotePromptMessage: "Der Ordner, wie ihn der Rechner der Sitzung sieht, zum Beispiel /srv/projects.",
+        pathMappingsLocalPrompt: "Derselbe Ordner auf diesem Computer",
+        pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Wo dieser Computer ${remotePath} erreicht, zum Beispiel \\\\server\\projects oder Z:\\projects.`,
+        pathMappingsRemoveTitle: "Diesen freigegebenen Ordner entfernen?",
+        pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
         title: 'Desktop',
         footer: 'Steuert, wie sich Happier auf diesem Computer verhält.',
         backgroundServiceTitle: 'Im Hintergrund erreichbar bleiben',
@@ -5537,6 +5546,12 @@ export const de: TranslationStructure = {
             closeTabA11y: 'Tab schließen',
             enterFocusModeA11y: 'Panel-Fokusmodus starten',
             exitFocusModeA11y: 'Panel-Fokusmodus beenden',
+            tabMenu: {
+                openInNewWindow: "In neuem Fenster öffnen",
+                openWithDefaultApp: "Öffnen in…",
+                revealInFileManager: "Dateispeicherort öffnen",
+                actionFailedTitle: "Die Datei konnte nicht geöffnet werden",
+            },
         },
 
         actionsDraft: {

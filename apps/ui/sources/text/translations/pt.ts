@@ -3668,6 +3668,15 @@ export const pt: TranslationStructure = {
     nativeTitleBarSubtitle: 'Mostrar a moldura e os controles de janela padrão do Windows.',
     nativeTitleBarChangeFailed: 'Não foi possível alterar a barra de título. Tente novamente.',
     nativeTitleBarPersistenceFailed: 'Não foi possível carregar ou salvar a preferência da barra de título. Altere-a novamente para tentar outra vez.',
+    pathMappingsTitle: "Abrir arquivos neste computador",
+    pathMappingsFooter: "Permite que “Abrir com…” e “Abrir local do arquivo” alcancem arquivos de sessões em outras máquinas, por meio de uma pasta compartilhada com este computador. Toque em uma pasta para removê-la.",
+    pathMappingsAdd: "Adicionar pasta compartilhada",
+    pathMappingsRemotePrompt: "Pasta na máquina",
+    pathMappingsRemotePromptMessage: "A pasta como a máquina da sessão a vê, por exemplo /srv/projects.",
+    pathMappingsLocalPrompt: "A mesma pasta neste computador",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Onde este computador acessa ${remotePath}, por exemplo \\\\server\\projects ou Z:\\projects.`,
+    pathMappingsRemoveTitle: "Remover esta pasta compartilhada?",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: 'Área de trabalho',
     footer: 'Controla como o Happier se comporta neste computador.',
     backgroundServiceTitle: 'Continuar acessível em segundo plano',
@@ -5996,6 +6005,12 @@ export const pt: TranslationStructure = {
           closeTabA11y: "Fechar aba",
           enterFocusModeA11y: "Entrar no modo de foco do painel",
           exitFocusModeA11y: "Sair do modo de foco do painel",
+          tabMenu: {
+              openInNewWindow: "Abrir em nova janela",
+              openWithDefaultApp: "Abrir com…",
+              revealInFileManager: "Abrir local do arquivo",
+              actionFailedTitle: "Não foi possível abrir o arquivo",
+          },
       },
   
       actionsDraft: {

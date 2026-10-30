@@ -33,6 +33,9 @@ import {
     SessionTranscriptDetailsViewForPanel,
 } from './SessionDetailsPanelDetailViews';
 import { isSessionTranscriptDetailsResource } from './details/sessionTranscriptDetailsResource';
+import type { SessionDetailsTabMenuTab } from './SessionDetailsTabMenu';
+
+const SessionDetailsTabMenu = React.lazy(() => import('./SessionDetailsTabMenu').then((module) => ({ default: module.SessionDetailsTabMenu })));
 
 export type SessionDetailsPanelProps = Readonly<{
     sessionId: string;
@@ -52,6 +55,14 @@ export type SessionDetailsPanelProps = Readonly<{
 
 const ViewWithWheel = View as unknown as React.ComponentType<
     React.ComponentPropsWithRef<typeof View> & { onWheel?: any; onTouchMove?: any }
+>;
+
+// React Native Web forwards `onContextMenu` to the DOM element; the native View type omits it.
+const TabMenuAnchorView = View as unknown as React.ComponentType<
+    Omit<React.ComponentPropsWithRef<typeof View>, 'ref'> & {
+        ref?: (node: unknown) => void;
+        onContextMenu?: (event: { preventDefault?: () => void; stopPropagation?: () => void }) => void;
+    }
 >;
 
 const DETAILS_TAB_MIN_WIDTH = 128;
@@ -245,6 +256,25 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
 
     const activeTab = React.useMemo(() => tabs.find((t) => t.key === activeKey) ?? tabs.at(-1) ?? null, [activeKey, tabs]);
     const effectiveActiveKey = activeKey ?? activeTab?.key ?? null;
+
+    // Right-click (web/desktop) or long-press (native) on a tab opens its menu, anchored to that tab.
+    const tabElementsRef = React.useRef(new Map<string, unknown>());
+    const tabMenuAnchorRef = React.useRef<unknown>(null);
+    const [menuTabKey, setMenuTabKey] = React.useState<string | null>(null);
+    const registerTabElement = React.useCallback((tabKey: string, node: unknown) => {
+        if (node) tabElementsRef.current.set(tabKey, node);
+        else tabElementsRef.current.delete(tabKey);
+    }, []);
+    const openTabMenu = React.useCallback((tabKey: string) => {
+        tabMenuAnchorRef.current = tabElementsRef.current.get(tabKey) ?? null;
+        setMenuTabKey(tabKey);
+    }, []);
+    const closeTabMenu = React.useCallback(() => setMenuTabKey(null), []);
+    const menuTab = React.useMemo<SessionDetailsTabMenuTab | null>(() => {
+        const tab = menuTabKey ? tabs.find((candidate) => candidate.key === menuTabKey) : null;
+        if (!tab) return null;
+        return { key: tab.key, title: tab.title, filePath: isFileResource(tab.resource) ? tab.resource.path : null };
+    }, [menuTabKey, tabs]);
 
     React.useEffect(() => {
         const currentTabKeys = new Set(tabs.map((tab) => tab.key));
@@ -479,8 +509,18 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
                                                     ? 'chat-circle-dots'
                                                     : resolveProviderSessionDetailsTabIconName(tab) ?? 'circle';
                         return (
-                            <View
+                            <TabMenuAnchorView
                                 key={tab.key}
+                                ref={(node: unknown) => registerTabElement(tab.key, node)}
+                                {...(Platform.OS === 'web'
+                                    ? {
+                                        onContextMenu: (event: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+                                            event.preventDefault?.();
+                                            event.stopPropagation?.();
+                                            openTabMenu(tab.key);
+                                        },
+                                    }
+                                    : {})}
                                 style={{
                                     position: 'relative',
                                     marginRight: 8,
@@ -491,6 +531,7 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
                             >
                                 <Pressable
                                     onPress={() => pane.setActiveDetailsTab(tab.key)}
+                                    onLongPress={() => openTabMenu(tab.key)}
                                     testID={resolveOptionalSessionScreenTestId(sessionScreenTestIdsEnabled, `session-details-tab-${safeTabKey}`)}
                                     style={[
                                         styles.tab,
@@ -577,10 +618,21 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
                                         <Icon name="x" size={14} color={theme.colors.text.secondary} />
                                     </Pressable>
                                 </View>
-                            </View>
+                            </TabMenuAnchorView>
                         );
                     })}
                 </ScrollView>
+                {menuTab ? (
+                    <React.Suspense fallback={null}>
+                        <SessionDetailsTabMenu
+                            sessionId={props.sessionId}
+                            tab={menuTab}
+                            anchorRef={tabMenuAnchorRef}
+                            onClose={closeTabMenu}
+                            onCloseTab={pane.closeDetailsTab}
+                        />
+                    </React.Suspense>
+                ) : null}
                 {showHeaderActions && Platform.OS === 'web' ? (
                     <IconAction
                         onPress={focusMode.toggle}

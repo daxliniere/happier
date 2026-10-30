@@ -836,6 +836,16 @@ export function useSessionMachineId(sessionId: string): string | null {
   return getStorage()((state) => resolveSessionMachineId(state.sessions[sessionId]?.metadata ?? null));
 }
 
+/** The home directory a session's `~` paths expand against: the session's own, else its machine's. */
+export function useSessionHomeDir(sessionId: string): string | null {
+  return getStorage()((state) => {
+    const metadata = state.sessions[sessionId]?.metadata ?? null;
+    if (metadata?.homeDir) return metadata.homeDir;
+    const machineId = resolveSessionMachineId(metadata);
+    return (machineId ? state.machines?.[machineId]?.metadata?.homeDir : null) ?? null;
+  });
+}
+
 export type SessionInteractionSource = Readonly<{
   accessLevel: Session['accessLevel'];
   canApprovePermissions: Session['canApprovePermissions'];

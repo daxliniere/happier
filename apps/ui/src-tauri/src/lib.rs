@@ -20,6 +20,9 @@ mod tray;
 mod pet_overlay;
 
 #[cfg(desktop)]
+mod file_window;
+
+#[cfg(desktop)]
 mod system_tasks;
 
 #[cfg(desktop)]
@@ -115,7 +118,10 @@ pub fn run() {
                 window_chrome::desktop_close_window,
                 window_chrome::desktop_show_main_window,
                 window_chrome::desktop_start_window_dragging,
-                shutdown::desktop_finish_shutdown
+                shutdown::desktop_finish_shutdown,
+                file_window::desktop_open_file_window,
+                file_window::desktop_open_path_with_default_app,
+                file_window::desktop_reveal_path_in_file_manager
             ]);
     }
 

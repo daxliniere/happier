@@ -3267,6 +3267,15 @@ export const fr: TranslationStructure = {
         nativeTitleBarSubtitle: 'Afficher le cadre et les commandes de fenêtre standard de Windows.',
         nativeTitleBarChangeFailed: 'Impossible de modifier la barre de titre. Réessayez.',
         nativeTitleBarPersistenceFailed: 'Impossible de charger ou d’enregistrer la préférence de barre de titre. Modifiez-la à nouveau pour réessayer.',
+        pathMappingsTitle: "Ouvrir les fichiers sur cet ordinateur",
+        pathMappingsFooter: "Permet à « Ouvrir avec… » et « Ouvrir l’emplacement du fichier » d’atteindre les fichiers des sessions sur d’autres machines, via un dossier partagé avec cet ordinateur. Touchez un dossier pour le retirer.",
+        pathMappingsAdd: "Ajouter un dossier partagé",
+        pathMappingsRemotePrompt: "Dossier sur la machine",
+        pathMappingsRemotePromptMessage: "Le dossier tel que la machine de la session le voit, par exemple /srv/projects.",
+        pathMappingsLocalPrompt: "Même dossier sur cet ordinateur",
+        pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `L’emplacement où cet ordinateur atteint ${remotePath}, par exemple \\\\server\\projects ou Z:\\projects.`,
+        pathMappingsRemoveTitle: "Retirer ce dossier partagé ?",
+        pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
         title: 'Bureau',
         footer: 'Contrôle le comportement de Happier sur cet ordinateur.',
         backgroundServiceTitle: 'Rester joignable en arrière-plan',
@@ -5524,6 +5533,12 @@ export const fr: TranslationStructure = {
             closeTabA11y: 'Fermer l’onglet',
             enterFocusModeA11y: 'Activer le mode focus du panneau',
             exitFocusModeA11y: 'Quitter le mode focus du panneau',
+            tabMenu: {
+                openInNewWindow: "Ouvrir dans une nouvelle fenêtre",
+                openWithDefaultApp: "Ouvrir avec…",
+                revealInFileManager: "Ouvrir l’emplacement du fichier",
+                actionFailedTitle: "Impossible d’ouvrir le fichier",
+            },
         },
 
         actionsDraft: {

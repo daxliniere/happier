@@ -3890,6 +3890,15 @@ export const it: TranslationStructure = {
     nativeTitleBarSubtitle: 'Mostra la cornice e i controlli della finestra standard di Windows.',
     nativeTitleBarChangeFailed: 'Impossibile modificare la barra del titolo. Riprova.',
     nativeTitleBarPersistenceFailed: 'Impossibile caricare o salvare la preferenza della barra del titolo. Modificala di nuovo per riprovare.',
+    pathMappingsTitle: "Apri i file su questo computer",
+    pathMappingsFooter: "Consente ad «Apri con…» e «Apri percorso file» di raggiungere i file delle sessioni su altre macchine, tramite una cartella condivisa con questo computer. Tocca una cartella per rimuoverla.",
+    pathMappingsAdd: "Aggiungi cartella condivisa",
+    pathMappingsRemotePrompt: "Cartella sulla macchina",
+    pathMappingsRemotePromptMessage: "La cartella come la vede la macchina della sessione, ad esempio /srv/projects.",
+    pathMappingsLocalPrompt: "La stessa cartella su questo computer",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `Dove questo computer raggiunge ${remotePath}, ad esempio \\\\server\\projects o Z:\\projects.`,
+    pathMappingsRemoveTitle: "Rimuovere questa cartella condivisa?",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: 'Scrivania',
     footer: 'Controlla come si comporta Happier su questo computer.',
     backgroundServiceTitle: 'Restare raggiungibile in background',
@@ -6223,6 +6232,12 @@ export const it: TranslationStructure = {
               closeTabA11y: "Chiudi scheda",
               enterFocusModeA11y: "Entra in modalità focus pannello",
               exitFocusModeA11y: "Esci dalla modalità focus pannello",
+              tabMenu: {
+                  openInNewWindow: "Apri in una nuova finestra",
+                  openWithDefaultApp: "Apri con…",
+                  revealInFileManager: "Apri percorso file",
+                  actionFailedTitle: "Impossibile aprire il file",
+              },
         },
   
       actionsDraft: {

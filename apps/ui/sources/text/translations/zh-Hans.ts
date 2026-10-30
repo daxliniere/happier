@@ -3445,6 +3445,15 @@ export const zhHans: TranslationStructure = {
     nativeTitleBarSubtitle: '显示 Windows 标准窗口边框和控制按钮。',
     nativeTitleBarChangeFailed: '无法更改标题栏。请重试。',
     nativeTitleBarPersistenceFailed: '无法加载或保存标题栏偏好设置。请再次更改此设置以重试。',
+    pathMappingsTitle: "在此电脑上打开文件",
+    pathMappingsFooter: "通过与此电脑共享的文件夹，让“打开方式…”和“打开文件所在位置”可以访问其他机器上会话的文件。点按文件夹即可移除。",
+    pathMappingsAdd: "添加共享文件夹",
+    pathMappingsRemotePrompt: "机器上的文件夹",
+    pathMappingsRemotePromptMessage: "会话所在机器看到的文件夹路径，例如 /srv/projects。",
+    pathMappingsLocalPrompt: "此电脑上的同一文件夹",
+    pathMappingsLocalPromptMessage: ({ remotePath }: { remotePath: string }) => `此电脑访问 ${remotePath} 的位置，例如 \\\\server\\projects 或 Z:\\projects。`,
+    pathMappingsRemoveTitle: "移除此共享文件夹？",
+    pathMappingsRemoveMessage: ({ remotePath, localPath }: { remotePath: string; localPath: string }) => `${remotePath} → ${localPath}`,
     title: '桌面',
     footer: '控制 Happier 在这台电脑上的行为。',
     backgroundServiceTitle: '在后台保持可连接',
@@ -5692,6 +5701,12 @@ export const zhHans: TranslationStructure = {
       closeTabA11y: "关闭标签页",
       enterFocusModeA11y: "进入面板专注模式",
       exitFocusModeA11y: "退出面板专注模式",
+      tabMenu: {
+          openInNewWindow: "在新窗口中打开",
+          openWithDefaultApp: "打开方式…",
+          revealInFileManager: "打开文件所在位置",
+          actionFailedTitle: "无法打开文件",
+      },
     },
 
     actionsDraft: {
