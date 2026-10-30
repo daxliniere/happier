@@ -40,9 +40,10 @@ describe('MarkdownView option session links', () => {
     });
 
     it.each([
-        { alias: 'happier-6e', providerId: 'claude' },
-        { alias: 'Turing', providerId: 'codex' },
-    ])('updates an existing $providerId reply and its option when verified metadata and current titles arrive', async ({ alias, providerId }) => {
+        { alias: 'happier-6e', providerId: 'claude', inlineCode: false },
+        { alias: 'happier-6e', providerId: 'claude', inlineCode: true },
+        { alias: 'Turing', providerId: 'codex', inlineCode: true },
+    ])('updates an existing $providerId reply and its option (inlineCode=$inlineCode) when verified metadata and current titles arrive', async ({ alias, providerId, inlineCode }) => {
         const store = getStorage();
         const before = store.getState();
         const source = createSessionFixture({ id: 'source' });
@@ -51,11 +52,12 @@ describe('MarkdownView option session links', () => {
         try {
             const onOptionPress = vi.fn();
             const onLinkPress = vi.fn(() => true);
-            const authored = `Include ${alias}'s change`;
+            const mention = inlineCode ? `\`${alias}\`` : alias;
+            const authored = `Include ${mention}'s change`;
             const screen = await renderScreen(<NativeSessionReferencesProvider sessionId="source" text={authored} createdAt={150}>
-                <MarkdownView markdown={`Ask ${alias}; happier-eb is unknown.\n\n<options>\n<option>${authored}</option>\n</options>`} onOptionPress={onOptionPress} onLinkPress={onLinkPress} />
+                <MarkdownView markdown={`Ask ${mention}; happier-eb is unknown.\n\n<options>\n<option>${authored}</option>\n</options>`} onOptionPress={onOptionPress} onLinkPress={onLinkPress} />
             </NativeSessionReferencesProvider>);
-            expect(screen.findByType('EnrichedMarkdownText').props.markdown).toContain(`Ask ${alias}`);
+            expect(screen.findByType('EnrichedMarkdownText').props.markdown).toContain(`Ask ${mention}`);
             const withEvidence = { ...target, metadataVersion: 2, metadata: { ...target.metadata!, nativeSessionAliasesV1: { v: 1 as const, assignments: [{ providerId, providerSessionId: 'native-target', alias, assignedAt: 100, observedAt: 200 }] } } };
             await act(async () => { store.setState({ sessions: { source, target: withEvidence } }); });
             expect(screen.findByType('EnrichedMarkdownText').props.markdown).toContain('[First title](/session/target)');

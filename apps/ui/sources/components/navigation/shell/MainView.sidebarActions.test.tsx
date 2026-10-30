@@ -486,19 +486,20 @@ describe('MainView sidebar actions', () => {
         expect(() => renderedHeaderRight.findByProps({ testID: 'main-header-start-new-session' })).not.toThrow();
     });
 
-    it('renders direct session storage tabs in the sidebar empty state when direct sessions are enabled', async () => {
+    it('does not separate the sidebar into Happier and Direct tabs', async () => {
         directSessionsFeatureState.enabled = true;
         localSettingsState.sessionsListStorageTab = 'direct';
 
         let tree: renderer.ReactTestRenderer | null = null;
         tree = (await renderScreen(<MainView variant="sidebar" />)).tree;
 
-        expect(() => tree!.findByProps({ testID: 'sessions-list-storage-tab:direct' })).not.toThrow();
+        expect(tree!.root.findAllByProps({ testID: 'sessions-list-storage-tab:direct' })).toHaveLength(0);
+        expect(tree!.root.findAllByProps({ testID: 'sessions-list-storage-tab:persisted' })).toHaveLength(0);
     });
 
-    it('renders the browse direct sessions action in the sidebar empty state when the direct tab is active', async () => {
+    it('keeps browse available in the sidebar regardless of the previous storage tab', async () => {
         directSessionsFeatureState.enabled = true;
-        localSettingsState.sessionsListStorageTab = 'direct';
+        localSettingsState.sessionsListStorageTab = 'persisted';
 
         let tree: renderer.ReactTestRenderer | null = null;
         tree = (await renderScreen(<MainView variant="sidebar" />)).tree;
