@@ -8476,6 +8476,8 @@ settingsSession: {
         scrollPinSubtitle: "当你在底部时跟随新消息。",
         jumpToBottomTitle: "跳到底部",
         jumpToBottomButtonLabel: "跳到底部",
+        jumpToTopButtonLabel: "跳到顶部",
+        jumpToTopButtonLoadingLabel: "正在加载历史记录…",
         jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `${count} 条新活动，跳到底部`,
         jumpToBottomSubtitle: "当你向上滚动且有新活动到达时显示按钮。",
         advancedScrollTitle: "高级滚动…",

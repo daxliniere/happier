@@ -8279,6 +8279,8 @@ settingsSession: {
             scrollPinSubtitle: 'Follow new messages while you are at the bottom.',
             jumpToBottomTitle: 'Jump to bottom',
             jumpToBottomButtonLabel: 'Jump to bottom',
+            jumpToTopButtonLabel: 'Jump to top',
+            jumpToTopButtonLoadingLabel: 'Loading history…',
             jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `${count} new activity ${count === 1 ? 'item' : 'items'}, jump to bottom`,
             jumpToBottomSubtitle: 'Show a button when you scroll up and new activity arrives.',
               advancedScrollTitle: 'Advanced scroll…',

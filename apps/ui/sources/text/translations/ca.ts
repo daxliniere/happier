@@ -8251,6 +8251,8 @@ settingsSession: {
                 scrollPinSubtitle: 'Segueix missatges nous mentre ets al final.',
                 jumpToBottomTitle: 'Anar al final',
                 jumpToBottomButtonLabel: 'Anar al final',
+                jumpToTopButtonLabel: 'Anar a l\'inici',
+                jumpToTopButtonLoadingLabel: 'Carregant l\'historial…',
                 jumpToBottomButtonNewActivityLabel: ({ count }: { count: number }) => `${count} ${count === 1 ? "element nou d'activitat" : "elements nous d'activitat"}, anar al final`,
                   jumpToBottomSubtitle: 'Mostra un botó quan puges i arriba activitat nova.',
                   advancedScrollTitle: 'Desplaçament avançat…',
