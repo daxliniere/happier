@@ -280,6 +280,29 @@ describe('buildSessionListViewData', () => {
         expect(projectGroupKeys[0]).not.toContain(':inactive:');
     });
 
+    it('tells the split-section headers of one project apart so list rows do not share an identity', () => {
+        const machine = makeMachine({ id: 'm1', metadata: { host: 'm1', platform: 'darwin', happyCliVersion: '0.0.0', happyHomeDir: '/h', homeDir: '/home/u' } });
+        const metadata = { machineId: 'm1', path: '/home/u/repoA', homeDir: '/home/u', host: 'm1', version: '0.0.0', flavor: 'claude' } as const;
+        const sessions: Record<string, Session> = {
+            active: makeSession({ id: 'active', active: true, createdAt: 2, metadata }),
+            inactive: makeSession({ id: 'inactive', active: false, createdAt: 1, metadata }),
+        };
+
+        const data = buildSessionListViewData(sessions, { [machine.id]: machine }, {
+            groupInactiveSessionsByProject: true,
+            serverScope: { serverId: 'server-a', serverName: 'Server A' },
+        });
+
+        const rowIdentities = data
+            .filter((item): item is Extract<typeof item, { type: 'header' }> =>
+                item.type === 'header' && item.headerKind === 'project'
+            )
+            .map((item) => `${item.groupKey}|${item.section ?? ''}`);
+
+        expect(rowIdentities).toHaveLength(2);
+        expect(new Set(rowIdentities).size).toBe(2);
+    });
+
     it('builds folder headers and assigned session rows from durable workspace refs', () => {
         const machine = makeMachine({
             id: 'm1',

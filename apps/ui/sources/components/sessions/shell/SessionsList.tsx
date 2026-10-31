@@ -1792,7 +1792,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
             const gk = String(item.groupKey ?? '').trim();
             const kind = String(item.headerKind ?? '').trim();
             const sid = String(item.serverId ?? '').trim();
-            if (gk) return `header:${gk}`;
+            if (gk) return item.section ? `header:${gk}:${item.section}` : `header:${gk}`;
             if (kind === 'server' && (sid || item.title)) return `server:${sid || item.title}`;
             return `header:${kind}:${sid}:${item.title}:${index}`;
         }

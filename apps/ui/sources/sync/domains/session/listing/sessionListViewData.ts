@@ -27,6 +27,8 @@ export type SessionListViewItem =
         title: string;
         headerKind?: 'date' | 'server' | 'active' | 'inactive' | 'sessions' | 'project' | 'pinned' | 'attention' | 'working' | 'shared' | 'folder';
         groupKey?: string;
+        /** Section a project header was emitted for: the group key is shared across split sections, so row identity needs both. */
+        section?: SessionListSectionScope;
         workspaceKey?: string;
         appearanceColor?: SessionAppearanceColor | null;
         workspaceLabel?: string | null;
@@ -278,6 +280,7 @@ function pushProjectGroupsToList(params: Readonly<{
             title: group.displayTitle,
             headerKind: 'project',
             groupKey,
+            section: params.section,
             workspaceKey: group.workspaceKey,
             workspaceScopeHint: params.serverScopeMeta.serverId && group.workspaceMachineId && group.workspaceRootPath
                 ? {
