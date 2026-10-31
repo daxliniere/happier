@@ -14,7 +14,6 @@ import { HiddenInactiveSessionsEmptyState } from '@/components/sessions/guidance
 import { SessionsListContent } from '@/components/sessions/shell/SessionsList';
 import { readSessionIdFromPathname } from '@/components/sessions/shell/readSessionIdFromPathname';
 import { useSessionListStorageKind } from '@/components/sessions/model/useSessionListStorageKind';
-import { SessionsListStorageChrome } from '@/components/sessions/shell/SessionsListStorageChrome';
 import {
     resolveSessionListSurfaceOwnership,
     resolveSidebarSessionListSurfaceInteractive,
@@ -79,6 +78,8 @@ const styles = StyleSheet.create((theme) => ({
         flex: 1,
         flexBasis: 0,
         flexGrow: 1,
+        // Gap between the sidebar header and the search bar now that the Browse block is gone.
+        paddingTop: 8,
     },
     loadingContainerWrapper: {
         flex: 1,
@@ -290,7 +291,7 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
     pathname: string;
 }>) {
     const { theme } = useUnistyles();
-    const { directSessionsEnabled, storageKind } = useSessionListStorageKind();
+    const { storageKind } = useSessionListStorageKind();
     const router = useRouter();
     const resolveNewSessionOrdinaryEntryRoute = useResolveNewSessionOrdinaryEntryRoute();
     const activeSessionId = React.useMemo(() => readSessionIdFromPathname(pathname), [pathname]);
@@ -320,20 +321,11 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
     }, [resolveNewSessionOrdinaryEntryRoute, router]);
 
     // The provider usage rings sit at the top of the sessions column, as on the phone pane.
-    const storageChrome = (
-        <>
-            <SessionsListStorageChrome
-                directSessionsEnabled={directSessionsEnabled}
-            />
-            <ProviderUsageStrip />
-        </>
-    );
-
     let content: React.ReactNode;
     if (sessionListViewData === null) {
         content = (
             <View style={styles.sidebarContainer}>
-                {storageChrome}
+                <ProviderUsageStrip />
                 <View style={styles.sidebarContentContainer}>
                     <View style={styles.tabletLoadingContainer}>
                         <ActivitySpinner size={HERO_SPINNER_SIZE} color={theme.colors.text.secondary} />
@@ -345,7 +337,7 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
         const suppressSidebarGuidance = isTablet && pathname === '/';
         content = (
             <View style={styles.sidebarContainer}>
-                {storageChrome}
+                <ProviderUsageStrip />
                 <View style={styles.sidebarContentContainer}>
                     <View style={styles.emptyStateContainer}>
                         {hasHiddenInactiveSessions ? (
@@ -365,7 +357,7 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
     } else {
         content = (
             <View style={styles.sidebarContainer}>
-                {storageChrome}
+                <ProviderUsageStrip />
                 <View style={styles.sidebarContentContainer}>
                     <SessionsListContent
                         storageKind={storageKind}

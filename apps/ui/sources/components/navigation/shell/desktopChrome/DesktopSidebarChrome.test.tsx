@@ -39,6 +39,15 @@ vi.mock('@/components/navigation/ConnectionStatusControl', () => ({
     ConnectionStatusControl: 'ConnectionStatusControl',
 }));
 
+// Placement only: these entries own their own gating and behavior (covered by their own tests).
+vi.mock('@/components/sessions/directSessions/browse/DirectSessionsBrowseButton', () => ({
+    DirectSessionsBrowseButton: (props: Record<string, unknown>) => React.createElement('DirectSessionsBrowseButton', props),
+}));
+
+vi.mock('@/components/inbox/InboxPopoverButton', () => ({
+    InboxPopoverButton: (props: Record<string, unknown>) => React.createElement('InboxPopoverButton', props),
+}));
+
 vi.mock('@/components/ui/lists/ItemRowActions', () => ({
     ItemRowActions: (props: {
         actions: Array<{ id: string }>;
@@ -175,6 +184,33 @@ describe('DesktopSidebarChrome', () => {
         expect(updates).toHaveLength(1);
         expect(updates[0]!.props).toMatchObject({ variant: 'icon', iconSize: DESKTOP_SIDEBAR_CHROME_ICON_GLYPH_SIZE_PX });
         expect(actionsRow.findAll((node) => node.props?.testID === 'desktop-sidebar-action-operations').length).toBeGreaterThan(0);
+    });
+
+    it('puts the provider-session browse icon immediately left of the inbox icon', async () => {
+        const { DesktopSidebarChrome } = await import('./DesktopSidebarChrome');
+        const screen = await renderScreen(
+            <DesktopSidebarChrome
+                sidebarWidthPx={600}
+                headerHeightPx={56}
+                onPressHome={vi.fn()}
+                environmentBadge={null}
+                headerActions={[]}
+                renderHeaderOverflowVisual={() => <View testID="desktop-sidebar-overflow-visual" />}
+                popoverBoundaryRef={{ current: null }}
+                desktopWindowControls={<View testID="injected-desktop-window-controls" />}
+                inboxEnabled
+                inboxSummary={{ hasContent: false }}
+            />,
+        );
+
+        const actionsRow = requireTestInstance(screen.findByTestId('desktop-sidebar-chrome-actions-row'), 'actions row');
+        // Painted entries in on-screen order.
+        const order = actionsRow
+            .findAll((node) => typeof node.type === 'string' && typeof node.props?.testID === 'string')
+            .map((node) => node.props.testID as string);
+        const browseIndex = order.indexOf('sidebar-direct-browse-button');
+        expect(browseIndex).toBeGreaterThanOrEqual(0);
+        expect(order[browseIndex + 1]).toBe('sidebar-inbox-button');
     });
 
     it('starts window dragging from non-interactive sidebar top strip clicks', async () => {
