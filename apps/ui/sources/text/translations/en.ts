@@ -1819,6 +1819,7 @@ export const en = {
     settings: {
         title: 'Settings',
 
+        connectedDevicesLast14Days: 'Connected devices (last 14 days)',
         // Main settings hub category groups
         profileAndAccount: 'Profile & Account',
         aiAndAgents: 'AI & Agents',

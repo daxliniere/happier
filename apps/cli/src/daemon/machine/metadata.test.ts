@@ -6,7 +6,7 @@ import { initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from '
 describe('initialMachineMetadata', () => {
   it('advertises daemon-owned runtime control capabilities', () => {
     expect(initialMachineMetadata.happyForkVersion).toBe(
-      readFileSync(new URL('../../../../../fork/VERSION', import.meta.url), 'utf8').trim(),
+      `${readFileSync(new URL('../../../../../fork/VERSION', import.meta.url), 'utf8').trim()} (${readFileSync(new URL('../../../../../fork/RELEASE', import.meta.url), 'utf8').trim()})`,
     );
     expect(initialMachineMetadata.daemonTerminalSessionAttachSupported).toBe(true);
     expect(initialMachineMetadata.daemonSessionGoalControlsSupported).toBe(true);

@@ -1904,6 +1904,7 @@ export const ca: TranslationStructure = {
     settings: {
         title: 'Configuració',
 
+        connectedDevicesLast14Days: 'Dispositius connectats (últims 14 dies)',
         // Main settings hub category groups
         profileAndAccount: 'Perfil i compte',
         aiAndAgents: 'IA i agents',

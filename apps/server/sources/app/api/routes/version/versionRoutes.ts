@@ -33,6 +33,7 @@ export function versionRoutes(app: Fastify) {
                     ok: z.literal(true),
                     version: z.string(),
                     fork_version: z.string(),
+                    fork_release: z.string(),
                     source_sha: z.string().regex(/^[a-f0-9]{40}$/).optional(),
                 }),
             },
@@ -43,6 +44,7 @@ export function versionRoutes(app: Fastify) {
             ok: true as const,
             version: packageJson.version,
             fork_version: forkBuild.version,
+            fork_release: forkBuild.release,
             ...(/^[a-f0-9]{40}$/.test(sourceSha) ? { source_sha: sourceSha } : {}),
         };
     });

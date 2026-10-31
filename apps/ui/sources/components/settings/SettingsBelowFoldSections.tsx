@@ -8,13 +8,14 @@ import { t } from '@/text';
 import { trackWhatsNewClicked } from '@/track';
 import { requestReview } from '@/utils/system/requestReview';
 import { ICON_SIZE, Icon } from '@/components/ui/icons/Icon';
-import Constants from 'expo-constants';
-import { useAllMachines } from '@/sync/domains/state/storage';
+import { useAllMachines, useSettings } from '@/sync/domains/state/storage';
+import { listConnectedDevices } from '@/sync/domains/settings/connectedDevices';
 import { readCurrentAppRuntimeInfo } from '@/sync/runtime/readCurrentAppRuntimeInfo';
 import { getActiveServerSnapshot, subscribeActiveServer } from '@/sync/domains/server/serverRuntime';
 import { runtimeFetch } from '@/utils/system/runtimeFetch';
 import { setClipboardStringSafe } from '@/utils/ui/clipboard';
 import { Modal } from '@/modal';
+import { invokeTauri, isTauriDesktop } from '@/utils/platform/tauri';
 
 type SettingsBelowFoldSectionsRouter = ReturnType<typeof useRouter>;
 type SettingsBelowFoldSectionsTheme = ReturnType<typeof useUnistyles>['theme'];
@@ -387,9 +388,19 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
     theme,
 }: SettingsAboutSectionProps) {
     const machines = useAllMachines();
+    const settings = useSettings();
     const [serverVersion, setServerVersion] = React.useState<string | null>(null);
+    const [desktopVersion, setDesktopVersion] = React.useState<string | null>(null);
     const runtime = React.useMemo(() => readCurrentAppRuntimeInfo(), []);
-    const forkVersion = Constants.expoConfig?.extra?.app?.forkVersion;
+
+    React.useEffect(() => {
+        if (!isTauriDesktop()) return;
+        let cancelled = false;
+        void invokeTauri<{ version: string }>('desktop_client_identity').then((identity) => {
+            if (!cancelled) setDesktopVersion(identity.version || null);
+        }).catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -402,8 +413,9 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
                 const data: unknown = await response.json();
                 if (!cancelled && getActiveServerSnapshot().generation === snapshot.generation && data && typeof data === 'object' && 'version' in data && typeof data.version === 'string') {
                     const fork = 'fork_version' in data && typeof data.fork_version === 'string' ? data.fork_version : null;
+                    const release = 'fork_release' in data && typeof data.fork_release === 'string' ? data.fork_release : null;
                     const source = 'source_sha' in data && typeof data.source_sha === 'string' ? data.source_sha : null;
-                    setServerVersion([data.version, fork, source].filter(Boolean).join(' / '));
+                    setServerVersion([data.version, fork ? `${fork}${release ? ` (${release})` : ''}` : null, source].filter(Boolean).join(' / '));
                 }
             }).catch(() => {});
         };
@@ -413,14 +425,17 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
     }, []);
 
     const versionDetails = [
-        ...(typeof forkVersion === 'string' && forkVersion ? [`${t('common.version')}: ${forkVersion}`] : []),
         `${t('systemStatus.application.appVersion')}: ${runtime.appVersion ?? appVersion}`,
+        ...(desktopVersion ? [`${t('systemStatus.application.nativeVersion')}: ${desktopVersion}`] : []),
         ...(runtime.nativeApplicationVersion ? [`${t('systemStatus.application.nativeVersion')}: ${runtime.nativeApplicationVersion}`] : []),
         ...(runtime.nativeBuildVersion ? [`${t('systemStatus.application.buildNumber')}: ${runtime.nativeBuildVersion}`] : []),
         ...(runtime.runtimeVersion ? [`${t('systemStatus.application.runtimeVersion')}: ${runtime.runtimeVersion}`] : []),
         `${t('settings.servers')}: ${serverVersion ?? t('status.unknown')}`,
         ...machines.filter((machine) => machine.metadata?.happyCliVersion).map((machine) =>
             `${t('settings.machines')} (${machine.metadata?.displayName || machine.metadata?.host || machine.id}): ${machine.metadata?.happyCliVersion}${machine.metadata?.happyForkVersion ? ` (${machine.metadata.happyForkVersion})` : ''}`),
+        `${t('settings.connectedDevicesLast14Days')}:`,
+        ...listConnectedDevices(settings, Date.now()).map((device) =>
+            `${device.name ?? t('status.unknown')} | ${device.platform} | ${device.appVersion ?? t('status.unknown')} | ${new Date(device.lastSeen).toISOString()}`),
     ].join('\n');
 
     return (

@@ -2012,6 +2012,7 @@ export const es: TranslationStructure = {
   settings: {
     title: "Configuración",
 
+    connectedDevicesLast14Days: 'Dispositivos conectados (últimos 14 días)',
     // Main settings hub category groups
     profileAndAccount: 'Perfil y cuenta',
     aiAndAgents: 'IA y agentes',

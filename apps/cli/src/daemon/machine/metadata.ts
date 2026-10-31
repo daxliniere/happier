@@ -50,7 +50,7 @@ export function refreshMachineMetadataForCurrentDaemon(
     host,
     platform: os.platform(),
     happyCliVersion: packageJson.version,
-    happyForkVersion: packageJson.happierForkVersion,
+    happyForkVersion: `${packageJson.happierForkVersion} (${packageJson.happierForkRelease})`,
     homeDir: os.homedir(),
     happyHomeDir: configuration.happyHomeDir,
     happyLibDir: projectPath(),

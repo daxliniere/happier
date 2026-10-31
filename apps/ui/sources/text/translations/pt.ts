@@ -2135,6 +2135,7 @@ export const pt: TranslationStructure = {
   settings: {
     title: "Configurações",
 
+    connectedDevicesLast14Days: 'Dispositivos conectados (últimos 14 dias)',
     // Main settings hub category groups
       profileAndAccount: 'Perfil e conta',
       aiAndAgents: 'IA e agentes',

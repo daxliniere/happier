@@ -22,6 +22,7 @@
         { "url": "mailto:*" }
       ]
     },
+    "allow-desktop-client-identity",
     "allow-desktop-fetch-update",
     "allow-desktop-download-update",
     "allow-desktop-install-update",

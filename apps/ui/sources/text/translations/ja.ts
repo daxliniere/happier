@@ -2319,6 +2319,7 @@ export const ja: TranslationStructure = {
   settings: {
     title: "設定",
 
+    connectedDevicesLast14Days: '接続済みデバイス（過去14日間）',
     // Main settings hub category groups
     profileAndAccount: 'プロフィールとアカウント',
     aiAndAgents: 'AI とエージェント',

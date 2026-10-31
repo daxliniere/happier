@@ -1975,6 +1975,7 @@ export const ru: TranslationStructure = {
   settings: {
     title: "Настройки",
 
+    connectedDevicesLast14Days: 'Подключённые устройства (за 14 дней)',
     // Main settings hub category groups
     profileAndAccount: 'Профиль и аккаунт',
     aiAndAgents: 'ИИ и агенты',

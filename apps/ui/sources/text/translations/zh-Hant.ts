@@ -2370,6 +2370,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
   settings: {
         title: '設定',
 
+        connectedDevicesLast14Days: '已連線裝置（過去14天）',
         // Main settings hub category groups
         profileAndAccount: '個人資料與帳號',
         aiAndAgents: 'AI 與代理',

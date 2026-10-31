@@ -12,6 +12,7 @@ use std::os::unix::fs::PermissionsExt;
 /// nothing on the Rust side to notice. `tests/window_chrome_acl_test.rs` pins both directions.
 #[allow(dead_code)]
 pub const APP_TAURI_COMMANDS: &[&str] = &[
+    "desktop_client_identity",
     "desktop_fetch_update",
     "desktop_download_update",
     "desktop_install_update",

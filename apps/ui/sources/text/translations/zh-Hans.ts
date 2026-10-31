@@ -1956,6 +1956,7 @@ export const zhHans: TranslationStructure = {
   settings: {
     title: "设置",
 
+    connectedDevicesLast14Days: '已连接设备（过去14天）',
     // Main settings hub category groups
     profileAndAccount: '个人资料与账号',
     aiAndAgents: 'AI 与代理',

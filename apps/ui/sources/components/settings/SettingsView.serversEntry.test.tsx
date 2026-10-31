@@ -37,6 +37,12 @@ function createPropPassthroughNode(name: string) {
 function createSettingsViewStorageOverrides() {
     return {
         useEntitlement: () => false,
+        useSettings: () => ({
+            connectedDeviceV1_desktop: { name: 'LAPTOP-ZBP', platform: 'desktop', appVersion: '0.2.19-fork.23 (rc2)', lastSeen: Date.now() - 1000 },
+            connectedDeviceV1_phone: { name: 'Phone', platform: 'android', appVersion: '0.2.19-fork.22 (rc2)', lastSeen: Date.now() - 2000 },
+            connectedDeviceV1_web: { name: null, platform: 'web', appVersion: '0.2.19-fork.25 (rc3)', lastSeen: Date.now() - 3000 },
+            connectedDeviceV1_old: { name: 'Expired device', platform: 'android', appVersion: 'old', lastSeen: Date.now() - 15 * 86400000 },
+        }) as any,
         // Boundary mock: this suite only reads a boolean local setting toggle.
         useLocalSettingMutable: (() => [false, vi.fn()]) as any,
         useSetting: (key: string) => {
@@ -49,7 +55,10 @@ function createSettingsViewStorageOverrides() {
             if (key === 'sessionUseTmux') return false;
             return null;
         },
-        useAllMachines: () => [createMachineFixture({ metadata: { host: 'workstation', platform: 'linux', homeDir: '/tmp', happyHomeDir: '/tmp/happier', happyCliVersion: '2.3.4', happyForkVersion: '2.3.4-fork.8' } })],
+        useAllMachines: () => [
+            createMachineFixture({ metadata: { host: 'workstation', platform: 'linux', homeDir: '/tmp', happyHomeDir: '/tmp/happier', happyCliVersion: '2.3.4', happyForkVersion: '2.3.4-fork.8' } }),
+            createMachineFixture({ id: 'legacy-host', metadata: { host: 'legacy-host', platform: 'linux', homeDir: '/tmp', happyHomeDir: '/tmp/happier', happyCliVersion: '0.2.17' } }),
+        ],
         useMachineListByServerId: () => ({}),
         useMachineListStatusByServerId: () => ({}),
         // Boundary mock: SettingsView only consumes these profile fields in this suite.
@@ -114,11 +123,11 @@ vi.mock('expo-constants', () => ({
 }));
 
 vi.mock('@/sync/runtime/readCurrentAppRuntimeInfo', () => ({
-    readCurrentAppRuntimeInfo: () => ({ appVersion: '0.0.0-test', nativeApplicationVersion: '1.2.3', nativeBuildVersion: '42', runtimeVersion: 'runtime-1' }),
+    readCurrentAppRuntimeInfo: () => ({ appVersion: '0.2.19-fork.14', nativeApplicationVersion: '1.2.3', nativeBuildVersion: '42', runtimeVersion: 'runtime-1' }),
 }));
 
 vi.mock('@/utils/ui/clipboard', () => ({ setClipboardStringSafe: shared.copySpy }));
-vi.mock('@/utils/system/runtimeFetch', () => ({ runtimeFetch: async () => ({ ok: true, json: async () => ({ ok: true, version: '3.4.5', fork_version: '3.4.5-fork.9', source_sha: 'abcdef0123456789' }) }) }));
+vi.mock('@/utils/system/runtimeFetch', () => ({ runtimeFetch: async () => ({ ok: true, json: async () => ({ ok: true, version: '3.4.5', fork_version: '3.4.5-fork.9', fork_release: 'rc3', source_sha: 'abcdef0123456789' }) }) }));
 
 vi.mock('@/constants/Typography', () => ({
     Typography: {
@@ -284,11 +293,18 @@ describe('SettingsView', () => {
         expect(row?.props.subtitle).toContain('1.2.3');
         expect(row?.props.subtitle).toContain('42');
         expect(row?.props.subtitle).toContain('3.4.5');
-        expect(row?.props.subtitle).toContain('3.4.5-fork.9');
+        expect(row?.props.subtitle).toContain('3.4.5-fork.9 (rc3)');
         expect(row?.props.subtitle).toContain('abcdef0123456789');
         expect(row?.props.subtitle).toContain('workstation');
         expect(row?.props.subtitle).toContain('2.3.4');
         expect(row?.props.subtitle).toContain('2.3.4-fork.8');
+        expect(row?.props.subtitle).toContain('legacy-host): 0.2.17');
+        expect(row?.props.subtitle).not.toContain('legacy-host): 0.2.17 (0.2.19-fork.14)');
+        expect(row?.props.subtitle).toContain('LAPTOP-ZBP');
+        expect(row?.props.subtitle).toContain('0.2.19-fork.23 (rc2)');
+        expect(row?.props.subtitle).toContain('Phone | android | 0.2.19-fork.22 (rc2)');
+        expect(row?.props.subtitle).toContain('web | 0.2.19-fork.25 (rc3)');
+        expect(row?.props.subtitle).not.toContain('Expired device');
         await act(async () => { await screen.pressRowByTitle('common.version'); });
         expect(shared.copySpy).toHaveBeenCalledWith(row?.props.subtitle);
     });

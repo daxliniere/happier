@@ -44,9 +44,12 @@ function resolveLaunchSource(updateId: string | null): AppRuntimeLaunchSource {
 export function readCurrentAppRuntimeInfo(): CurrentAppRuntimeInfo {
     const updateId = toTrimmedString(Updates.updateId);
     const createdAt = Updates.createdAt instanceof Date ? Updates.createdAt.toISOString() : null;
+    const forkVersion = toTrimmedString(Constants.expoConfig?.extra?.app?.forkVersion);
+    const forkRelease = toTrimmedString(Constants.expoConfig?.extra?.app?.forkRelease);
 
     return {
-        appVersion: toTrimmedString(Constants.expoConfig?.version),
+        appVersion: forkVersion ? `${forkVersion}${forkRelease ? ` (${forkRelease})` : ''}`
+            : toTrimmedString(Constants.expoConfig?.version),
         nativeApplicationVersion: toTrimmedString(Application.nativeApplicationVersion),
         nativeBuildVersion: toTrimmedString(Application.nativeBuildVersion),
         applicationId: toTrimmedString(Application.applicationId),

@@ -78,6 +78,13 @@ const forkVersion = (() => {
         return '';
     }
 })();
+const forkRelease = (() => {
+    try {
+        return require('fs').readFileSync(require('path').join(__dirname, '../../fork/RELEASE'), 'utf8').trim();
+    } catch {
+        return '';
+    }
+})();
 const appVariantOverride = normalizeVariantOverride(process.env.HAPPIER_APP_VARIANT_OVERRIDE);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJson = (() => {
@@ -486,6 +493,7 @@ const baseExpoConfig = {
                 variant: appVariantOverride || appVariant,
                 identityVariant: appIdentityVariant,
                 ...(forkVersion ? { forkVersion } : {}),
+                ...(forkRelease ? { forkRelease } : {}),
                 postHogKey: process.env.EXPO_PUBLIC_POSTHOG_KEY || process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
                 revenueCatAppleKey: process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE,
                 revenueCatGoogleKey: process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE,

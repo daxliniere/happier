@@ -37,6 +37,28 @@ mod shutdown;
 #[cfg(target_os = "linux")]
 mod linux_webkit_env;
 
+#[cfg(desktop)]
+#[derive(serde::Serialize)]
+struct DesktopClientIdentity {
+    name: Option<String>,
+    version: String,
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+fn desktop_client_identity() -> DesktopClientIdentity {
+    let name = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .ok()
+        .or_else(|| std::fs::read_to_string("/etc/hostname").ok())
+        .map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty());
+    DesktopClientIdentity {
+        name,
+        version: format!("{} ({})", include_str!("../../../../fork/VERSION").trim(), include_str!("../../../../fork/RELEASE").trim()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 // The main-thread native test harness reuses these modules with its own isolated setup.
 // Embed the product Info.plist only in the product entrypoint, not in that test executable.
@@ -88,6 +110,7 @@ pub fn run() {
             .manage(shutdown::DesktopShutdownState::default())
             .manage(menu_bar::MenuBarState::default())
             .invoke_handler(tauri::generate_handler![
+                desktop_client_identity,
                 app_updates::desktop_fetch_update,
                 app_updates::desktop_download_update,
                 app_updates::desktop_install_update,

@@ -1818,6 +1818,7 @@ export const fr: TranslationStructure = {
     settings: {
         title: 'Réglages',
 
+        connectedDevicesLast14Days: 'Appareils connectés (14 derniers jours)',
         // Main settings hub category groups
         profileAndAccount: 'Profil et compte',
         aiAndAgents: 'IA et agents',

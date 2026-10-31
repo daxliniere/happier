@@ -19,7 +19,7 @@ describe("versionRoutes GET /v1/version", () => {
             },
         });
         const { response } = await route.invoke();
-        expect(response).toEqual({ ok: true, version: packageJson.version, fork_version: forkBuild.version });
+        expect(response).toEqual({ ok: true, version: packageJson.version, fork_version: forkBuild.version, fork_release: forkBuild.release });
     });
 
     it("reports an exact deployed source revision when the release environment provides one", async () => {
@@ -34,7 +34,7 @@ describe("versionRoutes GET /v1/version", () => {
                 },
             });
             const { response } = await route.invoke();
-            expect(response).toEqual({ ok: true, version: packageJson.version, fork_version: forkBuild.version, source_sha: "a".repeat(40) });
+            expect(response).toEqual({ ok: true, version: packageJson.version, fork_version: forkBuild.version, fork_release: forkBuild.release, source_sha: "a".repeat(40) });
         } finally {
             if (prior === undefined) delete process.env.HAPPIER_RELEASE_SOURCE_SHA;
             else process.env.HAPPIER_RELEASE_SOURCE_SHA = prior;
