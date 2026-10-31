@@ -131,4 +131,27 @@ describe('AgentInputChipPickerTopSelector', () => {
         await screen.pressByTestIdAsync('agent-input-chip-picker.top-selector-option:claude');
         expect(onFocusOption).toHaveBeenCalledWith('claude');
     });
+
+    it('draws an option\'s usage mark under its icon and lets the button grow to hold it', async () => {
+        const { AgentInputChipPickerTopSelector } = await import('./AgentInputChipPickerTopSelector');
+
+        const screen = await renderScreen(<AgentInputChipPickerTopSelector
+            sections={[{
+                id: 'providers',
+                options: [{
+                    id: 'codex',
+                    label: 'Codex',
+                    icon: React.createElement('EngineIcon', { testID: 'codex-icon', size: 24 }),
+                    leadingMark: React.createElement('UsageMark', { testID: 'codex-usage' }),
+                }],
+            }]}
+            focusedOptionId={null}
+            selectedOptionId={null}
+            onFocusOption={vi.fn()}
+        />);
+
+        expect(screen.findByTestId('codex-usage')).toBeTruthy();
+        const button = screen.findByTestId('agent-input-chip-picker.top-selector-option:codex');
+        expect(flattenStyle(button?.props.style({ pressed: false })).height).toBeUndefined();
+    });
 });

@@ -4037,6 +4037,11 @@ function SessionViewLoaded({
         if (currentGauge) gauges.set(`engine:${liveComposerState.agentId}`, currentGauge);
         return gauges;
     }, [liveComposerState.agentId, providerUsageGauge, providerUsageGaugesByAgentId, sessionAgentCatalogEntries]);
+    // Once another Agent is armed in the picker, the composer's usage ring follows that Agent.
+    const armedUsageAgentId = armedContinuationTarget ? resolveAgentIdFromFlavor(armedContinuationTarget.agentId) : null;
+    const composerProviderUsageGauge = armedUsageAgentId
+        ? providerUsageGaugesByAgentId.get(armedUsageAgentId) ?? null
+        : providerUsageGauge;
     const refreshProviderUsage = useProviderUsageRefresh({
         connectedProfileRef: connectedServiceQuotaProfileRef,
         recordIds: providerAccountUsageRecordIds,
@@ -6330,7 +6335,7 @@ function SessionViewLoaded({
                 profileId={liveComposerState.profileId ?? undefined}
                 onProfileClick={liveComposerState.profileId !== null ? handleProfileClick : undefined}
                 statusBadges={agentInputStatusBadges}
-                providerUsageGauge={providerUsageGauge}
+                providerUsageGauge={composerProviderUsageGauge}
                 onProviderUsageRecoveryCreditPress={providerUsageRecoveryCreditAction}
                 providerUsageRecoveryCreditPending={providerUsageRecoveryCreditActionPending}
                 activeStatusBadgeKey={activeStatusBadgeKey}

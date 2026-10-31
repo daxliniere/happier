@@ -1323,18 +1323,26 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 return 'user-circle';
             }, []);
 
+    // Once another Agent is armed, the context ring measures the same conversation against that
+    // Agent's window; the running model's live window and metadata no longer apply.
+    const contextBadgeAgentId = armedAgentId ?? agentId;
     const contextUsageBadge = React.useMemo(
-        () => getAgentBehavior(agentId).sessionUsage?.contextUsageBadge ?? 'derived',
-        [agentId],
+        () => getAgentBehavior(contextBadgeAgentId).sessionUsage?.contextUsageBadge ?? 'derived',
+        [contextBadgeAgentId],
     );
 
     const contextWindowTokens = React.useMemo(
-        () => (
-            contextUsageBadge !== 'hidden'
-                ? resolveContextWindowTokens({ agentId, metadata: props.metadata ?? null, usageData: props.usageData })
-                : null
-        ),
-        [agentId, props.metadata, props.usageData, contextUsageBadge],
+        () => {
+            if (contextUsageBadge === 'hidden') return null;
+            return armedAgentId
+                ? resolveContextWindowTokens({
+                    agentId: armedAgentId,
+                    metadata: null,
+                    usageData: { contextSize: props.usageData?.contextSize },
+                })
+                : resolveContextWindowTokens({ agentId, metadata: props.metadata ?? null, usageData: props.usageData });
+        },
+        [agentId, armedAgentId, props.metadata, props.usageData, contextUsageBadge],
     );
 
     // See `AgentUiBehavior.sessionUsage.contextUsageBadge`: a derived badge follows any usage record

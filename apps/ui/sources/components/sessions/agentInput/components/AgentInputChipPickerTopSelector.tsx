@@ -15,6 +15,7 @@ import {
     resolveAgentInputChipPickerOptionInteractiveTargetSize,
 } from './agentInputChipPickerOptionStyles';
 import { normalizeAgentInputChipPickerOptionIcon } from './agentInputChipPickerOptionIcon';
+import { normalizeNodeForView } from '@/components/ui/rendering/normalizeNodeForView';
 
 export type AgentInputChipPickerTopSelectorProps = Readonly<{
     sections: ReadonlyArray<AgentInputChipPickerOptionSection>;
@@ -81,6 +82,7 @@ export function AgentInputChipPickerTopSelector(props: AgentInputChipPickerTopSe
                                 const hovered = (state as WebHoverablePressableState).hovered === true;
                                 return [
                                     styles.optionButton,
+                                    option.leadingMark ? styles.optionButtonWithMark : null,
                                     Platform.OS === 'web'
                                         && hovered
                                         && !active
@@ -95,6 +97,9 @@ export function AgentInputChipPickerTopSelector(props: AgentInputChipPickerTopSe
                             }}
                         >
                             {normalizeAgentInputChipPickerOptionIcon(option.icon)}
+                            {option.leadingMark ? (
+                                <View style={styles.optionMark}>{normalizeNodeForView(option.leadingMark)}</View>
+                            ) : null}
                         </Pressable>
                     );
                 })}
@@ -129,6 +134,16 @@ const stylesheet = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'transparent',
+    },
+    // A usage ring under the icon grows the button (and the band behind it) downward.
+    optionButtonWithMark: {
+        height: undefined,
+    },
+    optionMark: {
+        marginTop: 4,
+        marginBottom: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     fadeLeft: {
         position: 'absolute',

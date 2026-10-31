@@ -769,6 +769,41 @@ describe('AgentInput (context usage badge)', () => {
         act(() => screen.tree.unmount());
     });
 
+    it('measures the context ring against the armed Agent\'s window instead of the running model\'s', async () => {
+        captured.last = null;
+        const { AgentInput } = await import('./AgentInput');
+        const usageData = {
+            inputTokens: 2_000,
+            outputTokens: 1_200,
+            cacheCreation: 8_000,
+            cacheRead: 170_000,
+            contextSize: 180_000,
+            contextSizeIsReported: false,
+            contextWindowTokens: 1_000_000,
+        };
+        const baseProps = {
+            value: '',
+            placeholder: 'Type',
+            onChangeText: () => {},
+            onSend: () => {},
+            autocompleteKinds: [],
+            autocompleteSuggestions: async () => [],
+            agentType: 'claude' as any,
+            onAgentClick: () => {},
+            usageData,
+            alwaysShowContextSize: true,
+        };
+
+        const screen = await renderScreen(<AgentInput {...baseProps} />);
+        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('82');
+
+        await screen.update(<AgentInput {...baseProps} armedContinuationTarget={{ agentId: 'claude', label: 'Claude' }} />);
+        // The armed Agent's default window (200k) replaces the running model's live 1M window.
+        expect(screen.findByTestId('agent-input-context-usage-value')?.props.children).toBe('10');
+
+        act(() => screen.tree.unmount());
+    });
+
     it('does not render a context usage badge for providers without context support', async () => {
         captured.last = null;
         const { AgentInput } = await import('./AgentInput');
