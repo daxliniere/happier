@@ -1,8 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
+import { APP_LOCK_RECOVERY_ERROR_CODES } from '@happier-dev/protocol';
 
 vi.mock('@/text', async () => {
     const { createTextModuleMock } = await import('@/dev/testkit/mocks/text');
     return createTextModuleMock({ translate: (key) => key });
+});
+
+describe('app lock recovery messages', () => {
+    it('provides an error message for every canonical relay failure and network failure', async () => {
+        const { describeAppLockRecoveryFailure } = await import('./appLockMessages');
+
+        for (const error of [...APP_LOCK_RECOVERY_ERROR_CODES, 'network'] as const) {
+            expect(describeAppLockRecoveryFailure({ ok: false, error }), error)
+                .toMatch(/^appLock\.errors\./);
+        }
+    });
 });
 
 describe('app lock password rules', () => {
