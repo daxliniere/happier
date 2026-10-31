@@ -2612,7 +2612,8 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                 {jumpToBottomAffordance.isVisible ? (
                     <ComposerKeyboardFloatingInset
                         testID="transcript-jump-to-bottom-keyboard-offset"
-                        baseBottom={12}
+                        // Native message action rows sit under the bottom-right corner; lift the pill clear of them.
+                        baseBottom={Platform.OS === 'web' ? 12 : 24}
                         style={{ position: 'absolute', right: 12 }}
                     >
                         <JumpToBottomButton
