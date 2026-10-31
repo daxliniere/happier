@@ -54,6 +54,7 @@ function buildSessionSearchText(
 ): string {
     const metadata = item.session.metadata;
     const parts: string[] = [];
+    appendSearchText(parts, item.session.id);
     appendSearchText(parts, metadata?.name);
     appendSearchText(parts, metadata?.summaryText);
     appendSearchText(parts, metadata?.path);

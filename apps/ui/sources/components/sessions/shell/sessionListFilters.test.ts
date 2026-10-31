@@ -79,6 +79,24 @@ describe('filterSessionListItemsForHeaderControls', () => {
         ]);
     });
 
+    it('finds a session by its pasted session id', () => {
+        const result = filterSessionListItemsForHeaderControls([
+            activeHeader,
+            sessionItem('cmabc123XYZ', { name: 'Deploy fix', summaryText: null, path: '/repo/api', host: 'api-host' }),
+            sessionItem('cmdef456', { name: 'Draft docs', summaryText: null, path: '/repo/docs', host: 'docs-host' }),
+        ], {
+            searchQuery: '  cmABC123xyz ',
+            selectedTags: [],
+            sessionTags: {},
+            searchableTextBySessionKey: {},
+        });
+
+        expect(result.map((item) => item.type === 'session' ? item.session.id : item.title)).toEqual([
+            'Active',
+            'cmabc123XYZ',
+        ]);
+    });
+
     it('filters sessions by decrypted text already present in the store', () => {
         const result = filterSessionListItemsForHeaderControls([
             activeHeader,
