@@ -506,7 +506,9 @@ history and renderer accept provider-qualified evidence without assuming a
 particular alias spelling. Each entry records the provider session identity, alias, and
 the closed interval from assignment to last observation. Existing transcripts
 resolve references at their original authored timestamp, using current session
-titles and canonical navigation. Stored message text and option responses stay
+titles and canonical navigation. Standalone aliases in prose, inline code, and
+reply options display as title links; commands and paths inside code spans,
+code blocks, and existing links remain literal. Stored message text and option responses stay
 unchanged. Missing history, unknown timestamps, and ambiguous ownership leave the
 alias unresolved. Stopped sessions without captured evidence require surviving
 registration evidence before they can be recovered; this is not a claim that all
