@@ -65,6 +65,14 @@ const TabMenuAnchorView = View as unknown as React.ComponentType<
     }
 >;
 
+// RN Web's Pressable can stop touch-origin contextmenu propagation. Bind the action on
+// the Pressable itself as well as the surrounding tab, so it always reaches the menu owner.
+const TabMenuPressable = Pressable as unknown as React.ComponentType<
+    React.ComponentProps<typeof Pressable> & {
+        onContextMenu?: (event: { preventDefault?: () => void; stopPropagation?: () => void }) => void;
+    }
+>;
+
 const DETAILS_TAB_MIN_WIDTH = 128;
 const DETAILS_TAB_MAX_WIDTH = 220;
 
@@ -269,6 +277,14 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
         tabMenuAnchorRef.current = tabElementsRef.current.get(tabKey) ?? null;
         setMenuTabKey(tabKey);
     }, []);
+    const openTabContextMenu = React.useCallback((tabKey: string, event: {
+        preventDefault?: () => void;
+        stopPropagation?: () => void;
+    }) => {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        openTabMenu(tabKey);
+    }, [openTabMenu]);
     const closeTabMenu = React.useCallback(() => setMenuTabKey(null), []);
     const menuTab = React.useMemo<SessionDetailsTabMenuTab | null>(() => {
         const tab = menuTabKey ? tabs.find((candidate) => candidate.key === menuTabKey) : null;
@@ -514,11 +530,8 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
                                 ref={(node: unknown) => registerTabElement(tab.key, node)}
                                 {...(Platform.OS === 'web'
                                     ? {
-                                        onContextMenu: (event: { preventDefault?: () => void; stopPropagation?: () => void }) => {
-                                            event.preventDefault?.();
-                                            event.stopPropagation?.();
-                                            openTabMenu(tab.key);
-                                        },
+                                        onContextMenu: (event: { preventDefault?: () => void; stopPropagation?: () => void }) =>
+                                            openTabContextMenu(tab.key, event),
                                     }
                                     : {})}
                                 style={{
@@ -529,7 +542,11 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
                                     flexShrink: 0,
                                 }}
                             >
-                                <Pressable
+                                <TabMenuPressable
+                                    {...(Platform.OS === 'web' ? {
+                                        onContextMenu: (event: { preventDefault?: () => void; stopPropagation?: () => void }) =>
+                                            openTabContextMenu(tab.key, event),
+                                    } : {})}
                                     onPress={() => pane.setActiveDetailsTab(tab.key)}
                                     onLongPress={() => openTabMenu(tab.key)}
                                     testID={resolveOptionalSessionScreenTestId(sessionScreenTestIdsEnabled, `session-details-tab-${safeTabKey}`)}
@@ -571,7 +588,7 @@ export const SessionDetailsPanel = React.memo((props: SessionDetailsPanelProps) 
                                             </Text>
                                         ) : null}
                                     </View>
-                                </Pressable>
+                                </TabMenuPressable>
                                 <View
                                     style={[
                                         styles.tabActions,
