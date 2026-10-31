@@ -19,6 +19,7 @@ import { SidebarLogoButton } from '../SidebarLogoButton';
 import { Icon } from '@/components/ui/icons/Icon';
 import { ActionOperationActivityButton } from '@/components/inbox/actionOperations/ActionOperationActivityButton';
 import { InboxPopoverButton } from '@/components/inbox/InboxPopoverButton';
+import { DirectSessionsBrowseButton } from '@/components/sessions/directSessions/browse/DirectSessionsBrowseButton';
 import { UpdatesEntry } from '@/components/updates/UpdatesPopoverButton';
 import type { InboxSummary } from '@/hooks/inbox/useInboxSummary';
 
@@ -109,6 +110,12 @@ export const DesktopSidebarChrome = React.memo((props: DesktopSidebarChromeProps
                                 testID="desktop-sidebar-updates-button"
                             />
                         )}
+                        {/* Opens provider-session browsing; it replaced the large Browse block above the session list. */}
+                        <DirectSessionsBrowseButton
+                            testID="sidebar-direct-browse-button"
+                            buttonSize={32}
+                            iconSize={DESKTOP_SIDEBAR_CHROME_ICON_GLYPH_SIZE_PX}
+                        />
                         {props.inboxEnabled && props.inboxSummary ? (
                             <InboxPopoverButton
                                 summary={props.inboxSummary}

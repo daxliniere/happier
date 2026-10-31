@@ -497,14 +497,14 @@ describe('MainView sidebar actions', () => {
         expect(tree!.root.findAllByProps({ testID: 'sessions-list-storage-tab:persisted' })).toHaveLength(0);
     });
 
-    it('keeps browse available in the sidebar regardless of the previous storage tab', async () => {
+    it('leaves provider-session browsing to the sidebar header icon instead of a block above the list', async () => {
         directSessionsFeatureState.enabled = true;
         localSettingsState.sessionsListStorageTab = 'persisted';
 
         let tree: renderer.ReactTestRenderer | null = null;
         tree = (await renderScreen(<MainView variant="sidebar" />)).tree;
 
-        expect(() => tree!.findByProps({ testID: 'direct-sessions-browse-button' })).not.toThrow();
+        expect(tree!.root.findAllByProps({ testID: 'direct-sessions-browse-button' })).toHaveLength(0);
     });
 
     it('shows the hidden inactive sessions notice when hide inactive sessions empties the sidebar', async () => {
