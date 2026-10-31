@@ -1,18 +1,26 @@
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { canUseAppLockBiometrics, readAppLockBiometricKey } from '@/auth/appLock/appLockBiometrics';
 import { unlockAppLockWithDataKey, unlockAppLockWithPassword, useAppLockSnapshot } from '@/auth/appLock/appLockRuntime';
 import { completeAppLockReset, requestAppLockResetCode, signOutLockedDevice } from '@/auth/appLock/appLockSetup';
+import { BrandWordmark } from '@/components/onboarding/unauthShell/BrandWordmark';
 import { RoundButton } from '@/components/ui/buttons/RoundButton';
 import { Icon } from '@/components/ui/icons/Icon';
 import { Text, TextInput } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 
-import { describeAppLockRecoveryFailure, maskEmail, validateAppLockNewPassword } from './appLockMessages';
+import {
+    APP_LOCK_MAX_PASSWORD_LENGTH,
+    appLockPasswordStrengthTip,
+    describeAppLockRecoveryFailure,
+    maskEmail,
+    validateAppLockNewPassword,
+} from './appLockMessages';
 
 type Mode = 'password' | 'resetRequest' | 'resetCode' | 'signOut';
 
@@ -33,24 +41,35 @@ const stylesheet = StyleSheet.create((theme) => ({
         maxWidth: 380,
         alignItems: 'stretch',
     },
-    badge: {
-        alignSelf: 'center',
-        width: 64,
-        height: 64,
-        borderRadius: 32,
+    brand: {
+        alignItems: 'center',
+        gap: 14,
+        marginBottom: 28,
+    },
+    logoMark: {
+        width: 96,
+        height: 96,
+    },
+    titleRow: {
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: theme.colors.surface.base,
-        borderWidth: 1,
-        borderColor: theme.colors.border.default,
-        marginBottom: 20,
+        gap: 8,
+        marginBottom: 8,
     },
     title: {
-        fontSize: 24,
+        fontSize: 20,
         textAlign: 'center',
         color: theme.colors.text.primary,
-        marginBottom: 8,
         ...Typography.default('semiBold'),
+    },
+    hint: {
+        fontSize: 13,
+        lineHeight: 18,
+        color: theme.colors.text.secondary,
+        marginTop: -8,
+        marginBottom: 14,
+        ...Typography.default(),
     },
     body: {
         fontSize: 15,
@@ -198,10 +217,18 @@ export function AppLockScreen(props: Readonly<{ onSignedOut: () => void }>) {
         <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID="app-lock-screen">
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 <View style={styles.column}>
-                    <View style={styles.badge} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-                        <Icon name={mode === 'signOut' ? 'sign-out' : 'lock'} size={28} color={theme.colors.accent.blue} />
+                    <View style={styles.brand} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                        <Image
+                            source={theme.dark ? require('@/assets/images/logo-white.png') : require('@/assets/images/logo-black.png')}
+                            contentFit="contain"
+                            style={styles.logoMark}
+                        />
+                        <BrandWordmark height={40} testID="app-lock-wordmark" />
                     </View>
-                    <Text style={styles.title} accessibilityRole="header">{title}</Text>
+                    <View style={styles.titleRow}>
+                        <Icon name={mode === 'signOut' ? 'sign-out' : 'lock'} size={18} color={theme.colors.text.secondary} />
+                        <Text style={styles.title} accessibilityRole="header">{title}</Text>
+                    </View>
                     <Text style={styles.body}>{body}</Text>
 
                     {mode === 'password' ? (
@@ -278,10 +305,12 @@ export function AppLockScreen(props: Readonly<{ onSignedOut: () => void }>) {
                                 onChangeText={setNewPassword}
                                 accessibilityLabel={t('appLock.newPasswordLabel')}
                                 secureTextEntry
+                                maxLength={APP_LOCK_MAX_PASSWORD_LENGTH}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 autoComplete="new-password"
                             />
+                            <Text style={styles.hint}>{appLockPasswordStrengthTip(newPassword) ?? t('appLock.passwordRules')}</Text>
                             <Text style={styles.label}>{t('appLock.confirmPasswordLabel')}</Text>
                             <TextInput
                                 style={styles.input}
@@ -290,6 +319,7 @@ export function AppLockScreen(props: Readonly<{ onSignedOut: () => void }>) {
                                 onSubmitEditing={submitReset}
                                 accessibilityLabel={t('appLock.confirmPasswordLabel')}
                                 secureTextEntry
+                                maxLength={APP_LOCK_MAX_PASSWORD_LENGTH}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 autoComplete="new-password"

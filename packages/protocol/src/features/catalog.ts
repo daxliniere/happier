@@ -364,7 +364,7 @@ const FEATURE_CATALOG_DEFINITION = {
     representation: 'client',
   },
   'appLock.emailRecovery': {
-    description: 'Relay-server email codes that let a device reset its local app-lock password (requires server SMTP).',
+    description: 'App-lock password reset: recovery keys escrowed with the relay and reset codes emailed through the account SMTP settings.',
     defaultFailMode: 'fail_closed',
     dependencies: [],
     representation: 'server',

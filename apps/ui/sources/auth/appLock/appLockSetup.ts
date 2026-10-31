@@ -8,7 +8,6 @@ import {
     apiAppLockRecoveryRegister,
     apiAppLockRecoveryRemove,
     apiAppLockRecoveryRequestResetCode,
-    apiAppLockRecoveryVerifyEmail,
     type AppLockRecoveryResult,
 } from '@/sync/api/appLock/apiAppLockRecovery';
 
@@ -17,7 +16,6 @@ import {
     generateAppLockRecoveryKey,
     rewrapAppLockPassword,
     rewrapAppLockRecoveryKey,
-    type AppLockWrappedKeys,
 } from './appLockCrypto';
 import { APP_LOCK_AUTO_LOCK_DEFAULT_MINUTES, type AppLockRecord } from './appLockRecord';
 import {
@@ -42,102 +40,56 @@ export async function disableAppLockLocally(): Promise<void> {
     await TokenStorage.transitionCredentialStorage(() => deactivateAppLock());
 }
 
-/**
- * An email address waiting for its verification code: either a first-time setup or a change of
- * recovery email on a device that is already locked. Nothing is stored on the device until the
- * code is confirmed.
- */
-export type AppLockEnrollment = Readonly<{
-    lockId: string;
-    email: string;
-    serverUrl: string;
-    recoveryKey: string;
-    dataKey: Uint8Array;
-    wrapped: AppLockWrappedKeys;
-    /** Present when replacing the recovery email of an existing lock. */
-    replacesLockId: string | null;
-}>;
-
 function newLockId(): string {
     return encodeBase64(getRandomBytes(18), 'base64url');
 }
 
-async function register(enrollment: AppLockEnrollment): Promise<AppLockRecoveryResult> {
-    return await apiAppLockRecoveryRegister({
-        lockId: enrollment.lockId,
-        email: enrollment.email,
-        recoveryKey: enrollment.recoveryKey,
-    });
-}
-
-/** First-time setup: creates the keys and emails a verification code. */
-export async function startAppLockEnrollment(params: Readonly<{ email: string; password: string }>): Promise<
-    AppLockRecoveryResult<{ enrollment: AppLockEnrollment }>
-> {
+/**
+ * Turns the lock on: creates the keys, escrows the recovery key with the relay under the recovery
+ * email, then seals this device's credentials. Nothing changes on the device if the relay refuses
+ * (for example when the account has no mail settings yet).
+ */
+export async function enableAppLock(params: Readonly<{ email: string; password: string }>): Promise<AppLockRecoveryResult> {
     const keys = await createAppLockKeys(params.password);
-    const enrollment: AppLockEnrollment = {
+    const record: AppLockRecord = {
+        v: 1,
         lockId: newLockId(),
         email: params.email.trim(),
         serverUrl: getActiveServerUrl(),
-        recoveryKey: keys.recoveryKey,
-        dataKey: keys.dataKey,
         wrapped: keys.wrapped,
-        replacesLockId: null,
+        autoLockMinutes: APP_LOCK_AUTO_LOCK_DEFAULT_MINUTES,
+        biometric: false,
     };
-    const result = await register(enrollment);
-    return result.ok ? { ok: true, enrollment } : result;
+    const registered = await apiAppLockRecoveryRegister({ lockId: record.lockId, email: record.email, recoveryKey: keys.recoveryKey });
+    if (!registered.ok) return registered;
+    await enableAppLockLocally(record, keys.dataKey);
+    return { ok: true };
 }
 
-/** Changing the recovery email of an unlocked device: a fresh escrow, verified before it replaces the old one. */
-export async function startAppLockEmailChange(email: string): Promise<AppLockRecoveryResult<{ enrollment: AppLockEnrollment }>> {
+/**
+ * Changes the recovery email of an unlocked device: a fresh escrow under a new lock id replaces the
+ * old one, which is removed once the new one is stored.
+ */
+export async function changeAppLockEmail(email: string): Promise<AppLockRecoveryResult> {
     const record = getAppLockSnapshot().record;
     const dataKey = getAppLockDataKey();
     if (!record || !dataKey) return { ok: false, error: 'not_found' };
     const recoveryKey = generateAppLockRecoveryKey();
-    const enrollment: AppLockEnrollment = {
-        lockId: newLockId(),
-        email: email.trim(),
+    const lockId = newLockId();
+    const trimmed = email.trim();
+    const registered = await apiAppLockRecoveryRegister({ lockId, email: trimmed, recoveryKey });
+    if (!registered.ok) return registered;
+    await updateAppLockRecord({
+        ...record,
+        lockId,
+        email: trimmed,
         serverUrl: getActiveServerUrl(),
-        recoveryKey,
-        dataKey,
         wrapped: await rewrapAppLockRecoveryKey(record.wrapped, dataKey, recoveryKey),
-        replacesLockId: record.lockId,
-    };
-    const result = await register(enrollment);
-    return result.ok ? { ok: true, enrollment } : result;
-}
-
-export async function resendAppLockEnrollmentCode(enrollment: AppLockEnrollment): Promise<AppLockRecoveryResult> {
-    return await register(enrollment);
-}
-
-/** Confirms the email code, then turns the lock on (or switches the recovery email). */
-export async function completeAppLockEnrollment(enrollment: AppLockEnrollment, code: string): Promise<AppLockRecoveryResult> {
-    const verified = await apiAppLockRecoveryVerifyEmail({ lockId: enrollment.lockId, code });
-    if (!verified.ok) return verified;
-
-    const current = getAppLockSnapshot().record;
-    if (enrollment.replacesLockId && current) {
-        await updateAppLockRecord({
-            ...current,
-            lockId: enrollment.lockId,
-            email: enrollment.email,
-            serverUrl: enrollment.serverUrl,
-            wrapped: enrollment.wrapped,
-        });
-        await apiAppLockRecoveryRemove({ lockId: enrollment.replacesLockId });
-        return { ok: true };
+    });
+    const removed = await apiAppLockRecoveryRemove({ lockId: record.lockId });
+    if (!removed.ok) {
+        console.error(`[appLock] Could not remove the previous recovery record from the relay (${removed.error}); it will stay unused.`);
     }
-
-    await enableAppLockLocally({
-        v: 1,
-        lockId: enrollment.lockId,
-        email: enrollment.email,
-        serverUrl: enrollment.serverUrl,
-        wrapped: enrollment.wrapped,
-        autoLockMinutes: APP_LOCK_AUTO_LOCK_DEFAULT_MINUTES,
-        biometric: false,
-    }, enrollment.dataKey);
     return { ok: true };
 }
 

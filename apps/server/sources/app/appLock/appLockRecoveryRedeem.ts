@@ -12,7 +12,7 @@ export async function appLockRecoveryRedeem(
     now: Date = new Date(),
 ): Promise<AppLockResult<{ readonly recoveryKey: string }>> {
     const record = await db.appLockRecovery.findUnique({ where: { id: input.lockId } });
-    if (!record || !record.emailVerifiedAt) return { ok: false, error: "not_found" };
+    if (!record) return { ok: false, error: "not_found" };
     const verdict = await appLockRecoveryConsumeCode(record, "reset", input.code, now);
     return verdict === "ok" ? { ok: true, recoveryKey: record.recoveryKey } : { ok: false, error: verdict };
 }

@@ -348,9 +348,11 @@ wrapped keys and preferences:
 - the data key is wrapped (NaCl secretbox) under `scrypt(password)` (N=2^15, r=8, p=1, random salt)
   and, separately, under a random **recovery key**;
 - the recovery key is escrowed with the relay (`AppLockRecovery` table, routes in
-  `packages/protocol/src/appLock/recovery.ts`) bound to a verified email. A six-digit emailed code
-  (hashed, 15-minute expiry, five attempts) releases it to the locked device, which then re-wraps the
-  same data key under a new password. The relay never sees the password or the credentials;
+  `packages/protocol/src/appLock/recovery.ts`) with the device's recovery email. A six-digit code
+  (hashed, 15-minute expiry, five attempts), emailed through the account's own SMTP settings
+  (`AppLockMailSettings`, SMTP password encrypted with the server key tree and never returned),
+  releases it to the locked device, which then re-wraps the same data key under a new password. The
+  relay never sees the app lock password or the credentials;
 - on Android, fingerprint unlock keeps a copy of the data key in SecureStore with
   `requireAuthentication`.
 

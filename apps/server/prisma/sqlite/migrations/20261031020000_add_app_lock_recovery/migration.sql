@@ -4,7 +4,6 @@ CREATE TABLE "AppLockRecovery" (
     "accountId" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "recoveryKey" TEXT NOT NULL,
-    "emailVerifiedAt" DATETIME,
     "codeHash" TEXT,
     "codePurpose" TEXT,
     "codeExpiresAt" DATETIME,
@@ -13,6 +12,20 @@ CREATE TABLE "AppLockRecovery" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "AppLockRecovery_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "AppLockMailSettings" (
+    "accountId" TEXT NOT NULL PRIMARY KEY,
+    "host" TEXT NOT NULL,
+    "port" INTEGER NOT NULL,
+    "security" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "passwordEncrypted" BLOB,
+    "fromAddress" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "AppLockMailSettings_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex

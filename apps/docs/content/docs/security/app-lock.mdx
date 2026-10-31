@@ -9,9 +9,14 @@ It is available in the desktop, Android and web apps.
 
 ## Turning it on
 
-Open **Settings → App lock**, enter a recovery email and a password, then type the six-digit code
-that arrives by email. Your relay server must be able to send email; if it can't, the screen says so
-(self-hosters: see [Outgoing email](/self-hosting/env#outgoing-email-app-lock-password-reset)).
+Open **Settings → App lock**.
+
+1. Under **Email server**, enter the SMTP server Happier should use to send you a reset code if you
+   forget the password (server, port, security, login and sender address), save it, and use **Send test
+   email** to check it arrives. This is shared by all your devices.
+2. Enter a recovery email and choose a password, typing it twice. Any 4 to 30 characters work; a mix of
+   upper and lower case letters, numbers and symbols is harder to guess.
+3. Choose **Turn on app lock**.
 
 Once it is on:
 

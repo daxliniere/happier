@@ -2,6 +2,9 @@ import {
     APP_LOCK_RECOVERY_ROUTES,
     AppLockRecoveryErrorResponseSchema,
     AppLockRecoveryRedeemResponseSchema,
+    AppLockMailSettingsResponseSchema,
+    type AppLockMailSettings,
+    type AppLockMailSettingsInput,
     type AppLockRecoveryCodeRequest,
     type AppLockRecoveryErrorCode,
     type AppLockRecoveryLockRequest,
@@ -28,10 +31,10 @@ async function readFailure(response: Response): Promise<AppLockRecoveryFailure> 
         : { ok: false, error: parsed.data.error };
 }
 
-async function post(path: string, body: unknown, options: Parameters<typeof serverFetch>[2]): Promise<Response | null> {
+async function post(path: string, body: unknown, options: Parameters<typeof serverFetch>[2], method: 'POST' | 'PUT' = 'POST'): Promise<Response | null> {
     try {
         return await serverFetch(path, {
-            method: 'POST',
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         }, options);
@@ -52,12 +55,6 @@ export async function apiAppLockRecoveryRegister(request: AppLockRecoveryRegiste
     return response.ok ? { ok: true } : await readFailure(response);
 }
 
-/** Authenticated (active server): confirm the recovery email. */
-export async function apiAppLockRecoveryVerifyEmail(request: AppLockRecoveryCodeRequest): Promise<AppLockRecoveryResult> {
-    const response = await post(APP_LOCK_RECOVERY_ROUTES.verifyEmail, request, {});
-    if (!response) return { ok: false, error: 'network' };
-    return response.ok ? { ok: true } : await readFailure(response);
-}
 
 /** Authenticated (active server): forget an escrow. */
 export async function apiAppLockRecoveryRemove(request: AppLockRecoveryLockRequest): Promise<AppLockRecoveryResult> {
@@ -86,4 +83,32 @@ export async function apiAppLockRecoveryRedeem(
     if (!response.ok) return await readFailure(response);
     const parsed = AppLockRecoveryRedeemResponseSchema.safeParse(await response.json().catch(() => null));
     return parsed.success ? { ok: true, recoveryKey: parsed.data.recoveryKey } : { ok: false, error: 'network' };
+}
+
+/** Authenticated (active server): the account's SMTP settings for reset emails, without the password. */
+export async function apiAppLockMailSettingsGet(): Promise<AppLockRecoveryResult<{ settings: AppLockMailSettings | null }>> {
+    let response: Response;
+    try {
+        response = await serverFetch(APP_LOCK_RECOVERY_ROUTES.mailSettings, { method: 'GET' }, {});
+    } catch (error) {
+        console.error('[appLock] Relay request failed:', error instanceof Error ? error.message : String(error));
+        return { ok: false, error: 'network' };
+    }
+    if (!response.ok) return await readFailure(response);
+    const parsed = AppLockMailSettingsResponseSchema.safeParse(await response.json().catch(() => null));
+    return parsed.success ? { ok: true, settings: parsed.data.settings } : { ok: false, error: 'network' };
+}
+
+/** Authenticated (active server): save the account's SMTP settings. Omit `password` to keep the saved one. */
+export async function apiAppLockMailSettingsSave(settings: AppLockMailSettingsInput): Promise<AppLockRecoveryResult> {
+    const response = await post(APP_LOCK_RECOVERY_ROUTES.mailSettings, settings, {}, 'PUT');
+    if (!response) return { ok: false, error: 'network' };
+    return response.ok ? { ok: true } : await readFailure(response);
+}
+
+/** Authenticated (active server): send a test email with the saved SMTP settings. */
+export async function apiAppLockMailSettingsSendTest(to: string): Promise<AppLockRecoveryResult> {
+    const response = await post(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest, { to }, {});
+    if (!response) return { ok: false, error: 'network' };
+    return response.ok ? { ok: true } : await readFailure(response);
 }

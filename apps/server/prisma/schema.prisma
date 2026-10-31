@@ -83,6 +83,7 @@ model Account {
     SessionAttentionStanding SessionAttentionStanding[]
     SessionAppearance      SessionAppearance[]
     AppLockRecovery        AppLockRecovery[]
+    AppLockMailSettings    AppLockMailSettings?
     SessionOrganizationFolder SessionOrganizationFolder[]
     SessionOrganizationTag SessionOrganizationTag[]
     SessionTagAssignment   SessionTagAssignment[]
@@ -572,7 +573,6 @@ model AppLockRecovery {
     accountId       String
     email           String
     recoveryKey     String
-    emailVerifiedAt DateTime?
     codeHash        String?
     codePurpose     String?
     codeExpiresAt   DateTime?
@@ -584,6 +584,22 @@ model AppLockRecovery {
     account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
     @@index([accountId])
+}
+
+/// The account's own SMTP server for app-lock reset emails, entered in the app. The password is
+/// encrypted with the server key tree and never returned to clients.
+model AppLockMailSettings {
+    accountId         String   @id
+    host              String
+    port              Int
+    security          String
+    username          String
+    passwordEncrypted Bytes?
+    fromAddress       String
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+
+    account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }
 
 model SessionOrganizationFolder {

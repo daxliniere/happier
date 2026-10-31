@@ -6,18 +6,24 @@ import {
     AppLockRecoveryOkResponseSchema,
     AppLockRecoveryRedeemResponseSchema,
     AppLockRecoveryRegisterRequestSchema,
+    AppLockMailSettingsInputSchema,
+    AppLockMailSettingsResponseSchema,
+    AppLockMailTestRequestSchema,
     type AppLockRecoveryErrorCode,
 } from "@happier-dev/protocol";
 import { type Fastify } from "../../types";
 import { createServerFeatureGatedRouteApp } from "@/app/features/catalog/serverFeatureGate";
 import { resolveApiHotEndpointRateLimit } from "@/app/api/utils/apiRateLimitCatalog";
 import { appLockRecoveryRegister } from "@/app/appLock/appLockRecoveryRegister";
-import { appLockRecoveryVerifyEmail } from "@/app/appLock/appLockRecoveryVerifyEmail";
 import { appLockRecoveryRemove } from "@/app/appLock/appLockRecoveryRemove";
 import { appLockRecoveryRequestResetCode } from "@/app/appLock/appLockRecoveryRequestResetCode";
 import { appLockRecoveryRedeem } from "@/app/appLock/appLockRecoveryRedeem";
+import { appLockMailSettingsGet } from "@/app/appLock/appLockMailSettingsGet";
+import { appLockMailSettingsSave } from "@/app/appLock/appLockMailSettingsSave";
+import { appLockMailSettingsSendTest } from "@/app/appLock/appLockMailSettingsSendTest";
 
-const STATUS_BY_ERROR: Record<AppLockRecoveryErrorCode, 400 | 404 | 429 | 502> = {
+const STATUS_BY_ERROR: Record<AppLockRecoveryErrorCode, 400 | 404 | 409 | 429 | 502> = {
+    mail_not_configured: 409,
     invalid_code: 400,
     code_expired: 400,
     too_many_attempts: 400,
@@ -29,6 +35,7 @@ const STATUS_BY_ERROR: Record<AppLockRecoveryErrorCode, 400 | 404 | 429 | 502> =
 const errorResponses = {
     400: AppLockRecoveryErrorResponseSchema,
     404: AppLockRecoveryErrorResponseSchema,
+    409: AppLockRecoveryErrorResponseSchema,
     429: AppLockRecoveryErrorResponseSchema,
     502: AppLockRecoveryErrorResponseSchema,
 };
@@ -42,9 +49,9 @@ function sendFailure(reply: any, failure: { error: AppLockRecoveryErrorCode; ret
 }
 
 /**
- * App-lock email recovery. Authenticated routes manage the caller's escrow; the reset routes are
- * public because a locked device cannot unseal its credentials. All routes require the
- * `appLock.emailRecovery` server feature (SMTP configured).
+ * App-lock email recovery. Authenticated routes manage the caller's escrow and SMTP settings; the
+ * reset routes are public because a locked device cannot unseal its credentials. All routes
+ * require the `appLock.emailRecovery` server feature.
  */
 export function appLockRecoveryRoutes(fastify: Fastify) {
     const app = createServerFeatureGatedRouteApp(fastify, "appLock.emailRecovery");
@@ -63,18 +70,6 @@ export function appLockRecoveryRoutes(fastify: Fastify) {
         return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
     });
 
-    app.post(APP_LOCK_RECOVERY_ROUTES.verifyEmail, {
-        preHandler: fastify.authenticate,
-        config: { rateLimit: manageRateLimit },
-        schema: {
-            body: AppLockRecoveryCodeRequestSchema,
-            response: { 200: AppLockRecoveryOkResponseSchema, ...errorResponses },
-        },
-    }, async (request, reply) => {
-        const result = await appLockRecoveryVerifyEmail({ uid: request.userId }, request.body);
-        return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
-    });
-
     app.post(APP_LOCK_RECOVERY_ROUTES.remove, {
         preHandler: fastify.authenticate,
         config: { rateLimit: manageRateLimit },
@@ -85,6 +80,40 @@ export function appLockRecoveryRoutes(fastify: Fastify) {
     }, async (request, reply) => {
         await appLockRecoveryRemove({ uid: request.userId }, request.body);
         return reply.send({ ok: true });
+    });
+
+    app.get(APP_LOCK_RECOVERY_ROUTES.mailSettings, {
+        preHandler: fastify.authenticate,
+        config: { rateLimit: manageRateLimit },
+        schema: {
+            response: { 200: AppLockMailSettingsResponseSchema },
+        },
+    }, async (request, reply) => {
+        return reply.send({ settings: await appLockMailSettingsGet({ uid: request.userId }) });
+    });
+
+    app.put(APP_LOCK_RECOVERY_ROUTES.mailSettings, {
+        preHandler: fastify.authenticate,
+        config: { rateLimit: manageRateLimit },
+        schema: {
+            body: AppLockMailSettingsInputSchema,
+            response: { 200: AppLockRecoveryOkResponseSchema },
+        },
+    }, async (request, reply) => {
+        await appLockMailSettingsSave({ uid: request.userId }, request.body);
+        return reply.send({ ok: true });
+    });
+
+    app.post(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest, {
+        preHandler: fastify.authenticate,
+        config: { rateLimit: manageRateLimit },
+        schema: {
+            body: AppLockMailTestRequestSchema,
+            response: { 200: AppLockRecoveryOkResponseSchema, ...errorResponses },
+        },
+    }, async (request, reply) => {
+        const result = await appLockMailSettingsSendTest({ uid: request.userId }, request.body);
+        return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
     });
 
     app.post(APP_LOCK_RECOVERY_ROUTES.requestResetCode, {

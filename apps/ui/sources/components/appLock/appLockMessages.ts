@@ -1,11 +1,14 @@
 import type { AppLockRecoveryFailure } from '@/sync/api/appLock/apiAppLockRecovery';
 import { t } from '@/text';
 
-export const APP_LOCK_MIN_PASSWORD_LENGTH = 6;
+export const APP_LOCK_MIN_PASSWORD_LENGTH = 4;
+export const APP_LOCK_MAX_PASSWORD_LENGTH = 30;
 
 /** User-facing text for a relay recovery failure. */
 export function describeAppLockRecoveryFailure(failure: AppLockRecoveryFailure): string {
     switch (failure.error) {
+        case 'mail_not_configured':
+            return t('appLock.errors.mailNotConfigured');
         case 'invalid_code':
             return t('appLock.errors.invalidCode');
         case 'code_expired':
@@ -23,11 +26,29 @@ export function describeAppLockRecoveryFailure(failure: AppLockRecoveryFailure):
     }
 }
 
-/** Validation message for a new password and its confirmation, or null when acceptable. */
+/**
+ * Validation message for a new password and its confirmation, or null when acceptable. Any 4 to 30
+ * characters are allowed; character mix is only recommended (see `appLockPasswordStrengthTip`).
+ */
 export function validateAppLockNewPassword(password: string, confirmation: string): string | null {
-    if (password.length < APP_LOCK_MIN_PASSWORD_LENGTH) return t('appLock.passwordTooShort', { min: APP_LOCK_MIN_PASSWORD_LENGTH });
+    if (password.length < APP_LOCK_MIN_PASSWORD_LENGTH || password.length > APP_LOCK_MAX_PASSWORD_LENGTH) {
+        return t('appLock.passwordLength', { min: APP_LOCK_MIN_PASSWORD_LENGTH, max: APP_LOCK_MAX_PASSWORD_LENGTH });
+    }
     if (password !== confirmation) return t('appLock.passwordsDontMatch');
     return null;
+}
+
+/**
+ * A gentle recommendation shown while typing a new password: suggests mixing upper and lower case
+ * letters, numbers and symbols when any of them is missing. Never blocks the password.
+ */
+export function appLockPasswordStrengthTip(password: string): string | null {
+    if (!password) return null;
+    const mixed = /[a-z]/.test(password)
+        && /[A-Z]/.test(password)
+        && /\d/.test(password)
+        && /[^A-Za-z0-9]/.test(password);
+    return mixed ? null : t('appLock.passwordTip');
 }
 
 export function isPlausibleEmail(value: string): boolean {

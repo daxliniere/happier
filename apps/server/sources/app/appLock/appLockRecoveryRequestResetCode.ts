@@ -4,28 +4,31 @@ import {
     CLEARED_APP_LOCK_CODE,
     appLockCodeCooldownSeconds,
     buildIssuedAppLockCode,
-    emailAppLockCode,
+    emailAppLockResetCode,
     type AppLockResult,
 } from "./appLockRecoveryCode";
+import { loadAppLockSmtpSettings } from "./appLockMailSettingsStore";
 
 /**
- * Public: emails a password-reset code to the verified address of a lock id. A locked device
- * cannot authenticate, so the unguessable lock id is the only identifier; the code itself only
- * reaches the owner's inbox. Unknown or unverified lock ids are reported as `not_found`.
+ * Public: emails a password-reset code to the recovery address of a lock id, through the owning
+ * account's SMTP server. A locked device cannot authenticate, so the unguessable lock id is the
+ * only identifier; the code itself only reaches the owner's inbox.
  */
 export async function appLockRecoveryRequestResetCode(
     input: AppLockRecoveryLockRequest,
     now: Date = new Date(),
 ): Promise<AppLockResult<{}>> {
     const record = await db.appLockRecovery.findUnique({ where: { id: input.lockId } });
-    if (!record || !record.emailVerifiedAt) return { ok: false, error: "not_found" };
+    if (!record) return { ok: false, error: "not_found" };
+    const smtp = await loadAppLockSmtpSettings(record.accountId);
+    if (!smtp) return { ok: false, error: "mail_not_configured" };
     const retryAfterSeconds = appLockCodeCooldownSeconds(record, now);
     if (retryAfterSeconds > 0) return { ok: false, error: "cooldown", retryAfterSeconds };
 
     const issued = buildIssuedAppLockCode(record.id, "reset", now);
     await db.appLockRecovery.update({ where: { id: record.id }, data: issued.data });
 
-    if (!(await emailAppLockCode(record.email, "reset", issued.code))) {
+    if (!(await emailAppLockResetCode(smtp, record.email, issued.code))) {
         await db.appLockRecovery.update({
             where: { id: record.id },
             data: { ...CLEARED_APP_LOCK_CODE, codeSentAt: null },

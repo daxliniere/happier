@@ -6,18 +6,26 @@ import { withAuthenticatedTestApp } from "../../testkit/sqliteFastify";
 import { appLockRecoveryRoutes } from "./appLockRecoveryRoutes";
 
 // SMTP is an external system boundary: capture outgoing mail instead of connecting to a server.
-const sentMail = vi.hoisted(() => [] as Array<{ to: string; subject: string; text: string }>);
+type SentMail = { settings: { host: string; port: number; security: string; username: string; password: string | null; fromAddress: string }; to: string; subject: string; text: string };
+const sentMail = vi.hoisted(() => [] as SentMail[]);
 const mailFailure = vi.hoisted(() => ({ fail: false }));
 vi.mock("@/modules/mail/sendMail", () => ({
-    sendMail: async (message: { to: string; subject: string; text: string }) => {
+    sendMail: async (settings: SentMail["settings"], message: { to: string; subject: string; text: string }) => {
         if (mailFailure.fail) throw new Error("smtp down");
-        sentMail.push(message);
+        sentMail.push({ settings, ...message });
     },
 }));
 
-const SMTP_ENV = { HAPPIER_SMTP_URL: "smtp://mail.invalid:2525", HAPPIER_SMTP_FROM: "Happier <noreply@example.com>" };
 const LOCK_ID = "lock_0123456789abcdefghijkl";
 const RECOVERY_KEY = `${"A".repeat(43)}=`;
+const MAIL_SETTINGS = {
+    host: "smtp.example.com",
+    port: 587,
+    security: "starttls",
+    username: "owner@example.com",
+    password: "smtp-secret-password",
+    fromAddress: "Happier <owner@example.com>",
+};
 
 function lastCode(): string {
     const text = sentMail.at(-1)?.text ?? "";
@@ -34,7 +42,7 @@ describe("app lock recovery routes (integration)", () => {
     let harness: LightSqliteHarness;
 
     beforeAll(async () => {
-        harness = await createLightSqliteHarness({ tempDirPrefix: "happier-app-lock-recovery-" });
+        harness = await createLightSqliteHarness({ tempDirPrefix: "happier-app-lock-recovery-", initEncrypt: true });
     }, 120_000);
 
     afterAll(async () => {
@@ -44,9 +52,10 @@ describe("app lock recovery routes (integration)", () => {
     afterEach(async () => {
         sentMail.length = 0;
         mailFailure.fail = false;
-        harness.resetEnv(SMTP_ENV);
+        harness.resetEnv();
         await harness.resetDbTables([
             () => db.appLockRecovery.deleteMany(),
+            () => db.appLockMailSettings.deleteMany(),
             () => db.account.deleteMany(),
         ]);
     });
@@ -54,6 +63,10 @@ describe("app lock recovery routes (integration)", () => {
     async function createAccount(publicKey: string): Promise<string> {
         const account = await db.account.create({ data: { publicKey }, select: { id: true } });
         return account.id;
+    }
+
+    async function saveMailSettings(app: any, userId: string, body: Record<string, unknown> = MAIL_SETTINGS) {
+        return await app.inject({ method: "PUT", url: "/v1/app-lock/mail-settings", headers: { "x-test-user-id": userId }, payload: body });
     }
 
     async function register(app: any, userId: string, email = "owner@example.com") {
@@ -65,76 +78,96 @@ describe("app lock recovery routes (integration)", () => {
         });
     }
 
-    async function verifyAndClearCooldown(app: any, userId: string) {
-        await register(app, userId);
-        const verify = await app.inject({
-            method: "POST",
-            url: "/v1/app-lock/recovery/verify",
-            headers: { "x-test-user-id": userId },
-            payload: { lockId: LOCK_ID, code: lastCode() },
-        });
-        expect(verify.statusCode).toBe(200);
-        await db.appLockRecovery.update({ where: { id: LOCK_ID }, data: { codeSentAt: null } });
+    async function requestResetCode(app: any) {
+        return await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId: LOCK_ID } });
     }
 
-    it("releases the recovery key only to a reset code sent to a verified email, once", async () => {
-        harness.resetEnv(SMTP_ENV);
+    async function redeem(app: any, code: string) {
+        return await app.inject({ method: "POST", url: "/v1/app-lock/recovery/redeem", payload: { lockId: LOCK_ID, code } });
+    }
+
+    it("needs the account's mail settings, keeps the SMTP password private, and sends through them", async () => {
+        const userId = await createAccount("pk-app-lock-mail");
+        await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
+            const early = await register(app, userId);
+            expect(early.statusCode).toBe(409);
+            expect(early.json()).toEqual({ error: "mail_not_configured" });
+
+            expect((await saveMailSettings(app, userId)).statusCode).toBe(200);
+            const read = await app.inject({ method: "GET", url: "/v1/app-lock/mail-settings", headers: { "x-test-user-id": userId } });
+            expect(read.json()).toEqual({
+                settings: {
+                    host: "smtp.example.com",
+                    port: 587,
+                    security: "starttls",
+                    username: "owner@example.com",
+                    fromAddress: "Happier <owner@example.com>",
+                    hasPassword: true,
+                },
+            });
+            expect(read.body).not.toContain("smtp-secret-password");
+            const stored = await db.appLockMailSettings.findUnique({ where: { accountId: userId } });
+            expect(Buffer.from(stored!.passwordEncrypted!).toString("utf8")).not.toContain("smtp-secret-password");
+
+            // Saving without a password keeps the saved one.
+            const { password: _omit, ...withoutPassword } = MAIL_SETTINGS;
+            expect((await saveMailSettings(app, userId, { ...withoutPassword, port: 465, security: "tls" })).statusCode).toBe(200);
+
+            expect((await register(app, userId)).statusCode).toBe(200);
+            expect((await requestResetCode(app)).statusCode).toBe(200);
+            expect(sentMail.at(-1)).toMatchObject({
+                to: "owner@example.com",
+                settings: { host: "smtp.example.com", port: 465, security: "tls", password: "smtp-secret-password" },
+            });
+
+            const test = await app.inject({
+                method: "POST",
+                url: "/v1/app-lock/mail-settings/test",
+                headers: { "x-test-user-id": userId },
+                payload: { to: "someone@example.com" },
+            });
+            expect(test.statusCode).toBe(200);
+            expect(sentMail.at(-1)?.to).toBe("someone@example.com");
+        });
+    });
+
+    it("releases the recovery key only for the emailed reset code, once", async () => {
         const userId = await createAccount("pk-app-lock-flow");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
-            expect((await register(app, userId)).statusCode).toBe(200);
-            expect(sentMail.at(-1)?.to).toBe("owner@example.com");
-
-            // Unverified escrow cannot be used for a reset.
-            const early = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId: LOCK_ID } });
-            expect(early.statusCode).toBe(404);
-            expect(early.json()).toEqual({ error: "not_found" });
-
-            const verify = await app.inject({
-                method: "POST",
-                url: "/v1/app-lock/recovery/verify",
-                headers: { "x-test-user-id": userId },
-                payload: { lockId: LOCK_ID, code: lastCode() },
-            });
-            expect(verify.statusCode).toBe(200);
-            await db.appLockRecovery.update({ where: { id: LOCK_ID }, data: { codeSentAt: null } });
-
-            const resetCode = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId: LOCK_ID } });
-            expect(resetCode.statusCode).toBe(200);
+            await saveMailSettings(app, userId);
+            await register(app, userId);
+            expect((await requestResetCode(app)).statusCode).toBe(200);
             const code = lastCode();
 
-            const wrong = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/redeem", payload: { lockId: LOCK_ID, code: otherCode(code) } });
+            const wrong = await redeem(app, otherCode(code));
             expect(wrong.statusCode).toBe(400);
             expect(wrong.json()).toEqual({ error: "invalid_code" });
 
-            const redeem = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/redeem", payload: { lockId: LOCK_ID, code } });
-            expect(redeem.statusCode).toBe(200);
-            expect(redeem.json()).toEqual({ recoveryKey: RECOVERY_KEY });
+            const ok = await redeem(app, code);
+            expect(ok.statusCode).toBe(200);
+            expect(ok.json()).toEqual({ recoveryKey: RECOVERY_KEY });
 
-            const reuse = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/redeem", payload: { lockId: LOCK_ID, code } });
-            expect(reuse.statusCode).toBe(400);
+            expect((await redeem(app, code)).statusCode).toBe(400);
         });
     });
 
     it("stops accepting a code after five wrong attempts and rate limits new codes", async () => {
         const userId = await createAccount("pk-app-lock-attempts");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
-            await verifyAndClearCooldown(app, userId);
-            await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId: LOCK_ID } });
+            await saveMailSettings(app, userId);
+            await register(app, userId);
+            await requestResetCode(app);
             const code = lastCode();
 
-            const again = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId: LOCK_ID } });
+            const again = await requestResetCode(app);
             expect(again.statusCode).toBe(429);
             expect(again.json().error).toBe("cooldown");
             expect(again.json().retryAfterSeconds).toBeGreaterThan(0);
 
-            const guesses = await Promise.all(Array.from({ length: 5 }, () => app.inject({
-                method: "POST",
-                url: "/v1/app-lock/recovery/redeem",
-                payload: { lockId: LOCK_ID, code: otherCode(code) },
-            })));
+            const guesses = await Promise.all(Array.from({ length: 5 }, () => redeem(app, otherCode(code))));
             expect(guesses.every((response: any) => response.statusCode === 400)).toBe(true);
 
-            const correct = await app.inject({ method: "POST", url: "/v1/app-lock/recovery/redeem", payload: { lockId: LOCK_ID, code } });
+            const correct = await redeem(app, code);
             expect(correct.statusCode).toBe(400);
             expect(correct.json()).toEqual({ error: "too_many_attempts" });
         });
@@ -144,25 +177,26 @@ describe("app lock recovery routes (integration)", () => {
         const ownerId = await createAccount("pk-app-lock-owner");
         const otherId = await createAccount("pk-app-lock-other");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
+            await saveMailSettings(app, ownerId);
+            await saveMailSettings(app, otherId);
             expect((await register(app, ownerId)).statusCode).toBe(200);
             const hijack = await register(app, otherId, "attacker@example.com");
             expect(hijack.statusCode).toBe(404);
             expect((await db.appLockRecovery.findUnique({ where: { id: LOCK_ID } }))?.email).toBe("owner@example.com");
 
-            await db.appLockRecovery.deleteMany();
             mailFailure.fail = true;
-            const failed = await register(app, ownerId);
+            const failed = await requestResetCode(app);
             expect(failed.statusCode).toBe(502);
             expect(failed.json()).toEqual({ error: "email_failed" });
         });
     });
 
-    it("is unavailable when the server has no SMTP settings", async () => {
-        harness.resetEnv();
+    it("is unavailable when the operator turns the feature off", async () => {
+        harness.resetEnv({ HAPPIER_FEATURE_APP_LOCK__EMAIL_RECOVERY__ENABLED: "0" });
         const userId = await createAccount("pk-app-lock-disabled");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
+            expect((await saveMailSettings(app, userId)).statusCode).toBe(404);
             expect((await register(app, userId)).statusCode).toBe(404);
-            expect(sentMail).toHaveLength(0);
         });
     });
 });

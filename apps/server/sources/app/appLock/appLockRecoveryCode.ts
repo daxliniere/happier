@@ -1,6 +1,6 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { APP_LOCK_RECOVERY_CODE_LENGTH, type AppLockRecoveryErrorCode } from "@happier-dev/protocol";
-import { sendMail } from "@/modules/mail/sendMail";
+import { sendMail, type SmtpSettings } from "@/modules/mail/sendMail";
 import { log } from "@/utils/logging/log";
 
 /**
@@ -14,7 +14,7 @@ export const APP_LOCK_CODE_TTL_MS = 15 * 60 * 1000;
 export const APP_LOCK_CODE_RESEND_COOLDOWN_MS = 60 * 1000;
 export const APP_LOCK_CODE_MAX_ATTEMPTS = 5;
 
-export type AppLockCodePurpose = "verify" | "reset";
+export type AppLockCodePurpose = "reset";
 
 export interface AppLockCodeState {
     readonly id: string;
@@ -83,29 +83,28 @@ export function checkAppLockCode(
     return expected.length === actual.length && timingSafeEqual(expected, actual) ? "ok" : "invalid_code";
 }
 
-const EMAIL_COPY: Record<AppLockCodePurpose, { subject: string; intro: string }> = {
-    verify: {
-        subject: "Confirm your Happier app lock email",
-        intro: "Use this code to confirm the email address for your Happier app lock:",
-    },
-    reset: {
-        subject: "Reset your Happier app lock password",
-        intro: "Someone asked to reset the Happier app lock password on one of your devices. Use this code to set a new password:",
-    },
-};
-
-/** Emails a code. Returns false (and logs without the code or address) when sending fails. */
-export async function emailAppLockCode(to: string, purpose: AppLockCodePurpose, code: string): Promise<boolean> {
-    const copy = EMAIL_COPY[purpose];
+/**
+ * Sends an email through the account's SMTP server. Returns false (and logs without the address,
+ * code or credentials) when sending fails.
+ */
+export async function sendAppLockEmail(
+    settings: SmtpSettings,
+    message: Readonly<{ to: string; subject: string; text: string }>,
+    kind: string,
+): Promise<boolean> {
     try {
-        await sendMail({
-            to,
-            subject: copy.subject,
-            text: `${copy.intro}\n\n${code}\n\nThe code expires in ${APP_LOCK_CODE_TTL_MS / 60000} minutes. If you did not ask for this, you can ignore this email.\n`,
-        });
+        await sendMail(settings, message);
         return true;
     } catch (error) {
-        log({ module: "app-lock", level: "error" }, `Failed to send app lock ${purpose} email: ${error instanceof Error ? error.message : String(error)}`);
+        log({ module: "app-lock", level: "error" }, `Failed to send app lock ${kind} email: ${error instanceof Error ? error.message : String(error)}`);
         return false;
     }
+}
+
+export async function emailAppLockResetCode(settings: SmtpSettings, to: string, code: string): Promise<boolean> {
+    return await sendAppLockEmail(settings, {
+        to,
+        subject: "Reset your Happier app lock password",
+        text: `Someone asked to reset the Happier app lock password on one of your devices. Use this code to set a new password:\n\n${code}\n\nThe code expires in ${APP_LOCK_CODE_TTL_MS / 60000} minutes. If you did not ask for this, you can ignore this email.\n`,
+    }, "reset");
 }
