@@ -6138,6 +6138,7 @@ export const zhHans: TranslationStructure = {
 
   modelPickerOverlay: {
     refreshModelsA11y: "刷新模型",
+    refreshEngineA11y: "重新扫描智能体、模型和选项",
     loadingModelsA11y: "正在加载模型…",
     refreshingModelsA11y: "正在刷新模型…",
     searchPlaceholder: "搜索模型…",

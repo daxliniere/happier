@@ -5979,6 +5979,7 @@ deps: {
 
         modelPickerOverlay: {
             refreshModelsA11y: 'Actualitza els models',
+            refreshEngineA11y: 'Torna a cercar agents, models i opcions',
             loadingModelsA11y: 'Carregant models…',
             refreshingModelsA11y: 'Actualitzant models…',
           searchPlaceholder: 'Cerca models…',

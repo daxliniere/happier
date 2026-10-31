@@ -6454,6 +6454,7 @@ export const pt: TranslationStructure = {
 
   modelPickerOverlay: {
     refreshModelsA11y: "Atualizar modelos",
+    refreshEngineA11y: "Procurar novamente agentes, modelos e opções",
     loadingModelsA11y: "Carregando modelos…",
     refreshingModelsA11y: "Atualizando modelos…",
     searchPlaceholder: "Pesquisar modelos…",

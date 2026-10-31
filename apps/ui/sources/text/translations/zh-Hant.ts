@@ -2096,6 +2096,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
 
       modelPickerOverlay: {
           refreshModelsA11y: '重新整理模型',
+          refreshEngineA11y: '重新掃描代理、模型和選項',
           loadingModelsA11y: '正在載入模型…',
           refreshingModelsA11y: '正在重新整理模型…',
           searchPlaceholder: '搜尋模型…',

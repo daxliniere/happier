@@ -6604,6 +6604,7 @@ localTailscale: {
 
   modelPickerOverlay: {
     refreshModelsA11y: "モデルを更新",
+    refreshEngineA11y: "エージェント、モデル、オプションを再スキャン",
     loadingModelsA11y: "モデルを読み込み中…",
     refreshingModelsA11y: "モデルを更新中…",
     searchPlaceholder: "モデルを検索…",

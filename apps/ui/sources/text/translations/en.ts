@@ -6001,6 +6001,7 @@ export const en = {
 
     modelPickerOverlay: {
         refreshModelsA11y: 'Refresh models',
+        refreshEngineA11y: 'Rescan agents, models and options',
         loadingModelsA11y: 'Loading models…',
         refreshingModelsA11y: 'Refreshing models…',
         searchPlaceholder: 'Search models…',

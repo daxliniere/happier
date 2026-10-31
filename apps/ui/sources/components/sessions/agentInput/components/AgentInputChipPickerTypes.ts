@@ -89,6 +89,11 @@ export type AgentInputChipPickerPanelProps = Readonly<{
     selectedOptionId?: string | null;
     onSelect: (id: string) => void;
     onRequestClose: () => void;
+    /**
+     * Done action for detailed pickers. The detail pane's header hosts it left of its refresh
+     * control; without such a header the panel shows it in its own pane-header slot.
+     */
+    onDone?: () => void;
     applyLabel?: string;
     showCloseButton?: boolean;
     railWidth?: number;
