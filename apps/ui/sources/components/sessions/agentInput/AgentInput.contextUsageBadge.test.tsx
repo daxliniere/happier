@@ -1,5 +1,5 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react-test-renderer';
 import { createReducer } from '@/sync/reducer/reducer';
 import { settingsDefaults, type Settings } from '@/sync/domains/settings/settings';
@@ -78,6 +78,9 @@ installAgentInputCommonModuleMocks({
                 if (key === 'connectedServices.quota.recoveryCreditTitle') return `${params?.count} reset available`;
                 if (key === 'connectedServices.quota.recoveryCreditSubtitle') return 'Use a reset to restore usage immediately.';
                 if (key === 'session.usageLimitRecovery.consumeResetCreditAction') return 'Use reset';
+                if (key === 'agentInput.providerUsage.remainingWithReset') return `${params?.percent} left · resets in ${params?.reset}`;
+                if (key === 'agentInput.providerUsage.duration.hoursMinutesSeconds') return `${params?.hours}h ${params?.minutes}m ${params?.seconds}s`;
+                if (key === 'agentInput.providerUsage.duration.minutesSeconds') return `${params?.minutes}m ${params?.seconds}s`;
                 return key;
             },
         });
@@ -291,6 +294,10 @@ vi.mock('@/sync/domains/sessionControl/configOptionsControl', () => ({
     computeSessionConfigOptionControls: () => null,
 }));
 
+afterEach(() => {
+    vi.useRealTimers();
+});
+
 describe('AgentInput (context usage badge)', () => {
     it('renders host-provided trailing status actions even without another status item', async () => {
         const { AgentInput } = await import('./AgentInput');
@@ -490,6 +497,9 @@ describe('AgentInput (context usage badge)', () => {
 
     it('renders the provider quota gauge beside the context gauge when reliable usage exists', async () => {
         captured.last = null;
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-05-12T00:00:00.000Z'));
+        const resetAtMs = Date.now() + 2 * 60 * 60 * 1000;
         const { AgentInput } = await import('./AgentInput');
 
         const providerUsageGauge: ConnectedServiceQuotaGaugeViewModel = {
@@ -535,6 +545,7 @@ describe('AgentInput (context usage badge)', () => {
                     detailRightLabel: '18% left · resets in 2h',
                     usedLimitSemantics: 'used',
                     usedLimitLabel: '82/100 used',
+                    resetAtMs,
                     resetLabel: '2h',
                     tone: 'warning',
                 },
@@ -583,7 +594,7 @@ describe('AgentInput (context usage badge)', () => {
         expect(providerUsageOverlays[0]?.props.scrollEnabled).toBe(true);
         expect(screen.getTextContent()).toContain('Claude usage');
         expect(screen.getTextContent()).toContain('Work account');
-        expect(screen.getTextContent()).toContain('18% left · resets in 2h');
+        expect(screen.getTextContent()).toContain('18% left · resets in 2h 0m 0s');
         expect(screen.getTextContent()).toContain('82/100 used');
         expect(screen.getTextContent()).toContain('1 reset available');
         expect(screen.getTextContent()).toContain('Use a reset to restore usage immediately.');
@@ -639,6 +650,7 @@ describe('AgentInput (context usage badge)', () => {
                     detailRightLabel: '18% left · resets in 2h',
                     usedLimitSemantics: 'used',
                     usedLimitLabel: '82/100 used',
+                    resetAtMs: null,
                     resetLabel: '2h',
                     tone: 'warning',
                 },

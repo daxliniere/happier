@@ -3169,10 +3169,8 @@ localTailscale: {
         outdated: "古い",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}日 ${hours}時間`,
-        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
-          `${hours}時間 ${minutes}分`,
-        hours: ({ hours }: { hours: number }) => `${hours}時間`,
-        minutes: ({ minutes }: { minutes: number }) => `${minutes}分`,
+        hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}時間 ${minutes}分 ${seconds}秒`,
+        minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}分 ${seconds}秒`,
       },
     },
     account: {
@@ -7311,10 +7309,8 @@ localTailscale: {
         outdated: "古い",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}日 ${hours}時間`,
-        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
-          `${hours}時間 ${minutes}分`,
-        hours: ({ hours }: { hours: number }) => `${hours}時間`,
-        minutes: ({ minutes }: { minutes: number }) => `${minutes}分`,
+        hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}時間 ${minutes}分 ${seconds}秒`,
+        minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}分 ${seconds}秒`,
       },
     },
     usageOverflow: {

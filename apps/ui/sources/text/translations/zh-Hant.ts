@@ -1437,9 +1437,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
                 now: '現在',
                 outdated: '已過期',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}天 ${hours}小時`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}小時 ${minutes}分鐘`,
-                hours: ({ hours }: { hours: number }) => `${hours}小時`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}分鐘`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}小時 ${minutes}分鐘 ${seconds}秒`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}分鐘 ${seconds}秒`,
             },
         },
         list: {
@@ -5969,9 +5968,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
                 now: '現在',
                 outdated: '已過期',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}天 ${hours}小時`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}小時 ${minutes}分鐘`,
-                hours: ({ hours }: { hours: number }) => `${hours}小時`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}分鐘`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}小時 ${minutes}分鐘 ${seconds}秒`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}分鐘 ${seconds}秒`,
             },
         },
         usageOverflow: {

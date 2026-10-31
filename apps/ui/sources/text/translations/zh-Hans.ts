@@ -2693,10 +2693,8 @@ export const zhHans: TranslationStructure = {
         outdated: "已过期",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}天 ${hours}小时`,
-        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
-          `${hours}小时 ${minutes}分钟`,
-        hours: ({ hours }: { hours: number }) => `${hours}小时`,
-        minutes: ({ minutes }: { minutes: number }) => `${minutes}分钟`,
+        hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}小时 ${minutes}分钟 ${seconds}秒`,
+        minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}分钟 ${seconds}秒`,
       },
     },
     account: {
@@ -6830,10 +6828,8 @@ export const zhHans: TranslationStructure = {
         outdated: "已过期",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}天 ${hours}小时`,
-        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
-          `${hours}小时 ${minutes}分钟`,
-        hours: ({ hours }: { hours: number }) => `${hours}小时`,
-        minutes: ({ minutes }: { minutes: number }) => `${minutes}分钟`,
+        hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}小时 ${minutes}分钟 ${seconds}秒`,
+        minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}分钟 ${seconds}秒`,
       },
     },
     usageOverflow: {

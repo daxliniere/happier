@@ -2636,9 +2636,8 @@ export const en = {
                 now: 'now',
                 outdated: 'outdated',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}d ${hours}h`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}h ${minutes}m`,
-                hours: ({ hours }: { hours: number }) => `${hours}h`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}m`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}m ${seconds}s`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}m ${seconds}s`,
             },
         },
         account: {
@@ -6691,9 +6690,8 @@ export const en = {
                 now: 'now',
                 outdated: 'outdated',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}d ${hours}h`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}h ${minutes}m`,
-                hours: ({ hours }: { hours: number }) => `${hours}h`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}m`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}m ${seconds}s`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}m ${seconds}s`,
             },
         },
         usageOverflow: {

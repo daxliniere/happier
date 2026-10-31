@@ -2635,9 +2635,8 @@ export const fr: TranslationStructure = {
                 now: 'maintenant',
                 outdated: 'obsolète',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}j ${hours}h`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}h ${minutes}min`,
-                hours: ({ hours }: { hours: number }) => `${hours}h`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}min`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}min ${seconds}s`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}min ${seconds}s`,
             },
         },
         account: {
@@ -6646,9 +6645,8 @@ export const fr: TranslationStructure = {
                 now: 'maintenant',
                 outdated: 'obsolète',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}j ${hours}h`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}h ${minutes}min`,
-                hours: ({ hours }: { hours: number }) => `${hours}h`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}min`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}min ${seconds}s`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}min ${seconds}s`,
             },
         },
         usageOverflow: {

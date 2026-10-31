@@ -50,6 +50,8 @@ export type ConnectedServiceQuotaGaugeMeterRow = Readonly<{
     detailRightLabel: string;
     usedLimitSemantics: 'used' | null;
     usedLimitLabel: string | null;
+    /** The reset instant the countdown counts down to; live consumers re-derive labels from it. */
+    resetAtMs: number | null;
     resetLabel: string | null;
     tone: ConnectedServiceQuotaGaugeTone;
 }>;
@@ -62,9 +64,8 @@ export type ConnectedServiceQuotaGaugeLabelFormatter = Readonly<{
     durationNow: () => string;
     durationOutdated: () => string;
     durationDaysHours: (params: Readonly<{ days: number; hours: number }>) => string;
-    durationHoursMinutes: (params: Readonly<{ hours: number; minutes: number }>) => string;
-    durationHours: (params: Readonly<{ hours: number }>) => string;
-    durationMinutes: (params: Readonly<{ minutes: number }>) => string;
+    durationHoursMinutesSeconds: (params: Readonly<{ hours: number; minutes: number; seconds: number }>) => string;
+    durationMinutesSeconds: (params: Readonly<{ minutes: number; seconds: number }>) => string;
     subscriptionEnds: (params: Readonly<{ date: string }>) => string;
     subscriptionEndsInDays: (params: Readonly<{ days: number }>) => string;
     subscriptionRenews: (params: Readonly<{ date: string }>) => string;
@@ -306,35 +307,67 @@ function resolveTone(remainingPct: number | null): ConnectedServiceQuotaGaugeTon
     return mapMeterToneToGaugeTone(resolveQuotaTone(remainingPct));
 }
 
+function resolveMeterResetLabel(
+    nowMs: number,
+    resetAtMs: number | null,
+    formatter: ConnectedServiceQuotaGaugeLabelFormatter,
+): string | null {
+    // An elapsed reset boundary means the snapshot predates its own reset — drop the countdown
+    // instead of composing the nonsense phrase "resets in outdated".
+    return isResetCountdownOutdated(nowMs, resetAtMs) ? null : formatResetCountdown(nowMs, resetAtMs, formatter);
+}
+
+function composeMeterDetailRightLabel(
+    remainingPct: number | null,
+    resetLabel: string | null,
+    formatter: ConnectedServiceQuotaGaugeLabelFormatter,
+): string {
+    const remainingLabel = remainingPct === null ? '—' : `${Math.round(remainingPct)}%`;
+    if (remainingPct === null && resetLabel === null) return formatter.unavailable();
+    return resetLabel
+        ? formatter.remainingWithReset({ percent: remainingLabel, reset: resetLabel })
+        : formatter.remaining({ percent: remainingLabel });
+}
+
+/**
+ * The right-hand detail of one meter row, derived from the clock it is given. Live consumers pass a
+ * ticking `nowMs` so the countdown advances; snapshot builders pass the instant they built at.
+ */
+export function resolveConnectedServiceQuotaMeterDetailLabel(params: Readonly<{
+    remainingPct: number | null;
+    resetAtMs: number | null;
+    nowMs: number;
+    formatter: ConnectedServiceQuotaGaugeLabelFormatter;
+}>): string {
+    return composeMeterDetailRightLabel(
+        params.remainingPct,
+        resolveMeterResetLabel(params.nowMs, params.resetAtMs, params.formatter),
+        params.formatter,
+    );
+}
+
 function buildMeterRow(
     meter: ConnectedServiceQuotaMeterV1,
     nowMs: number,
     formatter: ConnectedServiceQuotaGaugeLabelFormatter,
 ): ConnectedServiceQuotaGaugeMeterRow {
     const { usedPct, remainingPct, used, limit } = deriveQuotaMeterValues(meter);
-    const remainingLabel = remainingPct === null ? '—' : `${Math.round(remainingPct)}%`;
-    // An elapsed reset boundary means the snapshot predates its own reset — fall back to the plain
-    // remaining label instead of composing the nonsense phrase "resets in outdated".
-    const resetLabel = isResetCountdownOutdated(nowMs, meter.resetAtMs ?? meter.resetsAt)
-        ? null
-        : formatResetCountdown(nowMs, meter.resetAtMs ?? meter.resetsAt, formatter);
+    const resetAtMs = meter.resetAtMs ?? meter.resetsAt;
+    const resetLabel = resolveMeterResetLabel(nowMs, resetAtMs, formatter);
     return {
         meterId: meter.meterId,
         label: meter.label,
         remainingPct,
         usedPct,
         detailRightSemantics: 'remaining',
-        detailRightLabel: remainingPct === null && resetLabel === null
-            ? formatter.unavailable()
-            : resetLabel
-            ? formatter.remainingWithReset({ percent: remainingLabel, reset: resetLabel })
-            : formatter.remaining({ percent: remainingLabel }),
+        detailRightLabel: composeMeterDetailRightLabel(remainingPct, resetLabel, formatter),
         usedLimitSemantics: typeof used === 'number' && typeof limit === 'number'
             ? 'used'
             : null,
         usedLimitLabel: typeof used === 'number' && typeof limit === 'number'
             ? formatter.used({ used: formatNumber(used), limit: formatNumber(limit) })
             : null,
+        resetAtMs,
         resetLabel,
         tone: resolveTone(remainingPct),
     };

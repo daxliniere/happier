@@ -1,6 +1,6 @@
 import React from 'react';
 import { act } from 'react-test-renderer';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { computeConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 
@@ -8,6 +8,18 @@ import type { ConnectedServiceQuotaGaugeLabelFormatter, ConnectedServiceQuotaGau
 import { renderScreen } from '@/dev/testkit';
 
 import { AgentInputProviderUsageBadge } from './AgentInputProviderUsageBadge';
+
+const FIXTURE_NOW_MS = Date.parse('2026-05-12T00:00:00.000Z');
+
+// Pin the clock so the live reset countdown renders the same text in every test.
+beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXTURE_NOW_MS);
+});
+
+afterEach(() => {
+    vi.useRealTimers();
+});
 
 // SVG is a native rendering boundary; the usage and capacity rings remain real.
 vi.mock('react-native-svg', () => ({
@@ -23,9 +35,8 @@ const fixtureFormatter: ConnectedServiceQuotaGaugeLabelFormatter = {
     durationNow: () => 'now',
     durationOutdated: () => 'outdated',
     durationDaysHours: ({ days, hours }) => `${days}d ${hours}h`,
-    durationHoursMinutes: ({ hours, minutes }) => `${hours}h ${minutes}m`,
-    durationHours: ({ hours }) => `${hours}h`,
-    durationMinutes: ({ minutes }) => `${minutes}m`,
+    durationHoursMinutesSeconds: ({ hours, minutes, seconds }) => `${hours}h ${minutes}m ${seconds}s`,
+    durationMinutesSeconds: ({ minutes, seconds }) => `${minutes}m ${seconds}s`,
     subscriptionEnds: ({ date }) => `Ends ${date}`,
     subscriptionEndsInDays: ({ days }) => `Ends in ${days} day${days === 1 ? '' : 's'}`,
     subscriptionRenews: ({ date }) => `Renews ${date}`,
@@ -44,9 +55,9 @@ function viewModel(): ConnectedServiceQuotaGaugeViewModel {
         badgeLabel: '18% left',
         scopePrefix: null,
         primaryValueSemantics: 'remaining',
-        detailRightLabel: '18% left · resets in 2h',
+        detailRightLabel: '18% left · resets in 2h 0m 0s',
         usedLimitLabel: '82/100 used',
-        resetLabel: '2h',
+        resetLabel: '2h 0m 0s',
         tone: 'warning',
         isStale: false,
         recoveryCreditSummary: {
@@ -71,10 +82,11 @@ function viewModel(): ConnectedServiceQuotaGaugeViewModel {
             remainingPct: 18,
             usedPct: 82,
             detailRightSemantics: 'remaining',
-            detailRightLabel: '18% left · resets in 2h',
+            detailRightLabel: '18% left · resets in 2h 0m 0s',
             usedLimitSemantics: 'used',
             usedLimitLabel: '82/100 used',
-            resetLabel: '2h',
+            resetAtMs: FIXTURE_NOW_MS + 2 * 60 * 60 * 1000,
+            resetLabel: '2h 0m 0s',
             tone: 'warning',
         }],
         usageRings: [],
@@ -177,6 +189,15 @@ describe('AgentInputProviderUsageBadge', () => {
         expect(screen.findByTestId('agent-input-provider-usage-subscription:renewal')?.props.children).toContain('Off');
         await screen.update(<AgentInputProviderUsageBadge viewModel={viewModel()} />);
         expect(screen.findByTestId('agent-input-provider-usage-subscription')).toBeNull();
+    });
+
+    it('counts an open meter reset down live, one second per tick, without a parent re-render', async () => {
+        const screen = await renderScreen(<AgentInputProviderUsageBadge viewModel={viewModel()} />);
+        act(() => screen.findByTestId('agent-input-provider-usage-badge')?.props.onPress?.());
+        expect(screen.getTextContent()).toContain('resets in 2h 0m 0s');
+
+        act(() => { vi.advanceTimersByTime(1_000); });
+        expect(screen.getTextContent()).toContain('resets in 1h 59m 59s');
     });
 
     it('removes the duplicated top quota summary and keeps consistent group spacing', async () => {

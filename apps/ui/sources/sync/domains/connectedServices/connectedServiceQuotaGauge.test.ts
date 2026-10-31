@@ -11,6 +11,7 @@ import {
     buildConnectedServiceQuotaGaugeMeterRows,
     deriveConnectedServiceQuotaSnapshotFromRuntimeIssue,
     resolveConnectedServiceQuotaGaugeSource,
+    resolveConnectedServiceQuotaMeterDetailLabel,
     selectConnectedServiceSessionProviderUsageGaugeSource,
 } from './connectedServiceQuotaGauge';
 
@@ -50,9 +51,8 @@ const formatter: ConnectedServiceQuotaGaugeLabelFormatter = {
     durationNow: () => 'now',
     durationOutdated: () => 'outdated',
     durationDaysHours: ({ days, hours }) => `${days}d ${hours}h`,
-    durationHoursMinutes: ({ hours, minutes }) => `${hours}h ${minutes}m`,
-    durationHours: ({ hours }) => `${hours}h`,
-    durationMinutes: ({ minutes }) => `${minutes}m`,
+    durationHoursMinutesSeconds: ({ hours, minutes, seconds }) => `${hours}h ${minutes}m ${seconds}s`,
+    durationMinutesSeconds: ({ minutes, seconds }) => `${minutes}m ${seconds}s`,
     subscriptionEnds: ({ date }) => `Ends ${date}`,
     subscriptionEndsInDays: ({ days }) => `Ends in ${days} day${days === 1 ? '' : 's'}`,
     subscriptionRenews: ({ date }) => `Renews ${date}`,
@@ -132,7 +132,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(rows.map((row) => row.meterId)).toEqual(['full', 'empty', 'reset', 'pinned']);
         expect(rows.map((row) => row.remainingPct)).toEqual([100, 0, null, null]);
         expect(rows.find((row) => row.meterId === 'pinned')?.detailRightLabel).toBe('Unavailable');
-        expect(rows.find((row) => row.meterId === 'reset')?.resetLabel).toBe('1m');
+        expect(rows.find((row) => row.meterId === 'reset')?.resetLabel).toBe('1m 0s');
 
         const vm = computeConnectedServiceQuotaGaugeViewModel({
             snapshot: snapshot(meters), windowMode: 'most_constrained', nowMs: 2_000,
@@ -151,7 +151,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
             remainingPct: 0, utilizationPct: 100, used: 100, limit: 100, resetsAt: 62_000 });
         expect(buildConnectedServiceQuotaGaugeMeterRows([disabled], 2_000, formatter)).toMatchObject([
             { remainingPct: null, usedPct: null, usedLimitLabel: null, usedLimitSemantics: null,
-                resetLabel: '1m', tone: 'neutral' },
+                resetLabel: '1m 0s', tone: 'neutral' },
         ]);
         expect(buildConnectedServiceQuotaGaugeMeterRows([{ ...disabled, resetsAt: null }], 2_000, formatter, ['disabled']))
             .toMatchObject([{ remainingPct: null, usedPct: null, detailRightLabel: 'Unavailable', tone: 'neutral' }]);
@@ -161,7 +161,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
     it('keeps unmeasured reported windows in details even when no composer ring can be ranked', () => {
         const unknown = meter({ meterId: 'reached', label: 'Reached', status: 'unavailable', resetsAt: 62_000, details: { limitCategory: 'usage_limit' } });
         expect(buildConnectedServiceQuotaGaugeMeterRows([unknown], 2_000, formatter)).toMatchObject([
-            { meterId: 'reached', remainingPct: null, usedPct: null, resetLabel: '1m' },
+            { meterId: 'reached', remainingPct: null, usedPct: null, resetLabel: '1m 0s' },
         ]);
         const vm = computeConnectedServiceQuotaGaugeViewModel({
             snapshot: snapshot([meter({ meterId: 'weekly', label: 'Weekly', used: 82, limit: 100 }), unknown]),
@@ -357,12 +357,30 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(viewModel?.activeAccountDisplayLabel).toBe('Work account');
         expect(viewModel?.primaryValueSemantics).toBe('remaining');
         expect(viewModel?.badgeLabel).toBe('w. 18% left');
-        expect(viewModel?.detailRightLabel).toBe('18% left · resets in 2h');
+        expect(viewModel?.detailRightLabel).toBe('18% left · resets in 2h 0m 0s');
         expect(viewModel?.usedLimitLabel).toBe('82/100 used');
         expect(viewModel?.allMeterRows[0]?.detailRightSemantics).toBe('remaining');
         expect(viewModel?.allMeterRows[0]?.usedLimitSemantics).toBe('used');
-        expect(viewModel?.allMeterRows[0]?.detailRightLabel).toBe('18% left · resets in 2h');
+        expect(viewModel?.allMeterRows[0]?.detailRightLabel).toBe('18% left · resets in 2h 0m 0s');
         expect(viewModel?.allMeterRows[0]?.usedLimitLabel).toBe('82/100 used');
+    });
+
+    it('derives the reset clause from the clock it is given, so a live tick advances the countdown', () => {
+        const resetAtMs = 2_000 + 2 * 60 * 60 * 1000;
+        const label = (nowMs: number) => resolveConnectedServiceQuotaMeterDetailLabel({
+            remainingPct: 18, resetAtMs, nowMs, formatter,
+        });
+        expect(label(2_000)).toBe('18% left · resets in 2h 0m 0s');
+        expect(label(3_000)).toBe('18% left · resets in 1h 59m 59s');
+        expect(label(resetAtMs + 1)).toBe('18% left');
+    });
+
+    it('exposes the reset instant on each meter row so a live consumer can re-derive its label', () => {
+        const resetAtMs = 2_000 + 2 * 60 * 60 * 1000;
+        const rows = buildConnectedServiceQuotaGaugeMeterRows([
+            meter({ meterId: 'session', label: 'Session', used: 82, limit: 100, utilizationPct: 82, resetsAt: resetAtMs }),
+        ], 2_000, formatter);
+        expect(rows[0]?.resetAtMs).toBe(resetAtMs);
     });
 
     it('drops the reset clause when the reset boundary already elapsed instead of composing "resets in outdated"', () => {
@@ -404,7 +422,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
 
         expect(viewModel?.remainingPct).toBe(18);
         expect(viewModel?.usedPct).toBe(82);
-        expect(viewModel?.detailRightLabel).toBe('18% left · resets in 2h');
+        expect(viewModel?.detailRightLabel).toBe('18% left · resets in 2h 0m 0s');
         expect(viewModel?.allMeterRows[0]?.remainingPct).toBe(18);
         expect(viewModel?.allMeterRows[0]?.usedPct).toBe(82);
     });

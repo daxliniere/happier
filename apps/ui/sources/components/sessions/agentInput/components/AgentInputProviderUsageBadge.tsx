@@ -5,10 +5,13 @@ import { StyleSheet } from 'react-native-unistyles';
 import { MeterBar, type MeterTone } from '@/components/ui/lists/MeterBar';
 import { Text } from '@/components/ui/text/Text';
 import { ProviderUsageRing } from '@/components/sessions/usage/ProviderUsageRing';
+import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { Typography } from '@/constants/Typography';
+import { useNowMs } from '@/hooks/time/useNowMs';
 import { t } from '@/text';
-import type {
-    ConnectedServiceQuotaGaugeViewModel,
+import {
+    resolveConnectedServiceQuotaMeterDetailLabel,
+    type ConnectedServiceQuotaGaugeViewModel,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 
 import { AgentInputContentPopover } from './AgentInputContentPopover';
@@ -138,6 +141,29 @@ function mapGaugeToneToMeterTone(tone: ConnectedServiceQuotaGaugeViewModel['tone
     if (tone === 'warning') return 'warning';
     return 'success';
 }
+
+const METER_RESET_COUNTDOWN_TICK_MS = 1_000;
+
+/**
+ * One meter row's right-hand detail. It owns the shared one-second clock, so an open popover
+ * counts its reset down live without re-rendering the badge or its parent.
+ */
+const ProviderUsageMeterDetailRight = React.memo(function ProviderUsageMeterDetailRight(props: Readonly<{
+    row: ConnectedServiceQuotaGaugeViewModel['allMeterRows'][number];
+    style: React.ComponentProps<typeof Text>['style'];
+}>) {
+    const nowMs = useNowMs(METER_RESET_COUNTDOWN_TICK_MS);
+    return (
+        <Text style={props.style} numberOfLines={1}>
+            {resolveConnectedServiceQuotaMeterDetailLabel({
+                remainingPct: props.row.remainingPct,
+                resetAtMs: props.row.resetAtMs,
+                nowMs,
+                formatter: connectedServiceQuotaGaugeFormatter,
+            })}
+        </Text>
+    );
+});
 
 export const AgentInputProviderUsageBadge = React.memo(function AgentInputProviderUsageBadge(
     props: AgentInputProviderUsageBadgeProps,
@@ -278,9 +304,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                                     <Text style={styles.meterLabel} numberOfLines={1}>
                                         {row.label}
                                     </Text>
-                                    <Text style={styles.meterRight} numberOfLines={1}>
-                                        {row.detailRightLabel}
-                                    </Text>
+                                    <ProviderUsageMeterDetailRight row={row} style={styles.meterRight} />
                                 </View>
                                 {row.remainingPct !== null ? <MeterBar
                                     testID={`agent-input-provider-usage-meter-bar:${row.meterId}`}
