@@ -3120,10 +3120,8 @@ export const it: TranslationStructure = {
         outdated: "non aggiornato",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}g ${hours}h`,
-        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
-          `${hours}h ${minutes}m`,
-        hours: ({ hours }: { hours: number }) => `${hours}h`,
-        minutes: ({ minutes }: { minutes: number }) => `${minutes}m`,
+        hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}m ${seconds}s`,
+        minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}m ${seconds}s`,
       },
     },
     account: {
@@ -7290,10 +7288,8 @@ export const it: TranslationStructure = {
         outdated: "non aggiornato",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}g ${hours}h`,
-        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
-          `${hours}h ${minutes}m`,
-        hours: ({ hours }: { hours: number }) => `${hours}h`,
-        minutes: ({ minutes }: { minutes: number }) => `${minutes}m`,
+        hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}m ${seconds}s`,
+        minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}m ${seconds}s`,
       },
     },
     usageOverflow: {

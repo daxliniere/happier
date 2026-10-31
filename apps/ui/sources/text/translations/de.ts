@@ -2544,9 +2544,8 @@ export const de: TranslationStructure = {
                 now: 'jetzt',
                 outdated: 'veraltet',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}T ${hours}Std`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}Std ${minutes}Min`,
-                hours: ({ hours }: { hours: number }) => `${hours}Std`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}Min`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}Std ${minutes}Min ${seconds}S`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}Min ${seconds}S`,
             },
         },
         account: {
@@ -6568,9 +6567,8 @@ export const de: TranslationStructure = {
                 now: 'jetzt',
                 outdated: 'veraltet',
                 daysHours: ({ days, hours }: { days: number; hours: number }) => `${days}T ${hours}Std`,
-                hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) => `${hours}Std ${minutes}Min`,
-                hours: ({ hours }: { hours: number }) => `${hours}Std`,
-                minutes: ({ minutes }: { minutes: number }) => `${minutes}Min`,
+                hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}Std ${minutes}Min ${seconds}S`,
+                minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}Min ${seconds}S`,
             },
         },
         usageOverflow: {
