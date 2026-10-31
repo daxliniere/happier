@@ -736,6 +736,11 @@ const style = StyleSheet.create((theme) => ({
         paddingVertical: 12,
         borderWidth: 1,
         borderColor: theme.colors.border.default,
+        // Coloured side lines set question options apart from user message bubbles (same colour for every option).
+        borderLeftWidth: 4,
+        borderRightWidth: 4,
+        borderLeftColor: theme.colors.state.warning.foreground,
+        borderRightColor: theme.colors.state.warning.foreground,
         position: 'relative',
     },
     optionItemPressed: {
