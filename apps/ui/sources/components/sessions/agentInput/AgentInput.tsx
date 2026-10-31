@@ -67,8 +67,8 @@ import {
 } from './layout/actionBarLogic';
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
 import {
-    clampNumber,
     computeAgentInputDefaultMaxHeight,
+    computeAgentInputAttentionMaxHeight,
     computeAgentInputKeyboardOpenVariableSectionMaxHeight,
     computeMeasuredPanelInputMaxHeight,
     resolveAgentInputHostPanelMaxHeight,
@@ -194,6 +194,7 @@ const INPUT_EXPANSION_TOGGLE_HIDE_OFFSET_PX = 12;
 const INPUT_EXPANSION_TOGGLE_INPUT_PADDING_RIGHT = 32;
 const AGENT_INPUT_CONTAINER_VERTICAL_PADDING = 4;
 const AGENT_INPUT_CONTAINER_VERTICAL_CHROME_HEIGHT = AGENT_INPUT_CONTAINER_VERTICAL_PADDING * 2;
+const AGENT_INPUT_CONTAINER_MIN_HEIGHT = 40;
 const AGENT_INPUT_PANEL_PADDING_TOP = 2;
 const AGENT_INPUT_PANEL_PADDING_BOTTOM = 8;
 // Composer panel corner radius. Shared by the panel surface, its cast-shadow wrapper so the drop
@@ -683,7 +684,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         paddingLeft: 8,
         paddingRight: 8,
         paddingVertical: AGENT_INPUT_CONTAINER_VERTICAL_PADDING,
-        minHeight: 40,
+        minHeight: AGENT_INPUT_CONTAINER_MIN_HEIGHT,
     },
     nativeKeyboardPanelContent: {
         minHeight: 0,
@@ -1884,10 +1885,22 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         edgeThreshold: 2,
     });
     const permissionRequestsMaxHeightPx = React.useMemo(() => {
-        const available = Math.max(1, props.maxPanelHeight ?? screenHeight);
-        const desired = Math.round(available * 0.34);
-        return clampNumber(desired, 160, Math.min(320, available));
-    }, [props.maxPanelHeight, screenHeight]);
+        // Attention can use the remaining host space, while preserving the measured
+        // composer input/actions instead of imposing a separate viewport ratio.
+        return computeAgentInputAttentionMaxHeight({
+            availablePanelHeight: props.maxPanelHeight ?? screenHeight,
+            nonPanelChromeHeight: rootHeightPx != null && panelHeightPx != null
+                ? Math.max(0, rootHeightPx - panelHeightPx)
+                : 0,
+            inputContainerHeight: Math.max(
+                props.minHeight || AGENT_INPUT_CONTAINER_MIN_HEIGHT,
+                Math.min(inputContentHeightPx ?? 0, fallbackInputMaxHeight) + AGENT_INPUT_CONTAINER_VERTICAL_CHROME_HEIGHT,
+            ),
+            actionFooterHeight: actionFooterHeightPx,
+            variableContentHeight: variableContentBeforeInputHeightPx,
+            panelChromeHeight: AGENT_INPUT_PANEL_VERTICAL_CHROME_HEIGHT + AGENT_INPUT_VARIABLE_SECTION_CONTENT_PADDING_BOTTOM,
+        });
+    }, [props.maxPanelHeight, props.minHeight, screenHeight, rootHeightPx, panelHeightPx, inputContentHeightPx, fallbackInputMaxHeight, actionFooterHeightPx, variableContentBeforeInputHeightPx]);
 
             const permissionModeOptions = React.useMemo(() => {
                 return getPermissionModeOptionsForSession(engineChipAgentId, permissionMetadata);
