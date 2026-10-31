@@ -181,6 +181,14 @@ function resolveConnectedServiceQuotaMeterWindow(
     return null;
 }
 
+/** Longer windows sort higher; a meter with no recognisable window sorts as the longest. */
+function connectedServiceQuotaWindowRank(
+    meter: Pick<ConnectedServiceQuotaMeterV1, 'meterId' | 'label' | 'windowDurationMs'>,
+): number {
+    const window = resolveConnectedServiceQuotaMeterWindow(meter);
+    return window === 'session' ? 1 : window === 'daily' ? 2 : window === 'weekly' ? 3 : 4;
+}
+
 export function resolveConnectedServiceQuotaMeterScopePrefix(
     meter: Pick<ConnectedServiceQuotaMeterV1, 'meterId' | 'label' | 'windowDurationMs'>,
 ): string | null {
@@ -485,7 +493,10 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
         recoveryCreditSummary: summarizeConnectedServiceQuotaRecoveryCredits(params.snapshot.recoveryCredits, params.nowMs),
         effectiveMeter,
         allMeterRows,
-        usageRings: displayedMeterRows.map(({ meter, row }) => {
+        // Outermost ring first: the longest period encloses the shorter ones.
+        usageRings: [...displayedMeterRows]
+            .sort((a, b) => connectedServiceQuotaWindowRank(b.meter) - connectedServiceQuotaWindowRank(a.meter))
+            .map(({ meter, row }) => {
             const ringRemaining = Math.round(row.remainingPct);
             return {
                 meterId: meter.meterId,
@@ -729,8 +740,16 @@ export function selectConnectedServiceSessionProviderUsageGaugeSource(params: Re
     sessionCheckNowSupported?: boolean;
     recoveryCredits?: ConnectedServiceQuotaRecoveryCreditsV1 | null;
     runtimeIssue: SessionRuntimeIssueV1 | null | undefined;
+    /** When given, a usage-limit issue whose reset time has passed no longer speaks for the provider. */
+    nowMs?: number;
 }>): ConnectedServiceQuotaGaugeSource | null {
-    const runtimeIssueQuotaSnapshot = deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(params.runtimeIssue);
+    const issueResetAtMs = params.runtimeIssue?.usageLimit?.resetAtMs;
+    const runtimeIssueLimitLifted = params.nowMs !== undefined
+        && typeof issueResetAtMs === 'number'
+        && issueResetAtMs <= params.nowMs;
+    const runtimeIssueQuotaSnapshot = runtimeIssueLimitLifted
+        ? null
+        : deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(params.runtimeIssue);
     if (runtimeIssueQuotaSnapshot && shouldPreferRuntimeIssueQuotaSnapshot({
         runtimeSnapshot: runtimeIssueQuotaSnapshot,
         connectedSnapshot: params.connectedServiceSnapshot,

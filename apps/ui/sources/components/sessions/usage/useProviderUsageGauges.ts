@@ -40,6 +40,8 @@ export function useProviderUsageGauges(params: Readonly<{
     fetchEnabled: boolean;
 }>): Readonly<{
     gauges: ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>;
+    /** Agents with a usage source (connected profile or recorded native login), whether or not a gauge could be built. */
+    configuredAgentIds: ReadonlySet<AgentId>;
     /** Queries every configured provider, including this Agent's displayed account. */
     refreshAgent: (agentId: AgentId) => void;
 }> {
@@ -112,5 +114,8 @@ export function useProviderUsageGauges(params: Readonly<{
         }
         return gauges;
     }, [accountUsageSnapshots, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId]);
-    return React.useMemo(() => ({ gauges, refreshAgent }), [gauges, refreshAgent]);
+    const configuredAgentIds = React.useMemo(() => new Set(
+        params.agentIds.filter((agentId) => profileRefByAgentId.has(agentId) || recordIdsByAgentId.has(agentId)),
+    ), [params.agentIds, profileRefByAgentId, recordIdsByAgentId]);
+    return React.useMemo(() => ({ gauges, configuredAgentIds, refreshAgent }), [gauges, configuredAgentIds, refreshAgent]);
 }

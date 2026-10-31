@@ -4356,6 +4356,10 @@ export const zhHans: TranslationStructure = {
     switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => '已切换到 ' + name + '，第 ' + position + ' 个，共 ' + total + ' 个',
   },
 
+  settingsUsage: {
+      autoRefreshMinutes: "用量自动刷新（分钟）",
+      autoRefreshMinutesDescription: "重新检查所有已配置提供商用量的频率。",
+  },
   settingsAppearance: {
     tabBarAppearance: {
       sideRailTitle: "在侧边栏中显示标签页",

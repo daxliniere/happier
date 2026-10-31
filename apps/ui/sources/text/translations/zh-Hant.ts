@@ -4131,6 +4131,10 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => '已切換至 ' + name + '，第 ' + position + ' 個，共 ' + total + ' 個',
     },
 
+    settingsUsage: {
+        autoRefreshMinutes: "用量自動重新整理（分鐘）",
+        autoRefreshMinutesDescription: "重新檢查所有已設定供應商用量的頻率。",
+    },
     settingsAppearance: {
       tabBarAppearance: {
         sideRailTitle: "在側邊欄顯示分頁",

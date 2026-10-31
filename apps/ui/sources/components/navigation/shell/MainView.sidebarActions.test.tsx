@@ -95,6 +95,8 @@ installNavigationShellCommonModuleMocks({
     },
 });
 
+vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+
 vi.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
 }));

@@ -99,7 +99,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         };
         const vm = computeConnectedServiceQuotaGaugeViewModel(params);
         expect(vm?.usageRings.map((ring) => [ring.meterId, ring.ringValueLabel]))
-            .toEqual([['daily-fable', '60'], ['weekly-fable', '40'], ['short-fable', '80']]);
+            .toEqual([['weekly-fable', '40'], ['daily-fable', '60'], ['short-fable', '80']]);
         expect(vm?.allMeterRows.map((row) => row.meterId)).toEqual(['daily-fable', 'weekly-fable', 'short-fable', 'unknown-fable']);
         expect(computeConnectedServiceQuotaGaugeViewModel({
             ...params, quotaLimitSelection: { mode: 'selected', providerLimitIds: ['unreported'] },
@@ -828,6 +828,50 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         });
         expect(viewModel?.remainingPct).toBe(0);
         expect(viewModel?.ringValueLabel).toBe('0');
+    });
+
+    it('orders nested rings outermost-first by window length', () => {
+        const vm = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: snapshot([
+                meter({ meterId: 'seven_day', label: 'Weekly', utilizationPct: 20 }),
+                meter({ meterId: 'five_hour', label: 'Session', utilizationPct: 70 }),
+            ]),
+            windowMode: 'most_constrained',
+            windowModes: ['session', 'weekly'],
+            nowMs: 2_000,
+            formatter,
+        });
+        // Longest period outermost, so the shorter 5-hour window is the inner ring.
+        expect(vm?.usageRings.map((ring) => ring.meterId)).toEqual(['seven_day', 'five_hour']);
+    });
+
+    it('ignores a usage-limit issue whose reset time has already passed', () => {
+        const issue = {
+            v: 1,
+            scope: 'primary_session',
+            status: 'failed',
+            code: 'usage_limit',
+            source: 'usage_limit',
+            occurredAt: 1_000,
+            provider: 'codex',
+            usageLimit: {
+                v: 1,
+                resetAtMs: 5_000,
+                retryAfterMs: null,
+                quotaScope: 'account',
+                recoverability: 'wait',
+                limitCategory: 'usage_limit',
+            },
+        } as const;
+
+        expect(selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot: null, connectedServiceRefProvenance: null,
+            runtimeIssue: issue, nowMs: 4_000,
+        })?.snapshot.meters[0]?.remainingPct).toBe(0);
+        expect(selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot: null, connectedServiceRefProvenance: null,
+            runtimeIssue: issue, nowMs: 6_000,
+        })).toBeNull();
     });
 
     it('resolves runtime-evidence service ids through the agents registry for every connected-services provider', () => {

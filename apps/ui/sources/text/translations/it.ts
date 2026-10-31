@@ -4813,6 +4813,10 @@ export const it: TranslationStructure = {
     switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => 'Passaggio a ' + name + ', ' + position + ' di ' + total,
   },
 
+  settingsUsage: {
+      autoRefreshMinutes: "Aggiornamento automatico dell'uso (minuti)",
+      autoRefreshMinutesDescription: "Ogni quanto l'uso di tutti i provider configurati viene ricontrollato.",
+  },
   settingsAppearance: {
     tabBarAppearance: {
       sideRailTitle: "Schede nella barra laterale",

@@ -4501,6 +4501,10 @@ export const pl: TranslationStructure = {
     switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => 'Przełączono na ' + name + ', ' + position + ' z ' + total,
   },
 
+  settingsUsage: {
+      autoRefreshMinutes: "Automatyczne odświeżanie użycia (minuty)",
+      autoRefreshMinutesDescription: "Jak często ponownie sprawdzane jest użycie wszystkich skonfigurowanych dostawców.",
+  },
   settingsAppearance: {
     tabBarAppearance: {
       sideRailTitle: "Karty na pasku bocznym",

@@ -194,6 +194,7 @@ import { hasSessionSubagentLaunchCards } from '@/agents/registry/sessionSubagent
 import { useSurfaceAnchorPathname } from '@/components/sessions/shell/surface/sessionSurfaceAnchorPathname';
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
 import { resolveProviderUsageGaugeWindowMode } from '@/components/sessions/usage/resolveProviderUsageGaugeWindowMode';
+import { useProviderUsageAutoRefresh } from '@/hooks/server/connectedServices/useProviderUsageAutoRefresh';
 import { useProviderUsageRefresh } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
 import { useProviderUsageGauges } from '@/components/sessions/usage/useProviderUsageGauges';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
@@ -4042,6 +4043,7 @@ function SessionViewLoaded({
     const composerProviderUsageGauge = armedUsageAgentId
         ? providerUsageGaugesByAgentId.get(armedUsageAgentId) ?? null
         : providerUsageGauge;
+    useProviderUsageAutoRefresh();
     const refreshProviderUsage = useProviderUsageRefresh({
         connectedProfileRef: connectedServiceQuotaProfileRef,
         recordIds: providerAccountUsageRecordIds,

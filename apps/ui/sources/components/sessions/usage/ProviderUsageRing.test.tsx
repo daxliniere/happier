@@ -48,12 +48,14 @@ describe('ProviderUsageRing', () => {
         expect(arcs[0].props.r).toBeGreaterThan(arcs[1].props.r);
         expect(arcs[0].props.cx).toBe(arcs[1].props.cx);
         expect(arcs[0].props.cy).toBe(arcs[1].props.cy);
-        expect(arcs[0].props.strokeDashoffset / (2 * Math.PI * arcs[0].props.r)).toBeCloseTo(1);
-        expect(arcs[1].props.strokeDashoffset / (2 * Math.PI * arcs[1].props.r)).toBeCloseTo(0.30);
+        // Outer ring is the longer (weekly) period, the inner ring the shorter (5-hour) one, touching.
+        expect(arcs[0].props.r - arcs[1].props.r).toBe(arcs[0].props.strokeWidth);
+        expect(arcs[0].props.strokeDashoffset / (2 * Math.PI * arcs[0].props.r)).toBeCloseTo(0.30);
+        expect(arcs[1].props.strokeDashoffset / (2 * Math.PI * arcs[1].props.r)).toBeCloseTo(1);
         expect(arcs[0].props.stroke).not.toBe(arcs[1].props.stroke);
         const circles = screen.findAll((node) => String(node.type) === 'Circle');
         // At zero the unfilled outline must retain the exhausted colour too.
-        expect(circles[0].props.stroke).toBe(arcs[0].props.stroke);
+        expect(circles[2].props.stroke).toBe(arcs[1].props.stroke);
         const images = screen.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'image');
         expect(images).toHaveLength(1);
         expect(images[0].props.accessibilityLabel).toContain('5-hour');

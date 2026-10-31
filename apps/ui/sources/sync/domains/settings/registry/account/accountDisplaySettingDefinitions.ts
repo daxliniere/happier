@@ -142,6 +142,20 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
             serializeCurrent: (value: number) => bucketCount(value, 2_000, 5_000),
         },
     },
+    providerUsageAutoRefreshMinutes: {
+        schema: z.number(),
+        default: 5,
+        description: 'Minutes between automatic usage refreshes for all configured providers',
+        storageScope: 'account',
+        analytics: {
+            trackCurrentState: true,
+            trackChanges: true,
+            valueKind: 'bucket',
+            privacy: 'bucketed',
+            identityScope: 'person',
+            serializeCurrent: (value: number) => bucketCount(value, 5, 30),
+        },
+    },
     attachmentsUploadsUploadLocation: {
         schema: z.enum(['workspace', 'os_temp']),
         default: 'workspace',

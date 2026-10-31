@@ -4591,6 +4591,10 @@ export const pt: TranslationStructure = {
     switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => 'Mudaste para ' + name + ', ' + position + ' de ' + total,
   },
 
+  settingsUsage: {
+      autoRefreshMinutes: "Atualização automática do uso (minutos)",
+      autoRefreshMinutesDescription: "Com que frequência o uso de todos os provedores configurados é verificado novamente.",
+  },
   settingsAppearance: {
     tabBarAppearance: {
       sideRailTitle: "Abas na barra lateral",

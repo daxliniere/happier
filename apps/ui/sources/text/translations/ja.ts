@@ -4760,6 +4760,10 @@ localTailscale: {
     switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => name + ' に切り替えました（' + total + ' 件中 ' + position + ' 件目）',
   },
 
+  settingsUsage: {
+      autoRefreshMinutes: "使用状況の自動更新（分）",
+      autoRefreshMinutesDescription: "設定済みのすべてのプロバイダーの使用状況を再確認する間隔です。",
+  },
   settingsAppearance: {
     tabBarAppearance: {
       sideRailTitle: "サイドレールにタブを表示",

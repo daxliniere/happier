@@ -50,8 +50,8 @@ export function ProviderUsageRing(props: Readonly<{
             {...rings[0]}
             rings={rings}
             label={label}
-            value={limits[0].ringValueLabel}
-            size={(props.size ?? RAIL_RING_SIZE) + (rings.length - 1) * 9}
+            value={(limits.find((ring) => 'meterId' in ring && ring.meterId === gauge.effectiveMeter?.meterId) ?? limits[0]).ringValueLabel}
+            size={(props.size ?? RAIL_RING_SIZE) + (rings.length - 1) * 6}
             testID={props.testID}
             ringTestID={props.ringTestID}
             valueTestID={props.valueTestID}

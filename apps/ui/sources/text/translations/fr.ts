@@ -4173,6 +4173,10 @@ export const fr: TranslationStructure = {
         switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => 'Passage à ' + name + ', ' + position + ' sur ' + total,
     },
 
+    settingsUsage: {
+        autoRefreshMinutes: "Actualisation automatique de l'usage (minutes)",
+        autoRefreshMinutesDescription: "Fréquence de revérification de l'usage de tous les fournisseurs configurés.",
+    },
     settingsAppearance: {
       tabBarAppearance: {
         sideRailTitle: "Onglets dans la barre latérale",

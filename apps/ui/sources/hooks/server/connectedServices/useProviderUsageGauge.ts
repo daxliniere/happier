@@ -167,6 +167,7 @@ export function useProviderUsageGauge(params: Readonly<{
             sessionCheckNowSupported: params.sessionCheckNowSupported,
             recoveryCredits: params.recoveryCredits,
             runtimeIssue: params.runtimeIssue ?? null,
+            nowMs: nowServerMs(),
         });
     }, [
         connectedServiceQuotasEnabled,

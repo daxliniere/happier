@@ -23,6 +23,7 @@ import { FABWide } from '@/components/ui/buttons/FABWide';
 import { InboxView } from '@/components/navigation/shell/InboxView';
 import { FriendsView } from '@/components/navigation/shell/FriendsView';
 import { SessionsListWrapper } from '@/components/sessions/shell/SessionsListWrapper';
+import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 import { useScreenSafeAreaBackdrop } from '@/components/navigation/safeArea/HorizontalSafeArea';
 import { Header } from '@/components/navigation/Header';
 import { HeaderLogo } from '@/components/ui/navigation/HeaderLogo';
@@ -316,10 +317,14 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
         router.push({ pathname: '/new', params: { draftId, draftOrigin } });
     }, [resolveNewSessionOrdinaryEntryRoute, router]);
 
+    // The provider usage rings sit at the top of the sessions column, as on the phone pane.
     const storageChrome = (
-        <SessionsListStorageChrome
-            directSessionsEnabled={directSessionsEnabled}
-        />
+        <>
+            <SessionsListStorageChrome
+                directSessionsEnabled={directSessionsEnabled}
+            />
+            <ProviderUsageStrip />
+        </>
     );
 
     let content: React.ReactNode;

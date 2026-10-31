@@ -4421,6 +4421,10 @@ export const ru: TranslationStructure = {
     switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => 'Переход к ' + name + ', ' + position + ' из ' + total,
   },
 
+  settingsUsage: {
+      autoRefreshMinutes: "Автообновление использования (минуты)",
+      autoRefreshMinutesDescription: "Как часто заново проверяется использование всех настроенных провайдеров.",
+  },
   settingsAppearance: {
     tabBarAppearance: {
       sideRailTitle: "Вкладки на боковой панели",

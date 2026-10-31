@@ -4193,6 +4193,10 @@ export const en = {
         switchedToSession: ({ name, position, total }: { name: string; position: number; total: number }) => 'Switched to ' + name + ', ' + position + ' of ' + total,
     },
 
+    settingsUsage: {
+        autoRefreshMinutes: "Usage auto-refresh (minutes)",
+        autoRefreshMinutesDescription: "How often usage is re-checked for all configured providers.",
+    },
     settingsAppearance: {
       tabBarAppearance: {
         sideRailTitle: "Tabs in side rail",
