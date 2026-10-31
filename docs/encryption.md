@@ -336,6 +336,29 @@ invalid envelope or payload. It may skip only the unavailable Session record whi
 materialize other Account drafts; malformed or mode-incompatible content fails the snapshot so it
 cannot be silently classified as a local key-loading condition.
 
+## Device app lock (local credential sealing)
+
+The app lock is a per-device setting owned by `apps/ui/sources/auth/appLock/**`; nothing about it is
+synced. Its record (`app_lock_v1`, SecureStore on native, localStorage on web/desktop) holds only
+wrapped keys and preferences:
+
+- a random 32-byte **data key** seals every stored credential value at the `TokenStorage` read/write
+  boundary as `happier-app-lock:v1:<base64 secretbox>`. The prefix is deliberately not JSON, so a build
+  without app lock reads it as "no credentials" and the device appears signed out;
+- the data key is wrapped (NaCl secretbox) under `scrypt(password)` (N=2^15, r=8, p=1, random salt)
+  and, separately, under a random **recovery key**;
+- the recovery key is escrowed with the relay (`AppLockRecovery` table, routes in
+  `packages/protocol/src/appLock/recovery.ts`) bound to a verified email. A six-digit emailed code
+  (hashed, 15-minute expiry, five attempts) releases it to the locked device, which then re-wraps the
+  same data key under a new password. The relay never sees the password or the credentials;
+- on Android, fingerprint unlock keeps a copy of the data key in SecureStore with
+  `requireAuthentication`.
+
+Turning the lock on or off re-stores every credential through `TokenStorage.transitionCredentialStorage`.
+Before the first unlock the data key is not in memory, so credentials cannot be read or written and the
+app does not boot. Re-locking a running app is a presentation gate only; the data key stays in memory.
+Cached sync data and other local persistence are not sealed.
+
 ## On-wire formats (encrypted fields)
 
 ```mermaid

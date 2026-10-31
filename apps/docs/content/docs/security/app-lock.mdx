@@ -1,0 +1,41 @@
+---
+title: App lock
+description: Require a password before Happier shows anything on a device, with email-based password reset.
+---
+
+The app lock asks for a password before Happier shows anything on **one device**. It is a
+per-device setting: turning it on for a shared computer does not affect your phone or your own laptop.
+It is available in the desktop, Android and web apps.
+
+## Turning it on
+
+Open **Settings → App lock**, enter a recovery email and a password, then type the six-digit code
+that arrives by email. Your relay server must be able to send email; if it can't, the screen says so
+(self-hosters: see [Outgoing email](/self-hosting/env#outgoing-email-app-lock-password-reset)).
+
+Once it is on:
+
+- Happier shows the lock screen every time it starts.
+- It locks again after the time you choose in the background or minimised (immediately, 1, 5, 15 or
+  60 minutes, or only when it starts). The default is 5 minutes.
+- The lock button in the header, next to Automations and New session, locks it straight away.
+- On Android you can unlock with your fingerprint.
+- Notifications show no session titles, message text or request details, and have no quick-reply
+  buttons, until you unlock.
+
+## Forgotten password
+
+On the lock screen, choose **Reset password?**. Happier emails a code to your recovery address; enter
+it and choose a new password. If you can't reach that inbox, choose **Sign out**: this removes your
+account from the device and turns the lock off, and you connect the device again from another device
+or with your secret key.
+
+## What it protects
+
+While the lock is on, the device's stored sign-in is encrypted with a key that only the password (or
+your fingerprint, or a reset code) can unlock. Uninstalling the app, or installing an older version
+without the app lock, therefore leaves the device signed out rather than opening your sessions.
+
+The lock is meant to keep colleagues and other people using the same computer out of your sessions.
+It does not encrypt everything Happier caches on disk, so it is not a defence against someone who can
+copy and analyse the device's files.

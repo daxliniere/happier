@@ -3398,6 +3398,7 @@ export {
   type SessionMessagesCapabilities,
 } from './features.js';
 export * from './pets/index.js';
+export * from './appLock/recovery.js';
 export {
   FEATURE_CATALOG,
   FEATURE_IDS,

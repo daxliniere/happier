@@ -83,6 +83,7 @@ model Account {
     SessionPin             SessionPin[]
     SessionAttentionStanding SessionAttentionStanding[]
     SessionAppearance      SessionAppearance[]
+    AppLockRecovery        AppLockRecovery[]
     SessionOrganizationFolder SessionOrganizationFolder[]
     SessionOrganizationTag SessionOrganizationTag[]
     SessionTagAssignment   SessionTagAssignment[]
@@ -558,6 +559,32 @@ model SessionAppearance {
 
     @@unique([accountId, sessionId])
     @@index([sessionId])
+}
+
+//
+// App lock email recovery
+//
+
+/// Recovery escrow for one device's local app lock. `id` is the device-generated lock id.
+/// `recoveryKey` only unwraps that device's local data key; the server never sees the password
+/// or the device credentials. Codes are stored as SHA-256 hashes and are single-use.
+model AppLockRecovery {
+    id              String    @id
+    accountId       String
+    email           String
+    recoveryKey     String
+    emailVerifiedAt DateTime?
+    codeHash        String?
+    codePurpose     String?
+    codeExpiresAt   DateTime?
+    codeSentAt      DateTime?
+    codeAttempts    Int       @default(0)
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+
+    account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+    @@index([accountId])
 }
 
 model SessionOrganizationFolder {

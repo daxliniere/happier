@@ -1,3 +1,4 @@
+import { AppLockHeaderButton } from '@/components/appLock/AppLockHeaderButton';
 import * as React from 'react';
 import { View, Pressable } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -224,6 +225,7 @@ const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
         return (
             <View style={styles.headerButtonsRow}>
                 <ActionOperationActivityButton testID="main-header-action-operations" />
+                <AppLockHeaderButton testID="main-header-app-lock" style={styles.headerButton} />
                 {showAutomations ? (
                     <Pressable
                         onPress={() => router.push('/automations')}
