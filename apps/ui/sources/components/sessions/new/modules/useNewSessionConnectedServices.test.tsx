@@ -91,10 +91,11 @@ vi.mock('@/hooks/server/useFeatureEnabled', () => ({
     useFeatureEnabled: (...args: any[]) => useFeatureEnabledMock(...args),
 }));
 
-vi.mock('@/sync/store/hooks', async () => {
+vi.mock('@/sync/store/hooks', async (importOriginal) => {
     const { createUseSettingMock } = await import('@/dev/testkit/mocks/storage');
     const { settingsDefaults } = await import('@/sync/domains/settings/settings');
     return {
+        ...await importOriginal<typeof import('@/sync/store/hooks')>(),
         useProfile: () => profileState.current,
         useSetting: createUseSettingMock({ fallback: (key) => settingsDefaults[key] }),
     };
@@ -326,6 +327,48 @@ describe('useNewSessionConnectedServices', () => {
         });
 
         await hook.unmount();
+    });
+
+    it('uses the latest native login usage before the new session exists', async () => {
+        const { buildProviderAccountUsageRecordId, ProviderAccountUsageSnapshotV1Schema } = await import('@happier-dev/protocol');
+        const { writeProviderAccountUsageSnapshotToCache } = await import('@/sync/domains/connectedServices/accountUsage/cache');
+        const { resolveAuthCredentialsScopeKey } = await import('@/auth/storage/resolveAuthCredentialsScopeKey');
+        const { storage } = await import('@/sync/domains/state/storageStore');
+        const { createSessionFixture } = await import('@/dev/testkit/fixtures/sessionFixtures');
+        const previousSessions = storage.getState().sessions;
+        const previousReady = storage.getState().isDataReady;
+        const recordKey = { providerId: 'codex', accountSubjectId: 'native-work', subjectKind: 'account', quotaScope: 'account' } as const;
+        const recordId = buildProviderAccountUsageRecordId(recordKey);
+        const snapshot = ProviderAccountUsageSnapshotV1Schema.parse({
+            v: 1, recordId, recordKey, providerId: 'codex',
+            accountSubject: { kind: 'providerSubject', id: 'native-work' },
+            observedAtMs: Date.now(), fetchedAtMs: Date.now(), staleAfterMs: 60_000,
+            source: 'runtimeSignal', confidence: 'confirmed', state: 'loaded_data',
+            meters: [{ meterId: 'weekly', label: 'Weekly', used: 40, limit: 100,
+                unit: 'count', utilizationPct: null, resetsAt: null, status: 'ok', details: {} }],
+        });
+        writeProviderAccountUsageSnapshotToCache({
+            credentialScope: resolveAuthCredentialsScopeKey(quotaApiState.auth.credentials), snapshot,
+        });
+        const session = createSessionFixture({ metadata: {
+            path: '/repo', host: 'test', flavor: 'codex',
+            providerAccountUsageRefsV1: { v: 1, recordIds: [recordId], updatedAtMs: Date.now() },
+        } });
+        storage.setState({ sessions: { [session.id]: session }, isDataReady: true });
+        const { useNewSessionConnectedServices } = await import('./useNewSessionConnectedServices');
+        const hook = await renderHook(() => useNewSessionConnectedServices({
+            agentCore: { id: 'codex', connectedServices: { supportedServiceIds: ['openai-codex'] } },
+            agentOptionState: null,
+            settings: { connectedServicesProfileLabelByKey: {}, connectedServicesDefaultProfileByServiceId: {} },
+            targetServerId: null, router: { push: vi.fn() }, setAgentOptionStateForCurrentAgent: vi.fn(),
+        }));
+        try {
+            await flushHookEffects({ cycles: 5, turns: 5 });
+            expect(hook.getCurrent().providerUsageGauge?.remainingPct).toBe(60);
+        } finally {
+            await hook.unmount();
+            storage.setState({ sessions: previousSessions, isDataReady: previousReady });
+        }
     });
 
     it('meters the selected connected account quota for the new-session composer', async () => {

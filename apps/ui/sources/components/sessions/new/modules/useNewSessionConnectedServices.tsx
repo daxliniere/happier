@@ -10,7 +10,9 @@ import {
   type ConnectedServiceProfileActionRoute,
 } from '@/sync/domains/connectedServices/resolveConnectedServiceProfileActionRoute';
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
-import { useProfile } from '@/sync/store/hooks';
+import { useAllSessions, useProfile } from '@/sync/store/hooks';
+import { isAgentId } from '@/agents/catalog/catalog';
+import { selectLatestProviderUsageRecordIdsByAgent } from '@/sync/domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 import type { ConnectedServiceId } from '@happier-dev/agents';
 import type { ConnectedServiceBindingsV1 } from '@happier-dev/protocol';
 
@@ -278,9 +280,14 @@ export function useNewSessionConnectedServices(params: Readonly<{
     connectedServicesPayload: connectedServicesBindingsPayload,
     accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
   }), [accountProfile?.connectedServicesV2, connectedServicesBindingsPayload, supportedConnectedServiceIds]);
+  const sessions = useAllSessions();
+  const nativeUsageRecordIds = React.useMemo(() => (
+    isAgentId(agentId) ? selectLatestProviderUsageRecordIdsByAgent(sessions).get(agentId) ?? [] : []
+  ), [agentId, sessions]);
   const { gauge: providerUsageGauge } = useProviderUsageGauge({
     providerId: agentId || null,
     profileRef: providerUsageProfileRef,
+    metadataRecordIds: nativeUsageRecordIds,
     modelId: params.modelId ?? null,
   });
 
