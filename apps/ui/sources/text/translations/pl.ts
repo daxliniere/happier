@@ -8673,6 +8673,8 @@ settingsSession: {
         windowTitle: "Okresy wskaźników",
         labelsTitle: 'Pokaż etykiety użycia',
         labelsSubtitle: 'Wyświetlaj etykiety wskaźników kontekstu i dostawcy.',
+        windowAutomaticTitle: 'Wszystkie dostępne limity',
+        windowAutomaticSubtitle: 'Pokazuj dostępne limity użycia jako koncentryczne pierścienie.',
         windowMostConstrainedTitle: "Najbardziej ograniczone",
         windowMostConstrainedSubtitle:
           "Pokazuj wiarygodne okno limitu z najmniejszym pozostałym limitem.",

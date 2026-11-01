@@ -8657,6 +8657,8 @@ settingsSession: {
         windowTitle: "Периоды индикаторов",
         labelsTitle: 'Показывать подписи использования',
         labelsSubtitle: 'Подписывать индикаторы контекста и провайдера.',
+        windowAutomaticTitle: 'Все доступные лимиты',
+        windowAutomaticSubtitle: 'Показывать доступные лимиты использования в виде концентрических колец.',
         windowMostConstrainedTitle: "Самое ограниченное",
         windowMostConstrainedSubtitle:
           "Показывать надёжное окно квоты с наименьшим остатком.",

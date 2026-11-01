@@ -60,6 +60,27 @@ const formatter: ConnectedServiceQuotaGaugeLabelFormatter = {
 };
 
 describe('computeConnectedServiceQuotaGaugeViewModel', () => {
+    it.each([['five_hour', 'weekly'], ['primary', 'secondary']])(
+        'shows both %s and %s by default while allowing a single-limit choice',
+        (shortId, longId) => {
+            const input = {
+                snapshot: snapshot([
+                    meter({ meterId: shortId, label: shortId, used: 40, limit: 100, windowDurationMs: 18_000_000 }),
+                    meter({ meterId: longId, label: longId, used: 100, limit: 100, windowDurationMs: 604_800_000 }),
+                ]),
+                windowMode: 'most_constrained' as const,
+                windowModes: null,
+                nowMs: 2_000,
+                formatter,
+            };
+            const automatic = computeConnectedServiceQuotaGaugeViewModel(input);
+            expect(automatic?.usageRings.map((ring) => ring.meterId)).toEqual([longId, shortId]);
+            expect(automatic?.remainingPct).toBe(0);
+            const single = computeConnectedServiceQuotaGaugeViewModel({ ...input, windowModes: ['most_constrained'] });
+            expect(single?.usageRings.map((ring) => ring.meterId)).toEqual([longId]);
+        },
+    );
+
     it('projects Antigravity quota onto the exact active model without borrowing another version', () => {
         const usage = { ...snapshot([
             meter({ meterId: 'model:gemini-2.5-flash', modelId: 'gemini-2.5-flash', utilizationPct: 80, label: 'Gemini 2.5 Flash' }),
@@ -140,7 +161,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         });
         expect(vm?.allMeterRows.map((row) => row.meterId)).toEqual(['full', 'empty', 'reset']);
         expect(vm?.remainingPct).toBe(0);
-        expect(vm?.usageRings.map((ring) => ring.meterId)).toEqual(['empty']);
+        expect(vm?.usageRings.map((ring) => ring.meterId)).toEqual(['empty', 'full']);
         expect(buildConnectedServiceQuotaGaugeMeterRows([meters[2]!], 2_000, displayFormatter)).toEqual([]);
         expect(buildConnectedServiceQuotaGaugeMeterRows([
             meter({ meterId: 'counts', label: 'Counts', used: 0, limit: 0 }),
@@ -243,7 +264,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         });
     });
 
-    it('shows one most-constrained ring by default and selected global windows, remaining-first', () => {
+    it('shows available periods by default and honors selected global windows, remaining-first', () => {
         const usageSnapshot = snapshot([
             meter({ meterId: 'five_hour', label: '5-hour', utilizationPct: 10, unit: 'unknown' }),
             meter({ meterId: 'seven_day', label: 'Weekly', utilizationPct: 25, unit: 'unknown' }),
@@ -251,7 +272,7 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         ]);
         const params = { snapshot: usageSnapshot, windowMode: 'most_constrained' as const, nowMs: 2_000, formatter };
         expect(computeConnectedServiceQuotaGaugeViewModel(params)?.usageRings.map((ring) => ring.meterId))
-            .toEqual(['seven_day_fable']);
+            .toEqual(['seven_day_fable', 'five_hour']);
         const rings = computeConnectedServiceQuotaGaugeViewModel({
             ...params, windowModes: ['weekly', 'session', 'session'],
         })?.usageRings;

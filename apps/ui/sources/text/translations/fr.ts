@@ -8201,6 +8201,8 @@ settingsSession: {
               windowTitle: "Fenêtres des jauges",
               labelsTitle: 'Afficher les libellés d’utilisation',
               labelsSubtitle: 'Nommer les indicateurs de contexte et du fournisseur.',
+              windowAutomaticTitle: 'Toutes les limites disponibles',
+              windowAutomaticSubtitle: 'Afficher les limites d’utilisation disponibles sous forme d’anneaux concentriques.',
               windowMostConstrainedTitle: 'La plus contrainte',
               windowMostConstrainedSubtitle: 'Affiche la fenêtre de quota fiable où il reste le moins de quota.',
               windowDailyTitle: 'Quotidienne',

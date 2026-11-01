@@ -8791,6 +8791,8 @@ settingsSession: {
         windowTitle: "Janelas dos indicadores",
         labelsTitle: 'Mostrar etiquetas de uso',
         labelsSubtitle: 'Identificar os indicadores de contexto e do provedor.',
+        windowAutomaticTitle: 'Todos os limites disponíveis',
+        windowAutomaticSubtitle: 'Mostrar os limites de utilização disponíveis como anéis concêntricos.',
         windowMostConstrainedTitle: "Mais limitada",
         windowMostConstrainedSubtitle:
           "Mostra a janela de cota confiável com menos cota restante.",

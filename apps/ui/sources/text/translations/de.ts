@@ -8214,6 +8214,8 @@ settingsSession: {
               windowTitle: "Zeitfenster der Anzeigen",
               labelsTitle: 'Nutzungsbeschriftungen anzeigen',
               labelsSubtitle: 'Kontext- und Anbieternutzung am Eingabefeld beschriften.',
+              windowAutomaticTitle: 'Alle verfügbaren Limits',
+              windowAutomaticSubtitle: 'Verfügbare Nutzungslimits als konzentrische Ringe anzeigen.',
               windowMostConstrainedTitle: 'Am stärksten begrenzt',
               windowMostConstrainedSubtitle: 'Das verlässliche Kontingentfenster mit dem geringsten Rest zeigen.',
               windowDailyTitle: 'Täglich',

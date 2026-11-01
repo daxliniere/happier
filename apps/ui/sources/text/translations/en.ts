@@ -8246,6 +8246,8 @@ settingsSession: {
               windowTitle: "Gauge windows",
               labelsTitle: 'Show usage labels',
               labelsSubtitle: 'Label context and provider gauges above the composer.',
+              windowAutomaticTitle: 'All available limits',
+              windowAutomaticSubtitle: 'Show available usage limits as nested rings.',
               windowMostConstrainedTitle: 'Most constrained',
               windowMostConstrainedSubtitle: 'Show the reliable quota window with the least remaining quota.',
               windowDailyTitle: 'Daily',

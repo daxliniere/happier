@@ -8679,6 +8679,8 @@ settingsSession: {
         windowTitle: "Ventanas de los indicadores",
         labelsTitle: 'Mostrar etiquetas de uso',
         labelsSubtitle: 'Etiqueta los indicadores de contexto y del proveedor.',
+        windowAutomaticTitle: 'Todos los límites disponibles',
+        windowAutomaticSubtitle: 'Muestra los límites de uso disponibles como anillos concéntricos.',
         windowMostConstrainedTitle: "Más limitada",
         windowMostConstrainedSubtitle:
           "Muestra la ventana de cuota fiable con menos cuota restante.",

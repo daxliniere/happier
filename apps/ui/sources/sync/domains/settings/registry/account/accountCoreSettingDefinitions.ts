@@ -426,7 +426,7 @@ export const ACCOUNT_CORE_SETTING_DEFINITIONS = defineSettingDefinitions({
     sessionProviderUsageGaugeWindowModes: {
         schema: z.array(z.enum(QUOTA_GAUGE_WINDOW_MODES)).min(1).nullable(),
         default: null,
-        description: 'Composer quota windows for every account. Null preserves the predecessor single-window preference; most_constrained selects one gauge.',
+        description: 'Composer quota windows for every account. Null shows all available limits by default, preserving an explicit legacy window preference; most_constrained explicitly selects one gauge.',
         storageScope: 'account',
     },
     usageLimitRecoverySettingsV1: {

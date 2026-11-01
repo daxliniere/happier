@@ -8920,6 +8920,8 @@ settingsSession: {
         windowTitle: "ゲージの期間",
         labelsTitle: '使用量ラベルを表示',
         labelsSubtitle: 'コンテキストとプロバイダーの使用量にラベルを表示します。',
+        windowAutomaticTitle: '利用可能なすべての上限',
+        windowAutomaticSubtitle: '利用可能な使用上限を同心円のリングで表示します。',
         windowMostConstrainedTitle: "最も制約が強い",
         windowMostConstrainedSubtitle:
           "信頼できるクォータ期間のうち残りが最も少ないものを表示します。",

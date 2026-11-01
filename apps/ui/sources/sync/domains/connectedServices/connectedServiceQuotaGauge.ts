@@ -20,7 +20,7 @@ import { formatResetCountdown, isResetCountdownOutdated } from './formatResetCou
 import { resolveQuotaTone } from './resolveQuotaTone';
 import { resolveSubscriptionEndTime } from './resolveSubscriptionEndTime';
 
-import { resolveQuotaGaugeWindowModes, type ConnectedServiceQuotaGaugeWindowMode } from './quotaGaugeWindows';
+import { isAutomaticQuotaGaugeWindowSelection, resolveQuotaGaugeWindowModes, type ConnectedServiceQuotaGaugeWindowMode } from './quotaGaugeWindows';
 import { projectConnectedServiceQuotaSnapshotForLimitSelection } from './projectConnectedServiceQuotaSnapshotForLimitSelection';
 
 export type { ConnectedServiceQuotaGaugeWindowMode } from './quotaGaugeWindows';
@@ -428,23 +428,29 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
     if (allMeterRows.length === 0) return null;
 
     const windowModes = resolveQuotaGaugeWindowModes(params.windowModes, params.windowMode);
+    const automaticWindows = isAutomaticQuotaGaugeWindowSelection(params.windowModes, params.windowMode);
     const selectedMeters = windowModes.flatMap((mode) => {
         const matching = rankableMeters.filter((meter) => meterMatchesWindowMode(meter, mode));
         // Preserve the predecessor single-window fallback; explicit multi-selections omit missing windows.
         const candidates = matching.length || params.windowModes?.length ? matching : rankableMeters;
-        let selected: ConnectedServiceQuotaMeterV1 | null = null;
-        let leastRemaining = Number.POSITIVE_INFINITY;
-        for (const meter of candidates) {
+        const measured = candidates.flatMap((meter) => {
             const usedPct = deriveQuotaUtilizationPct(meter);
-            if (usedPct === null) continue;
-            const remaining = typeof meter.remainingPct === 'number' && Number.isFinite(meter.remainingPct)
+            if (usedPct === null) return [];
+            const remainingPct = typeof meter.remainingPct === 'number' && Number.isFinite(meter.remainingPct)
                 ? clampQuotaPct(meter.remainingPct) : clampQuotaPct(100 - usedPct);
-            if (remaining < leastRemaining) {
-                selected = meter;
-                leastRemaining = remaining;
-            }
-        }
-        return selected ? [{ meter: selected, remainingPct: leastRemaining }] : [];
+            return [{ meter, remainingPct }];
+        }).sort((left, right) => left.remainingPct - right.remainingPct);
+        if (!automaticWindows) return measured.slice(0, 1);
+        // As with explicit window choices, show the most constrained limit for each available period.
+        // Sorting above also keeps the center value on the most constrained period overall.
+        const seenWindows = new Set<string>();
+        return measured.filter(({ meter }) => {
+            const window = typeof meter.windowDurationMs === 'number' && meter.windowDurationMs > 0
+                ? String(meter.windowDurationMs) : resolveConnectedServiceQuotaMeterWindow(meter) ?? meter.meterId;
+            if (seenWindows.has(window)) return false;
+            seenWindows.add(window);
+            return true;
+        });
     });
     // Favorites append to global windows after Pool filtering; dedupe shared meters.
     for (const meterId of params.additionalMeterIds ?? []) {

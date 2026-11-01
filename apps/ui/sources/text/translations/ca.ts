@@ -8218,6 +8218,8 @@ settingsSession: {
               windowTitle: "Finestres dels indicadors",
               labelsTitle: 'Mostra les etiquetes d’ús',
               labelsSubtitle: 'Etiqueta els indicadors de context i del proveïdor.',
+              windowAutomaticTitle: 'Tots els límits disponibles',
+              windowAutomaticSubtitle: 'Mostra els límits d’ús disponibles com a anells concèntrics.',
               windowMostConstrainedTitle: 'Més limitada',
               windowMostConstrainedSubtitle: 'Mostra la finestra de quota fiable amb menys quota restant.',
               windowDailyTitle: 'Diària',

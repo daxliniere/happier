@@ -8437,6 +8437,8 @@ settingsSession: {
       windowTitle: "仪表时间窗口",
       labelsTitle: '显示用量标签',
       labelsSubtitle: '为上下文和提供商用量仪表显示标签。',
+      windowAutomaticTitle: '所有可用限额',
+      windowAutomaticSubtitle: '以同心圆环显示可用的使用限额。',
       windowMostConstrainedTitle: "最受限制",
       windowMostConstrainedSubtitle:
         "显示可靠配额窗口中剩余最少的窗口。",

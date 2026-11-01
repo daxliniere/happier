@@ -9002,6 +9002,8 @@ settingsSession: {
         windowTitle: "Finestre degli indicatori",
         labelsTitle: 'Mostra le etichette di utilizzo',
         labelsSubtitle: 'Etichetta gli indicatori di contesto e del provider.',
+        windowAutomaticTitle: 'Tutti i limiti disponibili',
+        windowAutomaticSubtitle: 'Mostra i limiti di utilizzo disponibili come anelli concentrici.',
         windowMostConstrainedTitle: "Più vincolata",
         windowMostConstrainedSubtitle:
           "Mostra la finestra di quota affidabile con meno quota restante.",

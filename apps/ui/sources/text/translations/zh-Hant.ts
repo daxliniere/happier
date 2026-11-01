@@ -7358,6 +7358,8 @@ settingsSession: {
             windowTitle: "儀表時間視窗",
             labelsTitle: '顯示用量標籤',
             labelsSubtitle: '為上下文和提供者用量儀表顯示標籤。',
+            windowAutomaticTitle: '所有可用配額',
+            windowAutomaticSubtitle: '以同心圓環顯示可用的使用配額。',
             windowMostConstrainedTitle: '最受限制',
             windowMostConstrainedSubtitle: '顯示可靠配額視窗中剩餘最少的視窗。',
             windowDailyTitle: '每日',
