@@ -1121,6 +1121,32 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(selected?.snapshot.meters[0]?.remainingPct).toBe(90);
     });
 
+    it('shows a newly refreshed shared snapshot instead of an older runtime report for the same profile', () => {
+        const shared = { ...snapshot([meter({ meterId: 'weekly', label: 'Weekly', remainingPct: 90 })]), fetchedAt: 2_000 };
+        const issue = {
+            v: 1 as const, scope: 'primary_session' as const, status: 'failed' as const,
+            code: 'usage_limit' as const, source: 'usage_limit' as const, occurredAt: 1_000, provider: 'codex',
+            usageLimit: {
+                v: 1 as const, resetAtMs: 30_000, retryAfterMs: null, quotaScope: 'account' as const,
+                recoverability: 'wait' as const, limitCategory: 'usage_limit' as const,
+                quotaSnapshotRef: { serviceId: 'openai-codex' as const, profileId: 'work', fetchedAtMs: 1_000 },
+                effectiveMeterId: 'weekly', effectiveRemainingPct: 18,
+            },
+        };
+        const selected = selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot: shared,
+            connectedServiceRefProvenance: 'connected_binding_profile', runtimeIssue: issue,
+        });
+        expect(selected?.snapshot.meters[0]?.remainingPct).toBe(90);
+
+        const { quotaSnapshotRef: _ref, ...nativeLimit } = issue.usageLimit;
+        const native = selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot: { ...shared, profileId: 'acct:shared' },
+            connectedServiceRefProvenance: 'published_quota_ref', runtimeIssue: { ...issue, usageLimit: nativeLimit },
+        });
+        expect(native?.snapshot.meters[0]?.remainingPct).toBe(90);
+    });
+
     it('classifies session gauge sources from ref provenance through the gauge-source matrix', () => {
         const polledSnapshot = snapshot([
             meter({ meterId: 'weekly', label: 'Weekly', used: 10, limit: 100 }),

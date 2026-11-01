@@ -764,8 +764,15 @@ function shouldPreferRuntimeIssueQuotaSnapshot(params: Readonly<{
 }>): boolean {
     if (!params.connectedSnapshot) return true;
     const runtimeFetchedAtMs = quotaSnapshotFetchedAtMs(params.runtimeSnapshot);
-    const runtimeStaleAtMs = runtimeFetchedAtMs + params.runtimeSnapshot.staleAfterMs;
     const connectedFetchedAtMs = quotaSnapshotFetchedAtMs(params.connectedSnapshot);
+    // A session report must not hide a newer shared observation for the same account.
+    // Native runtime reports without a profile id refer to the session's selected native account.
+    const sameProfile = snapshotsIdentifySameQuotaProfile(params.runtimeSnapshot, params.connectedSnapshot)
+        || (params.runtimeSnapshot.serviceId === params.connectedSnapshot.serviceId
+            && params.runtimeSnapshot.profileId === RUNTIME_ISSUE_NATIVE_PROFILE_ID
+            && NATIVE_QUOTA_PROFILE_ID_PATTERN.test(params.connectedSnapshot.profileId));
+    if (sameProfile) return runtimeFetchedAtMs >= connectedFetchedAtMs;
+    const runtimeStaleAtMs = runtimeFetchedAtMs + params.runtimeSnapshot.staleAfterMs;
     return runtimeFetchedAtMs >= connectedFetchedAtMs || runtimeStaleAtMs >= connectedFetchedAtMs;
 }
 
