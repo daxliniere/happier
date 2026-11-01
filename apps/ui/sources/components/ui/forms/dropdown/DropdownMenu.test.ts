@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react-test-renderer';
 import { findTestInstanceByTypeWithProps, pressTestInstance, renderScreen } from '@/dev/testkit';
 import { installDropdownCommonModuleMocks } from './dropdownTestHelpers';
+import type { SelectableMenuCategory } from './selectableMenuTypes';
 
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 installDropdownCommonModuleMocks();
 
+let menuCategoriesOverride: ReadonlyArray<SelectableMenuCategory> | null = null;
 const useSelectableMenuSpy = vi.fn();
 const handleSelectableKeyPressSpy = vi.fn();
 let uiItemDensitySetting: 'comfortable' | 'cozy' | 'compact' = 'comfortable';
@@ -50,7 +52,7 @@ vi.mock('@/components/ui/forms/dropdown/useSelectableMenu', () => ({
         return {
             searchQuery: '',
             selectedIndex: 0,
-            filteredCategories: [],
+            filteredCategories: menuCategoriesOverride ?? [],
             inputRef: { current: null },
             setSelectedIndex: () => {},
             handleSearchChange: () => {},
@@ -96,9 +98,27 @@ vi.mock('@/components/ui/text/Text', () => ({
 }));
 
 describe('DropdownMenu', () => {
+    it('lets uncapped menus use the window while retaining explicit caller limits', async () => {
+        const { DropdownMenu } = await import('./DropdownMenu');
+        for (const cap of [undefined, 240]) {
+            const screen = await renderScreen(React.createElement(DropdownMenu, {
+                open: true,
+                onOpenChange: () => {},
+                items: [{ id: 'a', title: 'A' }],
+                onSelect: () => {},
+                trigger: React.createElement('View'),
+                maxHeightCap: cap,
+            }));
+            const popover = screen.findByType('Popover');
+            expect(popover.props.maxHeightCap).toBe(cap ?? 600);
+            expect(popover.props.placementMinSpace).toBe(cap ?? 320);
+        }
+    });
+
     beforeEach(() => {
         vi.resetModules();
         useSelectableMenuSpy.mockReset();
+        menuCategoriesOverride = null;
         handleSelectableKeyPressSpy.mockReset();
         uiItemDensitySetting = 'comfortable';
     });
@@ -386,6 +406,50 @@ describe('DropdownMenu', () => {
         expect(onSelect).not.toHaveBeenCalled();
         act(() => scheduled.shift()?.(1));
         expect(onSelect).toHaveBeenCalledWith('move-to-folder:root');
+    });
+
+    it('dismisses a hover submenu when another visible parent item is hovered', async () => {
+        const scheduled: FrameRequestCallback[] = [];
+        vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+            scheduled.push(callback);
+            return scheduled.length;
+        });
+        const { DropdownMenu } = await import('./DropdownMenu');
+        menuCategoriesOverride = [{ id: 'visible', title: '', items: [
+            { id: 'color', title: 'Set color', hasSubmenu: true },
+            { id: 'rename', title: 'Rename' },
+        ] }];
+        const screen = await renderScreen(React.createElement(DropdownMenu, {
+            open: true,
+            onOpenChange: () => {},
+            items: [
+                { id: 'rename', title: 'Rename' },
+                { id: 'color', title: 'Set color', submenu: { items: [{ id: 'blue', title: 'Blue' }] } },
+            ],
+            onSelect: () => {},
+            trigger: React.createElement('View'),
+        }));
+        const rootResults = screen.findByType('SelectableMenuResults');
+        act(() => rootResults.props.onOpenSubmenu('color', {
+            current: { getBoundingClientRect: () => ({ width: 280, height: 36 }) },
+        }));
+        expect(screen.findAllByType('Popover')).toHaveLength(2);
+        act(() => rootResults.props.onSelectionChange(0));
+        expect(screen.findAllByType('Popover')).toHaveLength(2);
+        act(() => rootResults.props.onSelectionChange(1));
+        expect(screen.findAllByType('Popover')).toHaveLength(1);
+
+        // An anchor that settles after the pointer left must not reopen the dismissed submenu.
+        let anchorReady = false;
+        act(() => rootResults.props.onOpenSubmenu('color', {
+            current: { getBoundingClientRect: () => ({ width: anchorReady ? 280 : 0, height: 36 }) },
+        }));
+        act(() => rootResults.props.onSelectionChange(1));
+        anchorReady = true;
+        act(() => {
+            while (scheduled.length > 0) scheduled.shift()?.(0);
+        });
+        expect(screen.findAllByType('Popover')).toHaveLength(1);
     });
 
     it('reveals the swatch highlight only once the person hovers or uses the keyboard', async () => {

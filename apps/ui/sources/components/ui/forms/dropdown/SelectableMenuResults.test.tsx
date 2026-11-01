@@ -14,6 +14,14 @@ installDropdownCommonModuleMocks({
             Platform: {
                 OS: 'web',
             },
+            View: React.forwardRef(({ children, ...props }: { children?: React.ReactNode; testID?: string }, ref) => {
+                React.useImperativeHandle(ref, () => ({
+                    getBoundingClientRect: () => props.testID?.endsWith(':scroll-frame')
+                        ? { left: 700, top: 200, width: 280, height: 36 }
+                        : { left: 976, top: 200, width: 4, height: 36 },
+                }));
+                return React.createElement('View', props, children);
+            }),
         });
     },
 });
@@ -154,22 +162,23 @@ describe('SelectableMenuResults', () => {
         expect(registerItemLayout).toHaveBeenCalledWith('0');
     });
 
-    it('renders a row-edge submenu anchor for submenu items', async () => {
+    it('anchors a hovered submenu to the whole row so flipping left clears its parent', async () => {
         const { SelectableMenuResults } = await import('./SelectableMenuResults');
-
+        const onOpenSubmenu = vi.fn();
+        const registry = new Map<string, React.RefObject<unknown>>();
         const screen = await renderScreen(<SelectableMenuResults
-            categories={[
-                { id: 'c1', title: '', items: [{ id: 'move', title: 'Move', hasSubmenu: true }] },
-            ]}
+            categories={[{ id: 'c1', title: '', items: [{ id: 'color', title: 'Set color', hasSubmenu: true }] }]}
             selectedIndex={0}
             onSelectionChange={() => {}}
             onPressItem={() => {}}
+            onOpenSubmenu={onOpenSubmenu}
+            submenuAnchorRegistry={registry}
             rowVariant="slim"
         />);
-
-        const anchor = screen.findByTestId('dropdown-option-move:submenu-anchor');
-        expect(anchor).not.toBeNull();
-        expect(anchor?.props?.style?.width).toBeGreaterThan(1);
+        act(() => screen.findByType('SelectableRow').props.onHover());
+        const anchor = onOpenSubmenu.mock.calls[0]?.[1] as React.RefObject<{ getBoundingClientRect: () => { left: number; width: number } }>;
+        expect(anchor.current?.getBoundingClientRect()).toMatchObject({ left: 700, width: 280 });
+        expect(registry.get('color')).toBe(anchor);
     });
 
     it('renders swatch items as pressable colour choices that report the chosen one', async () => {

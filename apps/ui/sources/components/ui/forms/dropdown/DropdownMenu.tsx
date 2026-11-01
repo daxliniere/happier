@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, View, ViewStyle, StyleProp, TextStyle } from 'react-native';
+import { Platform, View, ViewStyle, StyleProp, TextStyle, useWindowDimensions } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { Popover, type PopoverAnchor, type PopoverPlacement } from '@/components/ui/popover';
@@ -238,11 +238,21 @@ export function DropdownMenu(props: DropdownMenuProps) {
         anchorRef: React.RefObject<unknown>;
     } | null>(null);
 
+    const submenuIntentRef = React.useRef<string | null>(null);
+    const closeSubmenu = React.useCallback(() => {
+        submenuIntentRef.current = null;
+        setActiveSubmenu(null);
+    }, []);
+
     const rowVariant: SelectableRowVariant = props.variant ?? 'slim';
     const resolvedTriggerDensity = useResolvedItemDensity(props.itemTrigger?.itemProps?.density);
     const createItemDisplay = props.createItemDisplay ?? null;
     const matchTriggerWidth = props.matchTriggerWidth ?? true;
     const maxWidthCap = props.maxWidthCap ?? (matchTriggerWidth ? 1024 : 320);
+    // Let content grow to the available room without requiring a whole window below the trigger.
+    const { height: windowHeight } = useWindowDimensions();
+    const maxHeightCap = props.maxHeightCap ?? windowHeight;
+    const placementMinSpace = props.maxHeightCap ?? 320;
     const emptyLabel = props.emptyLabel === undefined ? t('commandPalette.noCommandsFound') : props.emptyLabel;
     const contentPadding = rowVariant === 'slim' ? 12 : 16;
     const resultsPaddingBottom = typeof props.resultsPaddingBottom === 'number'
@@ -341,10 +351,8 @@ export function DropdownMenu(props: DropdownMenuProps) {
         return props.items.find((item) => item.id === activeSubmenu.itemId) ?? null;
     }, [activeSubmenu, props.items]);
     React.useEffect(() => {
-        if (!props.open && activeSubmenu) {
-            setActiveSubmenu(null);
-        }
-    }, [activeSubmenu, props.open]);
+        if (!props.open) closeSubmenu();
+    }, [closeSubmenu, props.open]);
 
     const triggerNode = React.useMemo(() => {
         if (props.itemTrigger) {
@@ -438,8 +446,10 @@ export function DropdownMenu(props: DropdownMenuProps) {
     }, [props.open]);
     const handleResultsSelectionChange = React.useCallback((index: number) => {
         setSwatchHighlightVisible(true);
+        const hoveredItemId = filteredCategories.flatMap((category) => category.items)[index]?.id;
+        if (submenuIntentRef.current !== hoveredItemId) closeSubmenu();
         setSelectedIndex(index);
-    }, [setSelectedIndex]);
+    }, [closeSubmenu, filteredCategories, setSelectedIndex]);
 
     const resultScroll = useScrollRectIntoViewRegistry({
         activeKey: selectedIndex >= 0 ? String(selectedIndex) : null,
@@ -512,6 +522,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
         if (!item?.submenu || item.disabled) return;
         // Intent signal for the submenu's owner; hover may repeat it, so owners keep it idempotent.
         item.submenu.onOpen?.();
+        submenuIntentRef.current = itemId;
         const openFromAnchor = () => {
             setActiveSubmenu({ itemId, anchorRef: itemAnchorRef });
         };
@@ -520,6 +531,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
             return;
         }
         const retryWhenAnchorSettles = (attempt: number) => {
+            if (submenuIntentRef.current !== itemId) return;
             if (isSubmenuAnchorReady(itemAnchorRef)) {
                 openFromAnchor();
                 return;
@@ -532,7 +544,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
             setTimeout(() => retryWhenAnchorSettles(attempt + 1), 0);
         };
         retryWhenAnchorSettles(0);
-    }, [props.items]);
+    }, [isSubmenuAnchorReady, props.items]);
     const handlePressMenuItem = React.useCallback((item: SelectableMenuItem) => {
         if (item.id === CREATE_ITEM_ID) {
             handleCreate();
@@ -546,9 +558,9 @@ export function DropdownMenu(props: DropdownMenuProps) {
             props.onSelect(itemId);
             return;
         }
-        setActiveSubmenu(null);
+        closeSubmenu();
         commitSelection(itemId);
-    }, [activeSubmenuItem, commitSelection, props]);
+    }, [activeSubmenuItem, closeSubmenu, commitSelection, props]);
 
     const overlayArrowCfg = React.useMemo((): Omit<Exclude<FloatingOverlayArrow, boolean>, 'placement'> | null => {
         const arrow = props.overlayArrow;
@@ -574,7 +586,8 @@ export function DropdownMenu(props: DropdownMenuProps) {
                     anchor={props.popoverAnchor}
                     placement={props.placement ?? 'auto-vertical'}
                     gap={props.gap ?? 0}
-                    maxHeightCap={props.maxHeightCap ?? 320}
+                    maxHeightCap={maxHeightCap}
+                    placementMinSpace={placementMinSpace}
                     maxWidthCap={maxWidthCap}
                     edgePadding={edgePadding}
                     portal={{
@@ -672,7 +685,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
                             <DropdownMenu
                                 open={true}
                                 onOpenChange={(next) => {
-                                    if (!next) setActiveSubmenu(null);
+                                    if (!next) closeSubmenu();
                                 }}
                                 items={activeSubmenuItem.submenu.items}
                                 onSelect={handleSubmenuSelect}
@@ -692,7 +705,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
                                 itemRowProps={props.itemRowProps}
                                 showCategoryTitles={props.showCategoryTitles}
                                 allowEmptySelection={props.allowEmptySelection}
-                                onKeyboardBack={() => setActiveSubmenu(null)}
+                                onKeyboardBack={() => closeSubmenu()}
                             />
                         ) : null}
                     </>)}

@@ -157,6 +157,8 @@ type PopoverCommonProps = Readonly<{
     placement?: PopoverPlacement;
     gap?: number;
     maxHeightCap?: number;
+    /** Preferred room for choosing a side, independent of the maximum content height. */
+    placementMinSpace?: number;
     maxWidthCap?: number;
     portal?: PopoverPortalOptions;
     /**
@@ -211,6 +213,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         placement = 'auto',
         gap = 8,
         maxHeightCap = 400,
+        placementMinSpace,
         maxWidthCap = 520,
         onRequestClose,
         edgePadding = 0,
@@ -774,7 +777,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
 
             const resolvedPlacement = resolvePlacement({
                 placement,
-                preferredMinAvailable: placement === 'auto-horizontal' ? maxWidthCap : maxHeightCap,
+                preferredMinAvailable: placementMinSpace ?? (placement === 'auto-horizontal' ? maxWidthCap : maxHeightCap),
                 available: {
                     top: availableTop,
                     bottom: availableBottom,
@@ -856,7 +859,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         // nothing to wait for. The retry ladder above still yields a frame BETWEEN attempts, which
         // is what actually handles the "layout settles late" case this used to cover.
         void measureWithRetries(0);
-    }, [anchorRef, anchorRectFromProp, boundaryRef, edgeInsets.horizontal, edgeInsets.vertical, gap, keyboardBottomInsetProp, maxHeightCap, maxWidthCap, open, placement, resolvedAnchorMode, shouldPortalNative, shouldPortalWeb, windowHeight, windowWidth, portalTarget]);
+    }, [anchorRef, anchorRectFromProp, boundaryRef, edgeInsets.horizontal, edgeInsets.vertical, gap, keyboardBottomInsetProp, maxHeightCap, maxWidthCap, open, placement, placementMinSpace, resolvedAnchorMode, shouldPortalNative, shouldPortalWeb, windowHeight, windowWidth, portalTarget]);
 
     React.useLayoutEffect(() => {
         if (!open) return;
