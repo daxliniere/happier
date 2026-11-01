@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { usePathname } from 'expo-router';
 import { Keyboard, Platform, View, type StyleProp, type ViewProps, type ViewStyle, useWindowDimensions } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { usePopoverBoundaryRef } from './PopoverBoundary';
@@ -201,6 +202,17 @@ type PopoverWithoutBackdrop = PopoverCommonProps & Readonly<{
     backdrop: false | (PopoverBackdropOptions & Readonly<{ enabled: false }>);
     onRequestClose?: () => void;
 }>;
+
+function PopoverRouteDismissal({ onRequestClose }: Readonly<{ onRequestClose: () => void }>) {
+    const pathname = usePathname();
+    const previousPathname = React.useRef(pathname);
+    React.useEffect(() => {
+        const changed = previousPathname.current !== pathname;
+        previousPathname.current = pathname;
+        if (changed) onRequestClose();
+    }, [pathname, onRequestClose]);
+    return null;
+}
 
 export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
     const {
@@ -1324,6 +1336,12 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         if (typeof document === 'undefined') return;
 
         const shouldAttachPointerDownCapture = !(backdropEnabled && backdropBlocksOutsidePointerEvents);
+        const handleOutsideScroll = (event: Event) => {
+            const target = event.target;
+            const contentEl = getContentDomElement();
+            if (!contentEl || !(target instanceof Node) || contentEl.contains(target)) return;
+            onRequestClose();
+        };
         const handlePointerDownCapture = (event: Event) => {
             const target = event.target as Node | null;
             if (!target) return;
@@ -1357,10 +1375,12 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         if (shouldAttachPointerDownCapture) {
             document.addEventListener('pointerdown', handlePointerDownCapture, true);
         }
+        document.addEventListener('scroll', handleOutsideScroll, true);
         return () => {
             if (shouldAttachPointerDownCapture) {
                 document.removeEventListener('pointerdown', handlePointerDownCapture, true);
             }
+            document.removeEventListener('scroll', handleOutsideScroll, true);
         };
     }, [
         anchorRef,
@@ -1374,6 +1394,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
 
     const content = shouldRender ? (
         <>
+            {open && onRequestClose ? <PopoverRouteDismissal onRequestClose={onRequestClose} /> : null}
             <PopoverBackdrop
                 backdrop={backdropEnabled ? backdrop : false}
                 backdropBlocksOutsidePointerEvents={backdropBlocksOutsidePointerEvents}
