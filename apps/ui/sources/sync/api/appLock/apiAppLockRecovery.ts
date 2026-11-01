@@ -15,8 +15,8 @@ import { serverFetch } from '@/sync/http/client';
 
 export type AppLockRecoveryFailure = Readonly<{
     ok: false;
-    /** `network`: the relay could not be reached or answered with something unexpected. */
-    error: AppLockRecoveryErrorCode | 'network';
+    /** `network`: no response; `server`: the relay answered with an unexpected error or payload. */
+    error: AppLockRecoveryErrorCode | 'network' | 'server';
     retryAfterSeconds?: number;
 }>;
 
@@ -25,7 +25,7 @@ export type AppLockRecoveryResult<T = {}> = (Readonly<{ ok: true }> & T) | AppLo
 async function readFailure(response: Response): Promise<AppLockRecoveryFailure> {
     const body: unknown = await response.json().catch(() => null);
     const parsed = AppLockRecoveryErrorResponseSchema.safeParse(body);
-    if (!parsed.success) return { ok: false, error: 'network' };
+    if (!parsed.success) return { ok: false, error: 'server' };
     return parsed.data.retryAfterSeconds !== undefined
         ? { ok: false, error: parsed.data.error, retryAfterSeconds: parsed.data.retryAfterSeconds }
         : { ok: false, error: parsed.data.error };
@@ -82,7 +82,7 @@ export async function apiAppLockRecoveryRedeem(
     if (!response) return { ok: false, error: 'network' };
     if (!response.ok) return await readFailure(response);
     const parsed = AppLockRecoveryRedeemResponseSchema.safeParse(await response.json().catch(() => null));
-    return parsed.success ? { ok: true, recoveryKey: parsed.data.recoveryKey } : { ok: false, error: 'network' };
+    return parsed.success ? { ok: true, recoveryKey: parsed.data.recoveryKey } : { ok: false, error: 'server' };
 }
 
 /** Authenticated (active server): the account's SMTP settings for reset emails, without the password. */
@@ -96,7 +96,7 @@ export async function apiAppLockMailSettingsGet(): Promise<AppLockRecoveryResult
     }
     if (!response.ok) return await readFailure(response);
     const parsed = AppLockMailSettingsResponseSchema.safeParse(await response.json().catch(() => null));
-    return parsed.success ? { ok: true, settings: parsed.data.settings } : { ok: false, error: 'network' };
+    return parsed.success ? { ok: true, settings: parsed.data.settings } : { ok: false, error: 'server' };
 }
 
 /** Authenticated (active server): save the account's SMTP settings. Omit `password` to keep the saved one. */

@@ -131,6 +131,24 @@ describe("app lock recovery routes (integration)", () => {
         });
     });
 
+    it("shares saved mail settings across clients of the same account, not other accounts", async () => {
+        const ownerId = await createAccount("pk-mail-shared-owner");
+        const otherId = await createAccount("pk-mail-shared-other");
+        await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
+            expect((await saveMailSettings(app, ownerId)).statusCode).toBe(200);
+        });
+        // A fresh app instance reads the persisted account settings without client-local state.
+        await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
+            const read = (userId: string) => app.inject({
+                method: "GET", url: "/v1/app-lock/mail-settings", headers: { "x-test-user-id": userId },
+            });
+            expect((await read(ownerId)).json().settings).toMatchObject({
+                host: MAIL_SETTINGS.host, hasPassword: true,
+            });
+            expect((await read(otherId)).json()).toEqual({ settings: null });
+        });
+    });
+
     it("releases the recovery key only for the emailed reset code, once", async () => {
         const userId = await createAccount("pk-app-lock-flow");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {

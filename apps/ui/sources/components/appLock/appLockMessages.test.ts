@@ -7,6 +7,11 @@ vi.mock('@/text', async () => {
 });
 
 describe('app lock recovery messages', () => {
+    it('describes a relay server failure without blaming the connection', async () => {
+        const { describeAppLockRecoveryFailure } = await import('./appLockMessages');
+        expect(describeAppLockRecoveryFailure({ ok: false, error: 'server' })).toBe('errors.serverError');
+    });
+
     it('provides an error message for every canonical relay failure and network failure', async () => {
         const { describeAppLockRecoveryFailure } = await import('./appLockMessages');
 

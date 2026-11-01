@@ -23,6 +23,8 @@ export function describeAppLockRecoveryFailure(failure: AppLockRecoveryFailure):
             return t('appLock.errors.emailFailed');
         case 'network':
             return t('appLock.errors.network');
+        case 'server':
+            return t('errors.serverError');
     }
 }
 

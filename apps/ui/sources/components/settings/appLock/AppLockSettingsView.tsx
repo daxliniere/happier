@@ -142,17 +142,14 @@ export function AppLockSettingsView() {
     return (
         <ItemList>
             {unlocked ? (
-                <>
-                    <ManageAppLock record={record} />
-                    {mailSection}
-                </>
+                <ManageAppLock record={record} />
             ) : (
                 <>
                     <IntroGroup subtitle={t('appLock.settingsSubtitleOff')} />
-                    {mailSection}
                     <EnableAppLock mailReady={mail.settings !== null} />
                 </>
             )}
+            {mailSection}
         </ItemList>
     );
 }
@@ -318,11 +315,10 @@ function MailServerSection(props: Readonly<{
                 </FieldItem>
                 {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : null}
                 <RoundButton testID="app-lock-mail-save" title={t('appLock.mailSave')} onPress={save} loading={busy} disabled={!host || !fromAddress} />
-                {saved ? (
-                    <View style={styles.actionsRow}>
-                        <RoundButton size="small" display="inverted" title={t('appLock.mailTest')} onPress={sendTest} />
-                    </View>
-                ) : null}
+                <View style={styles.actionsRow}>
+                    <RoundButton testID="app-lock-mail-test" size="small" display="inverted"
+                        title={t('appLock.mailTest')} onPress={sendTest} disabled={!saved || busy} />
+                </View>
             </View>
         </>
     );
