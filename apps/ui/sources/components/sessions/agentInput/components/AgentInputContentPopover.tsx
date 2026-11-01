@@ -48,6 +48,7 @@ export type AgentInputContentPopoverProps = Readonly<{
     onRequestClose: () => void;
     maxHeightCap?: number;
     maxWidthCap?: number;
+    placement?: 'top' | 'bottom';
     testID?: string;
     scrollEnabled?: boolean;
     keyboardShouldPersistTaps?: boolean | 'always' | 'never' | 'handled';
@@ -90,6 +91,7 @@ export function AgentInputContentPopover(props: AgentInputContentPopoverProps) {
             boundaryRef={props.boundaryRef}
             maxHeightCap={props.maxHeightCap ?? 420}
             maxWidthCap={props.maxWidthCap ?? 420}
+            placement={props.placement}
             onRequestClose={props.onRequestClose}
         >
             {({ maxHeight }) => (

@@ -29,6 +29,8 @@ type AgentInputProviderUsageBadgeProps = Readonly<{
     recoveryCreditActionPending?: boolean;
     /** Asks the provider for fresh figures; runs on every press of the rings. */
     onRefresh?: () => void;
+    /** Which side of the rings the popup opens on. Defaults to above, as in the composer. */
+    popoverPlacement?: 'top' | 'bottom';
 }>;
 
 function areProviderUsageMeterRowsEqual(
@@ -242,6 +244,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                     setIsHovered(false);
                 }}
                 maxWidthCap={360}
+                placement={props.popoverPlacement}
                 testID="agent-input-provider-usage-popover"
                 content={(
                     <View style={styles.popoverContent}>

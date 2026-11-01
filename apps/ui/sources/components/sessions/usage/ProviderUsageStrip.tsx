@@ -43,7 +43,7 @@ export const ProviderUsageStrip = React.memo(function ProviderUsageStrip() {
                     <View key={agentId} style={styles.item}>
                         <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
                         {gauge ? (
-                            <AgentInputProviderUsageBadge viewModel={gauge} onRefresh={() => refreshAgent(agentId)} />
+                            <AgentInputProviderUsageBadge viewModel={gauge} onRefresh={() => refreshAgent(agentId)} popoverPlacement="bottom" />
                         ) : (
                             <Pressable accessibilityRole="button" onPress={() => refreshAgent(agentId)}>
                                 <ProviderUsageRing gauge={null} testID={`sessions-provider-usage:${agentId}`} />

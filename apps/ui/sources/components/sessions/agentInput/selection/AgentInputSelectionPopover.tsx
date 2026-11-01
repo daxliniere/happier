@@ -11,6 +11,7 @@ export type AgentInputSelectionPopoverProps = Readonly<{
     onRequestClose: () => void;
     maxHeightCap?: number;
     maxWidthCap?: number;
+    placement?: 'top' | 'bottom';
     children: (args: Readonly<{ maxHeight: number }>) => React.ReactNode;
 }>;
 
@@ -18,6 +19,7 @@ export function AgentInputSelectionPopover(props: AgentInputSelectionPopoverProp
     const popoverLayout = useAgentInputPopoverLayout({
         open: props.open,
         maxHeightCap: props.maxHeightCap,
+        placement: props.placement,
     });
     // On web, agent-input popovers should be constrained to the viewport (not to an in-modal boundary
     // provider), so they can extend outside sheet-like modal cards.
