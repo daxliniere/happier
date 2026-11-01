@@ -12,6 +12,7 @@ import { waitForInitialAppUi } from '../../src/testkit/uiE2e/waitForInitialAppUi
 import { createTestAuthMtls } from '../../src/testkit/auth';
 import { registerMachineIdentity } from '../../src/testkit/machineIdentity';
 import { startForwardedHeaderProxy } from '../../src/testkit/uiE2e/forwardedHeaderProxy';
+import { setSessionOrganizationPin } from '../../src/testkit/uiE2e/sessionOrganization';
 import {
   createPlainSession,
   dragFolderToTarget,
@@ -22,6 +23,7 @@ import {
   expectOrderMapStartsWith,
   folderOrderKey,
   readSessionFolderDragSettings,
+  readVisibleSessionRowOrder,
   resolveCanonicalServerIdForUi,
   sessionOrderKey,
   setSessionFolderAssignment,
@@ -174,6 +176,11 @@ test.describe('ui e2e: session folders drag and drop', () => {
       metadata: 'session-folders-drag-machine',
     });
 
+    const existingUi = process.env.HAPPIER_E2E_EXISTING_UI_URL?.trim();
+    if (existingUi) {
+      uiBaseUrl = normalizeLoopbackBaseUrl(existingUi);
+      return;
+    }
     ui = await startUiWeb({
       testDir: suiteDir,
       env: {
@@ -181,7 +188,7 @@ test.describe('ui e2e: session folders drag and drop', () => {
         EXPO_PUBLIC_DEBUG: '1',
         EXPO_PUBLIC_HAPPY_SERVER_URL: proxy.baseUrl,
         EXPO_PUBLIC_HAPPY_STORAGE_SCOPE: `e2e-session-folders-drag-${run.runId}`,
-        HAPPIER_E2E_UI_WEB_MODE: 'export',
+        HAPPIER_E2E_UI_WEB_MODE: process.env.HAPPIER_E2E_UI_WEB_MODE ?? 'export',
       },
     });
 
@@ -235,9 +242,13 @@ test.describe('ui e2e: session folders drag and drop', () => {
       machineId: SEEDED_MACHINE_ID,
       tagPrefix: 'session-folders-drag',
     });
+    const anotherRootSessionId = await createPlainSession({
+      baseUrl: server.baseUrl, token, title: `drag another root ${run.runId}`, rootPath,
+      machineId: SEEDED_MACHINE_ID, tagPrefix: 'session-folders-drag',
+    });
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0`, 300_000);
+    await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0&server=${encodeURIComponent(uiServerUrl)}`, 300_000);
     await waitForInitialAppUi({ page, timeoutMs: 180_000 });
 
     await setUiFeatureToggle({
@@ -271,6 +282,7 @@ test.describe('ui e2e: session folders drag and drop', () => {
     await expect(page.getByTestId(`session-list-item-${rootSessionId}`)).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByTestId(`session-list-item-${nestedSessionId}`)).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByTestId(`session-list-item-${scrollSessionId}`)).toHaveCount(1, { timeout: 120_000 });
+    await expect(page.getByTestId(`session-list-item-${anotherRootSessionId}`)).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByTestId(`session-folder-header-${FOLDER_ALPHA_ID}`)).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByTestId(`session-folder-header-${FOLDER_BETA_ID}`)).toHaveCount(1, { timeout: 120_000 });
 
@@ -278,6 +290,43 @@ test.describe('ui e2e: session folders drag and drop', () => {
     // indicators with ONE viewport-level overlay. Assert that single overlay is
     // present (and unique) before exercising drags.
     await expect(page.getByTestId('session-list-drop-overlay')).toHaveCount(1, { timeout: 60_000 });
+
+    const rootIds = new Set([rootSessionId, scrollSessionId, anotherRootSessionId]);
+    const rootOrder = async () => (await readVisibleSessionRowOrder(page)).filter((id) => rootIds.has(id));
+    const [firstRoot, middleRoot, lastRoot] = await rootOrder();
+    if (!firstRoot || !middleRoot || !lastRoot) throw new Error('Expected three visible root sessions');
+    await dragSessionToTarget(page, { sessionId: firstRoot, targetTestId: `session-list-item-${lastRoot}`, targetEdge: 'bottom' });
+    await expect.poll(rootOrder, { timeout: 60_000 }).toEqual([middleRoot, lastRoot, firstRoot]);
+    await dragSessionToTarget(page, { sessionId: firstRoot, targetTestId: `session-list-item-${middleRoot}`, targetEdge: 'top' });
+    await expect.poll(rootOrder, { timeout: 60_000 }).toEqual([firstRoot, middleRoot, lastRoot]);
+    await dragSessionToTarget(page, { sessionId: middleRoot, targetTestId: `session-list-item-${lastRoot}`, targetEdge: 'bottom' });
+    await expect.poll(rootOrder, { timeout: 60_000 }).toEqual([firstRoot, lastRoot, middleRoot]);
+
+    const otherWorkspaceA = await createPlainSession({ baseUrl: serverBaseUrl, token: authToken, title: `drag other workspace a ${run.runId}`, rootPath: `${rootPath}/other-a`, machineId: SEEDED_MACHINE_ID, tagPrefix: 'session-folders-drag' });
+    const otherWorkspaceB = await createPlainSession({ baseUrl: serverBaseUrl, token: authToken, title: `drag other workspace b ${run.runId}`, rootPath: `${rootPath}/other-b`, machineId: SEEDED_MACHINE_ID, tagPrefix: 'session-folders-drag' });
+    const pinIds = [firstRoot, otherWorkspaceA, otherWorkspaceB, nestedSessionId];
+    const pinIdSet = new Set(pinIds);
+    const pinOrder = async () => (await readVisibleSessionRowOrder(page)).filter((id) => pinIdSet.has(id));
+    for (const [index, sessionId] of pinIds.entries()) {
+      await setSessionOrganizationPin({ baseUrl: serverBaseUrl, token: authToken, sessionId, pinned: true, sortKey: String(index + 1).padStart(8, '0') });
+    }
+    await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0&server=${encodeURIComponent(uiServerUrl)}`, 120_000);
+    await expect(page.getByTestId('session-list-header:pinned-v1')).toHaveCount(1, { timeout: 120_000 });
+    await expect.poll(pinOrder, { timeout: 120_000 }).toEqual(pinIds);
+    await dragSessionToTarget(page, { sessionId: nestedSessionId, targetTestId: `session-list-item-${firstRoot}`, targetEdge: 'top' });
+    await expect.poll(pinOrder, { timeout: 60_000 }).toEqual([nestedSessionId, firstRoot, otherWorkspaceA, otherWorkspaceB]);
+    await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0&server=${encodeURIComponent(uiServerUrl)}`, 120_000);
+    await expect.poll(pinOrder, { timeout: 120_000 }).toEqual([nestedSessionId, firstRoot, otherWorkspaceA, otherWorkspaceB]);
+    await dragSessionToTarget(page, { sessionId: otherWorkspaceA, targetTestId: `session-list-item-${firstRoot}`, targetEdge: 'top' });
+    await expect.poll(pinOrder, { timeout: 60_000 }).toEqual([nestedSessionId, otherWorkspaceA, firstRoot, otherWorkspaceB]);
+    await dragSessionToTarget(page, { sessionId: firstRoot, targetTestId: `session-list-item-${otherWorkspaceB}`, targetEdge: 'bottom' });
+    await expect.poll(pinOrder, { timeout: 60_000 }).toEqual([nestedSessionId, otherWorkspaceA, otherWorkspaceB, firstRoot]);
+    await expectFolderAssignment({ baseUrl: serverBaseUrl, token: authToken, sessionId: nestedSessionId, folderId: FOLDER_ALPHA_ID });
+    if (process.env.HAPPIER_E2E_REORDER_ONLY === '1') return;
+    for (const sessionId of pinIds) {
+      await setSessionOrganizationPin({ baseUrl: serverBaseUrl, token: authToken, sessionId, pinned: false });
+    }
+    await refreshFolderDragView();
 
     await dragSessionToTarget(page, {
       sessionId: rootSessionId,
