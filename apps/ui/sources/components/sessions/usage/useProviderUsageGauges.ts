@@ -5,7 +5,6 @@ import {
 } from '@happier-dev/protocol';
 
 import { getAgentCore, type AgentId } from '@/agents/catalog/catalog';
-import { selectLatestProviderUsageRecordIdsByAgent } from '@/sync/domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
 import { runProviderUsageRefresh, useProviderUsageRefreshContext } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
@@ -20,7 +19,7 @@ import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/con
 import { resolveConnectedServiceCredentialHealthStatus } from '@/sync/domains/connectedServices/resolveConnectedServiceCredentialHealthStatus';
 import { nowServerMs } from '@/sync/runtime/time';
 import { useSetting } from '@/sync/domains/state/storage';
-import { useAllSessions } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsByAgent } from '@/sync/store/hooks';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
 
@@ -69,12 +68,11 @@ export function useProviderUsageGauges(params: Readonly<{
     });
 
     // The most recent session per Agent that recorded usage refs speaks for that Agent's login.
-    const sessions = useAllSessions();
+    const latestRecordIdsByAgent = useLatestProviderUsageRecordIdsByAgent();
     const recordIdsByAgentId = React.useMemo(() => {
         const wanted = new Set<string>(params.agentIds);
-        return new Map([...selectLatestProviderUsageRecordIdsByAgent(sessions)]
-            .filter(([agentId]) => wanted.has(agentId)));
-    }, [params.agentIds, sessions]);
+        return new Map([...latestRecordIdsByAgent].filter(([agentId]) => wanted.has(agentId)));
+    }, [params.agentIds, latestRecordIdsByAgent]);
     const allRecordIds = React.useMemo(
         () => params.fetchEnabled ? [...recordIdsByAgentId.values()].flat() : [],
         [params.fetchEnabled, recordIdsByAgentId],

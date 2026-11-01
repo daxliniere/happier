@@ -10,7 +10,7 @@ import { refreshProviderAccountUsage } from '@/sync/domains/connectedServices/ac
 import { collectConfiguredProviderUsageRefreshTargets, type ProviderUsageRefreshTarget } from '@/sync/domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { useProfile } from '@/sync/domains/state/storage';
-import { useAllSessions } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsByAgent } from '@/sync/store/hooks';
 import {
     buildQuotaSnapshotScopeKey,
     refreshQuotaSnapshot,
@@ -36,10 +36,10 @@ export function useProviderUsageRefreshContext(): ProviderUsageRefreshContext | 
     const credentialScope = quotasEnabled && credentials ? resolveAuthCredentialsScopeKey(credentials) : '';
     const resolveAccountMode = useCredentialScopedAccountModeResolver({ credentials, credentialScope });
     const connectedServices = useProfile()?.connectedServicesV2;
-    const sessions = useAllSessions();
+    const latestRecordIdsByAgent = useLatestProviderUsageRecordIdsByAgent();
     const configuredTargets = React.useMemo(() => collectConfiguredProviderUsageRefreshTargets({
-        connectedServices: connectedServices ?? [], sessions,
-    }), [connectedServices, sessions]);
+        connectedServices: connectedServices ?? [], latestRecordIdsByAgent,
+    }), [connectedServices, latestRecordIdsByAgent]);
     return React.useMemo(
         () => (credentials && credentialScope ? { credentials, credentialScope, resolveAccountMode, configuredTargets } : null),
         [credentialScope, credentials, resolveAccountMode, configuredTargets],

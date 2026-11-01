@@ -45,6 +45,12 @@ import {
 } from '../domains/session/organization';
 import type { ReviewCommentDraft } from '../domains/input/reviewComments/reviewCommentTypes';
 import type { SessionActionDraft } from '../domains/sessionActions/sessionActionDraftTypes';
+import type { AgentId } from '@happier-dev/agents';
+import {
+  parseLatestProviderUsageRecordIds,
+  selectLatestProviderUsageRecordIdsByAgent,
+  serializeLatestProviderUsageRecordIds,
+} from '../domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 import { buildSessionMessageRouteId, resolveSessionMessageRouteId } from '../domains/messages/messageRouteIds';
 import {
   buildMessageLegacySignature,
@@ -1787,6 +1793,21 @@ export function useAllSessions(): Session[] {
       return sortValuesByUpdatedAtDescending(state.sessions);
     })
   );
+}
+
+/**
+ * The latest native usage record ids per provider. Subscribes by a primitive signature, so a streaming
+ * session update that leaves these ids unchanged does not re-render the caller.
+ */
+export function useLatestProviderUsageRecordIdsByAgent(): ReadonlyMap<AgentId, readonly string[]> {
+  const signature = getStorage()((state) => (
+    state.isDataReady
+      ? serializeLatestProviderUsageRecordIds(
+        selectLatestProviderUsageRecordIdsByAgent(sortValuesByUpdatedAtDescending(state.sessions)),
+      )
+      : ''
+  ));
+  return React.useMemo(() => parseLatestProviderUsageRecordIds(signature), [signature]);
 }
 
 export function useAllSessionsForAttention(): Session[] {

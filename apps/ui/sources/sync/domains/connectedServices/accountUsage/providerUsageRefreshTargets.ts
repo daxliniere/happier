@@ -21,8 +21,8 @@ export function selectLatestProviderUsageRecordIdsByAgent(sessions: ReadonlyArra
 /** Connected profiles and the latest native usage source per provider, matching the displayed accounts. */
 export function collectConfiguredProviderUsageRefreshTargets(params: Readonly<{
     connectedServices: ReadonlyArray<Readonly<{ serviceId: string; profiles: ReadonlyArray<Readonly<{ profileId: string }>> }>>;
-    /** Newest sessions first, as returned by useAllSessions. */
-    sessions: ReadonlyArray<Readonly<{ metadata: unknown }>>;
+    /** The latest native usage record ids per provider, as selected by selectLatestProviderUsageRecordIdsByAgent. */
+    latestRecordIdsByAgent: ReadonlyMap<AgentId, readonly string[]>;
 }>): readonly ProviderUsageRefreshTarget[] {
     const targets: ProviderUsageRefreshTarget[] = [];
     for (const service of params.connectedServices) {
@@ -31,8 +31,26 @@ export function collectConfiguredProviderUsageRefreshTargets(params: Readonly<{
             if (profileId) targets.push({ connectedProfileRef: { serviceId: service.serviceId, profileId }, recordIds: [] });
         }
     }
-    for (const recordIds of selectLatestProviderUsageRecordIdsByAgent(params.sessions).values()) {
-        targets.push({ connectedProfileRef: null, recordIds });
+    for (const recordIds of params.latestRecordIdsByAgent.values()) {
+        targets.push({ connectedProfileRef: null, recordIds: [...recordIds] });
     }
     return targets;
+}
+
+/**
+ * A primitive signature of the latest record ids, so a store subscription can compare it by value and
+ * stay quiet while unrelated session fields (streaming updates, titles) change. Agent and record ids
+ * contain only letters, digits, `_` and `-`, so `|`, `:` and `,` are safe separators.
+ */
+export function serializeLatestProviderUsageRecordIds(records: ReadonlyMap<AgentId, readonly string[]>): string {
+    return [...records].map(([agentId, recordIds]) => `${agentId}:${recordIds.join(',')}`).join('|');
+}
+
+export function parseLatestProviderUsageRecordIds(signature: string): ReadonlyMap<AgentId, readonly string[]> {
+    const records = new Map<AgentId, readonly string[]>();
+    for (const entry of signature.split('|')) {
+        const [agentId, ids] = entry.split(':');
+        if (agentId && ids) records.set(agentId as AgentId, ids.split(','));
+    }
+    return records;
 }
