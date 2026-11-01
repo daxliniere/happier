@@ -2724,6 +2724,9 @@ export const ru: TranslationStructure = {
         outdated: "устарело",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}д ${hours}ч`,
+        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
+          `${hours}ч ${minutes}м`,
+        minutes: ({ minutes }: { minutes: number }) => `${minutes}м`,
         hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}ч ${minutes}м ${seconds}с`,
         minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}м ${seconds}с`,
       },
@@ -7040,6 +7043,9 @@ export const ru: TranslationStructure = {
           outdated: "устарело",
           daysHours: ({ days, hours }: { days: number; hours: number }) =>
             `${days}д ${hours}ч`,
+          hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
+            `${hours}ч ${minutes}м`,
+          minutes: ({ minutes }: { minutes: number }) => `${minutes}м`,
           hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}ч ${minutes}м ${seconds}с`,
           minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}м ${seconds}с`,
         },

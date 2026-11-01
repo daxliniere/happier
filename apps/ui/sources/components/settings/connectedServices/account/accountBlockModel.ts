@@ -31,6 +31,8 @@ export const GAUGE_LABEL_FORMATTER: ConnectedServiceQuotaGaugeLabelFormatter = {
     durationNow: () => t('connectedServices.quota.duration.now'),
     durationOutdated: () => t('connectedServices.quota.duration.outdated'),
     durationDaysHours: ({ days, hours }) => t('connectedServices.quota.duration.daysHours', { days, hours }),
+    durationHoursMinutes: ({ hours, minutes }) => t('connectedServices.quota.duration.hoursMinutes', { hours, minutes }),
+    durationMinutes: ({ minutes }) => t('connectedServices.quota.duration.minutes', { minutes }),
     durationHoursMinutesSeconds: ({ hours, minutes, seconds }) =>
         t('connectedServices.quota.duration.hoursMinutesSeconds', { hours, minutes, seconds }),
     durationMinutesSeconds: ({ minutes, seconds }) =>

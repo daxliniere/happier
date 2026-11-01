@@ -2894,6 +2894,9 @@ export const pt: TranslationStructure = {
         outdated: "desatualizado",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}d ${hours}h`,
+        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
+          `${hours}h ${minutes}m`,
+        minutes: ({ minutes }: { minutes: number }) => `${minutes}m`,
         hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}m ${seconds}s`,
         minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}m ${seconds}s`,
       },
@@ -7169,6 +7172,9 @@ export const pt: TranslationStructure = {
         outdated: "desatualizado",
         daysHours: ({ days, hours }: { days: number; hours: number }) =>
           `${days}d ${hours}h`,
+        hoursMinutes: ({ hours, minutes }: { hours: number; minutes: number }) =>
+          `${hours}h ${minutes}m`,
+        minutes: ({ minutes }: { minutes: number }) => `${minutes}m`,
         hoursMinutesSeconds: ({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) => `${hours}h ${minutes}m ${seconds}s`,
         minutesSeconds: ({ minutes, seconds }: { minutes: number; seconds: number }) => `${minutes}m ${seconds}s`,
       },

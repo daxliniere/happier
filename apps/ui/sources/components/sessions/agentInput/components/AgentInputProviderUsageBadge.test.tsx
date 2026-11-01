@@ -35,6 +35,8 @@ const fixtureFormatter: ConnectedServiceQuotaGaugeLabelFormatter = {
     durationNow: () => 'now',
     durationOutdated: () => 'outdated',
     durationDaysHours: ({ days, hours }) => `${days}d ${hours}h`,
+    durationHoursMinutes: ({ hours, minutes }) => `${hours}h ${minutes}m`,
+    durationMinutes: ({ minutes }) => `${minutes}m`,
     durationHoursMinutesSeconds: ({ hours, minutes, seconds }) => `${hours}h ${minutes}m ${seconds}s`,
     durationMinutesSeconds: ({ minutes, seconds }) => `${minutes}m ${seconds}s`,
     subscriptionEnds: ({ date }) => `Ends ${date}`,
@@ -55,7 +57,7 @@ function viewModel(): ConnectedServiceQuotaGaugeViewModel {
         badgeLabel: '18% left',
         scopePrefix: null,
         primaryValueSemantics: 'remaining',
-        detailRightLabel: '18% left · resets in 2h 0m 0s',
+        detailRightLabel: '18% left · resets in 2h 0m',
         usedLimitLabel: '82/100 used',
         resetLabel: '2h 0m 0s',
         tone: 'warning',
@@ -192,8 +194,14 @@ describe('AgentInputProviderUsageBadge', () => {
     });
 
     it('counts an open meter reset down live, one second per tick, without a parent re-render', async () => {
-        const screen = await renderScreen(<AgentInputProviderUsageBadge viewModel={viewModel()} />);
+        const vm = viewModel();
+        const screen = await renderScreen(<AgentInputProviderUsageBadge viewModel={vm} />);
         act(() => screen.findByTestId('agent-input-provider-usage-badge')?.props.onPress?.());
+        expect(screen.getTextContent()).toContain('resets in 2h 0m');
+        expect(screen.getTextContent()).not.toContain('resets in 2h 0m 0s');
+        await screen.update(<AgentInputProviderUsageBadge viewModel={{
+            ...vm, allMeterRows: vm.allMeterRows.map((row) => ({ ...row, remainingPct: 0 })),
+        }} />);
         expect(screen.getTextContent()).toContain('resets in 2h 0m 0s');
 
         act(() => { vi.advanceTimersByTime(1_000); });

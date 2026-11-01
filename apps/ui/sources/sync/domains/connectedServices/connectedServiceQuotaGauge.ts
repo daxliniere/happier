@@ -64,6 +64,8 @@ export type ConnectedServiceQuotaGaugeLabelFormatter = Readonly<{
     durationNow: () => string;
     durationOutdated: () => string;
     durationDaysHours: (params: Readonly<{ days: number; hours: number }>) => string;
+    durationHoursMinutes: (params: Readonly<{ hours: number; minutes: number }>) => string;
+    durationMinutes: (params: Readonly<{ minutes: number }>) => string;
     durationHoursMinutesSeconds: (params: Readonly<{ hours: number; minutes: number; seconds: number }>) => string;
     durationMinutesSeconds: (params: Readonly<{ minutes: number; seconds: number }>) => string;
     subscriptionEnds: (params: Readonly<{ date: string }>) => string;
@@ -311,10 +313,11 @@ function resolveMeterResetLabel(
     nowMs: number,
     resetAtMs: number | null,
     formatter: ConnectedServiceQuotaGaugeLabelFormatter,
+    showSeconds = true,
 ): string | null {
     // An elapsed reset boundary means the snapshot predates its own reset — drop the countdown
     // instead of composing the nonsense phrase "resets in outdated".
-    return isResetCountdownOutdated(nowMs, resetAtMs) ? null : formatResetCountdown(nowMs, resetAtMs, formatter);
+    return isResetCountdownOutdated(nowMs, resetAtMs) ? null : formatResetCountdown(nowMs, resetAtMs, formatter, showSeconds);
 }
 
 function composeMeterDetailRightLabel(
@@ -341,7 +344,7 @@ export function resolveConnectedServiceQuotaMeterDetailLabel(params: Readonly<{
 }>): string {
     return composeMeterDetailRightLabel(
         params.remainingPct,
-        resolveMeterResetLabel(params.nowMs, params.resetAtMs, params.formatter),
+        resolveMeterResetLabel(params.nowMs, params.resetAtMs, params.formatter, params.remainingPct !== null && params.remainingPct <= 0),
         params.formatter,
     );
 }

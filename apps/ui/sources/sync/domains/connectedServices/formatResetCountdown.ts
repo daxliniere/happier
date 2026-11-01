@@ -1,5 +1,5 @@
 /**
- * Day/hour/minute-granular reset countdown formatting.
+ * Reset countdown formatting with optional second precision.
  *
  * Single owner for the countdown algorithm previously duplicated in
  * `connectedServiceQuotaGauge.ts` and `ConnectedServiceQuotaMeterRow.tsx`.
@@ -17,6 +17,8 @@ export type ResetCountdownFormatter = Readonly<{
     durationNow: () => string;
     durationOutdated: () => string;
     durationDaysHours: (params: Readonly<{ days: number; hours: number }>) => string;
+    durationHoursMinutes: (params: Readonly<{ hours: number; minutes: number }>) => string;
+    durationMinutes: (params: Readonly<{ minutes: number }>) => string;
     durationHoursMinutesSeconds: (params: Readonly<{ hours: number; minutes: number; seconds: number }>) => string;
     durationMinutesSeconds: (params: Readonly<{ minutes: number; seconds: number }>) => string;
 }>;
@@ -36,6 +38,7 @@ export function formatResetCountdown(
     nowMs: number,
     resetsAtMs: number | null,
     formatter: ResetCountdownFormatter,
+    showSeconds = true,
 ): string | null {
     if (!resetsAtMs) return null;
     const delta = resetsAtMs - nowMs;
@@ -49,6 +52,9 @@ export function formatResetCountdown(
     const seconds = Math.floor((delta % MINUTE_MS) / SECOND_MS);
 
     if (days > 0) return formatter.durationDaysHours({ days, hours });
+    if (!showSeconds) return hours > 0
+        ? formatter.durationHoursMinutes({ hours, minutes })
+        : formatter.durationMinutes({ minutes });
     if (hours > 0) return formatter.durationHoursMinutesSeconds({ hours, minutes, seconds });
     return formatter.durationMinutesSeconds({ minutes, seconds });
 }

@@ -79,6 +79,8 @@ installAgentInputCommonModuleMocks({
                 if (key === 'connectedServices.quota.recoveryCreditSubtitle') return 'Use a reset to restore usage immediately.';
                 if (key === 'session.usageLimitRecovery.consumeResetCreditAction') return 'Use reset';
                 if (key === 'agentInput.providerUsage.remainingWithReset') return `${params?.percent} left · resets in ${params?.reset}`;
+                if (key === 'agentInput.providerUsage.duration.hoursMinutes') return `${params?.hours}h ${params?.minutes}m`;
+                if (key === 'agentInput.providerUsage.duration.minutes') return `${params?.minutes}m`;
                 if (key === 'agentInput.providerUsage.duration.hoursMinutesSeconds') return `${params?.hours}h ${params?.minutes}m ${params?.seconds}s`;
                 if (key === 'agentInput.providerUsage.duration.minutesSeconds') return `${params?.minutes}m ${params?.seconds}s`;
                 return key;
@@ -594,7 +596,7 @@ describe('AgentInput (context usage badge)', () => {
         expect(providerUsageOverlays[0]?.props.scrollEnabled).toBe(true);
         expect(screen.getTextContent()).toContain('Claude usage');
         expect(screen.getTextContent()).toContain('Work account');
-        expect(screen.getTextContent()).toContain('18% left · resets in 2h 0m 0s');
+        expect(screen.getTextContent()).toContain('18% left · resets in 2h 0m');
         expect(screen.getTextContent()).toContain('82/100 used');
         expect(screen.getTextContent()).toContain('1 reset available');
         expect(screen.getTextContent()).toContain('Use a reset to restore usage immediately.');

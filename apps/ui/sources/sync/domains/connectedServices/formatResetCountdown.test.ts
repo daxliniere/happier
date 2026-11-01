@@ -12,6 +12,8 @@ const formatter: ResetCountdownFormatter = {
     durationNow: () => 'now',
     durationOutdated: () => 'outdated',
     durationDaysHours: ({ days, hours }) => `${days}d ${hours}h`,
+    durationHoursMinutes: ({ hours, minutes }) => `${hours}h ${minutes}m`,
+    durationMinutes: ({ minutes }) => `${minutes}m`,
     durationHoursMinutesSeconds: ({ hours, minutes, seconds }) => `${hours}h ${minutes}m ${seconds}s`,
     durationMinutesSeconds: ({ minutes, seconds }) => `${minutes}m ${seconds}s`,
 };

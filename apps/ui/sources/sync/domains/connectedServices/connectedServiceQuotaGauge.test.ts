@@ -51,6 +51,8 @@ const formatter: ConnectedServiceQuotaGaugeLabelFormatter = {
     durationNow: () => 'now',
     durationOutdated: () => 'outdated',
     durationDaysHours: ({ days, hours }) => `${days}d ${hours}h`,
+    durationHoursMinutes: ({ hours, minutes }) => `${hours}h ${minutes}m`,
+    durationMinutes: ({ minutes }) => `${minutes}m`,
     durationHoursMinutesSeconds: ({ hours, minutes, seconds }) => `${hours}h ${minutes}m ${seconds}s`,
     durationMinutesSeconds: ({ minutes, seconds }) => `${minutes}m ${seconds}s`,
     subscriptionEnds: ({ date }) => `Ends ${date}`,
@@ -386,14 +388,17 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(viewModel?.allMeterRows[0]?.usedLimitLabel).toBe('82/100 used');
     });
 
-    it('derives the reset clause from the clock it is given, so a live tick advances the countdown', () => {
+    it('shows seconds only after the usage limit is reached', () => {
         const resetAtMs = 2_000 + 2 * 60 * 60 * 1000;
-        const label = (nowMs: number) => resolveConnectedServiceQuotaMeterDetailLabel({
-            remainingPct: 18, resetAtMs, nowMs, formatter,
+        const label = (remainingPct: number | null, nowMs: number) => resolveConnectedServiceQuotaMeterDetailLabel({
+            remainingPct, resetAtMs, nowMs, formatter,
         });
-        expect(label(2_000)).toBe('18% left · resets in 2h 0m 0s');
-        expect(label(3_000)).toBe('18% left · resets in 1h 59m 59s');
-        expect(label(resetAtMs + 1)).toBe('18% left');
+        expect(label(18, 2_000)).toBe('18% left · resets in 2h 0m');
+        expect(label(18, 3_000)).toBe('18% left · resets in 1h 59m');
+        expect(label(null, 3_000)).toBe('— left · resets in 1h 59m');
+        expect(label(0, 2_000)).toBe('0% left · resets in 2h 0m 0s');
+        expect(label(0, 3_000)).toBe('0% left · resets in 1h 59m 59s');
+        expect(label(0, resetAtMs + 1)).toBe('0% left');
     });
 
     it('exposes the reset instant on each meter row so a live consumer can re-derive its label', () => {

@@ -34,6 +34,7 @@ describe('accountBlockModel', () => {
             unavailable: () => '',
             remaining: () => '', remainingWithReset: () => '', used: () => '',
             durationNow: () => '', durationOutdated: () => '', durationDaysHours: () => '',
+            durationHoursMinutes: () => '', durationMinutes: () => '',
             durationHoursMinutesSeconds: () => '', durationMinutesSeconds: () => '',
             subscriptionEnds: () => '', subscriptionEndsInDays: () => '',
             subscriptionRenews: () => '', subscriptionRenewsInDays: () => '',

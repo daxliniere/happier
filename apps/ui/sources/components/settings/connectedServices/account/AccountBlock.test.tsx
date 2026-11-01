@@ -58,6 +58,12 @@ vi.mock('@/text', async () => {
         if (key === 'connectedServices.quota.remainingWithReset') {
             return en.connectedServices.quota.remainingWithReset({ percent: String(params?.percent), reset: String(params?.reset) });
         }
+        if (key === 'connectedServices.quota.duration.hoursMinutes') {
+            return en.connectedServices.quota.duration.hoursMinutes({ hours: Number(params?.hours), minutes: Number(params?.minutes) });
+        }
+        if (key === 'connectedServices.quota.duration.minutes') {
+            return en.connectedServices.quota.duration.minutes({ minutes: Number(params?.minutes) });
+        }
         if (key === 'connectedServices.quota.duration.hoursMinutesSeconds') {
             return en.connectedServices.quota.duration.hoursMinutesSeconds({
                 hours: Number(params?.hours), minutes: Number(params?.minutes), seconds: Number(params?.seconds),
@@ -224,8 +230,8 @@ describe('AccountBlock', () => {
                     canRefresh: true, isRefreshing: false, error: null, refresh: async () => {},
                     planLabel: null, capacityPct: null, capacityRings: [],
                     usageRows: [{
-                        meterId: 'weekly', label: 'Weekly', tone: 'warning', remaining: 0.18,
-                        remainingPct: 18, resetAtMs: NOW_MS + 2 * 60 * 60 * 1000,
+                        meterId: 'weekly', label: 'Weekly', tone: 'danger', remaining: 0,
+                        remainingPct: 0, resetAtMs: NOW_MS + 2 * 60 * 60 * 1000,
                     }],
                     resetRows: [], resetAvailableCount: 0, pinnedMeterIds: [], togglePinnedMeter: () => {},
                     consumeRecoveryCredit: async () => {}, consumeRecoveryCreditPending: false,
