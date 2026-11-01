@@ -840,13 +840,14 @@ export function useInSessionAgentPickerControls(
                         subtitle: t('session.agentContinuation.checking'),
                         disabled: true,
                         muted: true,
+                        focusable: true,
                     };
                 }
                 // A blocked row is plainly disabled and says nothing in the rail.
                 // Its reason is stated once, in the detail pane, for whoever asks
                 // — never twice on the same screen.
                 if (eligibility.status === 'unavailable') {
-                    return { disabled: true, muted: true };
+                    return { disabled: true, muted: true, focusable: true };
                 }
                 // No subtitle for the armed row either: a second line wraps in the
                 // rail and breaks its rhythm, which is exactly why the running row

@@ -81,6 +81,11 @@ export type AgentInputChipPickerOption = Readonly<{
     railAction?: AgentInputChipPickerOptionRailAction;
     onApply?: () => void;
     disabled?: boolean;
+    /**
+     * A disabled row still takes focus, so its detail (and the reason it cannot be applied) can be
+     * previewed. Applying stays blocked by `disabled`.
+     */
+    focusableWhileDisabled?: boolean;
 }>;
 
 export type AgentInputChipPickerPanelProps = Readonly<{

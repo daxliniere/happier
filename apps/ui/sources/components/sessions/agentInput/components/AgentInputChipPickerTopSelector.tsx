@@ -59,6 +59,7 @@ export function AgentInputChipPickerTopSelector(props: AgentInputChipPickerTopSe
                 {options.map((option) => {
                     const active = props.focusedOptionId === option.id || props.selectedOptionId === option.id;
                     const disabled = option.disabled === true;
+                    const focusBlocked = disabled && option.focusableWhileDisabled !== true;
                     const muted = option.muted === true;
 
                     return (
@@ -71,9 +72,9 @@ export function AgentInputChipPickerTopSelector(props: AgentInputChipPickerTopSe
                                 selected: props.selectedOptionId === option.id,
                                 disabled,
                             }}
-                            disabled={disabled}
+                            disabled={focusBlocked}
                             onPress={() => {
-                                if (disabled) return;
+                                if (focusBlocked) return;
                                 props.onFocusOption(option.id);
                             }}
                             style={(state) => {
