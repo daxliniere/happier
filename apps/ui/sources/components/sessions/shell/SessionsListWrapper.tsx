@@ -5,7 +5,6 @@ import { useIsFocused } from '@react-navigation/native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { SessionGettingStartedGuidance } from '@/components/sessions/guidance/SessionGettingStartedGuidance';
 import { useSessionListStorageKind } from '@/components/sessions/model/useSessionListStorageKind';
-import { SessionsListStorageChrome } from '@/components/sessions/shell/SessionsListStorageChrome';
 import {
     useVisibleSessionListPaneState,
     type VisibleSessionListViewDataOptions,
@@ -115,7 +114,7 @@ const ActiveSessionsListPaneStateSubscriber = React.memo((props: Readonly<{
 const SessionsListWrapperContent = React.memo((props: { pathname: string; surfaceRoutePathname: string }) => {
     const { theme } = useUnistyles();
     const isFocused = useIsFocused();
-    const { directSessionsEnabled, storageKind } = useSessionListStorageKind();
+    const { storageKind } = useSessionListStorageKind();
     const newSessionDrafts = useNewSessionDraftProjections();
     const pathname = props.pathname;
     const surfaceRoutePathname = props.surfaceRoutePathname;
@@ -218,11 +217,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
         ?? (paneStateMatchesStorageKind && paneStateMatchesSource ? paneState : EMPTY_SESSIONS_LIST_PANE_STATE);
     const { sessionListViewData, visibleSessionCount, hasHiddenInactiveSessions } = displayPaneState;
     const styles = stylesheet;
-    const storageChrome = (
-        <SessionsListStorageChrome
-            directSessionsEnabled={directSessionsEnabled}
-        />
-    );
     const usageStrip = <ProviderUsageStrip />;
     const sessionListContent = React.useMemo(
         () => (
@@ -244,7 +238,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
     if (sessionListViewData === null) {
         content = (
             <View style={styles.container}>
-                {storageChrome}
                 {usageStrip}
                 <View style={styles.loadingContainerWrapper}>
                     <View style={styles.loadingContainer}>
@@ -256,7 +249,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
     } else if (visibleSessionCount === 0 && newSessionDrafts.length === 0) {
         content = (
             <View style={styles.container}>
-                {storageChrome}
                 {usageStrip}
                 <View style={styles.emptyStateContainer}>
                     <View style={styles.emptyStateContentContainer}>
@@ -272,7 +264,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
     } else {
         content = (
             <View style={styles.container}>
-                {storageChrome}
                 {usageStrip}
                 {sessionListContent}
             </View>

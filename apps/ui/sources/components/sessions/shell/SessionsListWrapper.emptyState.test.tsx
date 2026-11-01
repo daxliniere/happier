@@ -268,7 +268,7 @@ describe('SessionsListWrapper (empty state)', () => {
         await screen.unmount();
     });
 
-    it('keeps browse enabled while passing the storage filter to the list', async () => {
+    it('leaves browsing in the phone header while passing the storage filter to the list', async () => {
         featureDecisionState.enabled = true;
         storageKindState.storageKind = 'direct';
         sessionListState.data = [{ type: 'session', session: { id: 'session-1' } }];
@@ -277,23 +277,21 @@ describe('SessionsListWrapper (empty state)', () => {
 
         expect(sessionListState.storageKinds.length).toBeGreaterThan(0);
         expect(sessionListState.storageKinds.every((kind) => kind === 'direct')).toBe(true);
-        expect(() => screen.findByType('SessionsListStorageChrome' as any)).not.toThrow();
-        expect(screen.findByType('SessionsListStorageChrome' as any).props.directSessionsEnabled).toBe(true);
+        expect(screen.findAllByType('SessionsListStorageChrome')).toHaveLength(0);
         expect(screen.findByType('SessionsListContent' as any).props.storageKind).toBe('direct');
         expect(screen.findByType('SessionsListContent' as any).props.data).toBe(sessionListState.data);
 
         await screen.unmount();
     });
 
-    it('keeps the storage chrome visible in the direct empty state', async () => {
+    it('does not show a Browse block in the direct empty state', async () => {
         featureDecisionState.enabled = true;
         storageKindState.storageKind = 'direct';
         sessionListState.data = [];
 
         const screen = await renderSessionsListWrapper();
 
-        expect(() => screen.findByType('SessionsListStorageChrome' as any)).not.toThrow();
-        expect(screen.findByType('SessionsListStorageChrome' as any).props.directSessionsEnabled).toBe(true);
+        expect(screen.findAllByType('SessionsListStorageChrome')).toHaveLength(0);
 
         await screen.unmount();
     });
@@ -321,15 +319,14 @@ describe('SessionsListWrapper (empty state)', () => {
         await screen.unmount();
     });
 
-    it('keeps the storage chrome visible when direct sessions are populated', async () => {
+    it('does not show a Browse block when direct sessions are populated', async () => {
         featureDecisionState.enabled = true;
         storageKindState.storageKind = 'direct';
         sessionListState.data = [{ type: 'session', session: { id: 'session-1' } }];
 
         const screen = await renderSessionsListWrapper();
 
-        expect(() => screen.findByType('SessionsListStorageChrome' as any)).not.toThrow();
-        expect(screen.findByType('SessionsListStorageChrome' as any).props.directSessionsEnabled).toBe(true);
+        expect(screen.findAllByType('SessionsListStorageChrome')).toHaveLength(0);
         expect(screen.findByType('SessionsListContent' as any).props.storageKind).toBe('direct');
 
         await screen.unmount();

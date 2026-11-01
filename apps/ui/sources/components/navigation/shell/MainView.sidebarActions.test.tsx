@@ -333,6 +333,29 @@ describe('MainView sidebar actions', () => {
         expect(tree!.findAllByType('TabBar')).toHaveLength(0);
     });
 
+    it('opens provider-session browsing from a folder icon immediately left of phone Automations', async () => {
+        platformState.isTablet = false;
+        directSessionsFeatureState.enabled = true;
+        const screen = await renderScreen(<MainView variant="phone" />);
+        const header = screen.tree.findByType('Header');
+        const actions = await renderScreen(header.props.headerRight());
+        const buttons = actions.findAll((node) => typeof node.type === 'string' && typeof node.props.onPress === 'function');
+        const browseIndex = buttons.findIndex((node) => node.props.testID === 'main-header-direct-sessions-browse');
+
+        expect(browseIndex).toBeGreaterThanOrEqual(0);
+        expect(buttons[browseIndex + 1]!.findAllByProps({ name: 'timer' }).length).toBeGreaterThan(0);
+        await actions.pressByTestIdAsync('main-header-direct-sessions-browse');
+        expect(routerPushSpy).toHaveBeenCalledWith('/direct/browse');
+    });
+
+    it('hides the phone browse icon when provider-session browsing is disabled', async () => {
+        platformState.isTablet = false;
+        const screen = await renderScreen(<MainView variant="phone" />);
+        const actions = await renderScreen(screen.tree.findByType('Header').props.headerRight());
+
+        expect(actions.findHostByTestId('main-header-direct-sessions-browse')).toBeNull();
+    });
+
     it('does not subscribe to sidebar session-list derivations in phone mode', async () => {
         platformState.isTablet = false;
         sessionListState.data = [{

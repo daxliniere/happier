@@ -23,6 +23,7 @@ import { FABWide } from '@/components/ui/buttons/FABWide';
 import { InboxView } from '@/components/navigation/shell/InboxView';
 import { FriendsView } from '@/components/navigation/shell/FriendsView';
 import { SessionsListWrapper } from '@/components/sessions/shell/SessionsListWrapper';
+import { DirectSessionsBrowseButton } from '@/components/sessions/directSessions/browse/DirectSessionsBrowseButton';
 import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 import { useScreenSafeAreaBackdrop } from '@/components/navigation/safeArea/HorizontalSafeArea';
 import { Header } from '@/components/navigation/Header';
@@ -227,6 +228,11 @@ const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
             <View style={styles.headerButtonsRow}>
                 <ActionOperationActivityButton testID="main-header-action-operations" />
                 <AppLockHeaderButton testID="main-header-app-lock" style={styles.headerButton} />
+                <DirectSessionsBrowseButton
+                    testID="main-header-direct-sessions-browse"
+                    buttonSize={32}
+                    iconSize={20}
+                />
                 {showAutomations ? (
                     <Pressable
                         onPress={() => router.push('/automations')}
