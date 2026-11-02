@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Machine, Session } from '@/sync/domains/state/storageTypes';
 import { applySessionFoldersToSessionListViewData, buildSessionListViewData, type SessionListViewItem } from './sessionListViewData';
 import { buildSessionListRenderableFromSession } from './sessionListRenderable';
+import { applySessionProjectAssignments } from './applySessionProjectAssignments';
+import { resolveSessionListFolderMoveTargets } from '@/components/sessions/shell/view-state/resolveSessionListFolderMoveTargets';
+import { resolveSessionProjectMoveTargets } from '@/components/sessions/shell/view-state/resolveSessionProjectMoveTargets';
 
 function makeSession(partial: Partial<Session> & Pick<Session, 'id'>): Session {
     const active = partial.active ?? false;
@@ -51,6 +54,53 @@ function makeMachine(partial: Partial<Machine> & Pick<Machine, 'id'>): Machine {
 }
 
 describe('buildSessionListViewData', () => {
+    it('offers natural and assigned projects from date views, scoped to the selected server', () => {
+        const session = makeSession({ id: 'moving', metadata: { machineId: 'machine', path: '/original', host: 'host', version: '1' } });
+        const items = ['home', 'other'].flatMap((serverId) => buildSessionListViewData({ moving: session }, {}, {
+            groupInactiveSessionsByProject: false, inactiveGroupingV1: 'date', serverScope: { serverId },
+        }));
+        const targets = resolveSessionProjectMoveTargets({
+            items, serverId: 'home', labels: {},
+            assignments: { 'home:moving': { machineId: 'machine', rootPath: '/MAXICAM' }, 'other:moving': { machineId: 'machine', rootPath: '/excluded' } },
+            currentWorkspace: { t: 'workspaceScope', serverId: 'home', machineId: 'machine', rootPath: '/MAXICAM' },
+        });
+        expect(targets.map((target) => target.rootPath).sort()).toEqual(['/MAXICAM', '/original']);
+        expect(targets.find((target) => target.rootPath === '/MAXICAM')?.disabled).toBe(true);
+        expect(targets.find((target) => target.rootPath === '/original')?.disabled).toBe(false);
+    });
+    it('visually assigns a project without changing the session or its execution metadata', () => {
+        const session = makeSession({ id: 'moving', metadata: { machineId: 'original', path: '/original', host: 'host', version: '1', flavor: 'claude' } });
+        const options = {
+            groupInactiveSessionsByProject: true,
+            serverScope: { serverId: 'home' },
+            projectAssignmentsBySessionKey: { 'home:moving': { machineId: 'target', rootPath: '/MAXICAM' } },
+        };
+        const data = buildSessionListViewData({ moving: session }, {}, options);
+        const row = data.find((item) => item.type === 'session');
+        expect(row?.workspace).toEqual({ t: 'workspaceScope', serverId: 'home', machineId: 'target', rootPath: '/MAXICAM' });
+        expect(row?.type === 'session' && row.session).toBe(session);
+        expect(session.metadata?.path).toBe('/original');
+        expect(data.find((item) => item.type === 'header' && item.headerKind === 'project')).toMatchObject({ title: 'MAXICAM', seedSessionId: null });
+        const otherHome = buildSessionListViewData({ moving: session }, {}, { ...options, serverScope: { serverId: 'other' } });
+        expect(otherHome.find((item) => item.type === 'session')?.workspace).toMatchObject({ machineId: 'original', rootPath: '/original' });
+    });
+    it('projects the stored list into destination folders and restores the original list by clearing the assignment', () => {
+        const moving = makeSession({ id: 'moving', active: true, metadata: { machineId: 'machine', path: '/source', host: 'host', version: '1' } });
+        const destination = makeSession({ id: 'destination', active: false, metadata: { machineId: 'machine', path: '/target', host: 'host', version: '1' } });
+        const options = { groupInactiveSessionsByProject: true, serverScope: { serverId: 'home' } };
+        const source = buildSessionListViewData({ moving, destination }, {}, options);
+        const projected = applySessionProjectAssignments(source, { 'home:moving': { machineId: 'machine', rootPath: '/target' } }, options)!;
+        const row = projected.find((item) => item.type === 'session' && item.session.id === 'moving');
+        expect(row).toMatchObject({ section: 'active', workspace: { rootPath: '/target' } });
+        expect(row?.type === 'session' && row.session).toBe(moving);
+        const targets = resolveSessionListFolderMoveTargets({
+            items: projected, sessionKeys: new Set(['home:moving']), assignmentsBySessionKey: {}, workspaceRootTitle: 'Root',
+            folders: { v: 1, folders: [{ id: 'target-folder', name: 'Planning', parentId: null, createdAt: 1, updatedAt: 1, workspace: { t: 'workspaceScope', serverId: 'home', machineId: 'machine', rootPath: '/target' } }] },
+        });
+        expect(targets.some((target) => target.folderId === 'target-folder' && !target.disabled)).toBe(true);
+        expect(applySessionProjectAssignments(source, {}, options)).toBe(source);
+        expect(source.find((item) => item.type === 'session' && item.session.id === 'moving')?.workspace).toMatchObject({ rootPath: '/source' });
+    });
     it.each(['date', 'project'] as const)('projects producer-scoped workspaces for %s rows with folder view off', (grouping) => {
         const rows = ['server-a', 'server-b'].flatMap((serverId) => {
             const machineId = `${serverId}-machine`;

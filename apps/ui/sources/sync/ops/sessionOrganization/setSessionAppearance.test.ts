@@ -12,6 +12,70 @@ const context = { credentials, serverId: 'appearance-server', sessionId: 's1' };
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }
 
 describe('setSessionAppearance', () => {
+    it('restores the previous folder after a rejected project move, then clears it on success', async () => {
+        const { getStorage } = await import('@/sync/domains/state/storageStore');
+        const { upsertServerProfile, resolveServerProfileScopeId } = await import('@/sync/domains/server/serverProfiles');
+        const { TokenStorage } = await import('@/auth/storage/tokenStorage');
+        const { setSessionProjectAssignmentForServer } = await import('./setSessionProjectAssignment');
+        const profile = upsertServerProfile({ serverUrl: 'https://project-move.example' });
+        const serverId = resolveServerProfileScopeId(profile);
+        const key = `${serverId}:s1`;
+        const auth = vi.spyOn(TokenStorage, 'getCredentialsForServerUrl').mockResolvedValue(credentials);
+        const storage = getStorage();
+        storage.getState().clearSessionOrganizationForServer(serverId);
+        storage.setState({ sessionOrganizationSessionAppearancesSupportedByServerId: { [serverId]: true } });
+        storage.getState().applySessionFolderAssignments(serverId, [{ sessionId: 's1', folderId: 'previous-folder' }]);
+        let rejectProject = true;
+        const folderWrites: Array<string | null> = [];
+        http.serverFetch.mockResolvedValue(json({ mode: 'plain', updatedAt: 0 }));
+        http.runtimeFetchWithServerReachability.mockImplementation(async ({ init }) => {
+            const body = JSON.parse(String(init.body));
+            if ('folderId' in body) {
+                folderWrites.push(body.folderId);
+                return json({ sessionId: 's1', folderId: body.folderId });
+            }
+            if (rejectProject) return json({ error: 'session-appearance-limit-exceeded' }, 409);
+            return json({ appearance: body.display ? { sessionId: 's1', display: body.display, updatedAt: 99 } : null });
+        });
+        const project = { machineId: 'machine', rootPath: '/maxicam' };
+        try {
+            await expect(setSessionProjectAssignmentForServer({ serverId, sessionId: 's1', project })).rejects.toThrow('session-appearance-limit-exceeded');
+            expect(folderWrites).toEqual([null, 'previous-folder']);
+            expect(storage.getState().sessionOrganizationFolderAssignmentsBySessionKey[key]).toBe('previous-folder');
+            expect(storage.getState().sessionOrganizationAppearancesBySessionKey[key]).toBeUndefined();
+            rejectProject = false;
+            await setSessionProjectAssignmentForServer({ serverId, sessionId: 's1', project });
+            expect(storage.getState().sessionOrganizationFolderAssignmentsBySessionKey[key]).toBeNull();
+            expect(storage.getState().sessionOrganizationAppearancesBySessionKey[key]?.display).toEqual({ t: 'plain', v: { project } });
+            await setSessionProjectAssignmentForServer({ serverId, sessionId: 's1', project: null });
+            expect(storage.getState().sessionOrganizationAppearancesBySessionKey[key]).toBeUndefined();
+        } finally {
+            auth.mockRestore();
+            storage.getState().clearSessionOrganizationForServer(serverId);
+        }
+    });
+    it.each(['plain', 'e2ee'] as const)('preserves independent project, color and unknown fields across %s writes', async (mode) => {
+        const { getStorage } = await import('@/sync/domains/state/storageStore');
+        const { setSessionAppearance } = await import('./setSessionAppearance');
+        const { openSessionOrganizationDisplayEnvelope } = await import('./sessionOrganizationDisplayEnvelope');
+        const project = { machineId: 'machine', rootPath: '/maxicam' };
+        const color = { kind: 'accent', key: 'blue' } as const;
+        const store = getStorage().getState();
+        const record = store.setSessionAppearanceOptimistic(context.serverId, 's1', { sessionId: 's1', display: { t: 'plain', v: { color, future: 'keep' } }, updatedAt: 1 });
+        store.commitSessionOrganizationOptimistic(record);
+        let saved: SessionOrganizationContentEnvelope | null = null;
+        http.serverFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+            if (path.endsWith('/v1/account/encryption')) return json({ mode, updatedAt: 0 });
+            saved = JSON.parse(String(init?.body)).display;
+            return json({ appearance: saved ? { sessionId: 's1', display: saved, updatedAt: 99 } : null });
+        });
+        await setSessionAppearance({ ...context, project });
+        expect(await openSessionOrganizationDisplayEnvelope({ credentials, envelope: saved })).toEqual({ t: 'plain', v: { color, project, future: 'keep' } });
+        await setSessionAppearance({ ...context, color: null });
+        expect(await openSessionOrganizationDisplayEnvelope({ credentials, envelope: saved })).toEqual({ t: 'plain', v: { project, future: 'keep' } });
+        await setSessionAppearance({ ...context, project: null });
+        expect(getStorage().getState().sessionOrganizationAppearancesBySessionKey['appearance-server:s1']?.display).toEqual({ t: 'plain', v: { future: 'keep' } });
+    });
     it('opens a snapshot containing only encrypted appearance displays and records server support', async () => {
         const { getStorage } = await import('@/sync/domains/state/storageStore');
         const { prepareSessionOrganizationDisplayEnvelope } = await import('./sessionOrganizationDisplayEnvelope');

@@ -14,6 +14,9 @@ import {
 import { buildSessionAppearanceColorMenuItem } from '@/components/sessions/shell/appearance/sessionAppearanceColorMenu';
 import { listVisibleSessionActionIds } from '@/components/sessions/actions/sessionActionAvailability';
 import { t } from '@/text';
+import { getSessionStorageKind } from '@/sync/domains/session/sessionStorageKind';
+
+export const SESSION_PROJECT_MOVE_MENU_ID = 'session.moveToProject';
 
 import type { SessionRowMoreMenuBuildParams } from './sessionRowActionMenuTypes';
 import { Icon } from '@/components/ui/icons/Icon';
@@ -162,6 +165,12 @@ export function buildSessionRowMoreMenuItems(params: SessionRowMoreMenuBuildPara
         ...(params.leadingItems ?? []),
         ...remainingItems,
         ...(moveToFolderItem ? [moveToFolderItem] : []),
+        ...(params.canMoveToProject && params.target.isOwnedByCurrentUser && !params.target.session.owner && params.target.serverId
+            && getSessionStorageKind(params.target.session) === 'persisted' ? [{
+                id: SESSION_PROJECT_MOVE_MENU_ID,
+                title: t('sessionsList.moveToProject'),
+                icon: <Icon name="folder" size={16} color={params.iconColor} />,
+            }] : []),
         ...(params.trailingItems ?? []),
     ];
 }

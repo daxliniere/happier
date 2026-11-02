@@ -24,6 +24,10 @@ describe('buildSessionRowMoreMenuItems', () => {
         const move = buildSessionRowMoreMenuItems({ target, iconColor: '#999', canMoveToFolder: true })
             .find((item) => item.id === SESSION_ACTION_MOVE_TO_FOLDER_ID);
         expect(move).toMatchObject({ disabled: false });
+        const projectItems = buildSessionRowMoreMenuItems({ target, iconColor: '#999', canMoveToProject: true });
+        expect(projectItems.find((item) => item.id === 'session.moveToProject')).toBeDefined();
+        expect(buildSessionRowMoreMenuItems({ target, iconColor: '#999' })
+            .find((item) => item.id === 'session.moveToProject')).toBeUndefined();
     });
 
     it('composes shared session actions with the row move-to-folder action', () => {

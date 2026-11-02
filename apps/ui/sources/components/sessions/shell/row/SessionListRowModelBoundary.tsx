@@ -48,6 +48,7 @@ const EMPTY_SESSION_LIST_ROW_STORE_STATE: SessionListRowStoreState = Object.free
 type SessionListRowMoveActionHandlers = Readonly<{
     onMoveDown?: () => void;
     onMoveToFolder?: () => void;
+    onMoveToProject?: () => void;
     onMoveToWorkspaceRoot?: () => void;
     onMoveUp?: () => void;
 }>;
@@ -334,6 +335,7 @@ const SessionListRowModelBoundaryContent = React.memo(function SessionListRowMod
             activityTimeMode={rowModel.activity.mode === 'updatedAt' ? 'updatedAt' : undefined}
             folderDepth={rowModel.folder.depth}
             forkActionContext={props.forkActionContext}
+            onMoveToProject={moveActionHandlers.onMoveToProject}
             onMoveToFolder={props.folderActionsEnabled ? moveActionHandlers.onMoveToFolder : undefined}
             onMoveToWorkspaceRoot={props.folderActionsEnabled ? moveActionHandlers.onMoveToWorkspaceRoot : undefined}
             onMoveUp={props.folderViewEnabled ? moveActionHandlers.onMoveUp : undefined}

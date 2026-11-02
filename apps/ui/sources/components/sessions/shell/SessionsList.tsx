@@ -105,6 +105,11 @@ import { useSessionListViewState } from './view-state/useSessionListViewState';
 import { useSessionListRowInteractions } from './view-state/useSessionListRowInteractions';
 import { readSessionIdFromPathname } from './readSessionIdFromPathname';
 import { useSessionListMoveSheet } from './move-sheet/useSessionListMoveSheet';
+import { useSessionProjectMoveSheet } from './move-sheet/useSessionProjectMoveSheet';
+import { resolveSessionProjectMoveTargets } from './view-state/resolveSessionProjectMoveTargets';
+import { readSessionProjectAssignmentFromDisplay, readSessionProjectAssignments } from '@/sync/domains/session/organization/projectAssignment';
+import { setSessionProjectAssignmentForServer } from '@/sync/ops/sessionOrganization/setSessionProjectAssignment';
+import { getSessionStorageKind } from '@/sync/domains/session/sessionStorageKind';
 import type { SessionListMoveSheetTarget } from './move-sheet/buildSessionListMoveSheetTargets';
 import { useSessionListA11yAnnouncements } from './accessibility/useSessionListA11yAnnouncements';
 import { useFrozenSessionListItemsDuringDrag } from './drag/useFrozenSessionListItemsDuringDrag';
@@ -523,6 +528,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
     const navigateToSession = useNavigateToSession();
     const focusReturnFallbackRef = useFocusReturnFallbackRef<React.ElementRef<typeof View> | null>();
     const { openMoveSheet } = useSessionListMoveSheet();
+    const { openProjectMoveSheet } = useSessionProjectMoveSheet();
     const sessionListA11y = useSessionListA11yAnnouncements();
     const retentionKey = React.useMemo(
         () => buildSessionListRetentionKey(props.storageKind),
@@ -1491,7 +1497,32 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         return resolveDropResultRef.current(event);
     }, []);
 
+    const openProjectMoveSheetForTreeRow = React.useCallback(async (sourceRowId: string, _sourceLabel: string) => {
+        const item = findSessionMoveItem(sourceRowId);
+        if (!item?.serverId || item.session.owner || getSessionStorageKind(item.session) !== 'persisted') return;
+        try {
+            const state = storage.getState();
+            if (state.sessionOrganizationSessionAppearancesSupportedByServerId[item.serverId] !== true) {
+                Modal.alert(t('sessionsList.moveToProject'), t('sessionsList.moveSheetDisabledUnavailable'));
+                return;
+            }
+            const appearances = state.sessionOrganizationAppearancesBySessionKey;
+            const current = readSessionProjectAssignmentFromDisplay(appearances[`${item.serverId}:${item.session.id}`]?.display);
+            const source = state.sessionListViewDataByServerId[item.serverId]
+                ?? (item.serverId === selection.activeServerId ? state.sessionListViewData : null);
+            const targets = resolveSessionProjectMoveTargets({ items: source ?? [], serverId: item.serverId,
+                assignments: readSessionProjectAssignments(appearances), labels: state.sessionOrganizationLabelsByLabelKey,
+                currentWorkspace: item.workspace,
+            });
+            const project = await openProjectMoveSheet({ targets, canRestore: current !== null });
+            if (project !== undefined) await setSessionProjectAssignmentForServer({ serverId: item.serverId, sessionId: item.session.id, project });
+        } catch (error) {
+            showMoveError(error);
+        }
+    }, [findSessionMoveItem, openProjectMoveSheet, selection.activeServerId, showMoveError]);
+
     const getRowMoveActionHandlers = useSessionListRowMoveActionHandlers({
+        openProjectMoveSheetForTreeRow,
         openMoveSheetForTreeRow,
         moveTreeRowToWorkspaceRoot,
         moveTreeRowByKeyboard,

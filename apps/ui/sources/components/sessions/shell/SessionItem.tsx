@@ -1,4 +1,5 @@
 import React from 'react';
+import { getSessionStorageKind } from '@/sync/domains/session/sessionStorageKind';
 import { Animated, Platform, Pressable, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector, Swipeable, type ComposedGesture, type GestureType } from 'react-native-gesture-handler';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -155,6 +156,7 @@ type SessionItemBaseProps = Readonly<{
     folderDepth?: number;
     onMoveDown?: () => void;
     onMoveToFolder?: () => void;
+    onMoveToProject?: () => void;
     onMoveToWorkspaceRoot?: () => void;
     onMoveUp?: () => void;
     forkActionContext?: Readonly<{
@@ -720,6 +722,7 @@ const SessionItemContent = React.memo(
         folderDepth,
         onMoveDown,
         onMoveToFolder,
+        onMoveToProject,
         onMoveToWorkspaceRoot,
         onMoveUp,
         forkActionContext,
@@ -1136,6 +1139,7 @@ const SessionItemContent = React.memo(
             onSetTags,
             onTogglePinned,
             onMoveToFolder,
+            onMoveToProject: appearanceMenu ? onMoveToProject : undefined,
             leadingMenuItems,
             trailingMenuItems,
             onSelectCustomMenuItem: handleSelectCustomMenuItem,
@@ -1163,11 +1167,12 @@ const SessionItemContent = React.memo(
             const actions: Array<{ name: string; label: string }> = [];
             if (onMoveUp) actions.push({ name: 'moveUp', label: t('common.moveUp') });
             if (onMoveDown) actions.push({ name: 'moveDown', label: t('common.moveDown') });
+            if (onMoveToProject && !draft && sessionActionTarget.isOwnedByCurrentUser && !resolvedSession.owner && serverId && getSessionStorageKind(resolvedSession) === 'persisted') actions.push({ name: 'moveToProject', label: t('sessionsList.moveToProject') });
             if (onMoveToFolder) actions.push({ name: 'moveToFolder', label: t('sessionsList.moveToFolder') });
             if (onMoveToWorkspaceRoot) actions.push({ name: 'moveToWorkspaceRoot', label: t('sessionsList.moveToWorkspaceRoot') });
             if (draft && onDeleteDraft) actions.push({ name: 'deleteDraft', label: t('sessionDrafts.delete.action') });
             return actions;
-        }, [draft, onDeleteDraft, onMoveDown, onMoveToFolder, onMoveToWorkspaceRoot, onMoveUp]);
+        }, [draft, onDeleteDraft, onMoveDown, onMoveToProject, onMoveToFolder, onMoveToWorkspaceRoot, onMoveUp, sessionActionTarget.isOwnedByCurrentUser, resolvedSession, serverId]);
 
         const handleAccessibilityAction = React.useCallback((event: { nativeEvent?: { actionName?: string } }) => {
             switch (event.nativeEvent?.actionName) {
@@ -1176,6 +1181,9 @@ const SessionItemContent = React.memo(
                     break;
                 case 'moveDown':
                     onMoveDown?.();
+                    break;
+                case 'moveToProject':
+                    onMoveToProject?.();
                     break;
                 case 'moveToFolder':
                     onMoveToFolder?.();
@@ -1187,7 +1195,7 @@ const SessionItemContent = React.memo(
                     void confirmDeleteDraft();
                     break;
             }
-        }, [confirmDeleteDraft, onMoveDown, onMoveToFolder, onMoveToWorkspaceRoot, onMoveUp]);
+        }, [confirmDeleteDraft, onMoveDown, onMoveToProject, onMoveToFolder, onMoveToWorkspaceRoot, onMoveUp]);
 
         const pendingBadge = formatPendingCountBadge(pendingCount);
         const tagChipDensity: 'default' | 'compact' | 'minimal' = isMinimal ? 'minimal' : compact ? 'compact' : 'default';

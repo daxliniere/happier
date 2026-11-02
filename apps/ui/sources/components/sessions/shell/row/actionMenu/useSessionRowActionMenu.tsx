@@ -26,7 +26,7 @@ import { createSessionActionDropdownItem } from '@/components/sessions/actions/s
 import type { SessionActionTarget } from '@/components/sessions/actions/sessionActionTypes';
 import type { SessionReminderPresentation } from '@/sync/domains/session/organization/attentionStanding';
 
-import { buildSessionRowMoreMenuItems } from './buildSessionRowActionMenuItems';
+import { buildSessionRowMoreMenuItems, SESSION_PROJECT_MOVE_MENU_ID } from './buildSessionRowActionMenuItems';
 import type { SessionRowActionMenuState } from './sessionRowActionMenuTypes';
 import { Icon } from '@/components/ui/icons/Icon';
 import {
@@ -111,6 +111,7 @@ export function useSessionRowActionMenu(params: Readonly<{
     onSetTags?: ((newTags: string[]) => void) | null;
     onTogglePinned?: (() => void) | null;
     onMoveToFolder?: () => void;
+    onMoveToProject?: () => void;
     leadingMenuItems?: readonly DropdownMenuItem[];
     trailingMenuItems?: readonly DropdownMenuItem[];
     onSelectCustomMenuItem?: (itemId: string) => void | Promise<void>;
@@ -255,6 +256,7 @@ export function useSessionRowActionMenu(params: Readonly<{
             leadingItems: params.leadingMenuItems,
             trailingItems: params.trailingMenuItems,
             canMoveToFolder: typeof params.onMoveToFolder === 'function',
+            canMoveToProject: typeof params.onMoveToProject === 'function',
             reminderPresets,
             reminder: params.reminder,
             reminderNowMs: Date.now(),
@@ -284,6 +286,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         params.trailingMenuItems,
         params.onEnterSelectionMode,
         params.onMoveToFolder,
+        params.onMoveToProject,
         params.selectionModeActive,
         params.selectionModeAvailable,
         reminderPresets,
@@ -297,6 +300,10 @@ export function useSessionRowActionMenu(params: Readonly<{
     );
 
     const handleMoreMenuSelect = React.useCallback(async (itemId: string) => {
+        if (itemId === SESSION_PROJECT_MOVE_MENU_ID) {
+            params.onMoveToProject?.();
+            return;
+        }
         if (itemId === 'selection.select') {
             params.onEnterSelectionMode?.();
             return;
@@ -394,6 +401,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         params.appearance,
         params.onEnterSelectionMode,
         params.onMoveToFolder,
+        params.onMoveToProject,
         params.onSelectCustomMenuItem,
         reminderPresets,
         setReminderPresets,
@@ -440,6 +448,10 @@ export function useSessionRowActionMenu(params: Readonly<{
     ]);
 
     const handleContextMenuSelect = React.useCallback((itemId: string) => {
+        if (itemId === SESSION_PROJECT_MOVE_MENU_ID) {
+            params.onMoveToProject?.();
+            return;
+        }
         if (itemId === 'selection.select') {
             params.setContextMenuOpen(false);
             params.onEnterSelectionMode?.();
