@@ -2537,6 +2537,8 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         recordLayoutCommitObserved,
         scrollObservationHost.observeCommittedProjectionLayout,
     ]);
+    // Native message action rows sit under the bottom-right corner; lift the pill clear of them.
+    const jumpControlBaseBottom = Platform.OS === 'web' ? 12 : 24;
     return (
         <SessionTranscriptAgentAttributionProvider value={agentAttributionIndex}>
         <TranscriptMotionProvider sessionKey={props.sessionId} config={motionConfig}>
@@ -2597,7 +2599,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                 {jumpToTopAffordance.isVisible ? (
                     <ComposerKeyboardFloatingInset
                         testID="transcript-jump-to-top-keyboard-offset"
-                        baseBottom={jumpToBottomAffordance.isVisible ? 64 : 12}
+                        baseBottom={jumpControlBaseBottom + (jumpToBottomAffordance.isVisible ? 52 : 0)}
                         style={{ position: 'absolute', right: 12 }}
                     >
                         <JumpToBottomButton
@@ -2612,8 +2614,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                 {jumpToBottomAffordance.isVisible ? (
                     <ComposerKeyboardFloatingInset
                         testID="transcript-jump-to-bottom-keyboard-offset"
-                        // Native message action rows sit under the bottom-right corner; lift the pill clear of them.
-                        baseBottom={Platform.OS === 'web' ? 12 : 24}
+                        baseBottom={jumpControlBaseBottom}
                         style={{ position: 'absolute', right: 12 }}
                     >
                         <JumpToBottomButton
