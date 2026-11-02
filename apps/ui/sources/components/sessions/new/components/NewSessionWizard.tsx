@@ -115,6 +115,7 @@ export interface NewSessionWizardAgentProps {
     setAgentType: (agent: AgentId) => void;
     agentPickerTitle?: React.ComponentProps<typeof AgentInput>['agentPickerTitle'];
     agentPickerOptions?: React.ComponentProps<typeof AgentInput>['agentPickerOptions'];
+    agentPickerUsageGaugesByOptionId?: React.ComponentProps<typeof AgentInput>['agentPickerUsageGaugesByOptionId'];
     agentPickerSelectedOptionId?: React.ComponentProps<typeof AgentInput>['agentPickerSelectedOptionId'];
     onAgentPickerSelect?: React.ComponentProps<typeof AgentInput>['onAgentPickerSelect'];
     agentPickerProbe?: React.ComponentProps<typeof AgentInput>['agentPickerProbe'];
@@ -593,6 +594,7 @@ export const NewSessionWizard = React.memo(function NewSessionWizard(props: NewS
                                         onAgentClick={props.agent.agentPickerOptions ? undefined : handleAgentInputAgentClick}
                                         agentPickerOptions={props.agent.agentPickerOptions}
                                         agentPickerSelectedOptionId={props.agent.agentPickerSelectedOptionId}
+                                        agentPickerUsageGaugesByOptionId={props.agent.agentPickerUsageGaugesByOptionId}
                                         onAgentPickerSelect={props.agent.onAgentPickerSelect}
                                         agentPickerProbe={props.agent.agentPickerProbe}
                                         permissionMode={permissionMode}

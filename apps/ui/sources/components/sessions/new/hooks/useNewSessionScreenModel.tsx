@@ -824,8 +824,9 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         });
     }, [selectedBackendTargetKey]);
 
-    const { connectedServicesBindingsPayload, connectedServicesAuthChip, providerUsageGauge } = useNewSessionConnectedServices({
+    const { connectedServicesBindingsPayload, connectedServicesAuthChip, providerUsageGauge, providerUsageGaugesByAgentId } = useNewSessionConnectedServices({
         agentCore,
+        usageAgentIds: enabledAgentIds,
         agentOptionState,
         modelId: modelMode,
         settings,
@@ -843,6 +844,17 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         }
         return Object.keys(merged).length > 0 ? merged : null;
     }, [agentOptionState, agentType, connectedServicesBindingsPayload]);
+
+    const agentPickerUsageGaugesByOptionId = React.useMemo(() => {
+        const gauges = new Map<string, NonNullable<typeof providerUsageGauge>>();
+        for (const entry of resolvedBackendEntries) {
+            const gauge = entry.builtInAgentId ? providerUsageGaugesByAgentId?.get(entry.builtInAgentId) : undefined;
+            if (gauge) gauges.set(entry.targetKey, gauge);
+        }
+        // The selected account binding is more precise than the provider-wide default.
+        if (providerUsageGauge) gauges.set(selectedBackendTargetKey, providerUsageGauge);
+        return gauges;
+    }, [providerUsageGauge, providerUsageGaugesByAgentId, resolvedBackendEntries, selectedBackendTargetKey]);
 
     const { preflightModels, preflightModelsTargetKey, modelOptions, probe: modelOptionsProbeState } = useNewSessionPreflightModelsState({
         backendTarget,
@@ -2039,6 +2051,7 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         agentPickerOptions,
         agentPickerSelectedOptionId,
         onAgentPickerSelect: handleAgentPickerSelect,
+        agentPickerUsageGaugesByOptionId,
         selectedBackendEntry,
         modelOptions,
         modelOptionsProbe,
@@ -2140,6 +2153,7 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         agentPickerOptions,
         agentPickerSelectedOptionId,
         onAgentPickerSelect: handleAgentPickerSelect,
+        agentPickerUsageGaugesByOptionId,
         agentPickerProbe: cliAvailabilityProbe,
         permissionMode,
         handlePermissionModeChange,

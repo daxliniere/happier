@@ -115,6 +115,7 @@ export function useNewSessionWizardProps(params: Readonly<{
     setAgentType: (agent: AgentId) => void;
     agentPickerTitle?: NewSessionWizardAgentProps['agentPickerTitle'];
     agentPickerOptions?: NewSessionWizardAgentProps['agentPickerOptions'];
+    agentPickerUsageGaugesByOptionId?: NewSessionWizardAgentProps['agentPickerUsageGaugesByOptionId'];
     agentPickerSelectedOptionId?: NewSessionWizardAgentProps['agentPickerSelectedOptionId'];
     onAgentPickerSelect?: NewSessionWizardAgentProps['onAgentPickerSelect'];
     selectedBackendEntry?: ResolvedBackendCatalogEntry | null;
@@ -368,6 +369,7 @@ export function useNewSessionWizardProps(params: Readonly<{
             setAgentType: params.setAgentType,
             agentPickerTitle: params.agentPickerTitle,
             agentPickerOptions: params.agentPickerOptions,
+            agentPickerUsageGaugesByOptionId: params.agentPickerUsageGaugesByOptionId,
             agentPickerSelectedOptionId: params.agentPickerSelectedOptionId,
             onAgentPickerSelect: params.onAgentPickerSelect,
             selectedBackendEntry: params.selectedBackendEntry,
@@ -397,6 +399,7 @@ export function useNewSessionWizardProps(params: Readonly<{
         params.agentType,
         params.agentLabel,
         params.agentPickerOptions,
+        params.agentPickerUsageGaugesByOptionId,
         params.agentPickerSelectedOptionId,
         params.agentPickerTitle,
         params.favoriteModelSelections,

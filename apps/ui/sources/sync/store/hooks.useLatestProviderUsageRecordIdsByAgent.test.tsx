@@ -3,7 +3,7 @@ import { act } from 'react-test-renderer';
 
 import { createSessionFixture, renderHook, standardCleanup } from '@/dev/testkit';
 
-import { useLatestProviderUsageRecordIdsByAgent } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { storage } from '@/sync/domains/state/storageStore';
 
 afterEach(() => {
@@ -16,6 +16,27 @@ const withUsageRefs = (recordIds: string[]) => ({
 });
 
 describe('useLatestProviderUsageRecordIdsByAgent', () => {
+    it('keeps limit evidence stable through unrelated updates and clears it when the latest session recovers', async () => {
+        const previousState = storage.getState();
+        const issue = {
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: 1_000,
+            usageLimit: { v: 1, resetAtMs: 10_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait' },
+        } as const;
+        const session = createSessionFixture({ id: 'limited', metadata: { flavor: 'claude' } as never, lastRuntimeIssue: issue });
+        try {
+            storage.setState({ isDataReady: true, sessions: { limited: session } });
+            let renders = 0;
+            const hook = await renderHook(() => { renders++; return useLatestProviderUsageRuntimeIssuesByAgent(); });
+            expect(hook.getCurrent().get('claude')).toEqual(issue);
+            const before = renders;
+            await act(async () => storage.setState({ sessions: { limited: { ...session, thinking: true } } }));
+            expect(renders).toBe(before);
+            await act(async () => storage.setState({ sessions: { limited: { ...session, lastRuntimeIssue: undefined } } }));
+            expect(hook.getCurrent().has('claude')).toBe(false);
+            await hook.unmount();
+        } finally { storage.setState(previousState); }
+    });
     it('stays quiet while unrelated session fields change, and updates when the record ids change', async () => {
         const previousState = storage.getState();
         try {

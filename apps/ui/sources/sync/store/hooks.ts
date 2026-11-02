@@ -46,6 +46,8 @@ import {
 import type { ReviewCommentDraft } from '../domains/input/reviewComments/reviewCommentTypes';
 import type { SessionActionDraft } from '../domains/sessionActions/sessionActionDraftTypes';
 import type { AgentId } from '@happier-dev/agents';
+import { resolveAgentIdFromSessionMetadata } from '@happier-dev/agents';
+import type { SessionRuntimeIssueV1 } from '@happier-dev/protocol';
 import {
   parseLatestProviderUsageRecordIds,
   selectLatestProviderUsageRecordIdsByAgent,
@@ -1808,6 +1810,22 @@ export function useLatestProviderUsageRecordIdsByAgent(): ReadonlyMap<AgentId, r
       : ''
   ));
   return React.useMemo(() => parseLatestProviderUsageRecordIds(signature), [signature]);
+}
+
+/** Latest-session limit evidence only; unrelated session updates retain the selected map. */
+export function useLatestProviderUsageRuntimeIssuesByAgent(): ReadonlyMap<AgentId, SessionRuntimeIssueV1> {
+  return getStorage()(useShallow((state) => {
+    const issues = new Map<AgentId, SessionRuntimeIssueV1>();
+    if (!state.isDataReady) return issues;
+    const seen = new Set<AgentId>();
+    for (const session of sortValuesByUpdatedAtDescending(state.sessions)) {
+      const agentId = resolveAgentIdFromSessionMetadata(session.metadata);
+      if (!agentId || seen.has(agentId)) continue;
+      seen.add(agentId);
+      if (session.lastRuntimeIssue?.usageLimit) issues.set(agentId, session.lastRuntimeIssue);
+    }
+    return issues;
+  }));
 }
 
 export function useAllSessionsForAttention(): Session[] {

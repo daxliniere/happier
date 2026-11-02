@@ -134,6 +134,7 @@ export type NewSessionSimplePanelProps = Readonly<{
     setSessionConfigOptionOverride?: (configId: string, value: string) => void;
     connectionStatus: React.ComponentProps<typeof AgentInput>['connectionStatus'];
     providerUsageGauge?: React.ComponentProps<typeof AgentInput>['providerUsageGauge'];
+    agentPickerUsageGaugesByOptionId?: React.ComponentProps<typeof AgentInput>['agentPickerUsageGaugesByOptionId'];
     machineName: string | undefined;
     machinePopover?: React.ComponentProps<typeof AgentInput>['machinePopover'];
     selectedMachineId?: string | null;
@@ -555,6 +556,7 @@ function NewSessionSimplePanelComposer({
                         onSessionConfigOptionChange={props.setSessionConfigOptionOverride}
                         connectionStatus={props.connectionStatus}
                         providerUsageGauge={props.providerUsageGauge}
+                        agentPickerUsageGaugesByOptionId={props.agentPickerUsageGaugesByOptionId}
                         statusBadges={props.statusBadges}
                         statusTrailingActions={props.statusTrailingActions}
                         showStatusPermissionMode={false}

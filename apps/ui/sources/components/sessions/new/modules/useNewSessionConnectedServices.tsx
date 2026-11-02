@@ -11,7 +11,8 @@ import {
 } from '@/sync/domains/connectedServices/resolveConnectedServiceProfileActionRoute';
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
 import { useLatestProviderUsageRecordIdsByAgent, useProfile } from '@/sync/store/hooks';
-import { isAgentId } from '@/agents/catalog/catalog';
+import { isAgentId, type AgentId } from '@/agents/catalog/catalog';
+import { useProviderUsageGauges } from '@/components/sessions/usage/useProviderUsageGauges';
 import type { ConnectedServiceId } from '@happier-dev/agents';
 import type { ConnectedServiceBindingsV1 } from '@happier-dev/protocol';
 
@@ -40,7 +41,10 @@ export type NewSessionConnectedServicesResult = Readonly<{
   connectedServicesAuthChip: AgentInputExtraActionChip | null;
   /** Quota gauge for the connected account the new session will spawn with, when one is selected. */
   providerUsageGauge: ConnectedServiceQuotaGaugeViewModel | null;
+  providerUsageGaugesByAgentId: ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>;
 }>;
+
+const NO_USAGE_AGENTS: readonly AgentId[] = [];
 
 function resolveDefaultAuthWarningLabel(warningCode: ConnectedServicesAuthWarningCode | undefined): string | undefined {
   const key = resolveConnectedServicesAuthWarningTranslationKey(warningCode);
@@ -60,6 +64,7 @@ export function useNewSessionConnectedServices(params: Readonly<{
   agentCore: NewSessionConnectedServicesAgentCore;
   agentOptionState: Record<string, unknown> | null;
   modelId?: string | null;
+  usageAgentIds?: readonly AgentId[];
   settings: {
     connectedServicesProfileLabelByKey: Record<string, string | undefined>;
     connectedServicesDefaultProfileByServiceId: Record<string, string | undefined>;
@@ -283,12 +288,18 @@ export function useNewSessionConnectedServices(params: Readonly<{
   const nativeUsageRecordIds = React.useMemo(() => (
     isAgentId(agentId) ? latestRecordIdsByAgent.get(agentId) ?? [] : []
   ), [agentId, latestRecordIdsByAgent]);
-  const { gauge: providerUsageGauge } = useProviderUsageGauge({
+  const { gauge: providerUsageGauge, windowMode } = useProviderUsageGauge({
     providerId: agentId || null,
     profileRef: providerUsageProfileRef,
     metadataRecordIds: nativeUsageRecordIds,
     modelId: params.modelId ?? null,
   });
+  const { gauges: providerUsageGaugesByAgentId } = useProviderUsageGauges({
+    agentIds: params.usageAgentIds ?? NO_USAGE_AGENTS,
+    accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
+    windowMode,
+    fetchEnabled: true,
+  });
 
-  return { connectedServicesBindingsPayload, connectedServicesAuthChip, providerUsageGauge };
+  return { connectedServicesBindingsPayload, connectedServicesAuthChip, providerUsageGauge, providerUsageGaugesByAgentId };
 }

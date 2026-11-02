@@ -12,6 +12,7 @@ import { useProviderAccountUsageSnapshots } from '@/hooks/server/connectedServic
 import { selectProviderUsageDisplaySnapshot } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
+    selectConnectedServiceSessionProviderUsageGaugeSource,
     type ConnectedServiceQuotaGaugeViewModel,
     type ConnectedServiceQuotaGaugeWindowMode,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
@@ -19,7 +20,7 @@ import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/con
 import { resolveConnectedServiceCredentialHealthStatus } from '@/sync/domains/connectedServices/resolveConnectedServiceCredentialHealthStatus';
 import { nowServerMs } from '@/sync/runtime/time';
 import { useSetting } from '@/sync/domains/state/storage';
-import { useLatestProviderUsageRecordIdsByAgent } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
 
@@ -69,6 +70,7 @@ export function useProviderUsageGauges(params: Readonly<{
 
     // The most recent session per Agent that recorded usage refs speaks for that Agent's login.
     const latestRecordIdsByAgent = useLatestProviderUsageRecordIdsByAgent();
+    const latestRuntimeIssuesByAgent = useLatestProviderUsageRuntimeIssuesByAgent();
     const recordIdsByAgentId = React.useMemo(() => {
         const wanted = new Set<string>(params.agentIds);
         return new Map([...latestRecordIdsByAgent].filter(([agentId]) => wanted.has(agentId)));
@@ -100,9 +102,18 @@ export function useProviderUsageGauges(params: Readonly<{
                 connectedServiceProfileRef: ref ? { ...ref, provenance: 'published_quota_ref' } : null,
                 connectedServiceQuotaView: ref ? quotaSnapshots.snapshotsByKey[connectedServiceProfileKey(ref)] ?? null : null,
             });
-            if (!source) continue;
+            // A native CLI may publish a limit-hit issue before it has an account snapshot.
+            // Explicit connected profiles must never borrow a different login's runtime evidence.
+            const gaugeSource = selectConnectedServiceSessionProviderUsageGaugeSource({
+                providerId: agentId,
+                connectedServiceSnapshot: source?.snapshot ?? null,
+                connectedServiceRefProvenance: source?.connectedServiceRefProvenance,
+                runtimeIssue: ref ? null : latestRuntimeIssuesByAgent.get(agentId),
+                nowMs,
+            });
+            if (!gaugeSource) continue;
             const gauge = computeConnectedServiceQuotaGaugeViewModel({
-                snapshot: source.snapshot,
+                snapshot: gaugeSource.snapshot,
                 windowMode: params.windowMode,
                 windowModes,
                 nowMs,
@@ -111,9 +122,9 @@ export function useProviderUsageGauges(params: Readonly<{
             if (gauge) gauges.set(agentId, gauge);
         }
         return gauges;
-    }, [accountUsageSnapshots, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId]);
+    }, [accountUsageSnapshots, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
     const configuredAgentIds = React.useMemo(() => new Set(
-        params.agentIds.filter((agentId) => profileRefByAgentId.has(agentId) || recordIdsByAgentId.has(agentId)),
-    ), [params.agentIds, profileRefByAgentId, recordIdsByAgentId]);
+        params.agentIds.filter((agentId) => profileRefByAgentId.has(agentId) || recordIdsByAgentId.has(agentId) || latestRuntimeIssuesByAgent.has(agentId)),
+    ), [params.agentIds, profileRefByAgentId, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
     return React.useMemo(() => ({ gauges, configuredAgentIds, refreshAgent }), [gauges, configuredAgentIds, refreshAgent]);
 }

@@ -5,6 +5,8 @@ import type { ConnectedServicesDefaultAuthByAgentIdV1 } from '@happier-dev/proto
 import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installNewSessionModulesCommonModuleMocks } from './newSessionModulesTestHelpers';
+import { __resetConnectedServiceQuotaSnapshotStore } from '@/sync/domains/connectedServices/connectedServiceQuotaSnapshotStore';
+import { useNewSessionConnectedServices } from './useNewSessionConnectedServices';
 
 (
     globalThis as typeof globalThis & {
@@ -135,7 +137,6 @@ function requireCollapsedContentPopover(chip: AgentInputExtraActionChip | null) 
 
 describe('useNewSessionConnectedServices', () => {
     beforeEach(async () => {
-        const { __resetConnectedServiceQuotaSnapshotStore } = await import('@/sync/domains/connectedServices/connectedServiceQuotaSnapshotStore');
         __resetConnectedServiceQuotaSnapshotStore();
         modalShowMock.mockReset();
         useFeatureEnabledMock.mockReset();
@@ -330,6 +331,7 @@ describe('useNewSessionConnectedServices', () => {
     });
 
     it('uses the latest native login usage before the new session exists', async () => {
+        profileState.current = { connectedServicesV2: [] };
         const { buildProviderAccountUsageRecordId, ProviderAccountUsageSnapshotV1Schema } = await import('@happier-dev/protocol');
         const { writeProviderAccountUsageSnapshotToCache } = await import('@/sync/domains/connectedServices/accountUsage/cache');
         const { resolveAuthCredentialsScopeKey } = await import('@/auth/storage/resolveAuthCredentialsScopeKey');
@@ -354,10 +356,20 @@ describe('useNewSessionConnectedServices', () => {
             path: '/repo', host: 'test', flavor: 'codex',
             providerAccountUsageRefsV1: { v: 1, recordIds: [recordId], updatedAtMs: Date.now() },
         } });
-        storage.setState({ sessions: { [session.id]: session }, isDataReady: true });
+        const exhaustedClaude = createSessionFixture({
+            id: 'exhausted-claude', metadata: { path: '/repo', host: 'test', flavor: 'claude' },
+            lastRuntimeIssue: {
+                v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+                provider: 'claude', occurredAt: Date.now(),
+                usageLimit: { v: 1, resetAtMs: Date.now() + 3_600_000, retryAfterMs: null,
+                    quotaScope: 'account', recoverability: 'wait', limitCategory: 'usage_limit' },
+            },
+        });
+        storage.setState({ sessions: { [session.id]: session, [exhaustedClaude.id]: exhaustedClaude }, isDataReady: true });
         const { useNewSessionConnectedServices } = await import('./useNewSessionConnectedServices');
         const hook = await renderHook(() => useNewSessionConnectedServices({
             agentCore: { id: 'codex', connectedServices: { supportedServiceIds: ['openai-codex'] } },
+            usageAgentIds: ['claude', 'codex'],
             agentOptionState: null,
             settings: { connectedServicesProfileLabelByKey: {}, connectedServicesDefaultProfileByServiceId: {} },
             targetServerId: null, router: { push: vi.fn() }, setAgentOptionStateForCurrentAgent: vi.fn(),
@@ -365,6 +377,10 @@ describe('useNewSessionConnectedServices', () => {
         try {
             await flushHookEffects({ cycles: 5, turns: 5 });
             expect(hook.getCurrent().providerUsageGauge?.remainingPct).toBe(60);
+            // The picker must include every provider, including a native account with only limit-hit evidence.
+            expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('codex')?.remainingPct).toBe(60);
+            expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.remainingPct).toBe(0);
+            expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.tone).toBe('critical');
         } finally {
             await hook.unmount();
             storage.setState({ sessions: previousSessions, isDataReady: previousReady });
