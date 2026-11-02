@@ -8515,6 +8515,8 @@ settingsSession: {
         freshSubtitle: 'Abra um novo rascunho sempre que escolher Nova sessão.',
     },
 	      sessionList: {
+              directDeleteTitle: 'Excluir no menu da sessão',
+              directDeleteSubtitle: 'Mostrar Excluir no menu da sessão. A confirmação é sempre necessária.',
 	          title: 'Lista de sessões',
 	          footer: 'Personalize o que aparece em cada linha de sessão.',
 	          tagsTitle: 'Tags da sessão',

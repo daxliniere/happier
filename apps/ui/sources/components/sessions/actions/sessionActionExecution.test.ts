@@ -30,7 +30,7 @@ import {
     SESSION_ACTION_STOP_ID,
     SESSION_ACTION_UNARCHIVE_ID,
 } from './sessionActionIds';
-import { executeSessionAction } from './sessionActionExecution';
+import { executeSessionAction, executeDirectSessionDelete } from './sessionActionExecution';
 import { executeSessionBulkAction, SESSION_BULK_ACTION_IDS } from './sessionBulkActionExecution';
 import { isSessionArchivePending, stopSessionAndMaybeArchive } from '../sessionStopArchiveFlow';
 import { createDeferred } from '@/dev/testkit';
@@ -72,6 +72,40 @@ function createTarget(overrides: Partial<SessionListRenderableSession> = {}) {
 describe('delete eligibility at execution', () => {
     afterEach(() => {
         vi.restoreAllMocks();
+    });
+
+    it('stops an active owned session before deleting it, and does nothing if confirmation is cancelled', async () => {
+        const serverId = getActiveServerSnapshot().serverId;
+        const session = createSessionFixture({ id: 'direct-delete', active: true, presence: 1, serverId });
+        storage.setState({ sessions: { [session.id]: session }, sessionListRenderables: {} });
+        const target = createSessionActionTarget({ session, serverId, isConnected: true });
+        const stopSession = vi.fn(async () => {
+            storage.setState({ sessions: { [session.id]: { ...session, active: false, presence: 0 } }, sessionListRenderables: {} });
+            return { success: true };
+        });
+        const deleteSession = vi.fn(async () => ({ success: true }));
+        vi.mocked(Modal.confirm).mockResolvedValueOnce(false);
+        await executeDirectSessionDelete({ target, sessionName: 'Example', context: { operations: { stopSession, deleteSession } } });
+        expect(Modal.confirm).toHaveBeenCalledWith(t('sessionInfo.deleteSession'), expect.stringContaining('Example'), expect.objectContaining({ destructive: true }));
+        expect(stopSession).not.toHaveBeenCalled();
+        expect(deleteSession).not.toHaveBeenCalled();
+        vi.mocked(Modal.confirm).mockResolvedValueOnce(true);
+        await executeDirectSessionDelete({ target, sessionName: 'Example', context: { operations: { stopSession, deleteSession } } });
+        expect(stopSession).toHaveBeenCalledBefore(deleteSession);
+        expect(deleteSession).toHaveBeenCalledWith(session.id, { serverId });
+    });
+
+    it('does not delete when stopping the session fails', async () => {
+        const serverId = getActiveServerSnapshot().serverId;
+        const session = createSessionFixture({ id: 'direct-delete-stop-fails', active: true, serverId });
+        storage.setState({ sessions: { [session.id]: session }, sessionListRenderables: {} });
+        const target = createSessionActionTarget({ session, serverId, isConnected: true });
+        const deleteSession = vi.fn(async () => ({ success: true }));
+        vi.mocked(Modal.confirm).mockResolvedValueOnce(true);
+        await expect(executeDirectSessionDelete({ target, sessionName: 'Example', context: { operations: {
+            stopSession: async () => ({ success: false, message: 'stop failed' }), deleteSession,
+        } } })).rejects.toMatchObject({ message: 'stop failed' });
+        expect(deleteSession).not.toHaveBeenCalled();
     });
 
     it.each(['active', 'preserved-terminal'] as const)('rejects a stale target after the session becomes %s', async (state) => {

@@ -51,9 +51,10 @@ import { getActiveServerSnapshot } from '@/sync/domains/server/serverRuntime';
 import { getSessionStatus } from '@/utils/sessions/sessionUtils';
 import { nowServerMs } from '@/sync/runtime/time';
 import { createSessionActionTarget } from './sessionActionContext';
+import { withSessionArchiveDeadline } from '@/sync/ops/sessionArchiveLifecycle';
+import { delay } from '@/utils/timing/time';
 
-function canDeleteCurrentSession(target: SessionActionTarget): boolean {
-    if (!target.canDelete) return false;
+function readCurrentSessionActionTarget(target: SessionActionTarget): SessionActionTarget | null {
     const state = storage.getState();
     const serverId = resolveSessionArchiveServerId(target.serverId);
     const localSession = areServerProfileIdentifiersEquivalent(serverId, getActiveServerSnapshot().serverId)
@@ -64,7 +65,7 @@ function canDeleteCurrentSession(target: SessionActionTarget): boolean {
         ? state.sessionListViewDataByServerId[cacheServerId]?.find((row) => row.type === 'session' && row.session.id === target.sessionId)
         : undefined;
     const session = localSession ?? (cachedRow?.type === 'session' ? cachedRow.session : undefined);
-    if (!session) return false;
+    if (!session) return null;
 
     // The target captures the owning Account; another Home's active profile must not replace it.
     return createSessionActionTarget({
@@ -72,7 +73,11 @@ function canDeleteCurrentSession(target: SessionActionTarget): boolean {
         serverId,
         currentUserId: target.isOwnedByCurrentUser ? target.session.owner : null,
         isConnected: getSessionStatus(session, nowServerMs()).isConnected,
-    }).canDelete;
+    });
+}
+
+function canDeleteCurrentSession(target: SessionActionTarget): boolean {
+    return target.canDelete && readCurrentSessionActionTarget(target)?.canDelete === true;
 }
 
 function resolveStopArchiveFlow(context: SessionActionExecutionContext | undefined) {
@@ -163,6 +168,39 @@ export async function confirmSessionStop(): Promise<boolean> {
         confirmText: t('sessionInfo.stopSession'),
         destructive: true,
     });
+}
+
+/** Confirm once, stop if needed, and retain the normal current-state deletion guard. */
+export async function executeDirectSessionDelete(params: Readonly<{
+    target: SessionActionTarget;
+    sessionName: string;
+    context?: SessionActionExecutionContext;
+}>): Promise<void | false> {
+    if (!params.target.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+    const confirmed = await Modal.confirm(
+        t('sessionInfo.deleteSession'),
+        `${params.sessionName}\n\n${t('sessionInfo.deleteSessionWarning')}`,
+        { cancelText: t('common.cancel'), confirmText: t('sessionInfo.deleteSession'), destructive: true },
+    );
+    if (!confirmed) return false;
+    let current = readCurrentSessionActionTarget(params.target);
+    if (!current?.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+    if (!current.canDelete) {
+        const result = await resolveStopSession(params.context)(current.sessionId, { serverId: current.serverId });
+        if (!result.success && !(result.code === 'session_stop_requested' && result.recovery === 'wait_for_inactive')) {
+            throw new HappyError(result.message || t('sessionInfo.failedToStopSession'), false);
+        }
+        current = await withSessionArchiveDeadline(async ({ deadlineMs, signal }) => {
+            let latest = readCurrentSessionActionTarget(params.target);
+            while (latest?.isOwnedByCurrentUser && !latest.canDelete && !signal.aborted && Date.now() < deadlineMs) {
+                await delay(Math.min(200, Math.max(0, deadlineMs - Date.now())));
+                latest = readCurrentSessionActionTarget(params.target);
+            }
+            return latest;
+        });
+    }
+    if (!current?.canDelete) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+    return await executeSessionAction({ actionId: SESSION_ACTION_DELETE_ID, target: current, context: params.context });
 }
 
 async function executeArchiveAction(target: SessionActionTarget, context?: SessionActionExecutionContext): Promise<void | false> {
