@@ -6260,6 +6260,9 @@ localTailscale: {
           tabMenu: {
               openInNewWindow: "新しいウィンドウで開く",
               openWithDefaultApp: "アプリで開く…",
+              setupRequiredTitle: "「アプリで開く…」の設定",
+              setupRequiredMessage: "このファイルを別のアプリで開くには、まず共有フォルダーを追加して、このコンピューターからセッションのファイルにアクセスできるようにしてください。",
+              openSettings: "設定を開く",
               revealInFileManager: "ファイルの場所を開く",
               actionFailedTitle: "ファイルを開けませんでした",
           },

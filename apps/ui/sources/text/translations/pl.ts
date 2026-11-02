@@ -6009,6 +6009,9 @@ export const pl: TranslationStructure = {
           tabMenu: {
               openInNewWindow: "Otwórz w nowym oknie",
               openWithDefaultApp: "Otwórz w…",
+              setupRequiredTitle: "Skonfiguruj Otwórz w…",
+              setupRequiredMessage: "Aby otworzyć ten plik w innej aplikacji, najpierw dodaj folder udostępniony, aby ten komputer mógł uzyskać dostęp do plików sesji.",
+              openSettings: "Otwórz ustawienia",
               revealInFileManager: "Otwórz lokalizację pliku",
               actionFailedTitle: "Nie udało się otworzyć pliku",
           },

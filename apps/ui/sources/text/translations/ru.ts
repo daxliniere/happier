@@ -6546,6 +6546,9 @@ export const ru: TranslationStructure = {
           tabMenu: {
               openInNewWindow: "Открыть в новом окне",
               openWithDefaultApp: "Открыть в…",
+              setupRequiredTitle: "Настроить «Открыть в…»",
+              setupRequiredMessage: "Чтобы открыть этот файл в другом приложении, сначала добавьте общую папку, чтобы этот компьютер мог получить доступ к файлам сеанса.",
+              openSettings: "Открыть настройки",
               revealInFileManager: "Открыть расположение файла",
               actionFailedTitle: "Не удалось открыть файл",
           },

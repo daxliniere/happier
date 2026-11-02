@@ -5985,6 +5985,9 @@ export const es: TranslationStructure = {
                 tabMenu: {
                     openInNewWindow: "Abrir en una ventana nueva",
                     openWithDefaultApp: "Abrir con…",
+                    setupRequiredTitle: "Configurar Abrir con…",
+                    setupRequiredMessage: "Para abrir este archivo en otra aplicación, primero añade una carpeta compartida para que este equipo pueda acceder a los archivos de la sesión.",
+                    openSettings: "Abrir ajustes",
                     revealInFileManager: "Abrir ubicación del archivo",
                     actionFailedTitle: "No se pudo abrir el archivo",
                 },

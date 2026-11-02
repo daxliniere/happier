@@ -5633,6 +5633,9 @@ export const fr: TranslationStructure = {
             tabMenu: {
                 openInNewWindow: "Ouvrir dans une nouvelle fenêtre",
                 openWithDefaultApp: "Ouvrir avec…",
+                setupRequiredTitle: "Configurer Ouvrir avec…",
+                setupRequiredMessage: "Pour ouvrir ce fichier dans une autre application, ajoutez d’abord un dossier partagé afin que cet ordinateur puisse accéder aux fichiers de la session.",
+                openSettings: "Ouvrir les paramètres",
                 revealInFileManager: "Ouvrir l’emplacement du fichier",
                 actionFailedTitle: "Impossible d’ouvrir le fichier",
             },
