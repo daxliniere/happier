@@ -5798,6 +5798,9 @@ export const zhHans: TranslationStructure = {
       tabMenu: {
           openInNewWindow: "在新窗口中打开",
           openWithDefaultApp: "打开方式…",
+          setupRequiredTitle: "设置“打开方式…”",
+          setupRequiredMessage: "要在其他应用中打开此文件，请先添加共享文件夹，以便此计算机访问会话的文件。",
+          openSettings: "打开设置",
           revealInFileManager: "打开文件所在位置",
           actionFailedTitle: "无法打开文件",
       },

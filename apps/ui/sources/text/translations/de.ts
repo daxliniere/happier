@@ -5644,6 +5644,9 @@ export const de: TranslationStructure = {
             tabMenu: {
                 openInNewWindow: "In neuem Fenster öffnen",
                 openWithDefaultApp: "Öffnen in…",
+                setupRequiredTitle: "Öffnen mit… einrichten",
+                setupRequiredMessage: "Füge zuerst einen freigegebenen Ordner hinzu, damit dieser Computer auf die Dateien der Sitzung zugreifen und diese in einer anderen App öffnen kann.",
+                openSettings: "Einstellungen öffnen",
                 revealInFileManager: "Dateispeicherort öffnen",
                 actionFailedTitle: "Die Datei konnte nicht geöffnet werden",
             },

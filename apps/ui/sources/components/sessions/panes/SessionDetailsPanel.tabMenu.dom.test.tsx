@@ -9,7 +9,22 @@ import { installSessionDetailsPanelCommonModuleMocks } from './sessionDetailsPan
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
+const setupPrompt = vi.hoisted(() => ({
+    mappings: [{ remotePath: '/srv/work', localPath: '/mapped' }],
+    confirm: vi.fn(async () => false),
+    push: vi.fn(),
+}));
+
+vi.mock('@/modal', async () => {
+    const { createModalModuleMock } = await import('@/dev/testkit/mocks/modal');
+    return createModalModuleMock({ spies: { confirm: setupPrompt.confirm } }).module;
+});
+
 installSessionDetailsPanelCommonModuleMocks({
+    router: async () => {
+        const { createExpoRouterMock } = await import('@/dev/testkit/mocks/router');
+        return createExpoRouterMock({ router: { push: setupPrompt.push } }).module;
+    },
     reactNative: async () => await import('react-native-web'),
     unistyles: async () => {
         const { createUnistylesMock } = await import('@/dev/testkit/mocks/unistyles');
@@ -23,7 +38,7 @@ installSessionDetailsPanelCommonModuleMocks({
         const { createStorageModuleStub } = await import('@/dev/testkit/mocks/storage');
         return createStorageModuleStub({
             useLocalSetting: (key: string) => key === 'desktopPathMappingsV1'
-                ? [{ remotePath: '/srv/work', localPath: '/mapped' }]
+                ? setupPrompt.mappings
                 : key === 'uiFontScale' ? 1 : null,
             useLocalSettingMutable: () => [false, vi.fn()],
             useSessionMachineId: () => 'machine-1',
@@ -112,6 +127,9 @@ describe('SessionDetailsPanel browser context menu', { timeout: 180_000 }, () =>
     let container: HTMLDivElement;
     let root: Root;
     beforeEach(() => {
+        setupPrompt.mappings = [{ remotePath: '/srv/work', localPath: '/mapped' }];
+        setupPrompt.confirm.mockReset().mockResolvedValue(false);
+        setupPrompt.push.mockReset();
         container = document.createElement('div');
         document.body.appendChild(container);
         root = createRoot(container);
@@ -165,6 +183,33 @@ describe('SessionDetailsPanel browser context menu', { timeout: 180_000 }, () =>
                 expect(call![1]).toEqual({ path: '/mapped/app/docs/notes.md' });
             }
         }
+    });
+
+    it.each([false, true])('offers setup for an unmapped file and respects settings choice %s', async (confirmed) => {
+        setupPrompt.mappings = [];
+        setupPrompt.confirm.mockResolvedValue(confirmed);
+        const invoke = vi.fn();
+        vi.stubGlobal('__TAURI_INTERNALS__', { invoke });
+        await renderPanel(root);
+        await openMenu(fileLabel(container), 'mouse');
+        const action = Array.from(document.querySelectorAll('[role="button"],[role="menuitem"]')).find(
+            (node) => node.textContent === 'session.detailsPanel.tabMenu.openWithDefaultApp',
+        );
+        expect(action).toBeDefined();
+        await act(async () => {
+            action!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        });
+        await act(async () => {
+            await vi.waitFor(() => expect(setupPrompt.confirm).toHaveBeenCalled());
+        });
+        expect(setupPrompt.confirm).toHaveBeenCalledWith(
+            'session.detailsPanel.tabMenu.setupRequiredTitle',
+            'session.detailsPanel.tabMenu.setupRequiredMessage',
+            { confirmText: 'session.detailsPanel.tabMenu.openSettings', cancelText: 'common.cancel' },
+        );
+        if (confirmed) expect(setupPrompt.push).toHaveBeenCalledWith('/settings/file-opening');
+        else expect(setupPrompt.push).not.toHaveBeenCalled();
+        expect(invoke).not.toHaveBeenCalled();
     });
 
 });

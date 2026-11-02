@@ -5644,6 +5644,9 @@ deps: {
                         tabMenu: {
                             openInNewWindow: "Obre en una finestra nova",
                             openWithDefaultApp: "Obre amb…",
+                            setupRequiredTitle: "Configura Obre amb…",
+                            setupRequiredMessage: "Per obrir aquest fitxer en una altra aplicació, primer afegeix una carpeta compartida perquè aquest ordinador pugui accedir als fitxers de la sessió.",
+                            openSettings: "Obre la configuració",
                             revealInFileManager: "Obre la ubicació del fitxer",
                             actionFailedTitle: "No s’ha pogut obrir el fitxer",
                         },

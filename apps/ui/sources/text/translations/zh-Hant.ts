@@ -5284,6 +5284,9 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
                 tabMenu: {
                     openInNewWindow: "在新視窗中開啟",
                     openWithDefaultApp: "開啟方式…",
+                    setupRequiredTitle: "設定「開啟方式…」",
+                    setupRequiredMessage: "若要在其他應用程式中開啟此檔案，請先新增共用資料夾，讓此電腦能存取工作階段的檔案。",
+                    openSettings: "開啟設定",
                     revealInFileManager: "開啟檔案位置",
                     actionFailedTitle: "無法開啟檔案",
                 },

@@ -4,10 +4,16 @@ import { useUnistyles } from 'react-native-unistyles';
 import { Icon } from '@/components/ui/icons/Icon';
 import { Item } from '@/components/ui/lists/Item';
 import { ItemGroup } from '@/components/ui/lists/ItemGroup';
+import { ItemList } from '@/components/ui/lists/ItemList';
 import { Modal } from '@/modal';
 import type { DesktopPathMapping } from '@/sync/domains/files/localFilePath';
 import { useLocalSettingMutable } from '@/sync/domains/state/storage';
 import { t } from '@/text';
+
+/** Direct destination for file actions that need a shared-folder mapping. */
+export function DesktopPathMappingsSettingsView() {
+    return <ItemList><DesktopPathMappingsSettings /></ItemList>;
+}
 
 /**
  * Shared folders that let "Open in…" and "Open file location" reach files of sessions running on

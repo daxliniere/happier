@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useUnistyles } from 'react-native-unistyles';
+import { useRouter } from 'expo-router';
 
 import { ContextMenu, type ContextMenuItem } from '@/components/ui/forms/dropdown/ContextMenu';
 import { Icon } from '@/components/ui/icons/Icon';
@@ -12,6 +13,7 @@ import { canOpenSessionFileWindow, openSessionFileWindow } from '@/components/se
 import { Modal } from '@/modal';
 import { useWorkspaceScopeForSession } from '@/sync/domains/session/resolveWorkspaceScopeForSession';
 import { t } from '@/text';
+import { isTauriDesktop } from '@/utils/platform/tauri';
 
 export type SessionDetailsTabMenuTab = Readonly<{
     key: string;
@@ -34,6 +36,8 @@ export function SessionDetailsTabMenu(props: Readonly<{
     onCloseTab: (tabKey: string) => void;
 }>) {
     const { theme } = useUnistyles();
+    const router = useRouter();
+    const desktop = isTauriDesktop();
     const { sessionId, tab, onClose, onCloseTab } = props;
     const serverId = useWorkspaceScopeForSession(sessionId)?.serverId ?? null;
     const localFilePath = useSessionLocalFilePath(sessionId, tab.filePath ?? '');
@@ -49,12 +53,14 @@ export function SessionDetailsTabMenu(props: Readonly<{
                 icon: <Icon name="arrow-square-out" size={16} color={iconColor} />,
             });
         }
-        if (localPath) {
+        if (tab.filePath && desktop) {
             next.push({
                 id: 'openWithDefaultApp',
                 title: t('session.detailsPanel.tabMenu.openWithDefaultApp'),
                 icon: <Icon name="file-arrow-up" size={16} color={iconColor} />,
             });
+        }
+        if (localPath) {
             next.push({
                 id: 'revealInFileManager',
                 title: t('session.detailsPanel.tabMenu.revealInFileManager'),
@@ -67,7 +73,7 @@ export function SessionDetailsTabMenu(props: Readonly<{
             icon: <Icon name="x" size={16} color={iconColor} />,
         });
         return next;
-    }, [iconColor, localPath, tab.filePath]);
+    }, [desktop, iconColor, localPath, tab.filePath]);
 
     const handleSelect = React.useCallback((itemId: string) => {
         onClose();
@@ -77,7 +83,19 @@ export function SessionDetailsTabMenu(props: Readonly<{
                     if (tab.filePath) await openSessionFileWindow({ sessionId, serverId, path: tab.filePath }, tab.title);
                     return;
                 case 'openWithDefaultApp':
-                    if (localPath) await openLocalFileWithDefaultApp(localPath);
+                    if (localPath) {
+                        await openLocalFileWithDefaultApp(localPath);
+                    } else if (tab.filePath && desktop) {
+                        const confirmed = await Modal.confirm(
+                            t('session.detailsPanel.tabMenu.setupRequiredTitle'),
+                            t('session.detailsPanel.tabMenu.setupRequiredMessage'),
+                            {
+                                confirmText: t('session.detailsPanel.tabMenu.openSettings'),
+                                cancelText: t('common.cancel'),
+                            },
+                        );
+                        if (confirmed) router.push('/settings/file-opening');
+                    }
                     return;
                 case 'revealInFileManager':
                     if (localPath) await revealLocalFileInFileManager(localPath);
@@ -93,7 +111,7 @@ export function SessionDetailsTabMenu(props: Readonly<{
                 error instanceof Error ? error.message : String(error),
             );
         });
-    }, [localPath, onClose, onCloseTab, serverId, sessionId, tab.filePath, tab.key, tab.title]);
+    }, [desktop, localPath, onClose, onCloseTab, router, serverId, sessionId, tab.filePath, tab.key, tab.title]);
 
     return (
         <ContextMenu

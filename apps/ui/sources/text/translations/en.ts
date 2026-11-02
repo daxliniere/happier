@@ -5665,6 +5665,9 @@ export const en = {
             tabMenu: {
                 openInNewWindow: "Open in new window",
                 openWithDefaultApp: "Open in…",
+                setupRequiredTitle: "Set up Open in…",
+                setupRequiredMessage: "To open this file in another app, first add a shared folder so this computer can reach the session’s files.",
+                openSettings: "Open settings",
                 revealInFileManager: "Open file location",
                 actionFailedTitle: "Couldn’t open the file",
             },
