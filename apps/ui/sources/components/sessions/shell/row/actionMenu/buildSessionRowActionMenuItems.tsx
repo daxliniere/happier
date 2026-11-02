@@ -110,6 +110,7 @@ export function buildSessionRowMoreMenuItems(params: SessionRowMoreMenuBuildPara
     for (const actionId of listVisibleSessionActionIds({
         target: params.target,
         surface: 'rowMenu',
+        directDeleteEnabled: params.directDeleteEnabled,
         sessionAppearancesSupported: params.appearance != null,
     })) {
         if (actionId === SESSION_ACTION_SET_APPEARANCE_COLOR_ID) {

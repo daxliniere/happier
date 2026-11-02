@@ -9,6 +9,7 @@ export type SessionRowMoreMenuBuildParams = Readonly<{
     iconColor: string;
     leadingItems?: readonly DropdownMenuItem[];
     canMoveToFolder?: boolean;
+    directDeleteEnabled?: boolean;
     reminderPresets?: readonly SessionReminderPresetV1[];
     reminder?: SessionReminderPresentation | null;
     reminderNowMs?: number;

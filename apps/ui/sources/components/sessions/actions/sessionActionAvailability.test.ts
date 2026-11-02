@@ -43,6 +43,15 @@ function createOwnedRawSession(overrides: Partial<Session> = {}): Session {
 }
 
 describe('session action availability', () => {
+    it('offers direct deletion in row menus only when enabled and owned', () => {
+        const owned = createSessionActionTarget({ session: createOwnedRawSession({ active: true }), currentUserId: 'current_user' });
+        const shared = createSessionActionTarget({ session: createOwnedRawSession({ owner: 'other_user', accessLevel: 'admin' }), currentUserId: 'current_user' });
+        for (const surface of ['rowMenu', 'nativeContextMenu'] as const) {
+            expect(listVisibleSessionActionIds({ target: owned, surface })).not.toContain(SESSION_ACTION_DELETE_ID);
+            expect(listVisibleSessionActionIds({ target: owned, surface, directDeleteEnabled: true })).toContain(SESSION_ACTION_DELETE_ID);
+            expect(listVisibleSessionActionIds({ target: shared, surface, directDeleteEnabled: true })).not.toContain(SESSION_ACTION_DELETE_ID);
+        }
+    });
     it.each(['rowMenu', 'nativeContextMenu'] as const)('offers folder assignment for direct sessions on %s', (surface) => {
         const session: SessionListRenderableSession = {
             ...createOwnedRawSession(),

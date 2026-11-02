@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { MeterBar, type MeterTone } from '@/components/ui/lists/MeterBar';
 import { Text } from '@/components/ui/text/Text';
-import { TokenUsageRing, type TokenUsageTone } from '@/components/sessions/usage';
+import { ProviderUsageRing } from '@/components/sessions/usage/ProviderUsageRing';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import type {
@@ -133,12 +133,6 @@ function areProviderUsageBadgePropsEqual(
         && areProviderUsageViewModelsEqual(left.viewModel, right.viewModel);
 }
 
-function mapQuotaToneToTokenTone(tone: ConnectedServiceQuotaGaugeViewModel['tone']): TokenUsageTone {
-    if (tone === 'critical') return 'critical';
-    if (tone === 'warning') return 'warning';
-    return 'neutral';
-}
-
 function mapGaugeToneToMeterTone(tone: ConnectedServiceQuotaGaugeViewModel['tone']): MeterTone {
     if (tone === 'critical') return 'danger';
     if (tone === 'warning') return 'warning';
@@ -194,32 +188,23 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                     ];
                 }}
             >
-                {rings.map((ring, index) => {
-                    const testIdSuffix = index === 0 ? '' : `:${ring.meterId}`;
-                    return (
-                        <View key={ring.meterId} style={styles.windowRing}>
-                            {props.showLabels === true || rings.length > 1 ? (
-                                <Text
-                                    testID={`agent-input-provider-usage-meter-label${testIdSuffix}`}
-                                    style={styles.windowLabel}
-                                    numberOfLines={1}
-                                >
-                                    {ring.label}
-                                </Text>
-                            ) : null}
-                            <TokenUsageRing
-                                used={ring.remainingPct ?? 100 - ring.usedPct}
-                                limit={100}
-                                label={rings.length === 1 ? accessibilityLabel : ringAccessibilityValues[index]}
-                                value={ring.ringValueLabel}
-                                tone={mapQuotaToneToTokenTone(ring.tone)}
-                                remainingPct={100 - ring.usedPct}
-                                ringTestID={`agent-input-provider-usage-ring${testIdSuffix}`}
-                                valueTestID={`agent-input-provider-usage-value${testIdSuffix}`}
-                            />
-                        </View>
-                    );
-                })}
+                <View style={styles.windowRing}>
+                    {props.showLabels === true ? (
+                        <Text
+                            testID="agent-input-provider-usage-meter-label"
+                            style={styles.windowLabel}
+                            numberOfLines={1}
+                        >
+                            {rings.map((ring) => ring.label).join(' / ')}
+                        </Text>
+                    ) : null}
+                    <ProviderUsageRing
+                        gauge={props.viewModel}
+                        size={20}
+                        ringTestID="agent-input-provider-usage-ring"
+                        valueTestID="agent-input-provider-usage-value"
+                    />
+                </View>
             </Pressable>
             </View>
 

@@ -97,7 +97,7 @@ describe('AgentInputProviderUsageBadge', () => {
         expect(screen.findByTestId('agent-input-provider-usage-meter:reached')).toBeTruthy();
         expect(screen.findByTestId('agent-input-provider-usage-meter-bar:reached')).toBeNull();
     });
-    it('renders each selected global window with its own remaining-first ring and accessible name', async () => {
+    it('nests selected global windows in one remaining-first gauge with both accessible names', async () => {
         const vm = computeConnectedServiceQuotaGaugeViewModel({
             snapshot: {
                 v: 1, serviceId: 'openai-codex', profileId: 'work', fetchedAt: 1_000, staleAfterMs: 60_000,
@@ -115,17 +115,21 @@ describe('AgentInputProviderUsageBadge', () => {
         const screen = await renderScreen(<AgentInputProviderUsageBadge viewModel={vm} />);
 
         expect(screen.findByTestId('agent-input-provider-usage-value')?.props.children).toBe('18');
-        const progress = screen.findByTestId('agent-input-provider-usage-ring')?.findAll((node) => String(node.type) === 'Circle' && typeof node.props.strokeDashoffset === 'number')[0];
-        expect(progress?.props.strokeDashoffset).toBeCloseTo(2 * Math.PI * 9 * 0.82);
-        expect(screen.findByTestId('agent-input-provider-usage-value:daily')?.props.children).toBe('70');
+        const progress = screen.findByTestId('agent-input-provider-usage-ring')?.findAll((node) => String(node.type) === 'Circle' && typeof node.props.strokeDashoffset === 'number') ?? [];
+        expect(progress).toHaveLength(2);
+        expect(progress[0].props.r).toBeGreaterThan(progress[1].props.r);
+        expect(progress[0].props.cx).toBe(progress[1].props.cx);
+        expect(progress[0].props.cy).toBe(progress[1].props.cy);
+        expect(progress[0].props.strokeDashoffset / (2 * Math.PI * progress[0].props.r)).toBeCloseTo(0.82);
+        expect(progress[1].props.strokeDashoffset / (2 * Math.PI * progress[1].props.r)).toBeCloseTo(0.30);
         const imageLabels = screen.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'image')
             .map((node) => node.props.accessibilityLabel);
-        expect(imageLabels).toEqual(['Weekly 18% left', 'Daily 70% left']);
+        expect(imageLabels).toHaveLength(1);
+        expect(imageLabels[0]).toContain('Weekly 18% left');
+        expect(imageLabels[0]).toContain('Daily 70% left');
         const aggregate = String(screen.findByTestId('agent-input-provider-usage-badge')?.props.accessibilityLabel);
         expect(aggregate).toContain('Weekly 18% left');
         expect(aggregate).toContain('Daily 70% left');
-        expect(screen.findByTestId('agent-input-provider-usage-meter-label')?.props.children).toBe('Weekly');
-        expect(screen.findByTestId('agent-input-provider-usage-meter-label:daily')?.props.children).toBe('Daily');
         act(() => { screen.findByTestId('agent-input-provider-usage-badge')?.props.onPress?.(); });
         expect(screen.findByTestId('agent-input-provider-usage-meter:daily')).toBeTruthy();
     });

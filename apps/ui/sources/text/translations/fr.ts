@@ -7799,6 +7799,8 @@ settingsSession: {
         freshSubtitle: 'Ouvrez un nouveau brouillon à chaque sélection de Nouvelle session.',
     },
 	          sessionList: {
+              directDeleteTitle: 'Supprimer dans le menu de session',
+              directDeleteSubtitle: 'Afficher Supprimer dans le menu de session. Une confirmation est toujours requise.',
 	              title: 'Liste des sessions',
 	              footer: 'Apparence et comportement de la liste des sessions dans la barre latérale.',
 	              tagsTitle: 'Tags de session',

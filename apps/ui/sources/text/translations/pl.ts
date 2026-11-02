@@ -8261,6 +8261,8 @@ settingsSession: {
         freshSubtitle: 'Otwieraj nową wersję roboczą za każdym wybraniem Nowej sesji.',
     },
 	      sessionList: {
+              directDeleteTitle: 'Usuwanie w menu sesji',
+              directDeleteSubtitle: 'Pokazuj Usuń w menu sesji. Potwierdzenie jest zawsze wymagane.',
 	          title: 'Lista sesji',
 	          footer: 'Dostosuj, co jest widoczne w wierszu sesji.',
 	          tagsTitle: 'Tagi sesji',

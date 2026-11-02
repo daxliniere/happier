@@ -171,7 +171,7 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
     },
     attachmentsUploadsMaxFileBytes: {
         schema: z.number(),
-        default: 25 * 1024 * 1024,
+        default: 1024 * 1024 * 1024,
         description: 'Maximum allowed attachment size (bytes)',
         storageScope: 'account',
         analytics: {
@@ -194,6 +194,13 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
         schema: z.boolean(),
         default: true,
         description: 'Show tag controls in the session list',
+        storageScope: 'account',
+        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
+    },
+    sessionListDirectDeleteEnabled: {
+        schema: z.boolean(),
+        default: false,
+        description: 'Show delete in session row menus',
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
     },

@@ -6970,6 +6970,8 @@ settingsSession: {
         freshSubtitle: '每次選擇「新工作階段」時都開啟新草稿。',
     },
 	          sessionList: {
+              directDeleteTitle: '在工作階段選單中顯示刪除',
+              directDeleteSubtitle: '在工作階段選單中顯示刪除。一定需要確認。',
 	              title: '工作階段列表',
 	              footer: '工作階段側邊欄列表的外觀與行為。',
 	              tagsTitle: '工作階段標籤',

@@ -19,6 +19,7 @@ import {
 import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceCredentialHealthStatus } from '@/sync/domains/connectedServices/resolveConnectedServiceCredentialHealthStatus';
 import { nowServerMs } from '@/sync/runtime/time';
+import { useSetting } from '@/sync/domains/state/storage';
 import { useAllSessions } from '@/sync/store/hooks';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
@@ -42,6 +43,7 @@ export function useProviderUsageGauges(params: Readonly<{
     /** Queries the provider for fresh figures for this Agent. */
     refreshAgent: (agentId: AgentId) => void;
 }> {
+    const windowModes = useSetting('sessionProviderUsageGaugeWindowModes');
     const profileRefByAgentId = React.useMemo(() => {
         const refs = new Map<AgentId, { serviceId: string; profileId: string }>();
         for (const agentId of params.agentIds) {
@@ -108,12 +110,13 @@ export function useProviderUsageGauges(params: Readonly<{
             const gauge = computeConnectedServiceQuotaGaugeViewModel({
                 snapshot: source.snapshot,
                 windowMode: params.windowMode,
+                windowModes,
                 nowMs,
                 formatter: connectedServiceQuotaGaugeFormatter,
             });
             if (gauge) gauges.set(agentId, gauge);
         }
         return gauges;
-    }, [accountUsageSnapshots, params.agentIds, params.windowMode, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId]);
+    }, [accountUsageSnapshots, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId]);
     return React.useMemo(() => ({ gauges, refreshAgent }), [gauges, refreshAgent]);
 }

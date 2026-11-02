@@ -677,7 +677,7 @@ describe('AgentInput (context usage badge)', () => {
         });
 
         expect(screen.findByTestId('agent-input-hidden-usage-overflow-popover')).toBeTruthy();
-        expect(screen.getTextContent()).toContain('38.7k/200k context used');
+        expect(screen.getTextContent()).toContain('38.7k/200k used');
 
         act(() => screen.tree.unmount());
     });

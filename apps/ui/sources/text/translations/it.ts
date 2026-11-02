@@ -8590,6 +8590,8 @@ settingsSession: {
         freshSubtitle: 'Apri una nuova bozza ogni volta che scegli Nuova sessione.',
     },
 	      sessionList: {
+              directDeleteTitle: 'Elimina nel menu della sessione',
+              directDeleteSubtitle: 'Mostra Elimina nel menu della sessione. La conferma è sempre richiesta.',
 	          title: 'Elenco sessioni',
 	          footer: 'Personalizza cosa appare in ogni riga della sessione.',
 	          tagsTitle: 'Tag della sessione',

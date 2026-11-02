@@ -7847,6 +7847,8 @@ settingsSession: {
 	              title: 'Session List',
 	              footer: 'Appearance and behavior of the session sidebar list.',
 	              tagsTitle: 'Session tags',
+	              directDeleteTitle: 'Delete in session menu',
+	              directDeleteSubtitle: 'Show Delete in the session menu. Confirmation is always required.',
 	              tagsEnabledSubtitle: 'Tag controls visible in the session list',
 	              tagsDisabledSubtitle: 'Tag controls hidden',
                agentActivityCountTitle: 'Agent count in rows',
