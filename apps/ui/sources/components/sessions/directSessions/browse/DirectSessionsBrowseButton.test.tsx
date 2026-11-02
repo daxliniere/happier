@@ -2,6 +2,7 @@ import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen } from '@/dev/testkit';
+import { DeferredAnchoredTooltip } from '@/components/ui/overlays/DeferredAnchoredTooltip';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -61,6 +62,13 @@ describe('DirectSessionsBrowseButton', () => {
         expect(button?.props.accessibilityRole).toBe('button');
         expect(button?.props.accessibilityLabel).toBe('directSessions.browseOpenExisting');
         expect(screen.root.findAll((node) => node.props?.name === 'folder-open').length).toBeGreaterThan(0);
+
+        await React.act(async () => { button?.props.onHoverIn?.(); });
+        const tooltips = screen.findAllByType(DeferredAnchoredTooltip);
+        expect(tooltips).toHaveLength(1);
+        expect(tooltips[0]!.props.label).toBe(button?.props.accessibilityLabel);
+        await React.act(async () => { button?.props.onHoverOut?.(); });
+        expect(screen.findAllByType(DeferredAnchoredTooltip)).toHaveLength(0);
 
         await screen.pressByTestIdAsync('sidebar-direct-browse-button');
         expect(routerPush).toHaveBeenCalledWith('/direct/browse');

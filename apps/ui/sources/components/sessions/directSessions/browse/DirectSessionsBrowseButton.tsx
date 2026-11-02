@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Icon } from '@/components/ui/icons/Icon';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 import { useSessionListStorageKind } from '@/components/sessions/model/useSessionListStorageKind';
 import { t } from '@/text';
 
@@ -11,10 +11,6 @@ const styles = StyleSheet.create(() => ({
     button: {
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    buttonPressed: {
-        opacity: 0.68,
-        transform: [{ scale: 0.96 }],
     },
 }));
 
@@ -32,22 +28,24 @@ export const DirectSessionsBrowseButton = React.memo(function DirectSessionsBrow
     }, [router]);
 
     if (!directSessionsEnabled) return null;
+    const accessibilityLabel = t('directSessions.browseOpenExisting');
 
     return (
-        <Pressable
+        <PressableSurface
             testID={props.testID}
             accessibilityRole="button"
-            accessibilityLabel={t('directSessions.browseOpenExisting')}
+            accessibilityLabel={accessibilityLabel}
+            webTooltip={accessibilityLabel}
+            focusRingRadius={props.buttonSize / 2}
             hitSlop={8}
             onPress={handlePress}
-            style={({ pressed }) => [
+            style={[
                 styles.button,
                 {
                     width: props.buttonSize,
                     height: props.buttonSize,
                     borderRadius: props.buttonSize / 2,
                 },
-                pressed ? styles.buttonPressed : null,
             ]}
         >
             <Icon
@@ -55,6 +53,6 @@ export const DirectSessionsBrowseButton = React.memo(function DirectSessionsBrow
                 size={props.iconSize}
                 color={theme.colors.chrome.header.foreground}
             />
-        </Pressable>
+        </PressableSurface>
     );
 });
