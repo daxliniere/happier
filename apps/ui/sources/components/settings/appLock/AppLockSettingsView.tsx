@@ -110,6 +110,7 @@ export function AppLockSettingsView() {
     const { status, record } = useAppLockSnapshot();
     const featureEnabled = useFeatureEnabled('appLock.emailRecovery');
     const [mail, setMail] = React.useState<MailState>({ status: 'loading', settings: null });
+    const [email, setEmail] = React.useState('');
 
     React.useEffect(() => {
         if (!featureEnabled) return;
@@ -137,7 +138,7 @@ export function AppLockSettingsView() {
 
     const unlocked = status === 'unlocked' && record !== null;
     const mailSection = (
-        <MailServerSection mail={mail} onSaved={onMailSaved} testRecipient={record?.email ?? null} />
+        <MailServerSection mail={mail} onSaved={onMailSaved} testRecipient={unlocked ? record.email : email} />
     );
     return (
         <ItemList>
@@ -146,7 +147,7 @@ export function AppLockSettingsView() {
             ) : (
                 <>
                     <IntroGroup subtitle={t('appLock.settingsSubtitleOff')} />
-                    <EnableAppLock mailReady={mail.settings !== null} />
+                    <EnableAppLock mailReady={mail.settings !== null} email={email} onEmailChange={setEmail} />
                 </>
             )}
             {mailSection}
@@ -244,21 +245,13 @@ function MailServerSection(props: Readonly<{
     }, [fromAddress, host, password, port, props, saved?.hasPassword, security, username]);
 
     const sendTest = React.useCallback(async () => {
-        const to = await Modal.prompt(t('appLock.mailTest'), t('appLock.mailTestPrompt'), {
-            inputType: 'email-address',
-            defaultValue: props.testRecipient ?? saved?.fromAddress.replace(/^.*<([^>]+)>.*$/, '$1') ?? '',
-            confirmText: t('appLock.mailTest'),
-        });
-        if (!to) return;
-        if (!isPlausibleEmail(to)) {
-            Modal.alert(t('common.error'), t('appLock.invalidEmail'));
-            return;
-        }
-        const result = await apiAppLockMailSettingsSendTest(to.trim());
+        const to = props.testRecipient?.trim() ?? '';
+        if (!saved || !isPlausibleEmail(to)) return;
+        const result = await apiAppLockMailSettingsSendTest(to);
         Modal.alert(result.ok ? t('appLock.mailTitle') : t('common.error'), result.ok
-            ? t('appLock.mailTestSent', { email: to.trim() })
+            ? t('appLock.mailTestSent', { email: to })
             : describeAppLockRecoveryFailure(result));
-    }, [props.testRecipient, saved?.fromAddress]);
+    }, [props.testRecipient, saved]);
 
     return (
         <>
@@ -317,16 +310,21 @@ function MailServerSection(props: Readonly<{
                 <RoundButton testID="app-lock-mail-save" title={t('appLock.mailSave')} onPress={save} loading={busy} disabled={!host || !fromAddress} />
                 <View style={styles.actionsRow}>
                     <RoundButton testID="app-lock-mail-test" size="small" display="inverted"
-                        title={t('appLock.mailTest')} onPress={sendTest} disabled={!saved || busy} />
+                        title={t('appLock.mailTest')} onPress={sendTest}
+                        disabled={!saved || busy || !isPlausibleEmail(props.testRecipient ?? '')} />
                 </View>
             </View>
         </>
     );
 }
 
-function EnableAppLock(props: Readonly<{ mailReady: boolean }>) {
+function EnableAppLock(props: Readonly<{
+    mailReady: boolean;
+    email: string;
+    onEmailChange: (email: string) => void;
+}>) {
     const styles = stylesheet;
-    const [email, setEmail] = React.useState('');
+    const { email, onEmailChange } = props;
     const [password, setPassword] = React.useState('');
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [error, setError] = React.useState<string | null>(null);
@@ -360,7 +358,7 @@ function EnableAppLock(props: Readonly<{ mailReady: boolean }>) {
         <ItemGroup title={t('appLock.turnOnTitle')}>
             <View style={styles.form}>
                 <FieldItem label={t('appLock.emailLabel')} supportingText={t('appLock.emailHint')}>
-                    <TextInput testID="app-lock-settings-email" style={styles.input} value={email} onChangeText={setEmail}
+                    <TextInput testID="app-lock-settings-email" style={styles.input} value={email} onChangeText={onEmailChange}
                         accessibilityLabel={t('appLock.emailLabel')} keyboardType="email-address"
                         autoCapitalize="none" autoCorrect={false} autoComplete="email" />
                 </FieldItem>
