@@ -11,6 +11,9 @@ import { setUiFeatureToggle } from '../../src/testkit/uiE2e/setUiFeatureToggle';
 import { waitForInitialAppUi } from '../../src/testkit/uiE2e/waitForInitialAppUi';
 import { createTestAuthMtls } from '../../src/testkit/auth';
 import { registerMachineIdentity } from '../../src/testkit/machineIdentity';
+import { createMachineBoundSessionScopedSocketCollector } from '../../src/testkit/sessionSocketBinding';
+import { fetchSessionV2 } from '../../src/testkit/sessions';
+import { waitFor } from '../../src/testkit/timing';
 import { startForwardedHeaderProxy } from '../../src/testkit/uiE2e/forwardedHeaderProxy';
 import { setSessionOrganizationPin } from '../../src/testkit/uiE2e/sessionOrganization';
 import {
@@ -118,6 +121,7 @@ test.describe('ui e2e: session folders drag and drop', () => {
   let proxyStop: (() => Promise<void>) | null = null;
   let token: string | null = null;
   let uiServerUrl: string | null = null;
+  const activePublishers: Array<{ close: () => void }> = [];
 
   test.beforeAll(async () => {
     test.setTimeout(resolveUiWebBeforeAllTimeoutMs(process.env));
@@ -197,6 +201,7 @@ test.describe('ui e2e: session folders drag and drop', () => {
 
   test.afterAll(async () => {
     test.setTimeout(120_000);
+    for (const publisher of activePublishers) publisher.close();
     await ui?.stop().catch(() => {});
     await proxyStop?.().catch(() => {});
     await server?.stop().catch(() => {});
@@ -247,6 +252,15 @@ test.describe('ui e2e: session folders drag and drop', () => {
       machineId: SEEDED_MACHINE_ID, tagPrefix: 'session-folders-drag',
     });
 
+    for (const sessionId of [rootSessionId, scrollSessionId, anotherRootSessionId]) {
+      const { socket } = await createMachineBoundSessionScopedSocketCollector({ baseUrl: serverBaseUrl, token: authToken, sessionId });
+      activePublishers.push(socket);
+      socket.connect();
+      await waitFor(async () => socket.isConnected(), { timeoutMs: 20_000, context: `connect ${sessionId}` });
+      socket.emit('session-alive', { sid: sessionId, time: Date.now(), thinking: false });
+      await waitFor(async () => (await fetchSessionV2(serverBaseUrl, authToken, sessionId)).active === true, { timeoutMs: 20_000, context: `activate ${sessionId}` });
+    }
+
     await page.setViewportSize({ width: 1440, height: 900 });
     await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0&server=${encodeURIComponent(uiServerUrl)}`, 300_000);
     await waitForInitialAppUi({ page, timeoutMs: 180_000 });
@@ -285,6 +299,7 @@ test.describe('ui e2e: session folders drag and drop', () => {
     await expect(page.getByTestId(`session-list-item-${anotherRootSessionId}`)).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByTestId(`session-folder-header-${FOLDER_ALPHA_ID}`)).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByTestId(`session-folder-header-${FOLDER_BETA_ID}`)).toHaveCount(1, { timeout: 120_000 });
+    await expect(page.getByTestId('session-list-header:Active')).toHaveCount(1, { timeout: 120_000 });
 
     // The drag geometry/performance refactor replaced the per-row drop
     // indicators with ONE viewport-level overlay. Assert that single overlay is
@@ -301,6 +316,16 @@ test.describe('ui e2e: session folders drag and drop', () => {
     await expect.poll(rootOrder, { timeout: 60_000 }).toEqual([firstRoot, middleRoot, lastRoot]);
     await dragSessionToTarget(page, { sessionId: middleRoot, targetTestId: `session-list-item-${lastRoot}`, targetEdge: 'bottom' });
     await expect.poll(rootOrder, { timeout: 60_000 }).toEqual([firstRoot, lastRoot, middleRoot]);
+    await expect.poll(async () => {
+      const settings = await readSessionFolderDragSettings({ baseUrl: serverBaseUrl, token: authToken, serverId });
+      const expected = [firstRoot, lastRoot, middleRoot].map((id) => sessionOrderKey(serverId, id));
+      return Object.values(settings.sessionListGroupOrderV1).some((keys) => {
+        const positions = expected.map((key) => keys.indexOf(key));
+        return positions.every((position) => position >= 0) && positions[0]! < positions[1]! && positions[1]! < positions[2]!;
+      });
+    }, { timeout: 60_000 }).toBe(true);
+    await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0&server=${encodeURIComponent(uiServerUrl)}`, 120_000);
+    await expect.poll(rootOrder, { timeout: 120_000 }).toEqual([firstRoot, lastRoot, middleRoot]);
 
     const otherWorkspaceA = await createPlainSession({ baseUrl: serverBaseUrl, token: authToken, title: `drag other workspace a ${run.runId}`, rootPath: `${rootPath}/other-a`, machineId: SEEDED_MACHINE_ID, tagPrefix: 'session-folders-drag' });
     const otherWorkspaceB = await createPlainSession({ baseUrl: serverBaseUrl, token: authToken, title: `drag other workspace b ${run.runId}`, rootPath: `${rootPath}/other-b`, machineId: SEEDED_MACHINE_ID, tagPrefix: 'session-folders-drag' });
