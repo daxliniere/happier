@@ -1,8 +1,10 @@
 import * as React from 'react';
 
-import { useSetting } from '@/sync/domains/state/storage';
+import { useProfile, useSetting } from '@/sync/domains/state/storage';
+import { useAllSessions } from '@/sync/store/hooks';
+import { isHostVisible, startRuntimeActiveGatedInterval } from '@/utils/runtime/isRuntimeActive';
 
-import { runProviderUsageRefresh, useProviderUsageRefreshContext, type ProviderUsageRefreshContext } from './useProviderUsageRefresh';
+import { collectAutomaticProviderUsageRefreshTargets, runProviderUsageRefresh, useProviderUsageRefreshContext, type ProviderUsageRefreshContext } from './useProviderUsageRefresh';
 
 const DEFAULT_AUTO_REFRESH_MINUTES = 5;
 /** Smallest interval honoured, so a mistyped value cannot hammer the server. */
@@ -18,35 +20,40 @@ type Registration = Readonly<{ context: ProviderUsageRefreshContext; intervalMs:
 
 // One shared timer: any number of mounted surfaces register, but only one refresh runs per tick.
 const registrations = new Set<{ current: Registration }>();
-let timer: ReturnType<typeof setInterval> | null = null;
+let stopTimer: (() => void) | null = null;
 let timerIntervalMs = 0;
 
 function syncTimer(): void {
     const latest = [...registrations].at(-1)?.current ?? null;
     if (!latest) {
-        if (timer) clearInterval(timer);
-        timer = null;
+        stopTimer?.();
+        stopTimer = null;
         timerIntervalMs = 0;
         return;
     }
-    if (timer && timerIntervalMs === latest.intervalMs) return;
-    if (timer) clearInterval(timer);
+    if (stopTimer && timerIntervalMs === latest.intervalMs) return;
+    stopTimer?.();
     timerIntervalMs = latest.intervalMs;
-    timer = setInterval(() => {
+    stopTimer = startRuntimeActiveGatedInterval(() => {
         const current = [...registrations].at(-1)?.current;
-        if (current) runProviderUsageRefresh(current.context, { connectedProfileRef: null, recordIds: [] });
+        if (current && isHostVisible()) runProviderUsageRefresh(current.context, { connectedProfileRef: null, recordIds: [] }, { automatic: true });
     }, latest.intervalMs);
 }
 
 /**
- * Re-queries every configured provider on the Usage-settings interval, for as long as any surface
+ * Re-queries eligible active providers on the Usage-settings interval, for as long as any surface
  * using this hook is mounted; the timer stops when the last one unmounts.
  */
 export function useProviderUsageAutoRefresh(): void {
     const context = useProviderUsageRefreshContext();
+    const connectedServices = useProfile()?.connectedServicesV2;
+    const sessions = useAllSessions();
+    const automaticTargets = React.useMemo(() => collectAutomaticProviderUsageRefreshTargets({
+        connectedServices: connectedServices ?? [], sessions,
+    }), [connectedServices, sessions]);
     const intervalMs = resolveProviderUsageAutoRefreshMs(useSetting('providerUsageAutoRefreshMinutes'));
     const registration = React.useRef<Registration | null>(null) as React.MutableRefObject<Registration>;
-    if (context) registration.current = { context, intervalMs };
+    if (context) registration.current = { context: { ...context, automaticTargets }, intervalMs };
     const signedIn = context !== null;
     React.useEffect(() => {
         if (!signedIn) return;
