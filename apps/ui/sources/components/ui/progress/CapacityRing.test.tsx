@@ -39,7 +39,7 @@ describe('CapacityRing', () => {
         expect(full.root.findByProps({ testID: 'p' }).props.strokeDashoffset).toBe(0);
 
         const empty = renderRing(<CapacityRing ratio={-1} size={40} strokeWidth={4} color="#0a0" progressTestID="q" />);
-        const radius = (40 - 4) / 2;
+        const radius = (40 - 4 * 1.25) / 2;
         expect(empty.root.findByProps({ testID: 'q' }).props.strokeDashoffset).toBeCloseTo(2 * Math.PI * radius, 5);
     });
 
@@ -57,7 +57,7 @@ describe('CapacityRing', () => {
         expect(tree.root.findAllByType('Circle' as never).length).toBe(4);
 
         // The outer arc (50% filled) carries the progress testID.
-        const outerRadius = (44 - 3) / 2;
+        const outerRadius = (44 - 3 * 1.25) / 2;
         expect(tree.root.findByProps({ testID: 'outer' }).props.strokeDashoffset)
             .toBeCloseTo(2 * Math.PI * outerRadius * 0.5, 4);
     });
