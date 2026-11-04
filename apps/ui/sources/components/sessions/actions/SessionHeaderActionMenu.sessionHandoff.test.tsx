@@ -620,6 +620,7 @@ describe('SessionHeaderActionMenu handoff', () => {
       await findFireAndForgetByTag('SessionHeaderActionMenu.execute.copyInformation');
     });
     expect(clipboardMock).toHaveBeenCalledWith([
+      'Session name: workspace',
       'Happier session ID: header-copy',
       'agentInput.agent.claude session ID: current-vendor-session',
       'Happier logs: /tmp/session.log',

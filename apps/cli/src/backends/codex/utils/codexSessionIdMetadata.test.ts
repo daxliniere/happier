@@ -37,6 +37,7 @@ it('publishes native Codex nicknames only from the exact owning rollout creation
     const publish = () => publishCodexSessionIdMetadata({ session, getCodexThreadId: () => threadId,
       codexHome, backendMode: 'appServer', lastPublished: { value: null }, processEnv: TEST_CODEX_HOME_ENV });
     await publish();
+    expect(metadata.codexSessionLogPath).toBe(filePath);
     expect(metadata.nativeSessionAliasesV1).toMatchObject({ v: 1, assignments: [{
       providerId: 'codex', providerSessionId: threadId, alias: 'Lovelace', assignedAt: Date.parse(startedAt), observedAt: expect.any(Number),
     }] });

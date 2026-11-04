@@ -10,6 +10,7 @@ import { resolveConfiguredCodexHome } from './resolveConfiguredCodexHome';
 import { resolveConfiguredCodexSqliteHome } from '../connectedServices/codexStateFileNames';
 import { readCodexNativeSessionAliases } from './nativeSessionAliases';
 import { mergeNativeSessionAliases } from '@/session/metadata/nativeSessionAliases';
+import { resolveCodexNativeSessionLogPath } from './resolveCodexNativeSessionLogPath';
 
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -164,10 +165,16 @@ type UpdateCodexSessionIdMetadataParams = {
   codexHome?: string | null;
   activeServerDir?: string | null;
   processEnv?: NodeJS.ProcessEnv;
+  codexSessionLogPath?: string | null;
   updateHappySessionMetadata: (updater: (metadata: Metadata) => Metadata) => Promise<void> | void;
   getMetadataSnapshot?: () => Metadata | null;
   operation?: 'create' | 'resume';
-  lastPublished: { value: string | null; fingerprint?: string | null };
+  lastPublished: {
+    value: string | null;
+    fingerprint?: string | null;
+    nativeLogSessionId?: string | null;
+    nativeLogPath?: string | null;
+  };
 };
 
 function buildUpdatedCodexSessionMetadata(
@@ -185,6 +192,11 @@ function buildUpdatedCodexSessionMetadata(
     if (runtimeDescriptor?.providerId === 'codex') {
       delete nextMetadata.agentRuntimeDescriptorV1;
     }
+  }
+  if (params.codexSessionLogPath) {
+    nextMetadata.codexSessionLogPath = params.codexSessionLogPath;
+  } else if (normalizeOptionalString(metadata.codexSessionId) !== sessionId) {
+    delete nextMetadata.codexSessionLogPath;
   }
 
   return buildDirectSessionMetadata({
@@ -217,12 +229,14 @@ function codexOwnedMetadataSlice(metadata: Metadata): Readonly<{
   codexBackendMode: unknown;
   agentRuntimeDescriptorV1: unknown;
   directSessionV1: unknown;
+  codexSessionLogPath: unknown;
 }> {
   return {
     codexSessionId: normalizeOptionalString(metadata.codexSessionId),
     codexBackendMode: metadata.codexBackendMode,
     agentRuntimeDescriptorV1: metadata.agentRuntimeDescriptorV1,
     directSessionV1: metadata.directSessionV1,
+    codexSessionLogPath: normalizeOptionalString(metadata.codexSessionLogPath),
   };
 }
 
@@ -244,11 +258,23 @@ async function updateCodexSessionIdMetadata(params: UpdateCodexSessionIdMetadata
   const backendMode = normalizeCodexBackendMode(params.backendMode);
   if (!next) return;
 
-  const directSource = resolveCodexDirectSource(params);
+  const codexSessionLogPath = params.lastPublished.nativeLogSessionId === next && params.lastPublished.nativeLogPath
+    ? params.lastPublished.nativeLogPath
+    : await resolveCodexNativeSessionLogPath({
+      vendorResumeId: next,
+      codexHome: params.codexHome,
+      env: params.processEnv,
+    });
+  params.lastPublished.nativeLogSessionId = codexSessionLogPath ? next : null;
+  params.lastPublished.nativeLogPath = codexSessionLogPath;
+  const metadataParams = { ...params, codexSessionLogPath };
+
+  const directSource = resolveCodexDirectSource(metadataParams);
   const publishFingerprint = JSON.stringify({
     backendMode,
     transcriptStorage: params.transcriptStorage ?? null,
     source: directSource,
+    codexSessionLogPath,
   });
 
   if (params.lastPublished.value === next && (params.lastPublished.fingerprint ?? null) === publishFingerprint) return;
@@ -259,7 +285,7 @@ async function updateCodexSessionIdMetadata(params: UpdateCodexSessionIdMetadata
     } catch {
       // A snapshot read cannot prove durability. Fall through to the acknowledged write.
     }
-    if (metadataSnapshot && isPersistedCodexPublicationEquivalent(metadataSnapshot, next, params)) {
+    if (metadataSnapshot && isPersistedCodexPublicationEquivalent(metadataSnapshot, next, metadataParams)) {
       params.lastPublished.value = next;
       params.lastPublished.fingerprint = publishFingerprint;
       return;
@@ -272,7 +298,7 @@ async function updateCodexSessionIdMetadata(params: UpdateCodexSessionIdMetadata
 
   try {
     await params.updateHappySessionMetadata((metadata) => {
-      return buildUpdatedCodexSessionMetadata(metadata, next, params);
+      return buildUpdatedCodexSessionMetadata(metadata, next, metadataParams);
     });
   } catch (error) {
     // Revert optimistic publish so future calls can retry.
