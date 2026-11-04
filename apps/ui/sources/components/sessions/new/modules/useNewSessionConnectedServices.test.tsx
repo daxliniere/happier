@@ -381,6 +381,9 @@ describe('useNewSessionConnectedServices', () => {
             expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('codex')?.remainingPct).toBe(60);
             expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.remainingPct).toBe(0);
             expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.tone).toBe('critical');
+            // The shared details header must identify the provider even for native limit-only evidence.
+            expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('codex')?.providerDisplayName).toBe('agentInput.agent.codex');
+            expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.providerDisplayName).toBe('agentInput.agent.claude');
         } finally {
             await hook.unmount();
             storage.setState({ sessions: previousSessions, isDataReady: previousReady });

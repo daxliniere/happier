@@ -26,6 +26,7 @@ function gauge(serviceId: 'anthropic' | 'openai-codex', meterId: string, used: n
             }],
         },
         windowMode: 'most_constrained', nowMs: now, formatter: connectedServiceQuotaGaugeFormatter,
+        providerDisplayName: serviceId === 'openai-codex' ? 'Codex' : 'Claude',
     });
     if (!result) throw new Error('Expected a measured usage gauge');
     return result;
@@ -51,6 +52,8 @@ describe('ProviderUsageStrip', () => {
         expect(screen.getTextContent()).toContain('0% left');
         expect(screen.getTextContent()).toContain('70% left');
         expect(screen.getTextContent()).toContain('resets in');
+        expect(screen.getTextContent()).toContain('Codex usage');
+        expect(screen.getTextContent()).toContain('Claude usage');
         expect(refresh).toHaveBeenCalledWith('codex');
         // A second provider trigger closes the same panel rather than leaving a second one open.
         act(() => triggers()[1].props.onPress());

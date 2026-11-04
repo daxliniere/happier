@@ -21,6 +21,7 @@ import { resolveConnectedServiceCredentialHealthStatus } from '@/sync/domains/co
 import { nowServerMs } from '@/sync/runtime/time';
 import { useSetting } from '@/sync/domains/state/storage';
 import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
+import { t } from '@/text';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
 
@@ -118,6 +119,7 @@ export function useProviderUsageGauges(params: Readonly<{
                 windowModes,
                 nowMs,
                 formatter: connectedServiceQuotaGaugeFormatter,
+                providerDisplayName: t(getAgentCore(agentId).displayNameKey),
             });
             if (gauge) gauges.set(agentId, gauge);
         }
