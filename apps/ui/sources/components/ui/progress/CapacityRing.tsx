@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Svg, Circle } from 'react-native-svg';
+import Color from 'color';
 
 /**
  * Canonical circular progress ring (gauge). Renders one or more CONCENTRIC arcs
@@ -48,7 +49,7 @@ function clamp01(value: number): number {
 export function CapacityRing(props: CapacityRingProps) {
     const { theme } = useUnistyles();
     const size = props.size ?? 40;
-    const strokeWidth = props.strokeWidth ?? 3;
+    const strokeWidth = (props.strokeWidth ?? 3) * 1.25;
     const trackColor = props.trackColor ?? theme.colors.border.default;
     const outerRadius = (size - strokeWidth) / 2;
 
@@ -72,6 +73,9 @@ export function CapacityRing(props: CapacityRingProps) {
                 style={styles.ring}
             >
                 {arcs.map((arc, index) => {
+                    // Boost the current theme's saturation, preserving hue, lightness and alpha.
+                    const themeColor = Color(arc.color).hsl();
+                    const color = themeColor.saturationl(Math.min(100, themeColor.saturationl() * 1.25)).rgb().string();
                     const radius = outerRadius - index * (strokeWidth + RING_GAP);
                     if (radius < strokeWidth) return null;
                     const circumference = 2 * Math.PI * radius;
@@ -83,7 +87,7 @@ export function CapacityRing(props: CapacityRingProps) {
                                 cy={size / 2}
                                 r={radius}
                                 fill="none"
-                                stroke={arc.trackColor ?? trackColor}
+                                stroke={arc.trackColor === arc.color ? color : arc.trackColor ?? trackColor}
                                 strokeWidth={strokeWidth}
                             />
                             <Circle
@@ -92,7 +96,7 @@ export function CapacityRing(props: CapacityRingProps) {
                                 cy={size / 2}
                                 r={radius}
                                 fill="none"
-                                stroke={arc.color}
+                                stroke={color}
                                 strokeWidth={strokeWidth}
                                 strokeLinecap="round"
                                 strokeDasharray={`${circumference} ${circumference}`}
