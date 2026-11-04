@@ -1,8 +1,8 @@
 {
   "name": "@happier-dev/cli",
   "version": "0.2.17",
-  "happierForkVersion": "0.2.19-fork.32",
-  "happierForkRelease": "rc4",
+  "happierForkVersion": "0.2.19-fork.33",
+  "happierForkRelease": "rc5",
   "description": "Mobile and Web client for Claude Code and Codex",
   "author": "Leeroy Brun <leeroy.brun@gmail.com>",
   "license": "MIT",
