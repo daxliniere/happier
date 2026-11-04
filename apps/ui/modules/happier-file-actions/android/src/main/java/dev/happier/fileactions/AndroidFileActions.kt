@@ -2,9 +2,13 @@ package dev.happier.fileactions
 
 import android.content.ClipData
 import android.content.Context
+import android.content.ContentValues
+import android.os.Build
+import android.os.Environment
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 import java.io.File
@@ -42,6 +46,32 @@ internal object AndroidFileActions {
     addCategory(Intent.CATEGORY_OPENABLE)
     type = mimeType
     putExtra(Intent.EXTRA_TITLE, name)
+  }
+
+  fun safeDownloadName(name: String): String = name.substringAfterLast('/').substringAfterLast('\\')
+    .replace(Regex("[\\u0000-\\u001f]"), "_")
+    .trim()
+    .ifEmpty { "download" }
+
+  fun downloadsEntryValues(name: String, mimeType: String): ContentValues = ContentValues().apply {
+    put(MediaStore.MediaColumns.DISPLAY_NAME, safeDownloadName(name))
+    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+    put(MediaStore.MediaColumns.IS_PENDING, 1)
+  }
+
+  fun createDownloadsEntry(context: Context, name: String, mimeType: String): Uri {
+    check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { "MediaStore Downloads requires Android 10 or newer" }
+    return requireNotNull(context.contentResolver.insert(
+      MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+      downloadsEntryValues(name, mimeType),
+    )) { "Unable to create a Downloads entry" }
+  }
+
+  fun finalizeDownloadsEntry(context: Context, uri: Uri) {
+    check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { "MediaStore Downloads requires Android 10 or newer" }
+    val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+    check(context.contentResolver.update(uri, values, null, null) == 1) { "Unable to finalize the Downloads entry" }
   }
 
   suspend fun copyToDocument(context: Context, file: File, selectedUri: String) {
