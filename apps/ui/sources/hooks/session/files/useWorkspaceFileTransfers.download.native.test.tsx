@@ -7,10 +7,7 @@ import { RPC_METHODS } from '@happier-dev/protocol/rpc';
 
 const native = vi.hoisted(() => ({
     files: new Map<string, number[]>(),
-    publicFiles: new Map<string, number[]>(),
-    activePublicFiles: new Map<string, { name: string; bytes: number[] }>(),
     saveFile: vi.fn(), openFile: vi.fn(), shareFile: vi.fn(),
-    beginDownload: vi.fn(), writeDownload: vi.fn(), finishDownload: vi.fn(), cancelDownload: vi.fn(),
     closeError: null as Error | null,
     deleteError: null as Error | null,
     rpc: vi.fn(),
@@ -85,8 +82,6 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         native.iosShare.mockReset().mockResolvedValue(undefined);
         native.iosAvailable.mockReset().mockResolvedValue(true);
         native.files.clear();
-        native.publicFiles.clear();
-        native.activePublicFiles.clear();
         native.closeError = null;
         native.deleteError = null;
         native.saveFile.mockReset().mockImplementation(async (uri: string) => {
@@ -95,21 +90,6 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         });
         native.openFile.mockReset().mockResolvedValue(undefined);
         native.shareFile.mockReset().mockResolvedValue(undefined);
-        native.beginDownload.mockReset().mockImplementation(async (name: string) => {
-            native.activePublicFiles.set('public-download-1', { name, bytes: [] });
-            return { canceled: false, downloadId: 'public-download-1' };
-        });
-        native.writeDownload.mockReset().mockImplementation(async (downloadId: string, contentBase64: string) => {
-            native.activePublicFiles.get(downloadId)!.bytes.push(...Buffer.from(contentBase64, 'base64'));
-        });
-        native.finishDownload.mockReset().mockImplementation(async (downloadId: string) => {
-            const file = native.activePublicFiles.get(downloadId)!;
-            native.publicFiles.set(file.name, file.bytes);
-            native.activePublicFiles.delete(downloadId);
-        });
-        native.cancelDownload.mockReset().mockImplementation(async (downloadId: string) => {
-            native.activePublicFiles.delete(downloadId);
-        });
         native.rpc.mockReset().mockImplementation(async (_machine: string, method: string) => {
             if (method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_URL) return { success: true, url: null };
             if (method === RPC_METHODS.STAT_FILE) return { success: true, exists: true, kind: 'file', sizeBytes: 4 };
@@ -149,7 +129,6 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         else expect(native.openUrl).toHaveBeenCalledWith(url);
         expect(native.rpc.mock.calls.map(call => call[1])).not.toContain(RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_INIT);
         expect(native.files.size).toBe(0);
-        expect(native.beginDownload).not.toHaveBeenCalled();
         expect(api().downloadState.status).toBe('idle');
     });
 
@@ -161,7 +140,6 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         const api = await mount();
         await act(async () => { expect((await api().startDownload({ path: 'private', asZip: false })).ok).toBe(false); });
         expect(native.openUrl).not.toHaveBeenCalled();
-        expect(native.beginDownload).not.toHaveBeenCalled();
         expect(native.rpc.mock.calls.map(call => call[1])).not.toContain(RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_INIT);
     });
 
@@ -171,7 +149,6 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         const api = await mount();
         await act(async () => { expect((await api().startDownload({ path: 'file', asZip: false })).ok).toBe(false); });
         expect(api().downloadState.status).toBe('error');
-        expect(native.beginDownload).not.toHaveBeenCalled();
     });
 
     it('retains the released transfer path when an older daemon lacks the link method', async () => {
@@ -184,7 +161,7 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         });
         const api = await mount();
         await act(async () => { expect(await api().startDownload({ path: 'recording.mp4', asZip: false })).toEqual({ ok: true }); });
-        expect(native.publicFiles.get('recording.mp4')).toEqual([1, 2, 3, 4]);
+        expect(native.saveFile.mock.calls[0]?.[1]).toBe('recording.mp4');
         expect(native.openUrl).not.toHaveBeenCalled();
     });
 
@@ -203,39 +180,18 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         expect(native.openUrl).not.toHaveBeenCalled();
     });
 
-    it('streams Android Save As bytes directly into public Downloads and finalizes only after success', async () => {
+    it('saves complete bytes to the selected Android document on repeated download', async () => {
         const api = await mount();
-        await act(async () => { expect(await api().startDownload({ path: 'recording.mp4', asZip: false })).toEqual({ ok: true }); });
-        expect(native.beginDownload).toHaveBeenCalledWith('recording.mp4');
-        expect(native.writeDownload).toHaveBeenCalledWith('public-download-1', Buffer.from([1, 2, 3, 4]).toString('base64'));
-        expect(native.finishDownload).toHaveBeenCalledWith('public-download-1');
-        expect(native.cancelDownload).not.toHaveBeenCalled();
-        expect(native.publicFiles.get('recording.mp4')).toEqual([1, 2, 3, 4]);
-        expect(native.activePublicFiles.size).toBe(0);
-        expect(native.saveFile).not.toHaveBeenCalled();
+        for (let i = 0; i < 2; i++) {
+            await act(async () => { expect(await api().startDownload({ path: 'recording.mp4', asZip: false })).toEqual({ ok: true }); });
+            expect(api().downloadState.status).toBe('done');
+        }
+        expect(native.saveFile).toHaveBeenCalledTimes(2);
+        expect(native.saveFile.mock.calls[0]?.[0]).not.toBe(native.saveFile.mock.calls[1]?.[0]);
+        expect(native.saveFile.mock.calls[0]?.[1]).toBe('recording.mp4');
         expect(native.files.size).toBe(0);
-        expect(api().downloadState.status).toBe('done');
         expect(native.openFile).not.toHaveBeenCalled();
         expect(native.shareFile).not.toHaveBeenCalled();
-    });
-
-    it('deletes the pending public Downloads item after a failed transfer', async () => {
-        const api = await mount();
-        native.rpc.mockImplementation(async (_machine: string, method: string) => {
-            if (method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_URL) return { success: true, url: null };
-            if (method === RPC_METHODS.STAT_FILE) return { success: true, exists: true, kind: 'file', sizeBytes: 4 };
-            if (method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_INIT) return {
-                success: true, downloadId: 'download-1', chunkSizeBytes: 4, sizeBytes: 4, name: 'recording.mp4',
-            };
-            if (method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_CHUNK) return { success: false, error: 'Transfer failed' };
-            if (method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_ABORT || method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_FINALIZE) return { success: true };
-            throw new Error(`Unexpected RPC ${method}`);
-        });
-        await act(async () => { expect(await api().startDownload({ path: 'recording.mp4', asZip: false })).toEqual({ ok: false, error: 'Transfer failed' }); });
-        expect(native.finishDownload).not.toHaveBeenCalled();
-        expect(native.cancelDownload).toHaveBeenCalledWith('public-download-1');
-        expect(native.publicFiles.size).toBe(0);
-        expect(native.activePublicFiles.size).toBe(0);
     });
 
     it.each([true, false])('marks only app-canceled transport failures as canceled (aborted=%s)', async aborted => {
@@ -268,43 +224,35 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         expect(native.saveFile).not.toHaveBeenCalled();
     });
 
-    it('reports destination cancellation before receiving transfer bytes', async () => {
+    it('reports picker cancellation and removes the temporary transfer file', async () => {
         const api = await mount();
-        native.beginDownload.mockResolvedValue({ canceled: true });
+        native.saveFile.mockResolvedValue({ canceled: true });
         await act(async () => { expect((await api().startDownload({ path: 'recording.mp4', asZip: false })).ok).toBe(false); });
         expect(api().downloadState.status).toBe('canceled');
         expect(native.files.size).toBe(0);
-        expect(native.writeDownload).not.toHaveBeenCalled();
     });
 
-    it('reports failed public-entry cleanup and releases the next download', async () => {
+    it('reports failed cancellation cleanup and releases the next download', async () => {
         const api = await mount();
-        const rpc = native.rpc.getMockImplementation();
-        if (!rpc) throw new Error('Expected RPC boundary implementation');
-        native.rpc.mockImplementation(async (_machine: string, method: string) => {
-            if (method === RPC_METHODS.DAEMON_BULK_TRANSFER_DOWNLOAD_CHUNK) return { success: false, error: 'Transfer failed' };
-            return await rpc(_machine, method);
-        });
-        native.cancelDownload.mockRejectedValueOnce(new Error('Downloads entry removal failed'));
+        native.saveFile.mockResolvedValueOnce({ canceled: true });
+        native.deleteError = new Error('Cache deletion failed');
         await act(async () => {
             expect(await api().startDownload({ path: 'recording.mp4', asZip: false }))
-                .toMatchObject({ ok: false, error: expect.stringContaining('Downloads entry removal failed') });
+                .toEqual({ ok: false, error: 'Cache deletion failed' });
         });
-        expect(api().downloadState).toMatchObject({ status: 'error', error: expect.stringContaining('Downloads entry removal failed') });
-        native.rpc.mockImplementation(rpc);
+        expect(api().downloadState).toEqual({ status: 'error', error: 'Cache deletion failed' });
+        native.deleteError = null;
         await act(async () => {
             expect(await api().startDownload({ path: 'recording.mp4', asZip: false })).toEqual({ ok: true });
         });
         expect(api().downloadState.status).toBe('done');
     });
 
-    it('reports failed Downloads finalization and removes the incomplete item', async () => {
+    it('reports failed OS handoff rather than claiming the download was saved', async () => {
         const api = await mount();
-        native.finishDownload.mockRejectedValue(new Error('Destination is full'));
+        native.saveFile.mockRejectedValue(new Error('Destination is full'));
         await act(async () => { expect(await api().startDownload({ path: 'recording.mp4', asZip: false })).toEqual({ ok: false, error: 'Destination is full' }); });
         expect(api().downloadState).toEqual({ status: 'error', error: 'Destination is full' });
-        expect(native.cancelDownload).toHaveBeenCalledWith('public-download-1');
-        expect(native.publicFiles.size).toBe(0);
         expect(native.files.size).toBe(0);
     });
 
@@ -320,12 +268,12 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         expect(native.files.get(uri)).toEqual([1, 2, 3, 4]);
     });
 
-    it.each(['open', 'share'] as const)('reports the completed native %s result after app cancellation during handoff', async action => {
+    it.each(['save', 'open', 'share'] as const)('reports the completed native %s result after app cancellation during handoff', async action => {
         const api = await mount();
         let entered!: () => void;
         const actionEntered = new Promise<void>(resolve => { entered = resolve; });
         let complete!: () => void;
-        const nativeAction = action === 'open' ? native.openFile : native.shareFile;
+        const nativeAction = action === 'save' ? native.saveFile : action === 'open' ? native.openFile : native.shareFile;
         nativeAction.mockImplementationOnce(async () => {
             entered();
             await new Promise<void>(resolve => { complete = resolve; });
@@ -344,7 +292,8 @@ describe('native workspace downloads through the canonical transfer pipeline', (
         });
         expect(handoffState).toMatchObject({ status: 'downloading', cancelable: false });
         expect(api().downloadState.status).toBe('done');
-        expect(native.files.get(nativeAction.mock.calls[0]?.[0])).toEqual([1, 2, 3, 4]);
+        if (action === 'save') expect(native.files.size).toBe(0);
+        else expect(native.files.get(nativeAction.mock.calls[0]?.[0])).toEqual([1, 2, 3, 4]);
     });
 
     it.each(['success', 'failure'] as const)('reports the iOS share %s result after app cancellation during handoff', async outcome => {

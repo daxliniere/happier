@@ -76,15 +76,6 @@ class AndroidFileActionsTest {
   }
 
   @Test
-  fun createsAnUnpublishedDownloadsEntryWithASafeNameAndOriginalMimeType() {
-    val values = AndroidFileActions.downloadsEntryValues("../nested\\Sad APK.apk", "application/vnd.android.package-archive")
-    assertEquals("Sad APK.apk", values.getAsString(android.provider.MediaStore.MediaColumns.DISPLAY_NAME))
-    assertEquals("application/vnd.android.package-archive", values.getAsString(android.provider.MediaStore.MediaColumns.MIME_TYPE))
-    assertEquals(android.os.Environment.DIRECTORY_DOWNLOADS, values.getAsString(android.provider.MediaStore.MediaColumns.RELATIVE_PATH))
-    assertEquals(1, values.getAsInteger(android.provider.MediaStore.MediaColumns.IS_PENDING))
-  }
-
-  @Test
   fun allowsOnlyActualFilesInsideTheCanonicalDownloadCache() {
     val context = RuntimeEnvironment.getApplication()
     val download = File(context.cacheDir, "happier-downloads/clip.mp4")

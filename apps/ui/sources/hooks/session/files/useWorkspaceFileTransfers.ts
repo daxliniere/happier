@@ -10,7 +10,6 @@ import { sessionStatFile } from '@/sync/ops';
 import { isSafeWorkspaceRelativePath } from '@/utils/path/isSafeWorkspaceRelativePath';
 import { resolveLocalUploadSourceSizeBytes } from '@/sync/runtime/files/localUploadSourceReader';
 import { createNativeCacheFileSink, shareNativeCacheFile, type NativeCacheFileSink } from '@/sync/runtime/files/nativeCacheFileSink';
-import type { AndroidPublicDownloadSink } from '@/sync/runtime/files/nativeFileActions';
 import { resolveWebFileBufferMaxBytes } from '@/sync/runtime/files/webFileBufferBudget';
 
 export type WorkspaceUploadEntry =
@@ -371,7 +370,6 @@ export function useWorkspaceFileTransfers(params: Readonly<{
         };
 
         const nativeSinkRef: { current: NativeCacheFileSink | null } = { current: null };
-        const androidPublicSinkRef: { current: AndroidPublicDownloadSink | null } = { current: null };
         const action = input.action ?? 'save';
         let keepNativeSink = false;
         let failureMessage: string | null = null;
@@ -429,12 +427,6 @@ export function useWorkspaceFileTransfers(params: Readonly<{
                                 return;
                             }
 
-                            if (Platform.OS === 'android' && action === 'save') {
-                                if (!androidPublicSinkRef.current) throw new Error('Download destination unavailable');
-                                await androidPublicSinkRef.current.writeBytes(bytes);
-                                return;
-                            }
-
                             if (!nativeSinkRef.current) {
                                 throw new Error('Download sink unavailable');
                             }
@@ -474,17 +466,6 @@ export function useWorkspaceFileTransfers(params: Readonly<{
                             }
                             webBufferedBytes = 0;
                             webExceededLimit = false;
-                            return;
-                        }
-
-                        if (Platform.OS === 'android' && action === 'save') {
-                            const { createAndroidPublicDownloadSink } = await import('@/sync/runtime/files/nativeFileActions');
-                            const sink = await createAndroidPublicDownloadSink(init.name || 'download');
-                            if (sink.canceled) {
-                                controller.abort();
-                                return { success: false, error: 'Download canceled' };
-                            }
-                            androidPublicSinkRef.current = sink;
                             return;
                         }
 
@@ -531,21 +512,17 @@ export function useWorkspaceFileTransfers(params: Readonly<{
                             try { URL.revokeObjectURL(url); } catch { }
                         }, 1_000);
                     }
-                } else if (androidPublicSinkRef.current || nativeSinkRef.current) {
+                } else if (nativeSinkRef.current) {
                     if (controller.signal.aborted) {
                         setDownloadState({ status: 'canceled' });
                         return { ok: false, error: 'Download canceled', canceled: true };
                     }
                     const action = input.action ?? 'save';
-                    if (Platform.OS === 'android' && action === 'save' && androidPublicSinkRef.current) {
-                        await androidPublicSinkRef.current.close();
-                    } else if (Platform.OS === 'android' && action !== 'share') {
-                        const nativeSink = nativeSinkRef.current;
-                        if (!nativeSink) throw new Error('Download sink unavailable');
+                    if (Platform.OS === 'android' && action !== 'share') {
                         const { performAndroidFileAction } = await import('@/sync/runtime/files/nativeFileActions');
                         if (!beginNativeHandoff()) return { ok: false, error: 'Download canceled', canceled: true };
                         const result = await performAndroidFileAction({
-                            fileUri: nativeSink.fileUri,
+                            fileUri: nativeSinkRef.current.fileUri,
                             name: res.name || 'download',
                             action,
                         });
@@ -555,10 +532,8 @@ export function useWorkspaceFileTransfers(params: Readonly<{
                         }
                         keepNativeSink = action === 'open';
                     } else {
-                        const nativeSink = nativeSinkRef.current;
-                        if (!nativeSink) throw new Error('Download sink unavailable');
                         const result = await shareNativeCacheFile({
-                            fileUri: nativeSink.fileUri,
+                            fileUri: nativeSinkRef.current.fileUri,
                             name: res.name || 'download',
                             isCurrent: () => !controller.signal.aborted,
                             onHandoff: () => { beginNativeHandoff(); },
@@ -598,7 +573,6 @@ export function useWorkspaceFileTransfers(params: Readonly<{
         return download.finally(async () => {
             let cleanupResult: TransferResult | null = null;
             try {
-                if (androidPublicSinkRef.current) await androidPublicSinkRef.current.cleanup();
                 if (nativeSinkRef.current && !keepNativeSink) await nativeSinkRef.current.cleanup();
             } catch (error) {
                 const cleanupMessage = error instanceof Error ? error.message : t('files.fileCleanupFailed');
