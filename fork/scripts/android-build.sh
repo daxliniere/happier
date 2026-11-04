@@ -30,9 +30,9 @@ BUILDS="${HAPPIER_FORK_BUILDS_DIR:-$REPO_ROOT/dist/fork-builds}"
 OUTDIR="$BUILDS/android-sadder-$(cat "$REPO_ROOT/fork/VERSION")-$(date -u +%Y%m%d-%H%M%S)"
 
 cd "$REPO_ROOT/apps/ui"
-if [ ! -d android ]; then
-  yarn -s expo prebuild --platform android --no-install
-fi
+# Keep generated native configuration in sync with this build's APP_ENV and
+# runtime-version policy, including when the Android directory already exists.
+yarn -s expo prebuild --platform android --no-install
 cd android
 # No-push placeholder: the tracked google-services.json belongs to upstream's Firebase project.
 cp "$REPO_ROOT/fork/android/google-services.stub.json" app/google-services.json
@@ -40,7 +40,13 @@ cp "$REPO_ROOT/fork/android/google-services.stub.json" app/google-services.json
 ./gradlew --no-daemon \
   -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
   -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease \
-  assembleRelease bundleRelease
+  :app:createReleaseUpdatesResources --rerun assembleRelease bundleRelease
+
+# Expo's resource task does not declare the runtime policy/environment as inputs.
+# Rerun it above so a cached non-fingerprint build cannot satisfy publicdev, and
+# check both final archives before signing or exposing them as deliverables.
+python3 "$SCRIPT_DIR/verify-android-assets.py" --android-project "$PWD" \
+  app/build/outputs/apk/release/*.apk app/build/outputs/bundle/release/app-release.aab
 
 mkdir -p "$OUTDIR"
 cp app/build/outputs/apk/release/*.apk "$OUTDIR/Sadder-debugsigned.apk"
