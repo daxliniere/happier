@@ -48,8 +48,8 @@ describe('ProviderUsageRing', () => {
         expect(arcs[0].props.r).toBeGreaterThan(arcs[1].props.r);
         expect(arcs[0].props.cx).toBe(arcs[1].props.cx);
         expect(arcs[0].props.cy).toBe(arcs[1].props.cy);
-        // Outer ring is the longer (weekly) period, the inner ring the shorter (5-hour) one, touching.
-        expect(arcs[0].props.r - arcs[1].props.r).toBe(arcs[0].props.strokeWidth);
+        // Outer ring is the longer (weekly) period, the inner ring the shorter (5-hour) one, separated by one pixel.
+        expect(arcs[0].props.r - arcs[1].props.r - arcs[0].props.strokeWidth).toBe(1);
         expect(arcs[0].props.strokeDashoffset / (2 * Math.PI * arcs[0].props.r)).toBeCloseTo(0.30);
         expect(arcs[1].props.strokeDashoffset / (2 * Math.PI * arcs[1].props.r)).toBeCloseTo(1);
         expect(arcs[0].props.stroke).not.toBe(arcs[1].props.stroke);

@@ -36,8 +36,8 @@ export type CapacityRingProps = Readonly<{
     accessibilityLabel?: string;
 }>;
 
-/** Radial gap between adjacent concentric arcs: none, so nested limits read as one gauge. */
-const RING_GAP = 0;
+/** Radial gap between adjacent concentric arcs: one transparent pixel separates the limits. */
+const RING_GAP = 1;
 
 function clamp01(value: number): number {
     if (!Number.isFinite(value)) return 0;

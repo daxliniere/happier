@@ -60,5 +60,28 @@ describe('CapacityRing', () => {
         const outerRadius = (44 - 3 * 1.25) / 2;
         expect(tree.root.findByProps({ testID: 'outer' }).props.strokeDashoffset)
             .toBeCloseTo(2 * Math.PI * outerRadius * 0.5, 4);
+        const tracks = tree.root.findAllByType('Circle' as never).filter((circle) => circle.props.strokeDasharray === undefined);
+        const edgeGap = tracks[0].props.r - tracks[0].props.strokeWidth / 2
+            - (tracks[1].props.r + tracks[1].props.strokeWidth / 2);
+        expect(edgeGap).toBeCloseTo(1, 5);
+        // The separation is unpainted SVG space, rather than an opaque spacer.
+        expect(tracks.every((circle) => circle.props.fill === 'none')).toBe(true);
     });
+
+    it.each([{ size: 18, count: 2 }, { size: 30, count: 3 }])(
+        'keeps all $count small rings visible at size $size with the thicker strokes',
+        ({ size, count }) => {
+            const tree = renderRing(<CapacityRing size={size} strokeWidth={2}
+                rings={Array.from({ length: count }, () => ({ ratio: 1, color: '#a00' }))} />);
+            const circles = tree.root.findAllByType('Circle' as never);
+            expect(circles).toHaveLength(count * 2);
+            const tracks = circles.filter((circle) => circle.props.strokeDasharray === undefined);
+            for (let index = 0; index < tracks.length; index++) {
+                const track = tracks[index];
+                expect(track.props.strokeWidth).toBe(2.5);
+                expect(track.props.r - track.props.strokeWidth / 2).toBeGreaterThan(0);
+                if (index > 0) expect(tracks[index - 1].props.r - track.props.r - track.props.strokeWidth).toBeCloseTo(1, 5);
+            }
+        },
+    );
 });
