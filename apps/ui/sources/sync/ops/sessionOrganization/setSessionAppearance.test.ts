@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDeferred } from '@/dev/testkit';
 import type { SessionOrganizationContentEnvelope } from '@happier-dev/protocol';
+import { resolveSessionWorkspacePresentation } from '@/sync/domains/session/listing/sessionWorkspacePresentation';
+import { selectEffectiveSessionAppearanceColor } from '@/sync/store/selectors/sessionAppearance';
 
 const http = vi.hoisted(() => ({ serverFetch: vi.fn(), runtimeFetchWithServerReachability: vi.fn() }));
 // HTTP is the boundary; encryption, protocol parsing, operations and the real store run unchanged.
@@ -60,6 +62,18 @@ describe('setSessionAppearance', () => {
         const { openSessionOrganizationDisplayEnvelope } = await import('./sessionOrganizationDisplayEnvelope');
         const project = { machineId: 'machine', rootPath: '/maxicam' };
         const color = { kind: 'accent', key: 'blue' } as const;
+        const projectColor = { kind: 'accent', key: 'green' } as const;
+        const workspaceKey = resolveSessionWorkspacePresentation({ metadata: null, machines: {}, target: { machineId: project.machineId, basePath: project.rootPath } }).workspaceKey;
+        const effectiveColor = () => selectEffectiveSessionAppearanceColor({
+            ...getStorage().getState(),
+            sessionOrganizationLabelsByLabelKey: {
+                [`${context.serverId}:workspace:${workspaceKey}`]: {
+                    labelKind: 'workspace', scopeKey: workspaceKey,
+                    display: { t: 'plain', v: { color: projectColor } },
+                    archivedAt: null, createdAt: 1, updatedAt: 1,
+                },
+            },
+        }, { ...context, metadata: null });
         const store = getStorage().getState();
         const record = store.setSessionAppearanceOptimistic(context.serverId, 's1', { sessionId: 's1', display: { t: 'plain', v: { color, future: 'keep' } }, updatedAt: 1 });
         store.commitSessionOrganizationOptimistic(record);
@@ -71,8 +85,15 @@ describe('setSessionAppearance', () => {
         });
         await setSessionAppearance({ ...context, project });
         expect(await openSessionOrganizationDisplayEnvelope({ credentials, envelope: saved })).toEqual({ t: 'plain', v: { color, project, future: 'keep' } });
+        expect(effectiveColor()).toEqual(color);
         await setSessionAppearance({ ...context, color: null });
         expect(await openSessionOrganizationDisplayEnvelope({ credentials, envelope: saved })).toEqual({ t: 'plain', v: { project, future: 'keep' } });
+        expect(effectiveColor()).toEqual(projectColor);
+        const nextColor = { kind: 'custom', hex: '#123456' } as const;
+        await setSessionAppearance({ ...context, color: nextColor });
+        expect(effectiveColor()).toEqual(nextColor);
+        expect(await openSessionOrganizationDisplayEnvelope({ credentials, envelope: saved })).toEqual({ t: 'plain', v: { color: nextColor, project, future: 'keep' } });
+        await setSessionAppearance({ ...context, color: null });
         await setSessionAppearance({ ...context, project: null });
         expect(getStorage().getState().sessionOrganizationAppearancesBySessionKey['appearance-server:s1']?.display).toEqual({ t: 'plain', v: { future: 'keep' } });
     });
