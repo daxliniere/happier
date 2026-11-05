@@ -57,7 +57,7 @@ export function AgentInputSelectionPopover(props: AgentInputSelectionPopoverProp
             // closure until after the click event completes.
             backdrop={{
                 style: { backgroundColor: 'transparent' },
-                blockOutsidePointerEvents: Platform.OS === 'web' ? false : (props.outsidePointerEventsMode ?? 'above-anchor'),
+                blockOutsidePointerEvents: Platform.OS === 'web' ? false : (props.outsidePointerEventsMode === 'full' ? true : 'above-anchor'),
             }}
             containerStyle={{ paddingHorizontal: 0 }}
             keyboardBottomInset={popoverLayout.keyboardBottomInset}
