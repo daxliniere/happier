@@ -1258,6 +1258,13 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         if (!shouldPortalWeb) return;
         if (typeof event?.stopPropagation === 'function') event.stopPropagation();
     }, [shouldPortalWeb]);
+    const stopClickPropagationOnWeb = React.useCallback((event: any) => {
+        // React portal events bubble through the component tree that created the popover. Keep a
+        // click inside portaled content from activating an ancestor Pressable such as a session row.
+        if (Platform.OS !== 'web') return;
+        if (!shouldPortalWeb) return;
+        if (typeof event?.stopPropagation === 'function') event.stopPropagation();
+    }, [shouldPortalWeb]);
 
     // IMPORTANT: hooks must not be conditional. This must run even when `open === false`
     // to avoid changing hook order between renders.
@@ -1424,7 +1431,11 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
             <ViewWithWheel
                 ref={contentContainerRef}
                 {...(shouldPortalWeb
-                    ? ({ onWheel: stopScrollEventPropagationOnWeb, onTouchMove: stopScrollEventPropagationOnWeb } as any)
+                    ? ({
+                        onWheel: stopScrollEventPropagationOnWeb,
+                        onTouchMove: stopScrollEventPropagationOnWeb,
+                        onClick: stopClickPropagationOnWeb,
+                    } as any)
                     : {})}
                 {...(Platform.OS === 'web' && shouldPortalWeb
                     ? ({ nativeID: portalIdRef.current, testID: portalIdRef.current } as any)
