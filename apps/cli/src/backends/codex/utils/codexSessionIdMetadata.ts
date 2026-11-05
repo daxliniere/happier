@@ -166,6 +166,7 @@ type UpdateCodexSessionIdMetadataParams = {
   activeServerDir?: string | null;
   processEnv?: NodeJS.ProcessEnv;
   codexSessionLogPath?: string | null;
+  resolveNativeSessionLogPath?: boolean;
   updateHappySessionMetadata: (updater: (metadata: Metadata) => Metadata) => Promise<void> | void;
   getMetadataSnapshot?: () => Metadata | null;
   operation?: 'create' | 'resume';
@@ -258,15 +259,19 @@ async function updateCodexSessionIdMetadata(params: UpdateCodexSessionIdMetadata
   const backendMode = normalizeCodexBackendMode(params.backendMode);
   if (!next) return;
 
-  const codexSessionLogPath = params.lastPublished.nativeLogSessionId === next && params.lastPublished.nativeLogPath
-    ? params.lastPublished.nativeLogPath
-    : await resolveCodexNativeSessionLogPath({
-      vendorResumeId: next,
-      codexHome: params.codexHome,
-      env: params.processEnv,
-    });
-  params.lastPublished.nativeLogSessionId = codexSessionLogPath ? next : null;
-  params.lastPublished.nativeLogPath = codexSessionLogPath;
+  const codexSessionLogPath = params.resolveNativeSessionLogPath
+    ? (params.lastPublished.nativeLogSessionId === next && params.lastPublished.nativeLogPath
+      ? params.lastPublished.nativeLogPath
+      : await resolveCodexNativeSessionLogPath({
+        vendorResumeId: next,
+        codexHome: params.codexHome,
+        env: params.processEnv,
+      }))
+    : params.codexSessionLogPath;
+  if (params.resolveNativeSessionLogPath) {
+    params.lastPublished.nativeLogSessionId = codexSessionLogPath ? next : null;
+    params.lastPublished.nativeLogPath = codexSessionLogPath ?? null;
+  }
   const metadataParams = { ...params, codexSessionLogPath };
 
   const directSource = resolveCodexDirectSource(metadataParams);
@@ -274,7 +279,7 @@ async function updateCodexSessionIdMetadata(params: UpdateCodexSessionIdMetadata
     backendMode,
     transcriptStorage: params.transcriptStorage ?? null,
     source: directSource,
-    codexSessionLogPath,
+    ...(params.resolveNativeSessionLogPath ? { codexSessionLogPath: codexSessionLogPath ?? null } : {}),
   });
 
   if (params.lastPublished.value === next && (params.lastPublished.fingerprint ?? null) === publishFingerprint) return;
@@ -336,6 +341,7 @@ export async function publishCodexSessionIdMetadata(params: {
     activeServerDir: params.activeServerDir,
     processEnv: params.processEnv,
     operation: params.operation,
+    resolveNativeSessionLogPath: true,
     getMetadataSnapshot: params.session.getMetadataSnapshot
       ? () => params.session.getMetadataSnapshot?.() ?? null
       : undefined,

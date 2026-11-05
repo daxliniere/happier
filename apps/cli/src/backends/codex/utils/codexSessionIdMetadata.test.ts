@@ -54,6 +54,23 @@ it('publishes native Codex nicknames only from the exact owning rollout creation
 });
 
 describe('maybeUpdateCodexSessionIdMetadata', () => {
+  it('publishes synchronously without waiting for native log discovery', () => {
+    let metadata = createTestMetadata({ path: '/tmp' });
+
+    maybeUpdateCodexSessionIdMetadata({
+      getCodexThreadId: () => 'thread-sync-publication',
+      codexHome: TEST_HOME_PATH,
+      processEnv: TEST_CODEX_HOME_ENV,
+      updateHappySessionMetadata: (updater) => {
+        metadata = updater(metadata);
+      },
+      lastPublished: { value: null },
+    });
+
+    expect(metadata.codexSessionId).toBe('thread-sync-publication');
+    expect(metadata.codexSessionLogPath).toBeUndefined();
+  });
+
   it('no-ops when thread id is missing', () => {
     const lastPublished = { value: null as string | null };
     let called = 0;
