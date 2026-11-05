@@ -26,7 +26,6 @@ import {
     updateRetainedSessionListPaneActiveSessionId,
     useSessionListPaneSourceScopeKey,
 } from '@/components/sessions/shell/surface/sessionListPaneRetention';
-import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 import { useNewSessionDraftProjections } from '@/components/sessions/shell/NewSessionDraftsSection';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -217,7 +216,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
         ?? (paneStateMatchesStorageKind && paneStateMatchesSource ? paneState : EMPTY_SESSIONS_LIST_PANE_STATE);
     const { sessionListViewData, visibleSessionCount, hasHiddenInactiveSessions } = displayPaneState;
     const styles = stylesheet;
-    const usageStrip = <ProviderUsageStrip />;
     const sessionListContent = React.useMemo(
         () => (
             <SessionsListContent
@@ -238,7 +236,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
     if (sessionListViewData === null) {
         content = (
             <View style={styles.container}>
-                {usageStrip}
                 <View style={styles.loadingContainerWrapper}>
                     <View style={styles.loadingContainer}>
                         <ActivitySpinner size={HERO_SPINNER_SIZE} color={theme.colors.text.secondary} />
@@ -249,7 +246,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
     } else if (visibleSessionCount === 0 && newSessionDrafts.length === 0) {
         content = (
             <View style={styles.container}>
-                {usageStrip}
                 <View style={styles.emptyStateContainer}>
                     <View style={styles.emptyStateContentContainer}>
                         {hasHiddenInactiveSessions ? (
@@ -264,7 +260,6 @@ const SessionsListWrapperContent = React.memo((props: { pathname: string; surfac
     } else {
         content = (
             <View style={styles.container}>
-                {usageStrip}
                 {sessionListContent}
             </View>
         );

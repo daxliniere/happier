@@ -10,6 +10,7 @@ import { useEnabledAgentIds } from '@/agents/hooks/useEnabledAgentIds';
 import { AgentInputContentPopover } from '@/components/sessions/agentInput/components/AgentInputContentPopover';
 import { Text } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
+import { HorizontalOverflowScrollView } from '@/components/ui/scroll/HorizontalOverflowScrollView';
 import { useProviderUsageAutoRefresh } from '@/hooks/server/connectedServices/useProviderUsageAutoRefresh';
 import { useProfile, useSetting } from '@/sync/domains/state/storage';
 import { t } from '@/text';
@@ -20,6 +21,8 @@ import { resolveProviderUsageGaugeWindowMode } from './resolveProviderUsageGauge
 import { useProviderUsageGauges } from './useProviderUsageGauges';
 
 const STRIP_ICON_SIZE = 12;
+const PROVIDER_TOUCH_TARGET_SIZE = 48;
+const PROVIDER_GAP = 4;
 
 /**
  * Remaining usage for every configured provider (one with a connected profile or a recorded native
@@ -55,23 +58,25 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
     return (
         <>
             <View ref={anchorRef} collapsable={false} testID="sessions-provider-usage-strip" style={styles.strip} accessibilityLabel={t('agentInput.providerUsage.title')}>
-                {agentIds.map((agentId) => (
-                    <Pressable
-                        key={agentId}
-                        testID={`sessions-provider-usage-trigger:${agentId}`}
-                        style={styles.item}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('agentInput.providerUsage.titleForProvider', { provider: t(getAgentCore(agentId).displayNameKey) })}
-                        accessibilityState={{ expanded: open }}
-                        onPress={() => {
-                            onRefresh(agentId);
-                            setOpen((previous) => !previous);
-                        }}
-                    >
-                        <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
-                        <ProviderUsageRing gauge={gauges.get(agentId) ?? null} testID={`sessions-provider-usage:${agentId}`} />
-                    </Pressable>
-                ))}
+                <HorizontalOverflowScrollView contentContainerStyle={styles.providers} showsHorizontalScrollIndicator={false}>
+                    {agentIds.map((agentId) => (
+                        <Pressable
+                            key={agentId}
+                            testID={`sessions-provider-usage-trigger:${agentId}`}
+                            style={styles.item}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('agentInput.providerUsage.titleForProvider', { provider: t(getAgentCore(agentId).displayNameKey) })}
+                            accessibilityState={{ expanded: open }}
+                            onPress={() => {
+                                onRefresh(agentId);
+                                setOpen((previous) => !previous);
+                            }}
+                        >
+                            <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
+                            <ProviderUsageRing gauge={gauges.get(agentId) ?? null} testID={`sessions-provider-usage:${agentId}`} />
+                        </Pressable>
+                    ))}
+                </HorizontalOverflowScrollView>
             </View>
             <AgentInputContentPopover
                 open={open}
@@ -115,19 +120,22 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
 
 const stylesheet = StyleSheet.create((theme) => ({
     strip: {
+        // Two full touch targets beside the logo; additional providers remain horizontally reachable.
+        maxWidth: PROVIDER_TOUCH_TARGET_SIZE * 2 + PROVIDER_GAP,
+        minWidth: PROVIDER_TOUCH_TARGET_SIZE,
+        flexShrink: 1,
+    },
+    providers: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        gap: PROVIDER_GAP,
     },
     item: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        minHeight: 48,
-        minWidth: 48,
+        minHeight: PROVIDER_TOUCH_TARGET_SIZE,
+        minWidth: PROVIDER_TOUCH_TARGET_SIZE,
     },
     section: {
         borderBottomWidth: StyleSheet.hairlineWidth,

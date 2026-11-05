@@ -326,12 +326,11 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
         router.push({ pathname: '/new', params: { draftId, draftOrigin } });
     }, [resolveNewSessionOrdinaryEntryRoute, router]);
 
-    // The provider usage rings sit at the top of the sessions column, as on the phone pane.
+    // The provider usage rings live beside the header logo on both sidebar and phone panes.
     let content: React.ReactNode;
     if (sessionListViewData === null) {
         content = (
             <View style={styles.sidebarContainer}>
-                <ProviderUsageStrip />
                 <View style={styles.sidebarContentContainer}>
                     <View style={styles.tabletLoadingContainer}>
                         <ActivitySpinner size={HERO_SPINNER_SIZE} color={theme.colors.text.secondary} />
@@ -343,7 +342,6 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
         const suppressSidebarGuidance = isTablet && pathname === '/';
         content = (
             <View style={styles.sidebarContainer}>
-                <ProviderUsageStrip />
                 <View style={styles.sidebarContentContainer}>
                     <View style={styles.emptyStateContainer}>
                         {hasHiddenInactiveSessions ? (
@@ -363,7 +361,6 @@ const SidebarMainViewContent = React.memo(function SidebarMainViewContent({
     } else {
         content = (
             <View style={styles.sidebarContainer}>
-                <ProviderUsageStrip />
                 <View style={styles.sidebarContentContainer}>
                     <SessionsListContent
                         storageKind={storageKind}
@@ -467,7 +464,12 @@ const PhoneTabbedMainViewContent = React.memo(function PhoneTabbedMainViewConten
                 <Header
                     title={<HeaderTitle activeTab={headerTab} />}
                     headerRight={() => <HeaderRight activeTab={headerTab} />}
-                    headerLeft={() => <HeaderLogo />}
+                    headerLeft={() => (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {headerTab === 'sessions' ? <ProviderUsageStrip /> : null}
+                            <HeaderLogo />
+                        </View>
+                    )}
                     headerContentStyle={styles.phoneHeaderContent}
                     headerShadowVisible={false}
                     headerTransparent={true}

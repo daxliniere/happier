@@ -15,6 +15,7 @@ import { UpdatesPopoverButton } from '@/components/updates/UpdatesPopoverButton'
 import { useSharedUpdatesSummary } from '@/updates/useUpdatesSummary';
 import { Icon } from '@/components/ui/icons/Icon';
 import { AppLockHeaderButton } from '@/components/appLock/AppLockHeaderButton';
+import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 import {
     shouldForceFreshNewSessionEntryFromPressEvent,
     useResolveNewSessionOrdinaryEntryRoute,
@@ -85,7 +86,12 @@ export const HomeHeader = React.memo(() => {
             <Header
                 title={<HeaderTitleWithSubtitle />}
                 headerRight={() => <HeaderRight />}
-                headerLeft={() => <HeaderLeft showAutomations={showAutomations} />}
+                headerLeft={() => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <ProviderUsageStrip />
+                        <HeaderLeft showAutomations={showAutomations} />
+                    </View>
+                )}
                 headerShadowVisible={false}
                 headerTransparent={true}
             />

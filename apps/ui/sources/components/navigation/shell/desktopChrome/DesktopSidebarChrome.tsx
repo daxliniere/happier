@@ -23,6 +23,7 @@ import { InboxPopoverButton } from '@/components/inbox/InboxPopoverButton';
 import { DirectSessionsBrowseButton } from '@/components/sessions/directSessions/browse/DirectSessionsBrowseButton';
 import { UpdatesEntry } from '@/components/updates/UpdatesPopoverButton';
 import type { InboxSummary } from '@/hooks/inbox/useInboxSummary';
+import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 
 type DesktopSidebarChromeProps = Readonly<{
     sidebarWidthPx?: number | null;
@@ -251,6 +252,7 @@ export const DesktopSidebarChrome = React.memo((props: DesktopSidebarChromeProps
                 ]}
             >
                 <View testID="desktop-sidebar-chrome-brand-group" style={styles.brandGroup}>
+                    <ProviderUsageStrip />
                     <SidebarLogoButton
                         testID="desktop-sidebar-brand-button"
                         onPress={props.onPressHome}

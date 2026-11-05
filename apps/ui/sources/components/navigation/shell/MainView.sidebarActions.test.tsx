@@ -3,6 +3,8 @@ import renderer from 'react-test-renderer';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '@/dev/testkit';
 import { installNavigationShellCommonModuleMocks } from './navigationShellTestHelpers';
+import { installAgentAssetLoader } from '@/dev/testkit/mocks/agentAssets';
+import { withPopoverWebGlobals } from '@/dev/testkit/harness/popoverHarness';
 
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -332,6 +334,42 @@ describe('MainView sidebar actions', () => {
         expect(renderedHeaderRight.findAllByType('FABWide')).toHaveLength(0);
         expect(tree!.findAllByType('TabBar')).toHaveLength(0);
     });
+
+    it('keeps exhausted provider usage accessible beside the phone header logo', () => withPopoverWebGlobals(async () => {
+        await installAgentAssetLoader();
+        const { storage } = await import('@/sync/domains/state/storageStore');
+        const { createSessionFixture } = await import('@/dev/testkit/fixtures/sessionFixtures');
+        platformState.isTablet = false;
+        const previous = storage.getState();
+        const session = createSessionFixture({
+            id: 'exhausted-claude', metadata: { path: '/repo', host: 'test', flavor: 'claude' },
+            lastRuntimeIssue: {
+                v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+                provider: 'claude', occurredAt: Date.now(),
+                usageLimit: { v: 1, resetAtMs: Date.now() + 3_600_000, retryAfterMs: null,
+                    quotaScope: 'account', recoverability: 'wait', limitCategory: 'usage_limit' },
+            },
+        });
+        storage.setState({ sessions: { [session.id]: session }, isDataReady: true });
+        const screen = await renderScreen(<MainView variant="phone" />);
+        const headerLeft = await renderScreen(screen.tree.findByType('Header').props.headerLeft());
+        try {
+            expect(headerLeft.findByTestId('sessions-provider-usage-trigger:claude')).toBeTruthy();
+            expect(headerLeft.findByTestId('sessions-provider-usage-trigger:codex')).toBeNull();
+            expect(headerLeft.findAllByType('HeaderLogo')).toHaveLength(1);
+            expect(headerLeft.getTextContent()).toContain('0');
+            const ring = headerLeft.findAll((node) => node.props.testID === 'sessions-provider-usage:claude'
+                && node.props.label != null)[0];
+            expect(ring?.props.remainingPct).toBe(0);
+            expect(ring?.props.tone).toBe('critical');
+            await headerLeft.pressByTestIdAsync('sessions-provider-usage-trigger:claude');
+            expect(headerLeft.findByTestId('sessions-provider-usage-section:claude')).toBeTruthy();
+        } finally {
+            await headerLeft.unmount();
+            await screen.unmount();
+            storage.setState({ sessions: previous.sessions, isDataReady: previous.isDataReady });
+        }
+    }));
 
     it('opens provider-session browsing from a folder icon immediately left of phone Automations', async () => {
         platformState.isTablet = false;

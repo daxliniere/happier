@@ -9,6 +9,9 @@ import { installNavigationShellCommonModuleMocks } from '../navigationShellTestH
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// The header now contains account usage; keep the auth/network boundary signed out.
+vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 const itemRowActionsState = vi.hoisted(() => ({
