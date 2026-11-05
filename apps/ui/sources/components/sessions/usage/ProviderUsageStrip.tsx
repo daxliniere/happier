@@ -84,6 +84,7 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
                 placement="bottom"
                 onRequestClose={() => setOpen(false)}
                 maxWidthCap={420}
+                outsidePointerEventsMode="full"
                 testID="sessions-provider-usage-popover"
                 content={open ? (
                     <View testID="sessions-provider-usage-sections">

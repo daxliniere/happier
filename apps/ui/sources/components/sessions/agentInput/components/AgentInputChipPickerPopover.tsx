@@ -1,4 +1,5 @@
 import React from 'react';
+import type { PopoverOutsidePointerEventsMode } from '@/components/ui/popover';
 import { AgentInputSelectionPopover } from '@/components/sessions/agentInput/selection/AgentInputSelectionPopover';
 
 import { AgentInputChipPickerSurface } from './AgentInputChipPickerSurface';
@@ -20,6 +21,7 @@ export type AgentInputChipPickerPopoverProps = Readonly<{
     detailPaneHeaderAccessory?: React.ReactNode;
     maxHeightCap?: number;
     maxWidthCap?: number;
+    outsidePointerEventsMode?: PopoverOutsidePointerEventsMode;
 }>;
 
 export function AgentInputChipPickerPopover(props: AgentInputChipPickerPopoverProps) {
@@ -30,6 +32,7 @@ export function AgentInputChipPickerPopover(props: AgentInputChipPickerPopoverPr
             boundaryRef={props.boundaryRef}
             maxHeightCap={props.maxHeightCap ?? 420}
             maxWidthCap={props.maxWidthCap ?? 720}
+            outsidePointerEventsMode={props.outsidePointerEventsMode}
             onRequestClose={props.onRequestClose}
         >
             {({ maxHeight }) => (

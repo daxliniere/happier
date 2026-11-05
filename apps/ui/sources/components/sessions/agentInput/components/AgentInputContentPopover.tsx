@@ -7,6 +7,7 @@ import {
 } from '@/components/sessions/agentActivity/list/listMotionQuiet';
 import type { FloatingOverlayEdgeFades } from '@/components/ui/overlays/FloatingOverlay';
 import type { ScrollEdgeVisibility } from '@/components/ui/scroll/useScrollEdgeFades';
+import type { PopoverOutsidePointerEventsMode } from '@/components/ui/popover';
 import { AgentInputSelectionPopover } from '@/components/sessions/agentInput/selection/AgentInputSelectionPopover';
 import { useKeyboardHeight } from '@/hooks/ui/useKeyboardHeight';
 
@@ -38,6 +39,7 @@ export type AgentInputContentPopoverConfig = Readonly<{
      * (`useKeyboardHeight` returns 0 on web).
      */
     reserveKeyboardInset?: boolean;
+    outsidePointerEventsMode?: PopoverOutsidePointerEventsMode;
 }>;
 
 export type AgentInputContentPopoverProps = Readonly<{
@@ -56,6 +58,7 @@ export type AgentInputContentPopoverProps = Readonly<{
     edgeIndicators?: boolean | Readonly<{ size?: number; opacity?: number }>;
     initialVisibility?: Partial<ScrollEdgeVisibility>;
     reserveKeyboardInset?: boolean;
+    outsidePointerEventsMode?: PopoverOutsidePointerEventsMode;
 }>;
 
 function renderPopoverContent(
@@ -92,6 +95,7 @@ export function AgentInputContentPopover(props: AgentInputContentPopoverProps) {
             maxHeightCap={props.maxHeightCap ?? 420}
             maxWidthCap={props.maxWidthCap ?? 420}
             placement={props.placement}
+            outsidePointerEventsMode={props.outsidePointerEventsMode}
             onRequestClose={props.onRequestClose}
         >
             {({ maxHeight }) => (
