@@ -131,6 +131,14 @@ const styles = StyleSheet.create((theme) => ({
     questionSection: {
         gap: 8,
     },
+    questionsGroup: {
+        gap: 16,
+        borderLeftWidth: 4,
+        borderRightWidth: 4,
+        borderLeftColor: theme.colors.state.warning.foreground,
+        borderRightColor: theme.colors.state.warning.foreground,
+        paddingHorizontal: 12,
+    },
     headerChip: {
         alignSelf: 'flex-start',
         backgroundColor: theme.colors.surface.elevated,
@@ -163,11 +171,6 @@ const styles = StyleSheet.create((theme) => ({
         backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: theme.colors.border.default,
-        // Match Markdown question choices, including when an option is selected.
-        borderLeftWidth: 4,
-        borderRightWidth: 4,
-        borderLeftColor: theme.colors.state.warning.foreground,
-        borderRightColor: theme.colors.state.warning.foreground,
         gap: 10,
         minHeight: 44, // Minimum touch target for mobile
     },
@@ -195,7 +198,7 @@ const styles = StyleSheet.create((theme) => ({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: theme.colors.radio.dot,
+        backgroundColor: theme.colors.radio.active,
     },
     checkboxOuter: {
         width: 20,
@@ -630,6 +633,7 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId,
                         {attachedTerminalUnavailableMessage}
                     </Text>
                 ) : null}
+                <View testID="ask-user-question.group" style={styles.questionsGroup}>
                 {questions.map((question, qIndex) => {
                     const selectedOptions = selections.get(qIndex) || new Set();
                     const options = Array.isArray(question.options) ? question.options : [];
@@ -727,6 +731,7 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId,
                         </View>
                     );
                 })}
+                </View>
 
                 {submissionGuidance ? (
                     <Text
