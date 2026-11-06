@@ -1246,13 +1246,13 @@ export const ja: TranslationStructure = {
   appCrash: {
       saveDiagnostics: "診断情報を保存",
       diagnosticsSaveFailed: "診断情報を保存できませんでした。エラーの詳細は引き続き利用できます。もう一度試すか、コピーしてください。",
-      copyFailed: "クラッシュの詳細をコピーできませんでした。再試行してください。",
-      discardFailed: "保存されたクラッシュを破棄できませんでした。再試行してください。",
-      restartWithoutReport: "保存せずに再起動",
-      reportSaveFailed: "クラッシュの詳細を保存できませんでした。再起動する前にエラーの詳細をコピーするか、報告を再試行してください。",
-      savedReportNotice: "保存されたクラッシュを以下に表示しています。送信前に確認・編集してください。送信または破棄するまで、この端末に保持されます。",
-      discardSavedReport: "保存されたクラッシュを破棄",
-      stackTruncated: "この欄ではスタックを短縮しています。完全なクラッシュ情報はこの端末に保存されています。",
+    copyFailed: "クラッシュの詳細をコピーできませんでした。再試行してください。",
+    discardFailed: "保存されたクラッシュを破棄できませんでした。再試行してください。",
+    restartWithoutReport: "保存せずに再起動",
+    reportSaveFailed: "クラッシュの詳細を保存できませんでした。再起動する前にエラーの詳細をコピーするか、報告を再試行してください。",
+    savedReportNotice: "保存されたクラッシュを以下に表示しています。送信前に確認・編集してください。送信または破棄するまで、この端末に保持されます。",
+    discardSavedReport: "保存されたクラッシュを破棄",
+    stackTruncated: "この欄ではスタックを短縮しています。完全なクラッシュ情報はこの端末に保存されています。",
     title: "問題が発生しました",
     subtitle:
       "Happierで予期しないエラーが発生しました。アプリUIを再起動するか、サポート用に詳細をコピーできます。",
@@ -1422,6 +1422,7 @@ export const ja: TranslationStructure = {
     enterTmuxTempDir: "一時ディレクトリのパスを入力",
     tmuxUpdateEnvironment: "環境を自動更新",
     nameRequired: "プロファイル名は必須です",
+    invalidProfile: '保存する前に、プロフィール名、環境変数、デフォルト設定を確認してください。',
     deleteConfirm: ({ name }: { name: string }) =>
       `プロファイル「${name}」を削除してもよろしいですか？`,
     editProfile: "プロファイルを編集",
@@ -1576,6 +1577,13 @@ export const ja: TranslationStructure = {
         plan: "実行前に計画",
         bypassPermissions: "すべての権限をスキップ",
       },
+    },
+    defaultBackend: {
+        title: 'デフォルトのAIバックエンド',
+        footer: 'プロファイルが選択されていて他のバックエンドが選ばれていない場合、新しいセッションをこのバックエンドで開始します。',
+        noneTitle: 'デフォルトなし',
+        noneSubtitle: 'Happierが通常どおりバックエンドを選択します。',
+        selectedSubtitle: 'このプロファイルでセッションを開始するときに使用されます。',
     },
     defaultPermissions: {
       title: "既定の権限",
@@ -1865,7 +1873,39 @@ export const ja: TranslationStructure = {
   },
 
   bugReports: {
+    reportSession: "このセッションの問題を報告",
+    sessionPickerTitle: "関連するセッション",
+    sessionPickerSubtitle: "この報告に関連するセッションを選んでください。",
+    sessionPickerSearchPlaceholder: "セッションを検索",
+    sessionPickerNoResults: "一致するセッションがありません",
+    noRelatedSession: "関連するセッションなし",
     composer: {
+      scopeChanged: "選択したアカウントが変更されました。診断情報を添付する前に、セッションを選び直してください。",
+      addMoreDetails: "詳細を追加（任意）",
+      technicalInformation: "技術情報",
+      relatedSession: "関連するセッション（任意）",
+      chooseSession: "セッションを選択",
+      changeSession: "セッションを変更",
+      removeSession: "セッションの関連付けを解除",
+      selectedSession: "セッションを選択済み",
+      logOptions: {
+        daemonTitle: "アプリとデーモンのログ",
+        daemonDetail: "アプリの動作記録と、選択したコンピューターおよびサーバーの接続ログ。",
+        sessionTitle: "Happier セッションログ",
+        sessionDetail: "問題の調査に役立つセッションの動作記録。",
+        providerTitle: "プロバイダーの会話記録",
+        providerDetail: "必要に応じて、プロバイダーのセッションの会話記録を含めます。",
+        technicalOnly: "技術情報のみ",
+        technicalOnlyDetail: "この報告に生のログを含めません。",
+      },
+      collection: {
+        collected: "添付済み",
+        unavailable: "利用不可",
+        disabled: "含めない",
+        unsupported: "これらのログを添付するには CLI を更新してください",
+        skipped: "スキップ済み",
+        error: "収集できませんでした",
+      },
       alerts: {
         previewUnavailableTitle: "プレビューできません",
         previewUnavailableBody: "診断プレビューを作成できませんでした。",
@@ -1927,14 +1967,13 @@ export const ja: TranslationStructure = {
       },
       issueDetails: {
         title: "問題の説明",
-        subtitle:
-          "再現と診断ができるよう、十分な情報を記入してください。",
+        subtitle: "まずはタイトルと短い説明だけで大丈夫です。",
         titleLabel: "タイトル（必須）",
         titlePlaceholder: "短いタイトル",
         githubUsernameLabel: "GitHub ユーザー名（任意）",
         githubUsernamePlaceholder: "issue 本文の連絡先として使用されます",
-        summaryLabel: "簡潔な要約（必須）",
-        summaryPlaceholder: "1 段落の要約",
+        summaryLabel: "何が起きましたか？（必須）",
+        summaryPlaceholder: "どのような問題が起きたか教えてください。",
         currentBehaviorLabel: "現在の挙動（任意）",
         currentBehaviorPlaceholder: "実際には何が起きますか？",
         expectedBehaviorLabel: "期待する挙動（任意）",
@@ -1992,11 +2031,9 @@ export const ja: TranslationStructure = {
         },
       },
       consent: {
-        title: "同意",
-        understandTitle:
-          "診断には技術メタデータが含まれる場合があることを理解しました",
-        understandSubtitle:
-          "パスワード、アクセストークン、秘密鍵は含めないでください。",
+        title: "送信する前に",
+        understandTitle: "この報告と選択した診断情報を共有する",
+        understandSubtitle: "報告の文章は公開されます。診断の添付ファイルは Happier のメンテナーに非公開で送信されます。セッションログには会話の抜粋が含まれることがあります。",
       },
       submit: {
         requiredFieldsHint: "必須項目を入力すると送信できるようになります。",
@@ -3491,6 +3528,8 @@ localTailscale: {
         membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} 有効`,
         optionsTitle: "オプション",
         autoSwitchTitle: "自動フォールバック",
+        claudeCodeAutoContinueAtUsageLimitTitle: "使用上限に達したらClaudeに待機させる",
+        claudeCodeAutoContinueAtUsageLimitSubtitle: "新しいセッションでは、Claudeが上限のリセットを待ち、自動的に続行します。オフにすると、Happierが復旧を管理します。",
         autoQuotaResetTitle: "クォータリセットを自動的に使用",
         autoQuotaResetSubtitle: "プール内に利用可能なアカウントがなく、使い切ったクォータをリセットできる場合にのみ、保存されたリセットを消費します。初期設定はオフです。",
         autoDisablePlanInvalidTitle: "選択したモデルを利用できないアカウントを無効化",
@@ -5259,6 +5298,8 @@ localTailscale: {
   },
 
   errors: {
+    quotaRefreshFailed: "使用状況を更新できませんでした。もう一度お試しください。",
+    quotaRefreshRetryAt: ({ time }: { time: string }) => `使用状況を更新できませんでした。${time}以降に再試行してください。`,
     machineRpcDecryptionFailed: "このマシンのデータを復号できません。対応するアカウントキーでサインインして、もう一度お試しください。",
     machineRpcContextUnavailable: "このマシンに接続できません。マシン一覧を更新して、もう一度お試しください。",
     networkError: "ネットワークエラーが発生しました",
@@ -5789,6 +5830,7 @@ localTailscale: {
       resetBody: ({ time }: { time: string }) =>
         `このプロバイダーは、続行する前に ${time} まで待機するよう求めています。`,
       genericBody: "このプロバイダーは、続行する前に待機するよう求めています。",
+      stoppedBody: "自動リカバリーは停止し、自動では再試行しません。下から再試行してください。",
       resetCreditBody: ({ count }: { count: number }) =>
         `${count} 件の使用リセットを利用できます。`,
       resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) =>
@@ -7706,7 +7748,10 @@ localTailscale: {
     },
     askUserQuestion: {
         submit: "回答を送信",
+        dismiss: '質問を閉じる',
+        dismissed: '質問を閉じました',
         submissionFailures: {
+            unconfirmed: "Claude に回答の送信操作を行いましたが、確認はまだ届いていません。再試行して確認するか、Claude ターミナルを開いてください。",
             update: "Happier CLI を更新して、もう一度お試しください。",
             reconnect: "このセッションに再接続して、もう一度お試しください。",
             retry: "回答を受け付けられませんでした。内容を確認して、もう一度お試しください。",
@@ -11271,6 +11316,8 @@ settingsSession: {
   },
 
   message: {
+    provenanceFrom: ({ source }: { source: string }) => `${source} から`,
+    provenanceSession: 'セッション',
     sessionReferenceUnavailable: "利用できないセッション",
     sessionReferenceOpen: ({ name }: { name: string }) => `セッション ${name} を開く`,
     switchedToMode: ({ mode }: { mode: string }) =>
@@ -11323,7 +11370,7 @@ settingsSession: {
     sessionRunningLocally:
       "このセッションはこのコンピュータでローカル実行されています。アプリから制御するにはリモートに切り替えられます。",
     sessionRunningLocallyAndRemotely:
-      "このセッションは OpenCode にローカル接続されたままで、アプリからも引き続き操作できます。",
+      "このセッションはローカル接続されたままで、アプリからも引き続き操作できます。",
     switchingToRemote: "リモートモードに切り替え中…",
     switchToRemote: "リモートに切り替え",
     detachLocalTerminal: "ターミナルを切り離す",

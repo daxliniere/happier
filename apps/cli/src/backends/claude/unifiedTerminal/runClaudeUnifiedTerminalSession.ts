@@ -41,7 +41,7 @@ import { createClaudeUnifiedHostLivenessBridge } from './createClaudeUnifiedHost
 import { assertClaudeUnifiedHookActivationBeforeTranscriptFallback } from './claudeUnifiedHookActivation';
 import { createClaudeUnifiedInputArbiter } from './createClaudeUnifiedInputArbiter';
 import { interruptClaudeUnifiedQueuedPrompt } from './interruptClaudeUnifiedQueuedPrompt';
-import { releaseClaudeUsageLimitDialogAfterExactApplication } from './releaseClaudeUsageLimitDialogAfterExactApplication';
+import { releaseClaudeUsageLimitDialogBeforePromptInjection } from './releaseClaudeUsageLimitDialogBeforePromptInjection';
 import { isClaudeUnifiedPendingInputInterruptAndRunEnabled } from './pendingInputInterruptAndRunActivation';
 import {
   createClaudeGoalRuntimeControls,
@@ -425,11 +425,11 @@ export type ClaudeUnifiedTerminalSessionOptions<Mode extends EnhancedMode = Enha
       request: Readonly<SessionTerminalComposerClearRequestV1>,
     ) => Promise<SessionTerminalComposerClearResultV1>,
   ) => (() => void) | void) | undefined;
-  /** Registers the provider-owned release applied only after exact connected-service settlement. */
+  /** Registers the Pending wake applied after exact connected-service settlement, without terminal input. */
   registerConnectedServiceExactApplicationHandler?: ((
-    releaseProviderUi: () => Promise<void>,
+    wakePendingInput: () => Promise<void>,
   ) => (() => void) | void) | undefined;
-  /** Wakes the canonical Pending owner after the stale usage-limit overlay was dismissed. */
+  /** Wakes the canonical Pending owner after exact application, independently of dialog visibility. */
   onConnectedServiceExactApplicationReleased?: (() => void) | undefined;
   onPendingInputInterruptAndRunLocalIdChange?: ((localId: string | null) => void) | undefined;
   registerPendingInputInterruptAndRunRuntimeControl?: ((
@@ -1183,6 +1183,7 @@ export async function runClaudeUnifiedTerminalSession<Mode extends EnhancedMode 
   let spawn: ClaudeUnifiedTerminalSpawn | null = null;
   let spawnArtifactsHandedOff = false;
   let spawnEnvForRuntimeControl: Readonly<Record<string, string>> | null = null;
+  const readProviderInvocation = () => spawn?.providerInvocation;
   const ensureSpawn = async (): Promise<ClaudeUnifiedTerminalSpawn> => {
     if (spawn) return spawn;
     spawn = await (opts.buildSpawn ?? buildDefaultSpawn)({
@@ -1265,6 +1266,14 @@ export async function runClaudeUnifiedTerminalSession<Mode extends EnhancedMode 
     void opts.runtimeActivityAdapter?.handleRuntimeLoss('claude_process_exit').catch((error) => {
       logger.debug('[unified]: Claude process-exit activity observation failed', error);
     });
+  };
+  const failForTerminalHostLoss = (
+    activeHandle: TerminalHostHandle,
+    error: ClaudeUnifiedTerminalHostDeadError,
+  ): void => {
+    void publishHostDeadHealth(activeHandle, error.liveness);
+    fatalRuntimeError ??= error;
+    if (!runtimeAbortController.signal.aborted) runtimeAbortController.abort(error);
   };
   const expectedProviderResumeSessionId =
     typeof opts.expectedProviderResumeSessionId === 'string'
@@ -1583,33 +1592,26 @@ export async function runClaudeUnifiedTerminalSession<Mode extends EnhancedMode 
     return guardedAttempt;
   };
   try {
-    if (opts.registerTerminalComposerClearRuntimeControl || opts.registerConnectedServiceExactApplicationHandler) {
-      const terminalSessionControlPort = hostResolution.adapter.createControlPort?.(activeHandle) ?? null;
-      if (terminalSessionControlPort && opts.registerTerminalComposerClearRuntimeControl) {
-        const unregister = opts.registerTerminalComposerClearRuntimeControl(async (request) => {
-          const result = await clearUserAuthorizedClaudeComposerDraft({
-            port: terminalSessionControlPort,
-          });
-          const protocolResult = mapClaudeComposerClearResultToProtocolResult(result, request.sessionId);
-          if (protocolResult.ok) {
-            opts.onInFlightSteerAvailabilitySnapshot?.({ available: true, reason: null });
-            wakeAfterTerminalComposerClear();
-          }
-          return protocolResult;
+    const terminalSessionControlPort = hostResolution.adapter.createControlPort?.(activeHandle) ?? null;
+    if (terminalSessionControlPort && opts.registerTerminalComposerClearRuntimeControl) {
+      const unregister = opts.registerTerminalComposerClearRuntimeControl(async (request) => {
+        const result = await clearUserAuthorizedClaudeComposerDraft({
+          port: terminalSessionControlPort,
         });
-        unregisterTerminalComposerClearRuntimeControl = typeof unregister === 'function' ? unregister : null;
-      }
-      if (terminalSessionControlPort && opts.registerConnectedServiceExactApplicationHandler) {
-        const unregister = opts.registerConnectedServiceExactApplicationHandler(async () => {
-          const result = await releaseClaudeUsageLimitDialogAfterExactApplication({
-            port: terminalSessionControlPort,
-          });
-          if (result.status === 'released') {
-            opts.onConnectedServiceExactApplicationReleased?.();
-          }
-        });
-        unregisterConnectedServiceExactApplicationHandler = typeof unregister === 'function' ? unregister : null;
-      }
+        const protocolResult = mapClaudeComposerClearResultToProtocolResult(result, request.sessionId);
+        if (protocolResult.ok) {
+          opts.onInFlightSteerAvailabilitySnapshot?.({ available: true, reason: null });
+          wakeAfterTerminalComposerClear();
+        }
+        return protocolResult;
+      });
+      unregisterTerminalComposerClearRuntimeControl = typeof unregister === 'function' ? unregister : null;
+    }
+    if (opts.registerConnectedServiceExactApplicationHandler) {
+      const unregister = opts.registerConnectedServiceExactApplicationHandler(async () => {
+        opts.onConnectedServiceExactApplicationReleased?.();
+      });
+      unregisterConnectedServiceExactApplicationHandler = typeof unregister === 'function' ? unregister : null;
     }
 
     terminalAttachment = await persistTerminalHostAttachmentInfoIfAvailable({
@@ -1884,6 +1886,23 @@ export async function runClaudeUnifiedTerminalSession<Mode extends EnhancedMode 
           reason: 'pane_initializing',
           retryAfterMs: 250,
         };
+      }
+      if (terminalSessionControlPort) {
+        const release = await releaseClaudeUsageLimitDialogBeforePromptInjection({
+          port: terminalSessionControlPort,
+          wait: waitMs,
+        });
+        if (release.status === 'failed') {
+          logger.infoFile('[unified]: usage-limit menu could not be released before prompt injection', {
+            reason: release.reason,
+          });
+          return {
+            status: 'deferred',
+            reason: 'terminal_busy',
+            retryAfterMs: blockedInjectionRetryMs,
+            blocker: { kind: 'provider_unavailable', source: 'readiness', detail: release.reason },
+          };
+        }
       }
       if (!runtimeControlBridge) return null;
 
@@ -2694,6 +2713,19 @@ export async function runClaudeUnifiedTerminalSession<Mode extends EnhancedMode 
             startupGraceMs: configuration.claudeUnifiedTerminalStartupReadinessTimeoutMs,
             startupGraceActive: () => startupHostLivenessGraceActive,
             isExpectedHostExit: (liveness) => expectedPromptInputExit && isCleanTerminalExit(liveness),
+            // Owned processes already deliver qualified exit through IPC. Independently
+            // launched hosts may qualify only the actual provider invocation, never a runner.
+            providerInvocation: currentTerminalProcess ? undefined : readProviderInvocation(),
+            onProviderGone: ({ liveness }) => {
+              observeProviderProcessExit();
+              if (expectedPromptInputExit) {
+                if (!runtimeAbortController.signal.aborted) {
+                  runtimeAbortController.abort('claude-unified-terminal-graceful-exit');
+                }
+                return;
+              }
+              failForTerminalHostLoss(activeHandle, new ClaudeUnifiedTerminalHostDeadError(liveness));
+            },
             onHostExited: () => {
               if (!currentTerminalProcess) {
                 void opts.runtimeActivityAdapter?.handleRuntimeLoss('claude_process_exit').catch((error) => {
@@ -2705,12 +2737,8 @@ export async function runClaudeUnifiedTerminalSession<Mode extends EnhancedMode 
               }
             },
             onHostDead: (error) => {
-              if (!currentTerminalProcess) {
-                observeUnverifiedProviderExit(error);
-              }
-              void publishHostDeadHealth(activeHandle, error.liveness);
-              fatalRuntimeError ??= error;
-              runtimeAbortController.abort(error);
+              if (!currentTerminalProcess) observeUnverifiedProviderExit(error);
+              failForTerminalHostLoss(activeHandle, error);
             },
           }),
         ]),

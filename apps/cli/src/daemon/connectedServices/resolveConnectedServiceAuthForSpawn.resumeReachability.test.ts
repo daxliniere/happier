@@ -17,6 +17,7 @@ import {
 } from './resolveConnectedServiceAuthForSpawn';
 import { resolveConnectedServiceMaterializedRootDir } from './materialize/resolveConnectedServiceMaterializedRootDir';
 import { waitForCondition } from '@/testkit/async/waitFor';
+import { writeExecutableShim } from '@/testkit/fs/executableShim';
 import { resolveConnectedServiceHomeDir } from './homes/resolveConnectedServiceHomeDir';
 import { openSqliteDatabaseSync } from '@/utils/sqlite/sqliteSync';
 import { createProviderCliFixture } from '@/testkit/process/providerCliFixture';

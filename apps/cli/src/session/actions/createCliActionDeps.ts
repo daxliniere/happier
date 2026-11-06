@@ -67,6 +67,7 @@ import {
 import { sendSessionMessage } from '@/session/services/sendSessionMessage';
 import { setSessionArchivedState } from '@/session/services/setSessionArchivedState';
 import { setSessionModel } from '@/session/services/setSessionModel';
+import { setSessionConfigOption } from '@/session/services/setSessionConfigOption';
 import { setSessionMode } from '@/session/services/setSessionMode';
 import { setSessionPermissionMode } from '@/session/services/setSessionPermissionMode';
 import { setSessionTitle } from '@/session/services/setSessionTitle';
@@ -1617,6 +1618,7 @@ export function createCliActionDeps(params: Readonly<{
       const accountProfile = await readActionAccountProfile();
       if (!accountProfile) return { items: [] };
       return listSpawnConnectedServiceItems({
+        token: params.credentials.token,
         accountSettings: await readActionAccountSettings(),
         accountProfile,
         ...(agentId ? { agentId } : {}),
@@ -1648,7 +1650,7 @@ export function createCliActionDeps(params: Readonly<{
     },
     ...(approvalsStore ?? {}),
     ...inventoryDeps,
-    sessionSendMessage: async ({ sessionId, message, localId, requestedAction, wait, timeoutSeconds, permissionModeOverride, modelOverride, callerSurface, callerPermissionMode }) => {
+    sessionSendMessage: async ({ sessionId, message, provenance, kind, from, localId, requestedAction, wait, timeoutSeconds, permissionModeOverride, modelOverride, callerSurface, callerPermissionMode }) => {
       if (!params.credentials) {
         return { ok: false, errorCode: 'not_authenticated', error: 'not_authenticated' };
       }
@@ -1670,6 +1672,9 @@ export function createCliActionDeps(params: Readonly<{
         credentials: params.credentials,
         idOrPrefix: sessionId,
         message: String(message ?? ''),
+        ...(provenance ? { provenance } : {}),
+        ...(kind ? { kind } : {}),
+        ...(from !== undefined ? { from } : {}),
         ...(localId ? { localId } : {}),
         requestedAction,
         wait: normalizedWait,
@@ -1698,11 +1703,24 @@ export function createCliActionDeps(params: Readonly<{
       return res;
     },
 
-    sessionStop: async ({ sessionId }) => {
+    sessionStop: async ({ sessionId, context }) => {
       if (!params.credentials) {
         return { ok: false, errorCode: 'not_authenticated', error: 'not_authenticated' };
       }
-      return await requestSessionStop({ credentials: params.credentials, idOrPrefix: sessionId });
+      // defaultSessionId can name the target. Only explicit tool origin or this
+      // process's session identifies the requester; an approver is not the caller.
+      const requestingSessionId = context?.approvalOrigin?.sessionId
+        ?? context?.messageSource?.sourceSessionId
+        ?? (!context?.bypassApprovals && params.sessionId !== 'cli-global' ? params.sessionId : undefined);
+      return await requestSessionStop({
+        credentials: params.credentials,
+        idOrPrefix: sessionId,
+        source: {
+          ...(context?.surface ? { surface: context.surface } : {}),
+          ...(requestingSessionId ? { requestingSessionId } : {}),
+          ...(context?.approvalOrigin?.toolCallId ? { toolCallId: context.approvalOrigin.toolCallId } : {}),
+        },
+      });
     },
 
     sessionAliasesRecover: async (input) => {
@@ -1789,6 +1807,20 @@ export function createCliActionDeps(params: Readonly<{
         return { ok: false, errorCode: res.code, error: res.code, ...(res.candidates ? { candidates: res.candidates } : {}) };
       }
       return { ok: true, sessionId: res.sessionId, modelId: normalizedModelId, updatedAt };
+    },
+
+    sessionConfigOptionSet: async ({ sessionId, configId, valueId }) => {
+      if (!params.credentials) {
+        return { ok: false, errorCode: 'not_authenticated', error: 'not_authenticated' };
+      }
+      const updatedAt = Date.now();
+      const result = await setSessionConfigOption({
+        credentials: params.credentials, idOrPrefix: sessionId, configId, valueId, updatedAt,
+      });
+      if (!result.ok) {
+        return { ok: false, errorCode: result.code, error: result.code, ...(result.candidates ? { candidates: result.candidates } : {}) };
+      }
+      return { ok: true, sessionId: result.sessionId, configId, valueId, updatedAt };
     },
 
     sessionArchiveSet: async ({ sessionId, archived }) => {

@@ -20,6 +20,13 @@ function expectSchema(name: string): any {
 }
 
 describe('connectedServiceSchemas', () => {
+    it('keeps the Claude pool continuation opt-out optional and accepts it in policy patches', () => {
+        expect(schemas.ConnectedServiceAuthGroupPolicyV1Schema.parse({})).not.toHaveProperty('claudeCodeAutoContinueAtUsageLimit');
+        expect(schemas.ConnectedServiceAuthGroupPolicyV1Schema.parse({ claudeCodeAutoContinueAtUsageLimit: true }))
+            .toMatchObject({ claudeCodeAutoContinueAtUsageLimit: true });
+        expect(schemas.ConnectedServiceAuthGroupPolicyPatchV1Schema.parse({ claudeCodeAutoContinueAtUsageLimit: false }))
+            .toEqual({ claudeCodeAutoContinueAtUsageLimit: false });
+    });
     it('exports the canonical credential mutation contract from the package barrel', () => {
         for (const name of [
             'ConnectedServiceCredentialRevisionV1Schema',
@@ -655,12 +662,12 @@ describe('connectedServiceSchemas', () => {
             .appendConnectedServiceAuthGroupReaderCapabilities;
         expect(typeof appendReaderCapabilities).toBe('function');
         expect((appendReaderCapabilities as (path: string) => string)('/v3/connect/openai-codex/groups')).toBe(
-            '/v3/connect/openai-codex/groups?happierAutoDisablePlanInvalidAccounts=1&happierPoolQuotaLimitSelection=1&happierPoolExpiryFirst=1',
+            '/v3/connect/openai-codex/groups?happierAutoDisablePlanInvalidAccounts=1&happierPoolQuotaLimitSelection=1&happierPoolExpiryFirst=1&happierClaudeCodeAutoContinueAtUsageLimit=1',
         );
         expect((appendReaderCapabilities as (path: string) => string)(
             '/v3/connect/openai-codex/groups/main/members/work?expectedGeneration=4',
         )).toBe(
-            '/v3/connect/openai-codex/groups/main/members/work?expectedGeneration=4&happierAutoDisablePlanInvalidAccounts=1&happierPoolQuotaLimitSelection=1&happierPoolExpiryFirst=1',
+            '/v3/connect/openai-codex/groups/main/members/work?expectedGeneration=4&happierAutoDisablePlanInvalidAccounts=1&happierPoolQuotaLimitSelection=1&happierPoolExpiryFirst=1&happierClaudeCodeAutoContinueAtUsageLimit=1',
         );
     });
 
@@ -735,6 +742,7 @@ describe('connectedServiceSchemas', () => {
             validationBlockedUntilMs: 46,
             lastFailureKind: 'usage_limit',
             lastFailureCode: 'usage_limit_reached',
+            lastFailureProviderLimitId: ' five_hour ',
             lastObservedPlanType: 'team',
             lastObservedAtMs: 50,
             providerResetsAtMs: 60,
@@ -750,6 +758,7 @@ describe('connectedServiceSchemas', () => {
             validationBlockedUntilMs: 46,
             lastFailureKind: 'usage_limit',
             lastFailureCode: 'usage_limit_reached',
+            lastFailureProviderLimitId: 'five_hour',
             lastObservedPlanType: 'team',
             lastObservedAtMs: 50,
             providerResetsAtMs: 60,
@@ -904,6 +913,9 @@ describe('connectedServiceSchemas', () => {
         });
 
         expect(parsed.bindingsByServiceId['openai-codex']?.selection).toBe('group');
+        expect(ConnectedServiceBindingSelectionV1Schema.safeParse({
+            source: 'connected', selection: 'group', groupId: 'codex-main', appliedProfileId: 42,
+        }).success).toBe(false);
         expect(parsed.bindingsByServiceId['openai-codex']).toEqual({
             source: 'connected',
             selection: 'group',

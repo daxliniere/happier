@@ -32,6 +32,9 @@ export type ConnectedServiceAuthGroupSwitchState = Readonly<{
   policy: ConnectedServiceAuthGroupPolicyV1;
   members: ReadonlyArray<ConnectedServiceAuthGroupMember>;
   memberStatesByProfileId: ReadonlyMap<string, ConnectedServiceAuthGroupMemberRuntimeState>;
+  /** Models requested or applied by live sessions sharing this pool. */
+  requiredModelIds?: ReadonlyArray<string>;
+  quotaProbeDeferredUntilMsByProfileId?: ReadonlyMap<string, number>;
 }>;
 
 export type LeaseCompletion = Readonly<{
@@ -222,7 +225,16 @@ export type ConnectedServiceAuthGroupSwitchResult =
       diagnostics?: unknown;
     }>
   | Readonly<{
+      status: 'quota_proof_unavailable';
+      activeProfileId: string | null;
+      generation: number;
+      retryAtMs?: number;
+      diagnostics?: ConnectedServiceAuthGroupSwitchDecisionDiagnostics;
+    }>
+  | Readonly<{
       status: 'no_eligible_member';
+      /** Present for current-member observation; absent for a full-pool selection. */
+      activeProfileId?: string | null;
       generation: number;
       groupExhausted: true;
       retryAtMs: number | null;
@@ -274,6 +286,7 @@ export function isReasonEnabled(policy: ConnectedServiceAuthGroupPolicyV1, reaso
       return policy.switchOn.usageLimit;
     case 'auth_expired':
     case 'permission_denied':
+    case 'plan':
       return policy.switchOn.authExpired;
     case 'refresh_failed':
       return policy.switchOn.refreshFailure || policy.switchOn.authExpired;

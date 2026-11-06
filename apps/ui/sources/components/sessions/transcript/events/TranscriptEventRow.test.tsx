@@ -5,6 +5,8 @@ import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 import { renderScreen } from '@/dev/testkit';
 import { rawRecordSchema, type AgentEvent } from '@/sync/typesRaw/schemas';
 import { t } from '@/text';
+import { Text } from '@/components/ui/text/Text';
+import { normalizeRawMessage } from '@/sync/typesRaw/normalize';
 
 import { TranscriptEventRow } from './TranscriptEventRow';
 
@@ -46,6 +48,23 @@ function parseProtocolValidAgentEvent<T extends AgentEvent>(event: T): T {
 }
 
 describe('TranscriptEventRow', () => {
+    it.each(['failure', 'notice'] as const)('renders the provider startup %s through the existing session message row', async (kind) => {
+        const message = kind === 'failure'
+            ? "Required MCP server 'happier' failed to start: connection refused"
+            : 'Continued without MCP server "happier": connection refused';
+        const normalized = normalizeRawMessage(`startup-${kind}`, null, 1_000, {
+            role: 'agent', content: kind === 'failure'
+                ? { type: 'acp', provider: 'fx', data: { type: 'turn_failed', id: 'startup-1', issue: {
+                    v: 1, scope: 'primary_session', status: 'failed', code: 'provider_session_error',
+                    source: 'provider_session_error', occurredAt: 1_000, provider: 'fx', sanitizedPreview: message,
+                } } }
+                : { type: 'event', id: 'startup-notice', data: { type: 'message', message } },
+        });
+        if (normalized?.role !== 'event') throw new Error('Startup outcome must project to a visible event');
+        const screen = await renderScreen(<TranscriptEventRow event={normalized.content} sessionId="session-1" />);
+        expect(screen.findAllByType(Text).some((node) => node.props.children === message)).toBe(true);
+    });
+
     beforeEach(() => {
         eventRowMocks.actionExecute.mockReset();
         eventRowMocks.actionExecute.mockResolvedValue({ ok: true, result: { ok: true, status: 'cleared' } });
@@ -781,11 +800,15 @@ describe('TranscriptEventRow', () => {
         expect(serialized).not.toContain(t('message.unknownEvent'));
     });
 
-    it('does not describe a terminal policy decision as a user cancellation', async () => {
+    it.each([
+        'switch_reason_disabled',
+        'connected_service_continuation_turn_projection_unavailable',
+        'connected_service_continuation_failure_superseded',
+    ])('renders terminal recovery reason %s as a stopped notice', async (reason) => {
         const screen = await renderScreen(<TranscriptEventRow event={{
             type: 'connected-service-runtime-auth-recovery',
             status: 'cancelled', serviceId: 'claude-subscription', profileId: 'work',
-            terminal: true, reason: 'switch_reason_disabled',
+            terminal: true, reason,
         }} />);
         const serialized = JSON.stringify(screen.tree.toJSON());
         expect(serialized).not.toContain(t('message.connectedServiceRuntimeAuthRecoveryCancelled'));

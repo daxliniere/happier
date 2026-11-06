@@ -41,6 +41,7 @@ import {
 } from './permissionPrivilege.js';
 import type { ActionsSettingsV1 } from './actionSettings.js';
 import { readPendingLocalId } from '../sessionMessages/pendingLocalId.js';
+import { SessionMessageProvenanceV1Schema, type SessionMessageProvenanceV1 } from '../sessionMessages/sessionMessageProvenance.js';
 import type { ReviewStartInput } from '../reviews/reviewStart.js';
 import type { AcpConfigOptionOverridesV1 } from '../sessionMetadata/metadataOverridesV1.js';
 import type { NativeSessionAliasAssignmentV1 } from '../sessionMetadata/nativeSessionAliasesV1.js';
@@ -124,6 +125,9 @@ export type ActionExecutorContext = Readonly<{
    * wants to default to a current/active session.
    */
   defaultSessionId?: string | null;
+
+  /** Host-bound origin, separate from the mutable/default recipient. Never populated from action input. */
+  messageSource?: Pick<SessionMessageProvenanceV1, 'sourceSessionId' | 'via'>;
 
   /** Machine authoritatively bound to the current session, for explicitly declared contextual defaults. */
   defaultSessionMachineId?: string | null;
@@ -271,6 +275,9 @@ export type ActionExecutorDeps = Readonly<{
   sessionSendMessage: (args: Readonly<{
     sessionId: string;
     message: string;
+    provenance?: SessionMessageProvenanceV1;
+    kind?: 'user' | 'notice';
+    from?: string;
     localId?: string;
     requestedAction: PendingRequestedActionV1;
     permissionModeOverride?: string;
@@ -283,7 +290,7 @@ export type ActionExecutorDeps = Readonly<{
   }>) => Promise<unknown>;
   sessionTitleSet?: (args: Readonly<{ sessionId: string; title: string; serverId?: string | null }>) => Promise<unknown>;
   sessionAliasesRecover?: (args: Readonly<{ assignments: readonly NativeSessionAliasAssignmentV1[]; machineId?: string; dryRun?: boolean }>) => Promise<unknown>;
-  sessionStop?: (args: Readonly<{ sessionId: string; serverId?: string | null }>) => Promise<SessionStopActionDependencyResult>;
+  sessionStop?: (args: Readonly<{ sessionId: string; serverId?: string | null; context?: ActionExecutorContext }>) => Promise<SessionStopActionDependencyResult>;
   sessionPermissionModeSet?: (args: Readonly<{
     sessionId: string;
     permissionMode: string;
@@ -292,6 +299,7 @@ export type ActionExecutorDeps = Readonly<{
     callerPermissionMode?: string | null;
   }>) => Promise<unknown>;
   sessionModelSet?: (args: Readonly<{ sessionId: string; modelId: string; serverId?: string | null }>) => Promise<unknown>;
+  sessionConfigOptionSet?: (args: Readonly<{ sessionId: string; configId: string; valueId: string; serverId?: string | null }>) => Promise<unknown>;
   sessionArchiveSet?: (args: Readonly<{ sessionId: string; archived: boolean; serverId?: string | null }>) => Promise<unknown>;
   sessionStatusGet?: (args: Readonly<{ sessionId: string; live?: boolean; serverId?: string | null }>) => Promise<unknown>;
   sessionWorkStateGet?: (args: Readonly<{ sessionId: string; serverId?: string | null }>) => Promise<unknown>;
@@ -694,6 +702,27 @@ function buildApprovalMetadata(spec: ActionSpec): NonNullable<ApprovalRequestV1[
   return {
     flow: resolveActionApprovalFlow(spec.approval),
     result: spec.approval.result,
+  };
+}
+
+function buildApprovedActionContext(args: Readonly<{
+  ctx: ActionExecutorContext;
+  request: ApprovalRequestV1;
+  serverId: string | null;
+  surface: keyof ActionSurfaces | null;
+}>): ActionExecutorContext {
+  const sessionId = typeof args.request.createdBy.sessionId === 'string'
+    ? args.request.createdBy.sessionId.trim()
+    : '';
+  return {
+    ...args.ctx,
+    messageSource: args.request.messageSource,
+    approvalOrigin: args.request.origin ?? null,
+    ...(args.serverId ? { serverId: args.serverId } : {}),
+    ...(sessionId ? { defaultSessionId: sessionId } : {}),
+    ...(args.surface ? { surface: args.surface } : {}),
+    placement: null,
+    bypassApprovals: true,
   };
 }
 
@@ -1327,18 +1356,12 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
 
     const requestSurface = parseActionSurfaceKey((args.request as any).requestedSurface)
       ?? resolveApprovalRequestExecutionSurface(args.request.createdBy.surface);
-    const requestDefaultSessionId = typeof args.request.createdBy.sessionId === 'string' ? args.request.createdBy.sessionId.trim() : '';
     const exec = requestSurface
       ? args.runApprovedAction
         ? await args.runApprovedAction()
-        : await execute(args.request.actionId, args.request.actionArgs, {
-            ...args.ctx,
-            ...(args.effectiveServerId ? { serverId: args.effectiveServerId } : {}),
-            ...(requestDefaultSessionId ? { defaultSessionId: requestDefaultSessionId } : {}),
-            surface: requestSurface,
-            placement: null,
-            bypassApprovals: true,
-          })
+        : await execute(args.request.actionId, args.request.actionArgs, buildApprovedActionContext({
+            ctx: args.ctx, request: args.request, serverId: args.effectiveServerId, surface: requestSurface,
+          }))
       : { ok: false as const, errorCode: 'approval_execution_surface_invalid', error: 'approval_execution_surface_invalid' };
     const executedAtMs = Date.now();
     const nextExecuted: ApprovalRequestV1 = {
@@ -1446,6 +1469,9 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
     });
 
     try {
+      const messageSource = ctx.messageSource ? SessionMessageProvenanceV1Schema.parse({
+        v: 1, kind: 'happierSession', ...ctx.messageSource,
+      }) : undefined;
       if (approvalRouting?.required && !isApprovalAction) {
         if (!deps.approvalsCreate) {
           return { ok: false, errorCode: 'approvals_not_supported', error: 'approvals_not_supported' };
@@ -1473,6 +1499,7 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
           createdAtMs: now,
           updatedAtMs: now,
           createdBy,
+          ...(messageSource ? { messageSource } : {}),
           ...(requestedSurface ? { requestedSurface } : {}),
           actionId,
           actionArgs: parsed.data,
@@ -1540,20 +1567,12 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
               releaseBlockingOwnershipOnPrepareReturn = false;
               const requestSurface = parseActionSurfaceKey((approvedRequest as any).requestedSurface)
                 ?? resolveApprovalRequestExecutionSurface(approvedRequest.createdBy.surface);
-              const requestDefaultSessionId = typeof approvedRequest.createdBy.sessionId === 'string'
-                ? approvedRequest.createdBy.sessionId.trim()
-                : '';
               const approvedAdmission: PreparedAdmission = {
                 spec,
                 input: parsed.data,
-                context: {
-                  ...ctx,
-                  ...(effectiveServerId ? { serverId: effectiveServerId } : {}),
-                  ...(requestDefaultSessionId ? { defaultSessionId: requestDefaultSessionId } : {}),
-                  ...(requestSurface ? { surface: requestSurface } : {}),
-                  placement: null,
-                  bypassApprovals: true,
-                },
+                context: buildApprovedActionContext({
+                  ctx, request: approvedRequest, serverId: effectiveServerId, surface: requestSurface,
+                }),
               };
               return ready(approvedAdmission, async (runOptions) => {
                 try {
@@ -2246,6 +2265,13 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
         }
 
         if (actionId === 'session.message.send') {
+          const messageKind = parsed.data.kind === 'notice' ? 'notice' : parsed.data.kind === 'user' ? 'user' : undefined;
+          const from = typeof parsed.data.from === 'string' ? parsed.data.from : undefined;
+          // Only the CLI surface exposes display-only notice authoring in 0.2.
+          // Other surfaces must not silently reinterpret it as a prompt.
+          if ((messageKind === 'notice' || from !== undefined) && ctx.surface !== 'cli') {
+            return { ok: false, errorCode: 'unsupported_action', error: 'Notices are currently CLI-only' };
+          }
           const sessionId = resolveSessionIdFromInput(parsed.data, ctx);
           if (!sessionId) return { ok: false, errorCode: 'session_not_selected', error: 'session_not_selected' };
           const localIdRaw = (parsed.data as Record<string, unknown>).localId;
@@ -2270,6 +2296,9 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
           const res = await deps.sessionSendMessage({
             sessionId,
             message: (parsed.data as any).message,
+            ...(messageSource ? { provenance: messageSource } : {}),
+            ...(messageKind ? { kind: messageKind } : {}),
+            ...(from !== undefined ? { from } : {}),
             ...(localId !== null ? { localId } : {}),
             requestedAction: PendingRequestedActionV1Schema.parse(
               parsed.data.requestedAction ?? { v: 1, kind: 'steer_if_active' },
@@ -2323,7 +2352,7 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
             return { ok: false, errorCode: 'unsupported_action', error: 'unsupported_action:session.stop' };
           }
           const serverId = resolveServerIdForSession(deps, ctx, sessionId);
-          const res = await deps.sessionStop({ sessionId, ...(serverId ? { serverId } : {}) });
+          const res = await deps.sessionStop({ sessionId, ...(serverId ? { serverId } : {}), context: ctx });
           const stopFailed = 'success' in res ? res.success === false : res.ok === false;
           if (stopFailed) {
             const errorCode = res.code?.trim()
@@ -2376,6 +2405,21 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
           if (!modelId) return { ok: false, errorCode: 'invalid_parameters', error: 'invalid_parameters' };
           const serverId = resolveServerIdForSession(deps, ctx, sessionId);
           const res = await deps.sessionModelSet({ sessionId, modelId, ...(serverId ? { serverId } : {}) });
+          return { ok: true, result: res };
+        }
+
+        if (actionId === 'session.config_option.set') {
+          const sessionId = resolveSessionIdFromInput(parsed.data, ctx);
+          if (!sessionId) return { ok: false, errorCode: 'session_not_selected', error: 'session_not_selected' };
+          if (!deps.sessionConfigOptionSet) {
+            return { ok: false, errorCode: 'unsupported_action', error: 'unsupported_action:session.config_option.set' };
+          }
+          const data = parsed.data as Record<string, unknown>;
+          const configId = readOpaqueIdentifier(data.configId);
+          const valueId = readOpaqueIdentifier(data.valueId);
+          if (!configId || !valueId) return { ok: false, errorCode: 'invalid_parameters', error: 'invalid_parameters' };
+          const serverId = resolveServerIdForSession(deps, ctx, sessionId);
+          const res = await deps.sessionConfigOptionSet({ sessionId, configId, valueId, ...(serverId ? { serverId } : {}) });
           return { ok: true, result: res };
         }
 
@@ -3058,6 +3102,7 @@ export function createActionExecutor(deps: ActionExecutorDeps): Readonly<{
           createdBy,
           ...(requestedSurface ? { requestedSurface } : {}),
           actionId: targetActionId,
+          ...(messageSource ? { messageSource } : {}),
           actionArgs: parsedTargetArgs.data,
           approval: buildApprovalMetadata(targetSpec),
           ...(approvalOrigin ? { origin: approvalOrigin } : {}),

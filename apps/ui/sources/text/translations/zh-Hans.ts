@@ -1248,13 +1248,13 @@ export const zhHans: TranslationStructure = {
   appCrash: {
       saveDiagnostics: "保存诊断信息",
       diagnosticsSaveFailed: "无法保存诊断信息。崩溃详情仍然可用。请重试或复制详情。",
-      copyFailed: "无法复制崩溃详情。请重试。",
-      discardFailed: "无法丢弃已保存的崩溃。请重试。",
-      restartWithoutReport: "不保存并重启",
-      reportSaveFailed: "无法保存崩溃详情。请在重启前复制错误详情，或重试报告。",
-      savedReportNotice: "已保存的崩溃显示在下方。请在提交前检查并编辑。提交或丢弃前，信息会保留在此设备上。",
-      discardSavedReport: "丢弃已保存的崩溃",
-      stackTruncated: "此字段中的堆栈已缩短。完整崩溃信息仍保存在此设备上。",
+    copyFailed: "无法复制崩溃详情。请重试。",
+    discardFailed: "无法丢弃已保存的崩溃。请重试。",
+    restartWithoutReport: "不保存并重启",
+    reportSaveFailed: "无法保存崩溃详情。请在重启前复制错误详情，或重试报告。",
+    savedReportNotice: "已保存的崩溃显示在下方。请在提交前检查并编辑。提交或丢弃前，信息会保留在此设备上。",
+    discardSavedReport: "丢弃已保存的崩溃",
+    stackTruncated: "此字段中的堆栈已缩短。完整崩溃信息仍保存在此设备上。",
     title: "出错了",
     subtitle: "Happier 发生了意外错误。你可以重启应用界面，或复制详细信息以便支持排查。",
     detailsTitle: "错误详情",
@@ -1525,7 +1525,39 @@ export const zhHans: TranslationStructure = {
   },
 
   bugReports: {
+    reportSession: "报告此会话的问题",
+    sessionPickerTitle: "相关会话",
+    sessionPickerSubtitle: "选择此报告涉及的会话。",
+    sessionPickerSearchPlaceholder: "搜索会话",
+    sessionPickerNoResults: "没有匹配的会话",
+    noRelatedSession: "无相关会话",
     composer: {
+      scopeChanged: "所选账号已更改。请重新选择会话，再附加诊断信息。",
+      addMoreDetails: "添加更多详情（选填）",
+      technicalInformation: "技术信息",
+      relatedSession: "相关会话（选填）",
+      chooseSession: "选择会话",
+      changeSession: "更换会话",
+      removeSession: "移除会话",
+      selectedSession: "已选择会话",
+      logOptions: {
+        daemonTitle: "应用和守护进程日志",
+        daemonDetail: "应用活动，以及所选计算机和服务器的连接日志。",
+        sessionTitle: "Happier 会话日志",
+        sessionDetail: "有助于我们调查此问题的会话活动。",
+        providerTitle: "提供商对话记录",
+        providerDetail: "需要时附上提供商的会话对话记录。",
+        technicalOnly: "仅包含技术信息",
+        technicalOnlyDetail: "此报告不包含任何原始日志。",
+      },
+      collection: {
+        collected: "已附加",
+        unavailable: "不可用",
+        disabled: "未包含",
+        unsupported: "更新 CLI 以附加这些日志",
+        skipped: "已跳过",
+        error: "无法收集",
+      },
       alerts: {
         previewUnavailableTitle: "无法预览",
         previewUnavailableBody: "无法构建诊断预览。",
@@ -1584,13 +1616,13 @@ export const zhHans: TranslationStructure = {
       },
       issueDetails: {
         title: "描述问题",
-        subtitle: "请提供足够细节，方便我们快速复现并诊断。",
+        subtitle: "只需标题和简短描述即可开始。",
         titleLabel: "标题（必填）",
         titlePlaceholder: "简短的问题标题",
         githubUsernameLabel: "GitHub 用户名（可选）",
         githubUsernamePlaceholder: "将在 issue 正文中作为联系方式使用",
-        summaryLabel: "简要概述（必填）",
-        summaryPlaceholder: "一段话概述",
+        summaryLabel: "发生了什么？（必填）",
+        summaryPlaceholder: "请告诉我们出了什么问题。",
         currentBehaviorLabel: "当前行为（可选）",
         currentBehaviorPlaceholder: "实际发生了什么？",
         expectedBehaviorLabel: "期望行为（可选）",
@@ -1646,9 +1678,9 @@ export const zhHans: TranslationStructure = {
         },
       },
       consent: {
-        title: "确认",
-        understandTitle: "我理解诊断可能包含技术元数据",
-        understandSubtitle: "请勿包含密码、访问令牌或私钥。",
+        title: "发送前",
+        understandTitle: "分享此报告和所选诊断信息",
+        understandSubtitle: "报告文字会公开。诊断附件会以非公开方式发送给 Happier 维护者。会话日志可能包含对话片段。",
       },
       submit: {
         requiredFieldsHint: "填写必填项后才能提交。",
@@ -3110,6 +3142,8 @@ export const zhHans: TranslationStructure = {
         membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} 已启用`,
         optionsTitle: "选项",
         autoSwitchTitle: "自动回退",
+        claudeCodeAutoContinueAtUsageLimitTitle: "让Claude在达到用量上限时等待",
+        claudeCodeAutoContinueAtUsageLimitSubtitle: "对于新会话，让Claude等待用量上限重置后自动继续。关闭后由Happier管理恢复。",
         autoQuotaResetTitle: "自动使用配额重置",
         autoQuotaResetSubtitle: "仅当池中没有可用账户且耗尽的配额可以重置时，才消耗已保存的重置次数。默认关闭。",
         autoDisablePlanInvalidTitle: "停用无法使用所选模型的账户",
@@ -4836,6 +4870,8 @@ export const zhHans: TranslationStructure = {
   },
 
   errors: {
+    quotaRefreshFailed: "无法刷新用量。请重试。",
+    quotaRefreshRetryAt: ({ time }: { time: string }) => `无法刷新用量。请在 ${time} 后重试。`,
     machineRpcDecryptionFailed: "无法解密此机器的数据。请使用匹配的账户密钥登录后重试。",
     machineRpcContextUnavailable: "此机器的连接不可用。请刷新机器列表后重试。",
     networkError: "发生网络错误",
@@ -5336,6 +5372,7 @@ export const zhHans: TranslationStructure = {
       resetBody: ({ time }: { time: string }) =>
         `此提供方要求会话等到 ${time} 后再继续。`,
       genericBody: "此提供方要求会话等待后再继续。",
+      stoppedBody: "自动恢复已停止，不会自行重试。请在下方重试。",
       resetCreditBody: ({ count }: { count: number }) =>
         `${count} 次使用重置可用。`,
       resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) =>
@@ -7294,7 +7331,10 @@ export const zhHans: TranslationStructure = {
     },
     askUserQuestion: {
         submit: "提交答案",
+        dismiss: '关闭问题',
+        dismissed: '问题已关闭',
         submissionFailures: {
+            unconfirmed: "已向 Claude 发送提交操作，但仍在等待确认。请重试以检查确认状态，或打开 Claude 终端。",
             update: "请更新 Happier CLI，然后重试。",
             reconnect: "请重新连接此会话，然后重试。",
             retry: "无法接受该答案。请检查后重试。",
@@ -10665,6 +10705,8 @@ settingsSession: {
   },
 
   message: {
+    provenanceFrom: ({ source }: { source: string }) => `来自 ${source}`,
+    provenanceSession: '会话',
     sessionReferenceUnavailable: "会话不可用",
     sessionReferenceOpen: ({ name }: { name: string }) => `打开会话 ${name}`,
     switchedToMode: ({ mode }: { mode: string }) => `已切换到 ${mode} 模式`,
@@ -10716,7 +10758,7 @@ settingsSession: {
     sessionRunningLocally:
       "此会话正在本机上以本地模式运行。你可以切换到远程以在应用中控制。",
     sessionRunningLocallyAndRemotely:
-      "此会话已在 OpenCode 中本地附加，同时仍可从应用中控制。",
+      "此会话已在本地连接，同时仍可从应用中控制。",
     switchingToRemote: "正在切换到远程模式…",
     switchToRemote: "切换到远程",
     detachLocalTerminal: "断开终端",
@@ -11002,6 +11044,7 @@ settingsSession: {
     deleteConfirm: ({ name }: { name: string }) =>
       `确定要删除配置文件“${name}”吗？`,
     nameRequired: "配置文件名称为必填项",
+    invalidProfile: '保存前请检查配置名称、环境变量和默认设置。',
     builtIn: "内置",
     custom: "自定义",
     builtInSaveAsHint: "保存内置配置文件会创建一个新的自定义配置文件。",
@@ -11140,6 +11183,13 @@ settingsSession: {
         plan: "执行前先规划",
         bypassPermissions: "跳过所有权限",
       },
+    },
+    defaultBackend: {
+        title: '默认 AI 后端',
+        footer: '选择此配置文件且未选择其他后端时，新会话将使用此后端启动。',
+        noneTitle: '无默认值',
+        noneSubtitle: 'Happier 将照常选择后端。',
+        selectedSubtitle: '使用此配置文件启动会话时使用。',
     },
     defaultPermissions: {
       title: "默认权限",

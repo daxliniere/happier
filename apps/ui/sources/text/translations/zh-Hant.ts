@@ -1250,7 +1250,49 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
     },
 
     bugReports: {
+        reportSession: "回報此工作階段的問題",
+        sessionPickerTitle: "相關工作階段",
+        sessionPickerSubtitle: "選擇此回報所涉及的工作階段。",
+        sessionPickerSearchPlaceholder: "搜尋工作階段",
+        sessionPickerNoResults: "沒有符合的工作階段",
+        noRelatedSession: "無相關工作階段",
         composer: {
+            scopeChanged: "選取的帳號已變更。請重新選擇工作階段，再附加診斷資訊。",
+            consent: {
+                title: "送出前",
+                understandTitle: "分享此回報與選取的診斷資訊",
+                understandSubtitle: "回報文字會公開。診斷附件會以非公開方式傳送給 Happier 維護者。工作階段記錄可能包含對話片段。",
+            },
+            issueDetails: {
+                subtitle: "只需標題和簡短描述即可開始。",
+                summaryLabel: "發生了什麼事？（必填）",
+                summaryPlaceholder: "請告訴我們出了什麼問題。",
+            },
+            addMoreDetails: "新增更多詳細資訊（選填）",
+            technicalInformation: "技術資訊",
+            relatedSession: "相關工作階段（選填）",
+            chooseSession: "選擇工作階段",
+            changeSession: "變更工作階段",
+            removeSession: "移除工作階段",
+            selectedSession: "已選擇工作階段",
+            logOptions: {
+                daemonTitle: "應用程式與 daemon 記錄",
+                daemonDetail: "應用程式活動，以及所選電腦與伺服器的連線記錄。",
+                sessionTitle: "Happier 工作階段記錄",
+                sessionDetail: "有助於我們調查此問題的工作階段活動。",
+                providerTitle: "供應商對話記錄",
+                providerDetail: "需要時附上供應商的工作階段對話記錄。",
+                technicalOnly: "僅包含技術資訊",
+                technicalOnlyDetail: "此回報不包含任何原始記錄。",
+            },
+            collection: {
+                collected: "已附加",
+                unavailable: "無法使用",
+                disabled: "未包含",
+                unsupported: "更新 CLI 以附加這些記錄",
+                skipped: "已略過",
+                error: "無法收集",
+            },
             diagnostics: {
                 pasteDoctorJson: {
                     title: 'CLI doctor JSON（選用）',
@@ -1834,6 +1876,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
                 membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} 已啟用`,
                 optionsTitle: '選項',
                 autoSwitchTitle: '自動備援',
+                claudeCodeAutoContinueAtUsageLimitTitle: "讓Claude在達到用量上限時等待",
+                claudeCodeAutoContinueAtUsageLimitSubtitle: "對於新工作階段，讓Claude等待用量上限重設後自動繼續。關閉後由Happier管理復原。",
                 autoQuotaResetTitle: "自動使用配額重設",
                 autoQuotaResetSubtitle: "僅當集區中沒有可用帳戶且耗盡的配額可以重設時，才消耗已儲存的重設次數。預設關閉。",
                 autoDisablePlanInvalidTitle: "停用無法使用所選模型的帳戶",
@@ -4539,6 +4583,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
     },
 
     errors: {
+        quotaRefreshFailed: "無法重新整理用量。請再試一次。",
+        quotaRefreshRetryAt: ({ time }: { time: string }) => `無法重新整理用量。請在 ${time} 後重試。`,
         machineRpcDecryptionFailed: "無法解密此機器的資料。請使用相符的帳戶金鑰登入後再試。",
         machineRpcContextUnavailable: "此機器的連線無法使用。請重新整理機器清單後再試。",
         networkError: '發生網路錯誤',
@@ -4859,6 +4905,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
             readyTitle: '使用限制已重設',
             resetBody: ({ time }: { time: string }) => `此提供者要求工作階段等到 ${time} 後再繼續。`,
             genericBody: '此提供者要求工作階段等待後再繼續。',
+            stoppedBody: '自動復原已停止，不會自行重試。請在下方重試。',
             resetCreditBody: ({ count }: { count: number }) => `${count} 次使用重設可用。`,
             resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) => `${count} 次使用重設可用；下一個將於 ${time} 到期。`,
             readyBody: '你現在可以恢復此工作階段。',
@@ -6333,6 +6380,11 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         },
         askUserQuestion: {
             submit: '提交答案',
+            dismiss: '關閉問題',
+            dismissed: '問題已關閉',
+            submissionFailures: {
+                unconfirmed: '已向 Claude 傳送提交操作，但仍在等待確認。請重試以檢查確認狀態，或開啟 Claude 終端。',
+            },
             claudeDialogNotice: {
                 header: 'Claude 對話框',
                 question: 'Claude 正在顯示對話框。請開啟終端機查看並選擇如何繼續。',
@@ -9025,6 +9077,8 @@ settingsSession: {
     },
 
     message: {
+        provenanceFrom: ({ source }: { source: string }) => `來自 ${source}`,
+        provenanceSession: '工作階段',
         sessionReferenceUnavailable: '無法使用的工作階段',
         sessionReferenceOpen: ({ name }: { name: string }) => `開啟工作階段 ${name}`,
         switchedToMode: ({ mode }: { mode: string }) => `已切換到 ${mode} 模式`,
@@ -9071,7 +9125,7 @@ settingsSession: {
     chatFooter: {
         permissionsTerminalOnly: '權限只會顯示在終端機中。重設或傳送訊息即可從 app 控制。',
         sessionRunningLocally: '此工作階段正在這台電腦上以本機模式執行。你可以切換到遠端，從 app 控制它。',
-        sessionRunningLocallyAndRemotely: '此工作階段已在 OpenCode 中本機附加，且仍可從 app 控制。',
+        sessionRunningLocallyAndRemotely: '此工作階段已在本機連接，且仍可從 app 控制。',
         switchingToRemote: '正在切換到遠端模式…',
         switchToRemote: '切換到遠端',
         detachLocalTerminal: '中斷終端機連線',
@@ -9333,6 +9387,7 @@ settingsSession: {
         enterTmuxTempDir: '輸入暫存目錄路徑',
         tmuxUpdateEnvironment: '自動更新環境',
         nameRequired: '設定檔名稱為必填',
+        invalidProfile: '儲存前請檢查設定檔名稱、環境變數和預設設定。',
         deleteConfirm: ({ name }: { name: string }) => `確定要刪除設定檔「${name}」嗎？`,
         editProfile: '編輯設定檔',
         addProfileTitle: '新增設定檔',
@@ -9341,6 +9396,13 @@ settingsSession: {
             message: ({ name }: { name: string }) => `確定要刪除「${name}」嗎？此操作無法復原。`,
             confirm: '刪除',
             cancel: '取消',
+        },
+        defaultBackend: {
+            title: '預設 AI 後端',
+            footer: '選取此設定檔且未選擇其他後端時，新工作階段將使用此後端啟動。',
+            noneTitle: '無預設值',
+            noneSubtitle: 'Happier 會如常選擇後端。',
+            selectedSubtitle: '使用此設定檔啟動工作階段時套用。',
         },
         aiBackend: {
             copilotSubtitleExperimental: 'GitHub Copilot CLI（實驗）',

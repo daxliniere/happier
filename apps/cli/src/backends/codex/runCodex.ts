@@ -159,6 +159,7 @@ import {
     emitReadyIfIdle,
     extractCodexToolErrorText,
     nextStoredSessionIdForResumeAfterAttempt,
+    readCodexTurnFailureSettlement,
 } from './runtime/sessionTurnLifecycle';
 import { createLocalRemoteModeController } from '@/agent/localControl/createLocalRemoteModeController';
 import { createCodexRemoteTerminalUi } from './runtime/createCodexRemoteTerminalUi';
@@ -469,16 +470,16 @@ export async function runCodex(opts: {
     const confirmProviderAcceptedPrompt = (message: Readonly<{
         userMessageLocalIds?: readonly string[] | null;
         mode?: Readonly<{ localId?: string | null }> | null;
-    }>, appliedModelId?: string | null): void => {
+    }>, appliedModelId?: string | null, delivery?: Readonly<{ kind: 'command' }>): void => {
         const localIds = normalizeProviderPromptLocalIds([
             ...(message.userMessageLocalIds ?? []),
             message.mode?.localId ?? null,
         ]);
         if (useCodexAppServer) {
-            codexAppServerProviderInputOutcomes?.observeAcceptedLocalInput({ localIds });
+            codexAppServerProviderInputOutcomes?.observeAcceptedLocalInput({ localIds, ...(delivery ? { delivery } : {}) });
             return;
         }
-        codexAcpProviderInputOutcomes?.observeAccepted({ localIds, appliedModelId });
+        codexAcpProviderInputOutcomes?.observeAccepted({ localIds, appliedModelId, ...(delivery ? { delivery } : {}) });
     };
     const blockProviderPromptDeliveryBeforeAcceptance = async (input: Readonly<{
         localIds: readonly string[];
@@ -1462,6 +1463,41 @@ export async function runCodex(opts: {
             allocateTurnWhenIdle: true,
         });
         throw createCodexResumeError(message, cause);
+    };
+    // Mirrors the shared prompt loop's `runtime.failTurn`: a prompt-loop failure that no Codex
+    // runtime owner has settled (startup before any provider turn: missing CLI, client creation,
+    // initialize) becomes one classified failed turn instead of a bare status line on an idle session.
+    // Returns whether a classified failure now represents this error.
+    const failUnsettledCodexTurn = async (error: unknown): Promise<boolean> => {
+        if (useCodexAcp) {
+            try {
+                return (await codexAcpRuntime?.failTurn(error)) === true;
+            } catch (failTurnError) {
+                logger.debug('[CodexACP] Failed to surface prompt-loop failure as a failed turn (non-fatal)', failTurnError);
+                return false;
+            }
+        }
+        // The app-server runtime already ended this turn. Only a recorded failure carries the
+        // error; an interrupted turn does not, so the prompt loop still reports it.
+        const settlement = readCodexTurnFailureSettlement(error);
+        if (settlement) return settlement === 'failed';
+        const remoteRuntime = useCodexAppServer ? getCodexRemoteRuntime() : null;
+        // A failed steer leaves the in-flight provider turn running; the runtime still owns that turn.
+        if (remoteRuntime && (remoteRuntime.hasActiveProviderTurn?.() ?? remoteRuntime.isTurnInFlight())) return false;
+        try {
+            await surfacePrimarySessionRuntimeIssue({
+                provider: 'codex',
+                session,
+                sessionSeq: session.getLastObservedMessageSeq(),
+                cause: 'status_error',
+                error,
+                allocateTurnWhenIdle: true,
+            });
+            return true;
+        } catch (surfaceError) {
+            logger.debug('[Codex] Failed to surface prompt-loop failure as a failed turn (non-fatal)', surfaceError);
+            return false;
+        }
     };
 
 	    if (codexAcpFallbackToMcpMessage && codexAcpFallbackToMcpMessage !== initialCodexAcpFallbackToMcpMessage) {
@@ -2531,7 +2567,7 @@ export async function runCodex(opts: {
                     shouldExit,
                     sendReady,
                 });
-                confirmProviderAcceptedPrompt(message);
+                confirmProviderAcceptedPrompt(message, undefined, { kind: 'command' });
                 continue;
             }
 
@@ -2808,7 +2844,7 @@ export async function runCodex(opts: {
                         if (shouldLogAcpDebug) {
                             logger.debug('[CodexACP] compactContext complete');
                         }
-                        confirmProviderAcceptedPrompt(message);
+                        confirmProviderAcceptedPrompt(message, undefined, { kind: 'command' });
                         continue;
                     }
 
@@ -3011,6 +3047,7 @@ export async function runCodex(opts: {
                 } else {
                     let runtimeAuthClassification = readRuntimeAuthClassification(error);
                     let runtimeAuthRecoveryStatusEmitted = false;
+                    let classifiedTurnFailureSurfaced = false;
                     if (runtimeAuthClassification?.kind === 'usage_limit' && !runtimeAuthClassification.profileId && !runtimeAuthClassification.groupId) {
                         // Native quota waits belong to the shared Session recovery owner.
                         // Connected Accounts has no authentication selection to repair.
@@ -3055,12 +3092,16 @@ export async function runCodex(opts: {
                         }
                     } else {
                         logger.warn('Error in codex session:', error);
+                        classifiedTurnFailureSurfaced = await failUnsettledCodexTurn(error);
                     }
                     if (!runtimeAuthRecoveryStatusEmitted) {
                         const details = formatErrorForUi(error);
                         const messageText = `Codex process error: ${details}`;
                         messageBuffer.addMessage(messageText, 'status');
-                        session.sendSessionEvent({ type: 'message', message: messageText });
+                        // The classified failed turn already carries this error for session clients.
+                        if (!classifiedTurnFailureSurfaced) {
+                            session.sendSessionEvent({ type: 'message', message: messageText });
+                        }
                     }
                     // For unexpected errors, keep the ACP session id (best-effort) so a subsequent start can attempt resume.
                     if (useCodexAcp || useCodexAppServer) {

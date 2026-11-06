@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Pressable, Platform } from 'react-native';
-import { isRecoveredHistoryTranscriptObservationProvenance } from '@happier-dev/protocol';
+import { isRecoveredHistoryTranscriptObservationProvenance, readSessionMessageProvenanceV1, type SessionMessageProvenanceV1 } from '@happier-dev/protocol';
 import { Modal } from '@/modal';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
@@ -60,6 +60,7 @@ import {
 } from '@/components/sessions/transcript/messageSelection/resolveSelectableMessageText';
 import { TranscriptRollbackActionButton } from '@/components/sessions/transcript/TranscriptRollbackActionButton';
 import { MessageActionRow } from '@/components/sessions/transcript/messageActions/MessageActionRow';
+import { RowActionDeferredIcon } from '@/components/sessions/transcript/messageActions/RowActionRevealSlot';
 import { MessagePinButton } from '@/components/sessions/transcript/messageActions/MessagePinButton';
 import { resolveMessagePinAvailability } from '@/components/sessions/transcript/messageActions/resolveMessagePinAvailability';
 import { readCoarsePrimaryPointer, useRowActionHoverHost } from '@/components/sessions/transcript/messageActions/rowActionRevealHost';
@@ -92,8 +93,9 @@ import {
   deriveTranscriptInteractionFromSession,
   type TranscriptInteraction,
 } from '@/utils/sessions/deriveTranscriptInteraction';
-import { useSessionInteractionSource } from '@/sync/domains/state/storage';
-import { Icon } from '@/components/ui/icons/Icon';
+import { useSessionInteractionSource, useSessionReferenceTarget } from '@/sync/domains/state/storage';
+import { Icon, ICON_SIZE } from '@/components/ui/icons/Icon';
+import { getSessionDisplayTitle } from '@/utils/sessions/sessionUtils';
 
 type StreamSegmentStateForRendering = 'streaming' | 'complete' | 'interrupted';
 const FAIL_CLOSED_TRANSCRIPT_INTERACTION = deriveTranscriptInteraction({ kind: 'public' });
@@ -455,6 +457,7 @@ function RenderBlock(props: {
       );
 
     case 'agent-text':
+      if (props.message.isThinking && props.messageDisplayCommon.sessionThinkingDisplayMode === 'hidden') return null;
       return (
         <AgentTextBlock
           message={props.message}
@@ -526,6 +529,32 @@ function RenderBlock(props: {
   }
 }
 
+function SessionMessageProvenanceAttribution(props: Readonly<{
+  messageId: string;
+  provenance: SessionMessageProvenanceV1;
+}>) {
+  const { theme } = useUnistyles();
+  const { sourceSessionId, via } = props.provenance;
+  const target = useSessionReferenceTarget(sourceSessionId);
+  const title = target.deleted ? null : getSessionDisplayTitle({ id: sourceSessionId, metadata: target.metadata });
+  const source = title ? `${title} (${sourceSessionId})` : `${t('message.provenanceSession')} ${sourceSessionId}`;
+  const label = `${t('message.provenanceFrom', { source })} · ${via}`;
+  return (
+    <View style={styles.messageProvenanceAttributionRow}>
+      <Icon name="chat-circle" size={ICON_SIZE.xs} color={theme.colors.text.secondary} />
+      <Text
+        testID={`transcript-provenance-attribution:${props.messageId}`}
+        selectable
+        accessibilityRole="text"
+        accessibilityLabel={label}
+        style={[styles.discardedCommittedMessageLabel, styles.messageProvenanceAttributionText]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 function UserTextBlock(props: {
   message: UserTextMessage;
   metadata: Metadata | null;
@@ -557,6 +586,7 @@ function UserTextBlock(props: {
     canOpenFiles: props.canOpenFiles,
     workspacePath: props.messageDisplayCommon.workspacePath,
   });
+  const provenance = readSessionMessageProvenanceV1(props.message.meta);
   const quoteMarkdownProps = useTranscriptQuoteMarkdownProps(props.sessionId, !isDiscarded && props.historical !== true);
   const handleJumpToAnchor = useStructuredMessageJumpHandler(props.sessionId, props.canOpenFiles);
 
@@ -731,6 +761,7 @@ function UserTextBlock(props: {
             radius={TRANSCRIPT_MESSAGE_HIGHLIGHT_RADIUS}
             style={styles.structuredUserMessageContent}
           >
+            {provenance ? <SessionMessageProvenanceAttribution messageId={props.message.id} provenance={provenance} /> : null}
             {structuredNode}
             {sessionMediaInlineImages.length > 0 ? (
               <SessionMediaInlineImages
@@ -847,6 +878,7 @@ function UserTextBlock(props: {
           style={styles.userMessageWrapper}
           {...(isWeb ? {} : { pointerEvents: 'box-none' as const })}
         >
+          {provenance ? <SessionMessageProvenanceAttribution messageId={props.message.id} provenance={provenance} /> : null}
           <View style={styles.userMessageBubbleAligner}>
             <TranscriptJumpAttention
               sessionId={props.sessionId}
@@ -1053,9 +1085,6 @@ function AgentTextBlock(props: {
     : isVoiceAgentTurn
       ? normalizeVoiceAgentTurnTranscriptText(props.message.text)
       : props.message.text;
-  if (!unsupportedContentMeta && isVoiceAgentTurn && baseMarkdownText == null) {
-    return null;
-  }
   const markdownSource = baseMarkdownText ?? props.message.text;
   const markdown = (!unsupportedContentMeta && props.message.isThinking)
     ? unwrapLegacyThinkingWrapper(markdownSource)
@@ -1109,10 +1138,6 @@ function AgentTextBlock(props: {
 
   const selectionRow = useOptionalTranscriptSelectionRow(props.message.id);
   const selectionModeActionsVisible = selectionEnabled && selectionRow.isSelectionMode;
-
-  if (props.message.isThinking && sessionThinkingDisplayMode === 'hidden') {
-    return null;
-  }
 
   const sessionReplayEnabled = props.forkCommon.sessionReplayEnabled;
   const agentSwitchingEnabled = props.forkCommon.agentSwitchingEnabled;
@@ -1586,11 +1611,13 @@ function ForkMessageButton(props: {
         pressed && styles.copyMessageButtonPressed,
       ]}
     >
-      <Icon
-        name="git-branch"
-        size={14}
-        color={theme.colors.text.secondary}
-      />
+      <RowActionDeferredIcon size={14}>
+        <Icon
+          name="git-branch"
+          size={14}
+          color={theme.colors.text.secondary}
+        />
+      </RowActionDeferredIcon>
     </Pressable>
   );
 }
@@ -1641,11 +1668,13 @@ function CopyMessageButton(props: { markdown: string; testID?: string; invertedA
         pressed && styles.copyMessageButtonPressed,
       ]}
     >
-      <Icon
-        name={copied ? "check" : "copy"}
-        size={14}
-        color={copied ? theme.colors.state.success.foreground : theme.colors.text.secondary}
-      />
+      <RowActionDeferredIcon size={14}>
+        <Icon
+          name={copied ? "check" : "copy"}
+          size={14}
+          color={copied ? theme.colors.state.success.foreground : theme.colors.text.secondary}
+        />
+      </RowActionDeferredIcon>
     </Pressable>
   );
 }
@@ -1800,6 +1829,18 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'flex-end',
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
+  },
+  messageProvenanceAttributionRow: {
+    flexDirection: 'row',
+    alignSelf: 'flex-end',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginBottom: 6,
+    maxWidth: '100%',
+  },
+  messageProvenanceAttributionText: {
+    marginTop: 0,
+    flexShrink: 1,
   },
   structuredUserMessageContainer: {
     maxWidth: '100%',

@@ -2,7 +2,7 @@ import { Socket } from 'socket.io-client';
 import { TokenStorage } from '@/auth/storage/tokenStorage';
 import { Encryption } from '@/sync/encryption/encryption';
 import { observeServerTimestamp } from '@/sync/runtime/time';
-import { createRpcCallError } from '@/sync/runtime/rpcErrors';
+import { createRpcCallError, interpretRpcResult } from '@/sync/runtime/rpcErrors';
 import { SOCKET_RPC_EVENTS } from '@happier-dev/protocol/socketRpc';
 import { serverFetch, StaleServerGenerationError, type ServerReadRequestInit } from '@/sync/http/client';
 import { getActiveServerSnapshot } from '@/sync/domains/server/serverRuntime';
@@ -25,6 +25,7 @@ import {
     subscribeServerReachabilityState,
 } from '@/sync/runtime/connectivity/serverReachabilitySupervisorPool';
 import { createNotAuthenticatedError } from '@/sync/runtime/connectivity/authErrors';
+import { isRetryOfKnownFailure } from '@/sync/runtime/connectivity/isRetryOfKnownFailure';
 import { isSocketIoAckTimeoutError } from '@happier-dev/protocol/rpcErrors';
 import { raceSocketIoAckTimeout } from '@/sync/runtime/socketIoAckTimeout';
 import type { SocketRpcAuthorizationContext } from '@happier-dev/protocol/rpc';
@@ -383,7 +384,7 @@ class ApiSocket {
         }
 
         if (result.ok) {
-            if (usePlaintextParams) return result.result as R;
+            if (usePlaintextParams) return interpretRpcResult(result.result) as R;
             if (!sessionEncryption) throw new Error(`Session encryption not found for ${sessionId}`);
             const decrypted = await sessionEncryption.decryptRaw(result.result);
             if (scmDebug) {
@@ -400,7 +401,7 @@ class ApiSocket {
                     ),
                 });
             }
-            return decrypted as R;
+            return interpretRpcResult(decrypted) as R;
         }
         throw createRpcCallError({
             error: typeof result.error === 'string' ? result.error : 'RPC call failed',
@@ -652,7 +653,12 @@ class ApiSocket {
         this.applySocketConnectionState(supervisor.getState());
     }
 
+    private isFailurePresented(): boolean {
+        return this.currentStatus === 'disconnected' || this.currentStatus === 'error';
+    }
+
     private applySocketConnectionState(state: ManagedConnectionState): void {
+        if (isRetryOfKnownFailure(state, this.isFailurePresented())) return;
         if (state.phase === 'online') this.updateStatus('connected');
         else if (state.phase === 'connecting') this.updateStatus('connecting');
         else this.updateStatus(state.phase === 'auth_failed' ? 'error' : 'disconnected');
@@ -740,7 +746,7 @@ class ApiSocket {
         }
         switch (state.phase) {
             case 'connecting':
-                this.updateStatus('connecting');
+                if (!isRetryOfKnownFailure(state, this.isFailurePresented())) this.updateStatus('connecting');
                 return;
             case 'auth_failed':
                 this.updateStatus('error');

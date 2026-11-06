@@ -6,11 +6,12 @@ import type { CommandInvocation } from '@happier-dev/cli-common/process';
 import { resolveWindowsCommandInvocation } from '@happier-dev/cli-common/process';
 import { HAPPIER_BASE_SYSTEM_PROMPT_V1 } from '@happier-dev/protocol';
 
-import { resolveClaudeSdkPermissionModeFromEnhancedMode } from '../utils/permissionMode';
+import { resolveClaudeSdkPermissionModeFromEnhancedMode, shouldAllowClaudePermissionBypass } from '../utils/permissionMode';
 import { getClaudeSystemPrompt } from '../utils/systemPrompt';
 import { isClaudeCliJavaScriptFile, resolveClaudeCliPath } from '../utils/resolveClaudeCliPath';
 import { ensureClaudeJsRuntimeExecutable } from '../utils/ensureClaudeJsRuntimeExecutable';
 import { buildClaudeSubprocessEnv } from '../spawn/buildClaudeSubprocessEnv';
+import { isWindowsSystemEnvKey } from '@/utils/env/windowsSystemEnv';
 import {
   buildClaudeStatuslineOverlaySettings,
   resolveClaudeStatuslineOriginalCommand,
@@ -43,7 +44,10 @@ import {
   withCurrentHappierSessionId,
 } from '@/agent/runtime/session/currentSessionIdEnv';
 
-export type ClaudeUnifiedTerminalSpawn = TerminalSpawn;
+export type ClaudeUnifiedTerminalSpawn = TerminalSpawn & Readonly<{
+  /** The actual provider process, excluding shell shims and the launch-spec runner. */
+  providerInvocation?: Readonly<{ command: string; args: readonly string[] }>;
+}>;
 
 export class ClaudeUnifiedTerminalUnsupportedOptionError extends Error {
   readonly code = 'claude_unified_terminal_unsupported_option';
@@ -247,6 +251,7 @@ function resolveStatuslineOverlaySettings<Mode extends EnhancedMode>(params: Rea
 function buildClaudeArgs<Mode extends EnhancedMode>(
   input: ClaudeUnifiedTerminalSpawnInput<Mode>,
   statuslineSettings: ClaudeStatuslineOverlaySettings | undefined,
+  env: Readonly<NodeJS.ProcessEnv>,
 ): string[] {
   const args: string[] = [];
   const terminalOptions = resolveClaudeTerminalCliOptions({
@@ -273,6 +278,8 @@ function buildClaudeArgs<Mode extends EnhancedMode>(
   }
   const permissionMode = resolveClaudeSdkPermissionModeFromEnhancedMode(input.first.mode);
   const settingsOverlay = resolveClaudeLaunchSettingsOverlayArg({
+    // Connected-service markers belong to the runner and are stripped from Claude's env.
+    env: { ...process.env, ...input.envOverlay },
     settingsPath: input.hookSettingsPath,
     launchSettings: {
       ...(terminalOptions.ultracodeEnabled ? { ultracode: true } : {}),
@@ -288,7 +295,9 @@ function buildClaudeArgs<Mode extends EnhancedMode>(
     args.push('--mcp-config', input.happierMcpConfigJson.trim());
   }
 
-  args.push('--allow-dangerously-skip-permissions');
+  if (shouldAllowClaudePermissionBypass(env)) {
+    args.push('--allow-dangerously-skip-permissions');
+  }
 
   if (permissionMode !== 'default') {
     args.push('--permission-mode', permissionMode);
@@ -336,17 +345,11 @@ function buildTerminalLauncherProcessEnv(baseEnv: NodeJS.ProcessEnv = process.en
     'COLORTERM',
     '__CF_USER_TEXT_ENCODING',
   ]);
-  if (process.platform === 'win32') {
-    for (const key of ['USERPROFILE', 'USERNAME', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'ComSpec', 'PATHEXT', 'WINDIR']) {
-      allowExact.add(key);
-    }
-  }
-
   const allowPrefixes = ['LC_', 'TERM_', 'XDG_', 'HAPPIER_E2E_', 'HAPPY_E2E_'];
   const out: Record<string, string> = Object.create(null);
   for (const [key, value] of Object.entries(baseEnv)) {
     if (typeof value !== 'string') continue;
-    if (isAllowedExactEnvKey(key, allowExact) || allowPrefixes.some((prefix) => key.startsWith(prefix))) {
+    if (isWindowsSystemEnvKey(key) || isAllowedExactEnvKey(key, allowExact) || allowPrefixes.some((prefix) => key.startsWith(prefix))) {
       out[key] = value;
     }
   }
@@ -420,7 +423,7 @@ export async function buildClaudeUnifiedTerminalSpawn<Mode extends EnhancedMode 
   }), happierSessionId ?? '');
   const statuslineSettings = resolveStatuslineOverlaySettings({ input, deps, env });
   const materializedMcpConfig = await materializeClaudeMcpConfigArgsForSpawn(
-    buildClaudeArgs(input, statuslineSettings),
+    buildClaudeArgs(input, statuslineSettings, env),
   );
   const args = materializedMcpConfig.args;
 
@@ -437,8 +440,9 @@ export async function buildClaudeUnifiedTerminalSpawn<Mode extends EnhancedMode 
       throw new Error('Claude unified terminal launch-spec runner not found. Please ensure CLI runtime assets are present next to the running bundle.');
     }
 
+    const isJavaScriptCli = deps.isClaudeCliJavaScriptFile(resolvedClaudeCliPath);
     let childInvocation: CommandInvocation;
-    if (deps.isClaudeCliJavaScriptFile(resolvedClaudeCliPath)) {
+    if (isJavaScriptCli) {
       if (
         !existsSync(deps.claudeLocalLauncherPath)
         && !isEmbeddedBunBundlePath(deps.claudeLocalLauncherPath)
@@ -486,6 +490,11 @@ export async function buildClaudeUnifiedTerminalSpawn<Mode extends EnhancedMode 
 
     return {
       spawnArgv: [nodeExecutable, deps.terminalLaunchSpecRunnerPath, specPath],
+      ...(!childInvocation.windowsVerbatimArguments
+        && (!isJavaScriptCli
+          || (env.HAPPIER_CLAUDE_PATH ?? env.HAPPY_CLAUDE_PATH) === resolvedClaudeCliPath)
+        ? { providerInvocation: { command: childInvocation.command, args: childInvocation.args } }
+        : {}),
       spawnEnv: {
         ...buildTerminalLauncherProcessEnv(),
         ...splitEnv.passthroughEnv,

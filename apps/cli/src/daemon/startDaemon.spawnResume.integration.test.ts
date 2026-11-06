@@ -29,7 +29,7 @@ import {
 import { waitForSessionWebhook } from './spawn/waitForSessionWebhook';
 import { readPendingFirstInputFromEnv } from './spawn/pendingFirstInput';
 import type { ConnectedServicesMaterializationDiagnostic } from './connectedServices/materialize/providerMaterializerTypes';
-import { ConnectedServiceAuthGroupQuotaProbeIncompleteError } from './connectedServices/accountGroups/switching/ConnectedServiceAuthGroupSwitchCoordinator';
+import { ConnectedServiceSpawnAuthGroupAuthorityError } from './connectedServices/resolveConnectedServiceAuthForSpawn';
 import { accountSettingsParse, isConnectedServiceUxDiagnosticSpawnErrorDetail } from '@happier-dev/protocol';
 import { UsageLimitRecoveryScheduler } from './connectedServices/usageLimitRecovery/UsageLimitRecoveryScheduler';
 import { RuntimeAuthRecoveryScheduler } from './connectedServices/runtimeAuth/RuntimeAuthRecoveryScheduler';
@@ -788,7 +788,8 @@ vi.mock('@/daemon/ownership/daemonServiceInventory', () => ({
   evaluateDaemonStartupServiceConflict: vi.fn(async () => ({ kind: 'none' })),
 }));
 
-vi.mock('./controlServer', () => ({
+vi.mock('./controlServer', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./controlServer')>(),
   startDaemonControlServer: vi.fn(async ({
     spawnSession,
     stopSession,
@@ -1100,6 +1101,8 @@ describe('startDaemon spawn resume wiring (integration)', () => {
   let previousHerdrFixtureBinary: string | undefined;
   let deliverShutdownWatchdog: (() => unknown) | undefined;
   let firedShutdownTimerWork: Promise<unknown>[] = [];
+  let providerCliRoot: string | undefined;
+  let providerCliEnvironment: ReturnType<typeof createEnvKeyScope> | undefined;
 
   async function restoreDaemonExitBoundary(exitSpy: MockInstance) {
     // clearTimeout cannot retire an async watchdog callback that already fired.
@@ -1234,6 +1237,10 @@ describe('startDaemon spawn resume wiring (integration)', () => {
     delete process.env.HAPPIER_DAEMON_SESSION_RESPAWN_ENABLED;
     delete process.env.HAPPIER_DAEMON_STOP_SESSION_WAIT_FOR_EXIT_MS;
     delete process.env.HAPPIER_DAEMON_STOP_SESSION_WAIT_FOR_EXIT_POLL_INTERVAL_MS;
+    providerCliEnvironment?.restore();
+    providerCliEnvironment = undefined;
+    if (providerCliRoot) await rm(providerCliRoot, { recursive: true, force: true });
+    providerCliRoot = undefined;
   });
 
   it('binds startup-reattached live sessions to the daemon final machine identity', async () => {
@@ -3637,7 +3644,9 @@ describe('startDaemon spawn resume wiring (integration)', () => {
     let shutdownRequested = false;
     try {
       resolveConnectedServiceAuthForSpawnMock.mockRejectedValueOnce(
-        new ConnectedServiceAuthGroupQuotaProbeIncompleteError('deadline_exceeded'),
+        new ConnectedServiceSpawnAuthGroupAuthorityError({
+          kind: 'quota_proof_unavailable', serviceId: 'openai-codex', groupId: 'happier',
+        }),
       );
       const { startDaemon } = await import('./startDaemon');
       run = startDaemon();
@@ -3890,6 +3899,49 @@ describe('startDaemon spawn resume wiring (integration)', () => {
       } else {
         process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED = refreshEnvOriginal;
       }
+      await restoreDaemonExitBoundary(exitSpy);
+    }
+  });
+
+  it('restores a persisted profile before launching an app resume without caller environment', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    const refreshEnvOriginal = process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED;
+    process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED = 'false';
+    vi.mocked(fetchSessionByIdCompat).mockResolvedValue(createSessionRecordFixture({
+      id: 'sess_plain', encryptionMode: 'plain', dataEncryptionKey: null,
+      metadata: JSON.stringify({ flavor: 'claude', claudeSessionId: 'vendor-profile', profileId: 'custom-profile', path: '/tmp' }),
+    }));
+    let run: Promise<void> | null = null;
+    try {
+      const { startDaemon } = await import('./startDaemon');
+      run = startDaemon();
+      const spawnSession = await waitForSpawnSessionRegistration();
+      setActiveAccountSettingsSnapshot({
+        source: 'network', settingsVersion: 1, loadedAtMs: Date.now(), settingsSecretsReadKeys: [],
+        settings: accountSettingsParse({ profiles: [{
+          id: 'custom-profile', name: 'Custom provider', createdAt: 0, updatedAt: 0,
+          environmentVariables: [
+            { name: 'ANTHROPIC_BASE_URL', value: 'https://provider.example/anthropic' },
+            { name: 'ANTHROPIC_MODEL', value: 'provider-model' },
+            { name: 'ANTHROPIC_AUTH_TOKEN', value: 'test-profile-token' },
+          ],
+        }] }),
+      });
+      const result = await spawnSession({
+        directory: '/tmp', backendTarget: { kind: 'builtInAgent', agentId: 'claude' },
+        existingSessionId: 'sess_plain',
+      });
+      expect(result.type).toBe('success');
+      expect(spawnHappyCLI.mock.calls[0]?.[1]).toMatchObject({ env: {
+        HAPPIER_SESSION_PROFILE_ID: 'custom-profile',
+        ANTHROPIC_BASE_URL: 'https://provider.example/anthropic',
+        ANTHROPIC_MODEL: 'provider-model', ANTHROPIC_AUTH_TOKEN: 'test-profile-token',
+      } });
+      expect(spawnHappyCLI.mock.calls[0]?.[0]).toEqual(expect.arrayContaining(['--resume', 'vendor-profile']));
+    } finally {
+      if (run) { harness.requestShutdown('happier-cli'); await run; }
+      if (refreshEnvOriginal === undefined) delete process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED;
+      else process.env.HAPPIER_CONNECTED_SERVICES_REFRESH_ENABLED = refreshEnvOriginal;
       await restoreDaemonExitBoundary(exitSpy);
     }
   });
@@ -6629,7 +6681,7 @@ describe('startDaemon spawn resume wiring (integration)', () => {
         existingSessionId: 'sess_unresolved_terminal_topology',
         existingSessionAttachPayload: { v: 2, encryptionMode: 'plain' },
       })).resolves.toMatchObject({ type: 'success' });
-      expect(stopSessionMocks.stopSession).toHaveBeenCalledWith('sess_unresolved_terminal_topology');
+      expect(stopSessionMocks.stopSession).toHaveBeenCalledWith('sess_unresolved_terminal_topology', {});
       expect(spawnHappyCLI).toHaveBeenCalledTimes(1);
       const respawnManager = sessionRespawnManagerCapture.instances[0];
       expect(respawnManager?.markStopRequested).toHaveBeenCalledWith(

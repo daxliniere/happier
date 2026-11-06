@@ -276,6 +276,44 @@ Genuine rewrites remain subject to Claude's checks; `PreToolUse` still carries
 the input needed for `AskUserQuestion` answers. Claude's Auto classifier remains
 the permission authority before a request reaches these hooks.
 
+In development source, `normalizeClaudeAskUserQuestionInputForPublication` owns
+Claude's implicit freeform answer across the SDK, hook bridge and native broker.
+Native single-select questions with nonempty option previews publish only their
+choices (`freeform: false`); checkbox questions retain the ordinary freeform row.
+The native screen parser separates the preview column from option labels and
+records the actual freeform row. The existing answer driver refuses terminal
+notes or an active notes editor before navigation or submission; notes are
+annotations on a choice and are never converted into freeform answers.
+Failed native answers record their specific conflict or verification reason and
+the existing capture's structural state in the CLI file log: page, focus, answered
+tabs, notes state, text lengths and line counts, and last input action. Question,
+choice, answer and terminal text are excluded; no additional capture is taken.
+When the viewport clips a question's tabs and beginning, one shared resolver
+identifies its page from the complete visible question suffix and choice labels
+against the pending hook input. Publication and answer navigation use that same
+identity; missing choices or an ambiguous match remain unrecognized.
+If typing Happier's freeform answer scrolls the entire heading above the viewport,
+the same resolver retains the already identified page only while its complete
+choices and Happier-owned draft still match. A headingless preexisting draft
+does not establish a new question identity.
+The pending hook-correlated question retains Happier's own draft and identified
+page across an interrupted answer attempt. Publication and answer navigation
+consume that same context; a changed terminal draft still belongs to the terminal
+user. The driver waits within the existing terminal verification window for each
+rendered transition instead of treating the first stale capture as a failed write.
+After final Submit, it retains the submitted answers and waits for the exact
+provider result. A retry checks confirmation without typing or submitting again;
+delayed confirmation remains pending and the app offers terminal recovery.
+Long reviews may clip earlier questions above the viewport. The same parser
+recognizes complete visible entries as a suffix of the hook-owned questions;
+the answer driver submits only after visiting every question page and matching
+the visible answers. Complete reviews still require every answer. A confirmation
+with no complete question visible remains unrecognized.
+The native answer projection preserves Claude's checkbox option order and JSON
+quoting of values containing `, ` or `"`, for both review matching and submitted
+result acknowledgement. Single-select values remain literal. Hook-injected
+answers retain their separate scalar wire projection.
+
 | Feature | Status | Exact source files | Current behavior / special cases | Unified architecture migration notes |
 | --- | --- | --- | --- | --- |
 | Direct session browse/list | `supported` | `apps/cli/src/backends/claude/directSessions/listClaudeSessionCandidates.ts`, `apps/ui/sources/agents/providers/claude/directSessions/resolveClaudeBrowseSourceOptions.ts`, `apps/ui/sources/agents/providers/claude/uiBehavior.tsx` | UI exposes only one Claude direct source today: `{ kind: 'claudeConfig' }`; discovery walks `~/.claude/projects/**.jsonl` and lazily reads session titles. | Promote direct-source selection into the same provider runtime record used by resume/takeover instead of a Claude-only browse option. |
@@ -330,3 +368,11 @@ title content; failed writes remain pending for a later flush.
 `resolveClaudeSessionEnvOverlay` extends the existing Claude launch overlay with explicit `CLAUDE_CODE_ENTRYPOINT=happier` when enabled. Local, legacy remote, Agent SDK, unified terminal, execution runs, cached startup metadata probes, and non-persisted preflight probes consume that owner. Metadata probe cache fingerprints include explicit attribution; off preserves existing cache keys. `prepareClaudeSubprocessEnv` in `spawn/buildClaudeSubprocessEnv.ts` removes inherited nested-session markers and restores only an explicit child entrypoint overlay. Generic daemon-runner sanitation remains unchanged. Queue mode hashes include this launch-time choice; already-running Claude processes and existing JSONL are not rewritten.
 
 Evidence basis: official Agent SDK 0.2.123 defaults a missing entrypoint to `sdk-ts` and honors `options.env`; official VS Code extension 2.1.296 excludes `sdk-cli`, `sdk-ts`, and `sdk-py` by default and independently excludes daemon session kinds. Official native binaries 2.1.283 and 2.1.296 were executed against a local API fixture with isolated homes: `cli` became `sdk-cli` in JSONL, while `happier` was preserved. The custom value avoids the SDK history exclusion but also changes client-platform attribution, question-preview defaults and built-in agent availability; it is not a documented billing or quota control. Same configuration directory/project and other native history filters still apply. Full validation requires a newly launched authenticated daemon session followed by listing from the matching VS Code workspace; launch-boundary tests do not prove that live composed flow.
+
+In development source, Agent SDK and Unified Terminal pre-enable live bypass
+switching only where Claude Code permits it. On POSIX uid 0 without an existing
+`IS_SANDBOX=1` or `CLAUDE_CODE_BUBBLEWRAP=1` in the effective child environment,
+they omit the capability flag while preserving the requested permission mode.
+This allows ordinary root launches; explicitly requested bypass still receives
+Claude's native refusal. Happier does not assert sandbox isolation on the user's
+behalf. Non-root and explicitly declared sandbox launches retain live switching.

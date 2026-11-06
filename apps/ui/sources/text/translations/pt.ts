@@ -1312,13 +1312,13 @@ export const pt: TranslationStructure = {
   appCrash: {
       saveDiagnostics: "Salvar diagnósticos",
       diagnosticsSaveFailed: "Não foi possível salvar os diagnósticos. Os detalhes do erro continuam disponíveis. Tente novamente ou copie-os.",
-      copyFailed: "Não foi possível copiar os detalhes da falha. Tente novamente.",
-      discardFailed: "Não foi possível descartar a falha guardada. Tente novamente.",
-      restartWithoutReport: "Reiniciar sem guardar",
-      reportSaveFailed: "Não foi possível guardar os detalhes da falha. Copie-os antes de reiniciar ou tente reportar novamente.",
-      savedReportNotice: "A falha guardada aparece abaixo. Reveja e edite antes de enviar. Permanece neste dispositivo até ser enviada ou descartada.",
-      discardSavedReport: "Descartar falha guardada",
-      stackTruncated: "Pilha abreviada para este campo. A falha completa continua guardada neste dispositivo.",
+    copyFailed: "Não foi possível copiar os detalhes da falha. Tente novamente.",
+    discardFailed: "Não foi possível descartar a falha guardada. Tente novamente.",
+    restartWithoutReport: "Reiniciar sem guardar",
+    reportSaveFailed: "Não foi possível guardar os detalhes da falha. Copie-os antes de reiniciar ou tente reportar novamente.",
+    savedReportNotice: "A falha guardada aparece abaixo. Reveja e edite antes de enviar. Permanece neste dispositivo até ser enviada ou descartada.",
+    discardSavedReport: "Descartar falha guardada",
+    stackTruncated: "Pilha abreviada para este campo. A falha completa continua guardada neste dispositivo.",
     title: "Algo correu mal",
     subtitle:
       "O Happier encontrou um erro inesperado. Pode reiniciar a interface da app ou copiar os detalhes para suporte.",
@@ -1596,7 +1596,39 @@ export const pt: TranslationStructure = {
   },
 
   bugReports: {
+    reportSession: "Relatar um problema com esta sessão",
+    sessionPickerTitle: "Sessão relacionada",
+    sessionPickerSubtitle: "Escolha a sessão à qual este relato se refere.",
+    sessionPickerSearchPlaceholder: "Buscar sessões",
+    sessionPickerNoResults: "Nenhuma sessão correspondente",
+    noRelatedSession: "Nenhuma sessão relacionada",
     composer: {
+      scopeChanged: "A conta selecionada mudou. Escolha a sessão novamente antes de anexar os diagnósticos.",
+      addMoreDetails: "Adicionar mais detalhes (opcional)",
+      technicalInformation: "Informações técnicas",
+      relatedSession: "Sessão relacionada (opcional)",
+      chooseSession: "Escolher uma sessão",
+      changeSession: "Trocar sessão",
+      removeSession: "Remover sessão",
+      selectedSession: "Sessão selecionada",
+      logOptions: {
+        daemonTitle: "Logs do app e do daemon",
+        daemonDetail: "Atividade do app e logs de conexão do computador e do servidor selecionados.",
+        sessionTitle: "Logs da sessão do Happier",
+        sessionDetail: "Atividade da sessão que nos ajuda a investigar este problema.",
+        providerTitle: "Transcrição do provedor",
+        providerDetail: "Transcrição da sessão do provedor, quando necessário.",
+        technicalOnly: "Somente informações técnicas",
+        technicalOnlyDetail: "Não incluir nenhum log bruto neste relato.",
+      },
+      collection: {
+        collected: "Anexados",
+        unavailable: "Indisponíveis",
+        disabled: "Não incluídos",
+        unsupported: "Atualize a CLI para anexar estes logs",
+        skipped: "Ignorados",
+        error: "Não foi possível coletar",
+      },
       alerts: {
         previewUnavailableTitle: "Prévia indisponível",
         previewUnavailableBody:
@@ -1673,15 +1705,14 @@ export const pt: TranslationStructure = {
       },
       issueDetails: {
         title: "Descreva o problema",
-        subtitle:
-          "Forneça detalhes suficientes para que possamos reproduzir e diagnosticar rapidamente.",
+        subtitle: "Um título e uma breve descrição bastam para começar.",
         titleLabel: "Título (obrigatório)",
         titlePlaceholder: "Título curto",
         githubUsernameLabel: "Usuário do GitHub (opcional)",
         githubUsernamePlaceholder:
           "Usado como contato no corpo do issue",
-        summaryLabel: "Resumo conciso (obrigatório)",
-        summaryPlaceholder: "Resumo de um parágrafo",
+        summaryLabel: "O que aconteceu? (obrigatório)",
+        summaryPlaceholder: "Conte o que deu errado.",
         currentBehaviorLabel: "Comportamento atual (opcional)",
         currentBehaviorPlaceholder: "O que acontece de fato?",
         expectedBehaviorLabel: "Comportamento esperado (opcional)",
@@ -1740,11 +1771,9 @@ export const pt: TranslationStructure = {
         },
       },
       consent: {
-        title: "Consentimento",
-        understandTitle:
-          "Entendo que o diagnóstico pode incluir metadados técnicos",
-        understandSubtitle:
-          "Não inclua senhas, tokens de acesso ou chaves privadas.",
+        title: "Antes de enviar",
+        understandTitle: "Compartilhar este relato e os diagnósticos selecionados",
+        understandSubtitle: "O texto do relato é público. Os anexos de diagnóstico são enviados de forma privada aos mantenedores do Happier. Os logs de sessão podem incluir trechos de conversas.",
       },
       submit: {
         requiredFieldsHint:
@@ -3313,6 +3342,8 @@ export const pt: TranslationStructure = {
         membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} habilitados`,
         optionsTitle: "Opções",
         autoSwitchTitle: "Fallback automático",
+        claudeCodeAutoContinueAtUsageLimitTitle: "Permitir que Claude aguarde nos limites de uso",
+        claudeCodeAutoContinueAtUsageLimitSubtitle: "Nas novas sessões, Claude aguarda e continua automaticamente quando o limite é reposto. Desative para que o Happier gerencie a recuperação.",
         autoQuotaResetTitle: "Usar redefinições de quota automaticamente",
         autoQuotaResetSubtitle: "Consome uma redefinição disponível apenas quando nenhuma conta do grupo está pronta e a quota esgotada pode ser redefinida. Desativado por padrão.",
         autoDisablePlanInvalidTitle: "Desativar contas que não podem usar o modelo selecionado",
@@ -5103,6 +5134,8 @@ export const pt: TranslationStructure = {
   },
 
   errors: {
+    quotaRefreshFailed: "Não foi possível atualizar o uso. Tente novamente.",
+    quotaRefreshRetryAt: ({ time }: { time: string }) => `Não foi possível atualizar o uso. Tente novamente após ${time}.`,
     machineRpcDecryptionFailed: "Não foi possível descriptografar os dados desta máquina. Entre com a chave de conta correspondente e tente novamente.",
     machineRpcContextUnavailable: "A conexão com esta máquina está indisponível. Atualize suas máquinas e tente novamente.",
     networkError: "Ocorreu um erro de rede",
@@ -5635,6 +5668,7 @@ export const pt: TranslationStructure = {
       resetBody: ({ time }: { time: string }) =>
         `Este provedor pede que a sessão espere até ${time} antes de continuar.`,
       genericBody: "Este provedor pede que a sessão espere antes de continuar.",
+      stoppedBody: "A recuperação automática parou e não tentará novamente sozinha. Tente novamente abaixo.",
       resetCreditBody: ({ count }: { count: number }) =>
         `${count} ${count === 1 ? "redefinição de uso disponível" : "redefinições de uso disponíveis"}.`,
       resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) =>
@@ -7635,7 +7669,10 @@ export const pt: TranslationStructure = {
     },
     askUserQuestion: {
         submit: "Enviar resposta",
+        dismiss: 'Descartar pergunta',
+        dismissed: 'Pergunta descartada',
         submissionFailures: {
+            unconfirmed: "As respostas foram enviadas ao Claude, mas a confirmação ainda está pendente. Tente novamente para verificar ou abra o terminal do Claude.",
             update: "Atualize o Happier CLI e tente novamente.",
             reconnect: "Reconecte esta sessão e tente novamente.",
             retry: "Não foi possível aceitar a resposta. Revise-a e tente novamente.",
@@ -11157,6 +11194,8 @@ settingsSession: {
   },
 
   message: {
+    provenanceFrom: ({ source }: { source: string }) => `De ${source}`,
+    provenanceSession: 'Sessão',
     sessionReferenceUnavailable: "Sessão indisponível",
     sessionReferenceOpen: ({ name }: { name: string }) => `Abrir a sessão ${name}`,
     switchedToMode: ({ mode }: { mode: string }) => `Mudou para o modo ${mode}`,
@@ -11209,7 +11248,7 @@ settingsSession: {
     sessionRunningLocally:
       "Esta sessão está sendo executada localmente neste computador. Você pode alternar para remoto para controlar pelo app.",
     sessionRunningLocallyAndRemotely:
-      "Esta sessão está conectada localmente no OpenCode e ainda pode ser controlada pelo app.",
+      "Esta sessão está conectada localmente e ainda pode ser controlada pelo app.",
     switchingToRemote: "Alternando para o modo remoto…",
     switchToRemote: "Alternar para remoto",
     detachLocalTerminal: "Desconectar terminal",
@@ -11505,6 +11544,7 @@ settingsSession: {
     deleteConfirm: ({ name }: { name: string }) =>
       `Tem certeza de que deseja excluir o perfil "${name}"?`,
     nameRequired: "O nome do perfil é obrigatório",
+    invalidProfile: 'Confira o nome do perfil, as variáveis de ambiente e os valores padrão antes de salvar.',
     builtIn: "Integrado",
     custom: "Personalizado",
     builtInSaveAsHint:
@@ -11652,6 +11692,13 @@ settingsSession: {
         plan: "Planejar antes de executar",
         bypassPermissions: "Ignorar todas as permissões",
       },
+    },
+    defaultBackend: {
+        title: 'Backend de IA padrão',
+        footer: 'Inicia novas sessões neste backend quando o perfil está selecionado e nenhum outro backend é escolhido.',
+        noneTitle: 'Sem padrão',
+        noneSubtitle: 'O Happier escolhe o backend como de costume.',
+        selectedSubtitle: 'Usado ao iniciar uma sessão com este perfil.',
     },
     defaultPermissions: {
       title: "Permissões padrão",

@@ -164,7 +164,7 @@ describe('createConnectedServiceContinuationMessageDispatcher', () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it('freezes the usage-limit recovery prompt before handing the row to Pending', async () => {
+  it('freezes a usage-limit account-switch continuation before handing the row to Pending', async () => {
     const sendMessage = vi.fn(async (input: Readonly<{ localId?: string }>) => ({
       ok: true as const,
       sessionId: 'session-1',

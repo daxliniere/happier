@@ -79,16 +79,50 @@ requests server settlement. The server transaction commits or updates the
 transcript message and removes that Pending row before publishing the message
 event and the separate Pending count/version event.
 
+In development source, native Codex app-server acceptance explicitly identifies
+primary-turn delivery. `SessionClient` retains the exact Pending row until its
+bound canonical turn's begin has been acknowledged through the existing durable
+mutation outbox. Local journal admission alone does not establish publication.
+The target may already be terminal; delayed acceptance still belongs to the
+captured input and turn. Native steering binds to the existing turn before
+provider dispatch, and retries before acceptance can bind the same input to a
+new turn. Locally handled clear and compact commands explicitly require no turn.
+Provider dispatch does not wait for network publication, and transcript anchors
+still wait for accepted input commitment.
+
+Other accepted-input producers retain their released opaque delivery contract
+and emit a default-level file diagnostic when using it. Their exact Pending
+acceptance does not yet establish a canonical primary-turn publication barrier.
+In particular, Claude terminal queued steering may be consumed by a later turn;
+its submission or acceptance callback cannot safely bind to whichever turn is
+currently active. Missing delivery classification is never interpreted as a
+no-turn command.
+
 In development source, Claude's Agent SDK and legacy remote runtimes share
 `createClaudeRemotePromptSettlementTracker`. They request the documented
 [`--replay-user-messages`](https://code.claude.com/docs/en/cli-reference) acknowledgment and correlate its main-chain user UUID
-with the exact submitted Pending prompt. Local enqueue, SDK iterable consumption,
-and stdin writes do not settle Pending or retire its replay handoff. A submitted
-prompt without acknowledgment has an uncertain delivery outcome; its handoff
+with the exact submitted Pending prompt. Native results that identify an answered
+prompt through `user_message_uuids` (or the older `user_message_uuid`) also settle
+that prompt; their result output remains visible. Local enqueue, SDK iterable
+consumption, and stdin writes do not settle Pending or retire its replay handoff.
+A submitted prompt without acknowledgment has an uncertain delivery outcome; its handoff
 remains available and Pending does not automatically resend it. Inputs rejected
 before submission remain retryable. Matching acknowledgment echoes carry
 provider-only context and are excluded from the visible transcript. Locally
 handled commands retain their explicit local settlement.
+
+The same owner tracks which submitted prompts still await results, separately
+from delivery acknowledgement. An attributable result can finish those prompts
+while `queued_turn_count` still reports other native sends. Earlier or partial
+results retain foreground custody until the remaining submitted prompts have
+outcomes. Attribution is consumed by the ordered result handler, so raw ingress
+read-ahead cannot make an older result finish a newer prompt. Native results
+without attribution retain the existing queue-count boundary. Because native
+attribution lists are capped at 64 entries, an empty-queue result also retains
+the existing closeout for omitted older IDs once the latest submitted prompt
+has an attributable outcome; it does not acknowledge omitted delivery receipts.
+Elapsed silence, server snapshots, background-task counts, and unattributed
+idle events do not establish that a submitted prompt completed or was discarded.
 
 In development source, Claude unified terminal reports exact transcript-proven acceptance before stopping
 for missing required session hooks. The hook failure still stops the wrapper and
@@ -96,11 +130,22 @@ surfaces a runtime issue; it does not make an already accepted prompt undelivere
 or eligible for replay. The arbiter owns this ordering even when the transcript
 evidence arrives while the terminal injection is still completing.
 
+Claude unified-terminal prompt identity uses one normalizer for submission hooks,
+transcript acceptance, and echo suppression. In development source it accounts
+for native paste wrappers, line endings, and Claude's expansion of each pasted
+tab to four spaces (observed in Claude Code 2.1.316). A replay seed containing
+tab-indented history must therefore correlate with the provider's space-expanded
+prompt; other indentation and content differences remain distinct.
+
 An in-flight Claude unified-terminal steer stays pending while Claude holds it in
 its native queue. `UserPromptSubmit` can fire at enqueue and does not prove that
 Claude has consumed the steer. The arbiter accepts a steer from its exact
 transcript consumption evidence; the existing queued-command matcher correlates
 the native enqueue/remove episode with its main-chain `queued_command` attachment.
+The attachment may precede native queue consumption, so the custody episode joins
+both facts in either order. Native cancellation and plugin-discard removals do
+not establish acceptance, and available native command and delivery identities
+keep a canceled episode separate from an identical replacement.
 The session scanner observes that evidence after awaiting earlier visible-message
 commits, including known resumes and rows appended while the replay baseline loads.
 There is no separate acceptance-only follower of the resume transcript.

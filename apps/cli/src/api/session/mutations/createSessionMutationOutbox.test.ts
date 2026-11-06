@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import * as fsPromises from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,6 +16,11 @@ import {
 } from '@happier-dev/protocol';
 
 vi.mock('axios');
+// Fault injection stays at the filesystem boundary; other operations use real files.
+vi.mock('node:fs/promises', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('node:fs/promises')>();
+    return { ...actual, readFile: vi.fn(actual.readFile) };
+});
 
 let tempHomeDir: string | null = null;
 let persistenceMockInstalled = false;
@@ -137,6 +143,64 @@ function createObservationSocket(options: Readonly<{
 }
 
 describe('createSessionMutationOutbox', () => {
+    it('preserves an unread journal through failed startup, enqueue and close, then replays it on restart', async () => {
+        const { createSessionMutationOutbox } = await import('./createSessionMutationOutbox');
+        const { createTranscriptMessageAppendMutation } = await import('./sessionMutationTypes');
+        const { saveSessionMutationOutbox } = await import('./sessionMutationPersistence');
+        const sessionId = 's-startup-read-failure';
+        const context = await createRuntimePersistenceContext(sessionId);
+        const mutations = ['one', 'two', 'three'].map((localId, index) => {
+            const payload = createTranscriptMessageAppendMutation({
+                sessionId, localId, content: localId,
+                provenance: { kind: 'non_dependent', source: 'external' },
+            });
+            return {
+                kind: 'transcript_message_append' as const,
+                mutationId: payload.mutationId, payload, intentOrder: index + 1,
+                createdAt: index + 1, attempts: 0, nextAttemptAt: 0,
+            };
+        });
+        await saveSessionMutationOutbox(context, mutations);
+        const originalBytes = await readFile(context.paths.queuePath, 'utf8');
+        const readError = Object.assign(new Error('journal read failed'), { code: 'EBUSY' });
+        // Only the filesystem boundary fails; startup, persistence and delivery stay real.
+        const readSpy = vi.spyOn(fsPromises, 'readFile').mockRejectedValueOnce(readError);
+        const outbox = createSessionMutationOutbox({
+            token: 'tok', sessionId,
+            getSocket: () => createApiSessionSocketStub({ connected: false }),
+            requestReconnect: () => {},
+        });
+        try {
+            await expect(outbox.awaitReady()).rejects.toBe(readError);
+            await expect(outbox.flush('flush')).rejects.toBe(readError);
+            await expect(outbox.enqueueTranscriptMessage(createTranscriptMessageAppendMutation({
+                sessionId, localId: 'new', content: 'new',
+                provenance: { kind: 'non_dependent', source: 'external' },
+            }))).rejects.toThrow();
+        } finally {
+            await outbox.close().catch(() => {});
+            readSpy.mockRestore();
+        }
+        await expect(readFile(context.paths.queuePath, 'utf8')).resolves.toBe(originalBytes);
+        await expect(readFile(context.paths.deadLetterPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+
+        const observed: string[] = [];
+        const socket = createObservationSocket({ onObservation: (payload) => {
+            observed.push(String((payload as { localId: string }).localId));
+        } });
+        const restarted = createSessionMutationOutbox({
+            token: 'tok', sessionId, getSocket: () => socket, requestReconnect: () => {},
+        });
+        try {
+            await restarted.awaitReady();
+            await restarted.flush('flush');
+            expect(observed).toEqual(['one', 'two', 'three']);
+            await expect(readFile(context.paths.queuePath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+        } finally {
+            await restarted.close();
+        }
+    });
+
     beforeEach(async () => {
         vi.mocked(axios.post).mockReset();
         vi.mocked(axios.get).mockReset();
@@ -147,6 +211,33 @@ describe('createSessionMutationOutbox', () => {
         // Rebind the cached real consumers without rebuilding the entire source module graph.
         const { reloadConfiguration } = await import('@/configuration');
         reloadConfiguration();
+    });
+
+    it('dequeues a delivered turn and notifies other handles when one delivery observer throws', async () => {
+        const sessionId = 's-turn-delivery-observer-failure';
+        const socket = createApiSessionSocketStub({ connected: true });
+        const { createSessionMutationOutbox } = await import('./createSessionMutationOutbox');
+        const { createSessionTurnMutation } = await import('./sessionMutationTypes');
+        const observed: string[] = [];
+        const common = { token: 'tok', sessionId, getSocket: () => socket, requestReconnect: () => {} };
+        const first = createSessionMutationOutbox({ ...common, onSessionTurnDelivered: () => {
+            throw new Error('observer failed after server ACK');
+        } });
+        const second = createSessionMutationOutbox({ ...common, onSessionTurnDelivered: (mutation) => {
+            if (typeof mutation.turnId !== 'string') throw new Error('Delivered begin is missing its turn identity');
+            observed.push(mutation.turnId);
+        } });
+        try {
+            await first.awaitReady();
+            await first.setSessionSyncPendingInputServerContract(serverContract('session_sync_v2_pending_input_v1'));
+            await first.enqueueSessionTurn(createSessionTurnMutation({ sessionId, action: 'begin', turnId: 'turn-observed' }));
+            await first.flush('flush');
+            expect(observed).toEqual(['turn-observed']);
+            await expect(readPersistedOutboxMutations(sessionId)).resolves.toEqual([]);
+        } finally {
+            await first.close();
+            await second.close();
+        }
     });
 
     it('publishes a generic runtime Activity settlement only after durable admission and dequeue', async () => {

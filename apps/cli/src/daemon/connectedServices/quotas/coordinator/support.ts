@@ -1,5 +1,4 @@
 import {
-  ConnectedServiceIdSchema,
   isConnectedServiceCredentialHealthStatusUsable,
   type ConnectedServiceAuthGroupRuntimeStatePatchRequestV1,
   type ConnectedServiceAuthGroupV1,
@@ -39,10 +38,6 @@ import {
   type DaemonServerWorkScheduler,
 } from '@/daemon/serverWork';
 
-import {
-  readConnectedServiceChildSelectionsFromEnv,
-  type ConnectedServiceChildSelection,
-} from '../../connectedServiceChildEnvironment';
 import { ConnectedServiceAuthGroupRuntimeQuotaSnapshotStore } from '../../accountGroups/quotas/ConnectedServiceAuthGroupRuntimeQuotaSnapshotStore';
 import {
   normalizeConnectedServiceAuthGroupPolicy,
@@ -54,8 +49,6 @@ import {
   type ConnectedServiceUsageSourceRecordRef,
 } from '../../accountGroups/switching/buildConnectedServiceAuthGroupSwitchStateFromAccountUsage';
 import {
-  hasConnectedServiceAuthGroupCandidateEvidenceForSwitchReason,
-  isConnectedServiceAuthGroupSoftSwitchCandidateMeaningfullyBetter,
   resolveConnectedServiceAuthGroupSoftSwitchSourceEvidence,
   selectConnectedServiceAuthGroupCandidate,
   type ConnectedServiceAuthGroupMemberRuntimeState,
@@ -107,6 +100,7 @@ import { evaluateConnectedServiceSwitchApplyPolicy } from '../../accountGroups/s
 import {
   ConnectedServiceRuntimeRegistry,
   type ConnectedServiceRuntimeQuotaTarget,
+  type ConnectedServiceRuntimeTarget,
 } from '../../runtimeRegistry/registry';
 import type { ProviderAccountUsageStore } from '../../accountUsage/store';
 import type { ProviderAccountUsagePersistenceScheduler } from '../../accountUsage/persistence';
@@ -144,6 +138,7 @@ export type QuotaApi = Partial<Pick<ApiClient, 'listProviderAccountUsageRefreshR
           staleAfterMs: number;
           status: 'ok' | 'unavailable' | 'estimated' | 'error';
           refreshRequestedAt?: number;
+          refreshErrorAt?: number;
           materialFingerprint?: string;
         }>;
       }>
@@ -157,6 +152,7 @@ export type QuotaApi = Partial<Pick<ApiClient, 'listProviderAccountUsageRefreshR
           staleAfterMs: number;
           status: 'ok' | 'unavailable' | 'estimated' | 'error';
           refreshRequestedAt?: number;
+          refreshErrorAt?: number;
           materialFingerprint?: string;
         }>;
       }>
@@ -190,7 +186,7 @@ export type QuotaApi = Partial<Pick<ApiClient, 'listProviderAccountUsageRefreshR
     recordKey: ProviderAccountUsageRecordKeyV1;
     source?: ConnectedServiceUsageSourceV1;
     sealed: Readonly<{ format: 'account_scoped_v1'; ciphertext: string }>;
-    metadata: Readonly<{ fetchedAt: number; staleAfterMs: number; status: 'ok' | 'unavailable' | 'estimated' | 'error'; materialFingerprint?: string }>;
+    metadata: Readonly<{ fetchedAt: number; staleAfterMs: number; status: 'ok' | 'unavailable' | 'estimated' | 'error'; materialFingerprint?: string; refreshErrorAt?: number }>;
   }>) => Promise<void>;
   registerProviderAccountUsageSnapshotPlain?: (args: Readonly<{
     recordId: string;
@@ -390,6 +386,7 @@ export type ConnectedServiceQuotaCoordinatorDiagnostic = Readonly<{
   selectedRemainingPercent?: number | null;
   targetCount?: number;
   completedTargetCount?: number;
+  successfulTargetCount?: number;
   incompleteProfileIds?: ReadonlyArray<string>;
   allowedTargetCount?: number;
   durationMs?: number;
@@ -494,64 +491,17 @@ export type ConnectedServiceQuotaSoftSwitchPolicyGuard = (
   }>,
 ) => SoftSwitchPolicyGuardResult | Promise<SoftSwitchPolicyGuardResult>;
 
-export function buildResolvedSelectionProfilesByServiceId(
-  env: Pick<NodeJS.ProcessEnv, string> | undefined,
-): ReadonlyMap<ConnectedServiceId, ConnectedServiceChildSelection> {
-  const selections = env ? readConnectedServiceChildSelectionsFromEnv(env) : [];
-  return new Map(selections.map((selection) => [selection.serviceId, selection]));
-}
-
-export function resolveProfileIdFromSelection(input: Readonly<{
-  binding: Record<string, unknown>;
-  serviceId: ConnectedServiceId;
-  selectionsByServiceId: ReadonlyMap<ConnectedServiceId, ConnectedServiceChildSelection>;
-}>): string {
-  const selection = input.selectionsByServiceId.get(input.serviceId);
-  const explicitProfileId = typeof input.binding.profileId === 'string' ? String(input.binding.profileId).trim() : '';
-  const groupId = typeof input.binding.groupId === 'string' ? String(input.binding.groupId).trim() : '';
-  if (groupId) {
-    if (!selection || selection.kind !== 'group') return explicitProfileId;
-    if (selection.groupId !== groupId) return explicitProfileId;
-    return selection.activeProfileId;
-  }
-
-  if (explicitProfileId) return explicitProfileId;
-  if (!selection || selection.kind !== 'profile') return '';
-  return selection.profileId;
-}
-
 export function extractActiveBindings(
-  raw: ConnectedServicesBindingsV1Like,
-  connectedServiceSelectionsEnv?: Pick<NodeJS.ProcessEnv, string>,
+  target: Pick<ConnectedServiceRuntimeTarget, 'activeBindings'>,
 ): ActiveConnectedServiceBinding[] {
-  const out: ActiveConnectedServiceBinding[] = [];
-  const selectionsByServiceId = buildResolvedSelectionProfilesByServiceId(connectedServiceSelectionsEnv);
-  const bindings = raw?.bindingsByServiceId ?? {};
-  for (const [serviceId, binding] of Object.entries(bindings)) {
-    const parsedServiceId = ConnectedServiceIdSchema.safeParse(serviceId);
-    if (!parsedServiceId.success) continue;
-    const bindingObj = binding && typeof binding === 'object' ? (binding as Record<string, unknown>) : null;
-    const source = typeof bindingObj?.source === 'string' ? String(bindingObj.source) : '';
-    if (source !== 'connected') continue;
-    if (!bindingObj) continue;
-    const profileId = resolveProfileIdFromSelection({
-      binding: bindingObj,
-      serviceId: parsedServiceId.data,
-      selectionsByServiceId,
-    });
-    if (!profileId.trim()) continue;
-    const selection = selectionsByServiceId.get(parsedServiceId.data);
-    const groupId = selection?.kind === 'group' && selection.activeProfileId === profileId
-      ? selection.groupId.trim()
-      : '';
-    out.push({
-      serviceId: parsedServiceId.data,
-      profileId,
-      ...(groupId ? { groupId } : {}),
-      ...(selection?.kind === 'group' && groupId ? { groupGeneration: selection.generation } : {}),
-    });
-  }
-  return out;
+  // The registry owns effective bindings, including provider observations that invalidate
+  // a previously applied generation. Re-parsing launch selections would resurrect it.
+  return target.activeBindings.map((binding) => ({
+    serviceId: binding.serviceId,
+    profileId: binding.profileId,
+    ...(binding.groupId ? { groupId: binding.groupId } : {}),
+    groupGeneration: binding.generation,
+  }));
 }
 
 export function activeBindingMatchesRuntimeIdentity(
@@ -755,18 +705,22 @@ export function defaultSleepMs(ms: number): Promise<void> {
 /**
  * X8 — Stale-but-usable quota.
  *
- * Returns a copy of the snapshot with all meters annotated as stale_quota so
- * the UI can show "last known data (refresh failed)" rather than a blank.
- * The meter data (utilizationPct, resetsAt, etc.) is preserved.
+ * Returns a copy of the snapshot with all meters annotated with the given
+ * staleness code so the UI can show "last known data (refresh failed)" rather
+ * than a blank. The meter data (utilizationPct, resetsAt, etc.) is preserved.
+ * `provider_rate_limited` marks a refresh the provider refused with 429.
  */
-export function annotateSnapshotAsStale(snapshot: ConnectedServiceQuotaSnapshotV1): ConnectedServiceQuotaSnapshotV1 {
+export function annotateSnapshotAsStale(
+  snapshot: ConnectedServiceQuotaSnapshotV1,
+  code: 'stale_quota' | 'provider_rate_limited' = 'stale_quota',
+): ConnectedServiceQuotaSnapshotV1 {
   return {
     ...snapshot,
     meters: snapshot.meters.map((meter) => ({
       ...meter,
       details: {
         ...meter.details,
-        code: 'stale_quota',
+        code,
       },
     })),
   };

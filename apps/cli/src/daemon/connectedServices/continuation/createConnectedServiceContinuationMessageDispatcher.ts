@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto';
 
 import {
+  buildUsageLimitIssueFingerprint,
   readPendingLocalId,
   type SessionContinuationResumePromptModeV1,
 } from '@happier-dev/protocol';
 import type { Credentials } from '@/persistence';
 import { sendSessionMessage } from '@/session/services/sendSessionMessage';
+import { logger } from '@/ui/logger';
 
 import { buildContinuationResumePrompt } from './continuationResumePrompt';
 import type { ConnectedServiceRuntimeAuthFailureKind } from '../runtimeAuth/types';
+import type { ConnectedServiceSessionAuthSwitchReason } from '../runtimeAuth/connectedServiceSessionAuthSwitchCore';
 
 export type ConnectedServiceContinuationInterruption =
   | 'none'
@@ -20,6 +23,52 @@ type ConnectedServiceContinuationMessageDispatcherDeps = Readonly<{
   credentials: Credentials;
   sendMessage?: typeof sendSessionMessage;
 }>;
+
+export type RuntimeAuthRecoveryContinuationAdmission = Readonly<{
+  armedAtMs: number;
+  runtimeIssueFingerprint?: string | null;
+  isCurrent: () => boolean;
+  readActiveTurnId: () => string | null;
+}>;
+
+export function createConnectedServiceContinuationHandler(params: Readonly<{
+  credentials: Credentials;
+  interruptedOriginId?: string | null;
+  resumePromptMode: SessionContinuationResumePromptModeV1;
+  customResumePrompt?: string | null;
+  recoveryKind?: ConnectedServiceRuntimeAuthFailureKind | null;
+  runtimeAuthRecovery?: RuntimeAuthRecoveryContinuationAdmission;
+  resolveInterruption: (input: Readonly<{
+    sessionId: string;
+    action: 'hot_applied' | 'restart_requested';
+    switchReason?: ConnectedServiceSessionAuthSwitchReason;
+  }>) => ConnectedServiceContinuationInterruption;
+}>) {
+  const dispatcher = createConnectedServiceContinuationMessageDispatcher({ credentials: params.credentials });
+  return async (input: Readonly<{
+    sessionId: string;
+    attemptId: string;
+    action: 'hot_applied' | 'restart_requested';
+    switchReason?: ConnectedServiceSessionAuthSwitchReason;
+  }>) => {
+    const interruptedOriginId = params.interruptedOriginId?.trim() ?? '';
+    if (!interruptedOriginId) return;
+    await dispatcher.enqueueInterruptedOriginContinuation({
+      sessionId: input.sessionId,
+      attemptId: input.attemptId,
+      interruptedOriginId,
+      interruption: params.resolveInterruption({
+        sessionId: input.sessionId,
+        action: input.action,
+        switchReason: input.switchReason,
+      }),
+      resumePromptMode: params.resumePromptMode,
+      customResumePrompt: params.customResumePrompt,
+      recoveryKind: params.recoveryKind,
+      runtimeAuthRecovery: params.runtimeAuthRecovery,
+    });
+  };
+}
 
 function createContinuationLocalId(sessionId: string, attemptId: string, interruptedOriginId: string): string {
   if (!sessionId.trim() || !attemptId.trim() || !interruptedOriginId.trim()) {
@@ -62,6 +111,11 @@ export function createConnectedServiceContinuationMessageDispatcher(
         timeoutMs: 1,
       });
       if (!sent.ok) {
+        if (sent.code === 'session_archived') {
+          throw Object.assign(new Error(`continuation_prompt_send_failed:${sent.code}`), {
+            code: 'connected_service_continuation_failure_superseded', retryable: false,
+          });
+        }
         throw new Error(`continuation_prompt_send_failed:${sent.code}`);
       }
       return { suppressed: sent.suppressed === true };
@@ -75,6 +129,8 @@ export function createConnectedServiceContinuationMessageDispatcher(
       resumePromptMode: SessionContinuationResumePromptModeV1;
       customResumePrompt?: string | null;
       recoveryKind?: ConnectedServiceRuntimeAuthFailureKind | null;
+      afterUsageLimitReset?: boolean;
+      runtimeAuthRecovery?: RuntimeAuthRecoveryContinuationAdmission;
       isCurrent?: Parameters<typeof sendSessionMessage>[0]['canAdmit'];
     }>): Promise<
       | Readonly<{ status: 'not_interrupted' | 'disabled' | 'suppressed_newer_user_input' }>
@@ -90,9 +146,57 @@ export function createConnectedServiceContinuationMessageDispatcher(
         resumePromptMode: input.resumePromptMode,
         customResumePrompt: input.customResumePrompt,
         recoveryKind: input.recoveryKind,
+        afterUsageLimitReset: input.afterUsageLimitReset,
       });
       const localId = createContinuationLocalId(input.sessionId, input.attemptId, input.interruptedOriginId);
-      const sent = await this.sendContinuationPrompt({ sessionId: input.sessionId, prompt, localId, isCurrent: input.isCurrent });
+      const recovery = input.runtimeAuthRecovery;
+      const isCurrent: typeof input.isCurrent = recovery
+        ? async (context) => {
+            if (input.isCurrent && !(await input.isCurrent(context))) return false;
+            if (!recovery.isCurrent()) return false;
+            const session = context.rawSession;
+            const activeTurnId = recovery.readActiveTurnId();
+            const failedAtMs = session.lastRuntimeIssue?.occurredAt ?? session.latestTurnStatusObservedAt;
+            const projectedFailureFingerprint = session.lastRuntimeIssue
+              ? buildUsageLimitIssueFingerprint(session.lastRuntimeIssue) : null;
+            // The latest turn projection covers consumed messages too; queued-input
+            // admission alone cannot protect a newer running/completed/failed turn.
+            // Provider observers may enrich the same rejection with another occurrence
+            // timestamp or reset boundary. Fingerprint bytes are diagnostic evidence,
+            // not a shared failure identity: fence newer failures by recovery arming.
+            const supersededRecovery = session.archivedAt != null
+              || Boolean(activeTurnId && session.latestTurnId && activeTurnId !== session.latestTurnId)
+              || (session.latestTurnStatus === 'failed' && typeof failedAtMs === 'number'
+                && Number.isFinite(recovery.armedAtMs) && failedAtMs > recovery.armedAtMs);
+            if (!supersededRecovery && session.latestTurnStatus === 'failed'
+              && typeof failedAtMs === 'number' && Number.isFinite(recovery.armedAtMs)) {
+              return true;
+            }
+            // Local failure reporting does not await its durable turn projection.
+            // Wait only while the original turn is still known to be in progress;
+            // a restored recovery without that witness cannot safely admit a turn
+            // or assume a projection producer remains. Settle through the scheduler.
+            const retryable = !supersededRecovery && session.latestTurnStatus === 'in_progress'
+              && Boolean(activeTurnId) && activeTurnId === session.latestTurnId;
+            const code = supersededRecovery
+              ? 'connected_service_continuation_failure_superseded'
+              : retryable ? 'connected_service_continuation_turn_projection_pending'
+                : 'connected_service_continuation_turn_projection_unavailable';
+            logger.infoFile(retryable
+              ? '[ConnectedServices] Runtime-auth continuation awaiting turn projection'
+              : '[ConnectedServices] Runtime-auth continuation cannot confirm failed turn', {
+              sessionId: input.sessionId, code, retryable, armedAtMs: recovery.armedAtMs, activeTurnId,
+              latestTurnId: session.latestTurnId ?? null,
+              latestTurnStatus: session.latestTurnStatus ?? null,
+              latestTurnStatusObservedAt: session.latestTurnStatusObservedAt ?? null,
+              runtimeIssueOccurredAt: session.lastRuntimeIssue?.occurredAt ?? null,
+              expectedRuntimeIssueFingerprint: recovery.runtimeIssueFingerprint ?? null,
+              projectedFailureFingerprint,
+            });
+            throw Object.assign(new Error(code), { code, retryable });
+          }
+        : input.isCurrent;
+      const sent = await this.sendContinuationPrompt({ sessionId: input.sessionId, prompt, localId, isCurrent });
       if (sent.suppressed) {
         return { status: 'suppressed_newer_user_input' };
       }

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { reconcileAcpCatalogRows } from '@/agent/acp/reconcileAcpCatalogRows';
 
 import { logger } from '@/ui/logger';
 import type { AgentBackend, AgentMessage, McpServerConfig } from '@/agent';
@@ -34,7 +36,6 @@ import { abortPendingAcpPermissionRequests } from '@/agent/acp/backend/permissio
 import { createCatalogAcpBackend } from '@/agent/acp/createCatalogAcpBackend';
 import { extractAcpMediaContentBlocks } from '@/agent/acp/media/extractAcpMediaContentBlocks';
 import type { AcpRuntimeSessionClient } from '@/agent/acp/sessionClient';
-import { isAbortLikeError } from '@/agent/executionRuns/runtime/turnDelivery';
 import type { ACPMessageData } from '@/api/session/sessionMessageTypes';
 import type { AgentState, Metadata } from '@/api/types';
 import { getAgentModelConfig, getAgentSessionModeDescriptor, readNewestSessionModelsMetadataStateV1, type AgentId } from '@happier-dev/agents';
@@ -466,6 +467,7 @@ export async function abortAcpRuntimeTurnIfNeeded(
   return true;
 }
 
+/** Own transcript publication and turn settlement for both host prompts and provider-initiated continuations. */
 export function createAcpRuntime(params: {
   provider: string;
   directory: string;
@@ -910,8 +912,14 @@ export function createAcpRuntime(params: {
     }
   };
 
+  /** Share one completion promise per turn and observe rejection while publication delays its settlement consumer. */
   const waitForTurnResponse = (b: AcpRuntimeBackend, turn: RuntimeTurnState): Promise<AcpTurnOutcome | void> => {
-    turn.responseCompletion ??= b.waitForResponseComplete?.() ?? Promise.resolve();
+    if (!turn.responseCompletion) {
+      turn.responseCompletion = b.waitForResponseComplete?.() ?? Promise.resolve();
+      // Publication can defer the settlement consumer; keep the rejection observed
+      // while that consumer still receives the original completion promise.
+      void turn.responseCompletion.catch(() => {});
+    }
     return turn.responseCompletion;
   };
 
@@ -921,8 +929,13 @@ export function createAcpRuntime(params: {
     return error;
   };
 
+  /** Classify cancellation by its error type; provider error prose cannot establish user intent. */
+  const isTurnCancellationError = (error: unknown): boolean => error instanceof Error && error.name === 'AbortError';
+
+  /** Preserve typed cancellation while distinguishing failures already surfaced by this turn from a fresh prompt error. */
   const rethrowPromptError = (error: unknown, turn: RuntimeTurnState = turnState): never => {
-    if (turn.turnAborted && !isAbortLikeError(error)) {
+    if (isTurnCancellationError(error)) rememberTurnOutcome({ kind: 'aborted', stopReason: 'cancelled' }, turn);
+    if (turn.turnAborted && !isTurnCancellationError(error)) {
       throw createRuntimeHandledTurnAbortError(error);
     }
     throw error;
@@ -939,14 +952,14 @@ export function createAcpRuntime(params: {
           cause,
         );
 
-  const rethrowAcpPromptSubmissionError = (error: unknown): never => {
+  const rethrowAcpPromptSubmissionError = (error: unknown, turn: RuntimeTurnState): never => {
     if (
       error instanceof AcpPromptSubmissionPhaseError
       && error.phase === 'rejected_before_effect'
     ) {
       throw createRejectedBeforeProviderEffectError(error, 'provider_rejected_before_acceptance');
     }
-    return rethrowPromptError(error);
+    return rethrowPromptError(error, turn);
   };
 
   const rebalanceTurnUnavailableSessionMedia = (turn: RuntimeTurnState): void => {
@@ -1214,27 +1227,34 @@ export function createAcpRuntime(params: {
     });
   };
 
+  /** Publish a provider failure against its captured turn; only a typed cancellation suppresses the failure record. */
   const beginStatusErrorSurface = (
     detailRaw: unknown,
     turn: TerminalTurnSnapshot = captureTerminalTurn(),
     cause: 'status_error' | 'session_error' = 'status_error',
   ): Promise<Extract<ACPMessageData, { type: 'turn_failed' }> | null> | null => {
-    if (isAbortLikeError(detailRaw)) return null;
+    if (isTurnCancellationError(detailRaw)) return null;
     const compatibilityMarkerId = beginCapturedLifecycleTurn(turn);
+    let failureTurnId: string | null = null;
     const issuePromise = surfacePrimarySessionRuntimeIssue({
       cause,
       provider: params.provider,
       providerTurnId: turn.providerTurnId,
       error: detailRaw,
       session: { sessionTurnLifecycle: params.session.sessionTurnLifecycle },
-      onFailureTurn: ({ issue }) => notifyAcceptedTurnFailure(detailRaw, issue),
+      allocateTurnWhenIdle: true,
+      onFailureTurn: ({ turnId, issue }) => {
+        failureTurnId = turnId;
+        notifyAcceptedTurnFailure(detailRaw, issue);
+      },
     });
     return Promise.all([compatibilityMarkerId, issuePromise]).then(([markerId, issue]) => {
       if (!params.session.sessionTurnLifecycle && issue) notifyAcceptedTurnFailure(detailRaw, issue);
-      if (markerId || !params.session.sessionTurnLifecycle) {
+      const id = markerId ?? failureTurnId;
+      if (id || !params.session.sessionTurnLifecycle) {
         return {
           type: 'turn_failed',
-          id: markerId ?? randomUUID(),
+          id: id ?? randomUUID(),
           ...(issue ? { issue } : {}),
         };
       }
@@ -1341,8 +1361,9 @@ export function createAcpRuntime(params: {
     return true;
   };
 
+  /** Queue failure settlement once for the originating turn without stopping a newer turn's activity indicator. */
   const surfacePromptFailure = async (detailRaw: unknown, turn = hostCallerTurn ?? turnState): Promise<boolean> => {
-    if (isAbortLikeError(detailRaw)) return false;
+    if (isTurnCancellationError(detailRaw)) return false;
     if (turn.turnAborted) return true;
     turn.turnAborted = true;
     if (turn === turnState) {
@@ -1352,6 +1373,7 @@ export function createAcpRuntime(params: {
     return enqueueTurnSettlement(() => settlePromptFailure(detailRaw, turn));
   };
 
+  /** Retire the captured turn before awaiting completion so late settlement cannot borrow a successor's transcript identity. */
   const flushCapturedTurn = (turn: RuntimeTurnState, completion?: Promise<AcpTurnOutcome | void>): Promise<void> => {
     if (turn.settlement) return turn.settlement;
     if (!turn.currentTurnId && !turn.turnInFlight) {
@@ -1381,7 +1403,9 @@ export function createAcpRuntime(params: {
         try {
           rememberTurnOutcome(await completion, turn);
         } catch (error) {
-          if (!turn.turnAborted) {
+          if (isTurnCancellationError(error)) {
+            rememberTurnOutcome({ kind: 'aborted', stopReason: 'cancelled' }, turn);
+          } else if (!turn.turnAborted) {
             turn.pendingTurnOutcome = { kind: 'failed', error: error instanceof Error ? error : new Error(String(error)) };
             turn.turnAborted = true;
             await settlePromptFailure(error, turn);
@@ -1597,7 +1621,7 @@ export function createAcpRuntime(params: {
           const statusErrorTurn = captureTerminalTurn();
           const turn = turnState;
           const failureError = msg.error ?? msg.detail;
-          const shouldSurfaceFailure = !turn.turnAborted && !isAbortLikeError(failureError);
+          const shouldSurfaceFailure = !turn.turnAborted && !isTurnCancellationError(failureError);
           turn.turnAborted = true;
           if (!turn.turnInFlight) retireCurrentTurn();
           void enqueueTurnSettlement(async () => {
@@ -1626,7 +1650,7 @@ export function createAcpRuntime(params: {
         }
         if (msg.status === 'idle' && (!turnState.turnInFlight || msg.turnFinished)) {
           const turn = turnState;
-          const completion = msg.turnFinished && turn.turnInFlight ? waitForTurnResponse(b, turn) : undefined;
+          const completion = msg.turnFinished ? waitForTurnResponse(b, turn) : undefined;
           void flushCapturedTurn(turn, completion).catch((error) => {
             logger.infoFile(`[${params.provider}] Failed to settle provider turn`, error);
           });
@@ -1871,6 +1895,13 @@ export function createAcpRuntime(params: {
 
           case 'event': {
             const name = msg.name;
+            if (name === 'message') {
+              const message = asRecord(msg.payload)?.message;
+              if (typeof message === 'string' && message.trim()) {
+                params.messageBuffer.addMessage(message, 'status');
+                params.session.sendSessionEvent?.({ type: 'message', message });
+              }
+            }
             if (name === 'connected-service-runtime-auth-recovery') {
               const recoveryEvent = parseConnectedServiceRuntimeAuthRecoveryEvent(msg.payload);
               if (recoveryEvent) {
@@ -2000,16 +2031,18 @@ export function createAcpRuntime(params: {
               publishRuntimeMetadataBestEffort(
                 (metadata) => {
                   const now = Date.now();
-                  const next: any = {
-                    ...metadata,
-                    sessionConfigOptionsV1: {
-                      v: 1,
+                  let next = metadata;
+                  const previousConfig = metadata.sessionConfigOptionsV1 ?? metadata.acpConfigOptionsV1;
+                  if (previousConfig?.provider !== params.provider
+                    || !isDeepStrictEqual(previousConfig.configOptions, configOptions)) {
+                    const sessionConfigOptions = {
+                      v: 1 as const,
                       provider: params.provider,
                       updatedAt: now,
-                      configOptions,
-                    },
-                  };
-                  next.acpConfigOptionsV1 = next.sessionConfigOptionsV1;
+                      configOptions: reconcileAcpCatalogRows(previousConfig?.configOptions, configOptions),
+                    };
+                    next = { ...next, sessionConfigOptionsV1: sessionConfigOptions, acpConfigOptionsV1: sessionConfigOptions };
+                  }
 
                   const previousModels = readNewestSessionModelsMetadataStateV1(metadata as unknown as Record<string, unknown>);
                   const modelSnapshot = derivedModels ?? (
@@ -2029,28 +2062,34 @@ export function createAcpRuntime(params: {
                         collectAcpModelScopedConfigOptions(configOptions.filter((option) => option !== modelOpt)),
                         previousModels?.provider === params.provider ? previousModels.availableModels : [],
                       );
-                    next.sessionModelsV1 = {
-                      v: 1,
-                      provider: params.provider,
-                      updatedAt: derivedModels ? now : previousModels?.updatedAt ?? 0,
-                      currentModelId: modelSnapshot.currentModelId,
-                      availableModels,
-                    };
-                    next.acpSessionModelsV1 = next.sessionModelsV1;
+                    if (previousModels?.provider !== params.provider
+                      || previousModels.currentModelId !== modelSnapshot.currentModelId
+                      || !isDeepStrictEqual(previousModels.availableModels, availableModels)) {
+                      const sessionModels = {
+                        v: 1 as const,
+                        provider: params.provider,
+                        updatedAt: derivedModels ? now : previousModels?.updatedAt ?? 0,
+                        currentModelId: modelSnapshot.currentModelId,
+                        availableModels: reconcileAcpCatalogRows(previousModels?.availableModels, availableModels),
+                      };
+                      next = { ...next, sessionModelsV1: sessionModels, acpSessionModelsV1: sessionModels };
+                    }
                   }
-                  if (derivedModes) {
+                  const previousModes = metadata.sessionModesV1 ?? metadata.acpSessionModesV1;
+                  if (derivedModes && (previousModes?.provider !== params.provider
+                    || previousModes.currentModeId !== derivedModes.currentModeId
+                    || !isDeepStrictEqual(previousModes.availableModes, derivedModes.availableModes))) {
                     const sessionModes = {
                       v: 1 as const,
                       provider: params.provider,
                       updatedAt: now,
                       currentModeId: derivedModes.currentModeId,
-                      availableModes: derivedModes.availableModes,
+                      availableModes: reconcileAcpCatalogRows(previousModes?.availableModes, derivedModes.availableModes),
                     };
-                    next.sessionModesV1 = sessionModes;
-                    next.acpSessionModesV1 = sessionModes;
+                    next = { ...next, sessionModesV1: sessionModes, acpSessionModesV1: sessionModes };
                   }
 
-                  return next as any;
+                  return next;
                 },
                 'config_options_state',
               );
@@ -2387,7 +2426,7 @@ export function createAcpRuntime(params: {
         await b.sendPrompt(sessionId, prompt);
       }
     } catch (error) {
-      rethrowAcpPromptSubmissionError(error);
+      rethrowAcpPromptSubmissionError(error, turn);
     }
     await callbacks.onProviderPromptSubmitted?.();
 

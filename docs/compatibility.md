@@ -116,6 +116,24 @@ readers retire, consolidating at their existing owners. The undeployed 0.3 line
 uses qualified account services and its existing one-way upgrade boundary;
 0.2-created Antigravity data still needs its storage-ingress mapping there.
 
+### Pool application and legacy credential rows (0.2 development)
+
+Pool-capable servers return a revision for every credential row, including a
+stable `csr_` digest for rows predating explicit revision metadata. A missing
+commit-time read-back revision is therefore resolved by reading the selected
+account again at application. Successful application always carries that real
+revision into the existing available-truth RPC, which releases the runner's
+availability fence and exact-application Pending wake.
+
+The CLI 0.2.15 reader at `22ac8263cfdbcdb845441b9044ff18199cf7652e`
+requires a string revision in both available truth and generation application
+proof. Those wire shapes are unchanged; no nullable-proof negotiation is needed.
+The exact server 0.2.1 credential adapter remains for direct credentials, but
+that server has no pool/group routes and cannot originate this committed-pool
+flow. A genuinely revisionless application observation is retryable and never
+acknowledged as runner availability. Provider identity checks and write fences
+remain intact.
+
 ### Quota recovery details (0.2 development)
 
 Reset availability remains in the existing strict recovery-credit inventory.
@@ -138,6 +156,45 @@ The current server admits, persists and projects that facet through the existing
 usage-record owner and refuses it when disabled. Subscription gating does not
 erase independently supported recovery details. Tests use the exact released
 strict body and sealed-envelope declarations, rather than reconstructed readers.
+
+### Quota refresh outcomes (0.2 development)
+
+Provider observation time and refresh completion are separate facts. Protocol's
+`isProviderAccountUsageRefreshRequestSettled` settles a request only when
+`fetchedAt >= refreshRequestedAt` or `refreshErrorAt >= refreshRequestedAt`.
+A failure uses the existing `error_last_known_good` snapshot state and diagnostic
+`observedAtMs`; it preserves the last provider observation and meters. The quota
+projection carries the diagnostic as evidence, including retry timing when known.
+The server clears `refreshRequestedAt` through its usage-record write policy;
+the UI follows that marker after a successfully opened read rather than inferring
+completion from meter freshness.
+
+The released server and CLI stable baseline is 0.2.17 at
+`a2c45c86804b24e60ac0b76146a3ef36dfcaa15b`. The inspected active previews are
+server 0.2.18-preview.2 and CLI 0.2.18-preview.1 at
+`67123c84ca168ac6f7847532a531eaa7f5566111`. Their versioned release
+`latest.json` assets name those build commits and downloadable binary checksums:
+[stable server](https://github.com/happier-dev/happier/releases/download/server-v0.2.17/latest.json),
+[stable CLI](https://github.com/happier-dev/happier/releases/download/cli-v0.2.17/latest.json),
+[preview server](https://github.com/happier-dev/happier/releases/download/server-v0.2.18-preview.2/latest.json)
+and [preview CLI](https://github.com/happier-dev/happier/releases/download/cli-v0.2.18-preview.1/latest.json).
+This establishes published artifacts, not a claim about a running deployment.
+
+Both inspected server versions have strict V3 plain-write metadata. Updated
+daemons therefore keep that write shape unchanged: the server derives
+`refreshErrorAt` from the already-supported plain snapshot diagnostics. V2 sealed
+write metadata is passthrough, so the daemon adds optional `refreshErrorAt` there;
+the server cannot inspect the encrypted diagnostic. Updated reads add the same
+optional metadata fact; released UI and CLI readers accept it without changing
+the existing snapshot shape. Source-link identity and authorization are unchanged.
+
+An older server accepts these writes but cannot use the new failure fact to
+settle the request. An older daemon does not produce that fact. Older UIs retain
+their existing completion presentation; accepting additive metadata does not
+give them the new failure UX. Prompt failure completion therefore depends on
+updated producers, server lifecycle handling and UI consumers, while ordinary
+quota reads and successful provider observations retain their existing contract.
+No failure path advances provider observation time to emulate a successful read.
 
 ### Browser request headers and CORS
 
@@ -223,6 +280,22 @@ This is an older-native/new-JavaScript compatibility path, not delivery of new
 native code through OTA. Remove the guard only when no supported binary eligible
 for these updates can lack the SDK. Native renderer fixes and app-link entitlement
 changes still require a native app build.
+
+### Android device CA trust (development)
+
+Android native builds from development source opt into both the platform system
+and user-installed CA stores through the Expo network-security configuration
+plugin. HTTP and WebSocket clients retain platform certificate-chain and hostname
+verification. The configuration consumes the same resolved cleartext setting as
+Expo build properties because Android gives network-security configuration
+precedence over the manifest's cleartext flag.
+
+Older installed binaries retain their original trust policy; neither a server
+update nor an OTA JavaScript update changes their native CA trust. A new native
+Android build is required. This introduces no JavaScript/native API requirement
+or relay protocol change, and does not change iOS, web, or desktop trust policy.
+Published release availability and device-level TLS confirmation remain separate
+from source validation.
 
 ### Android file actions native runtime (development)
 
@@ -349,6 +422,19 @@ an older daemon asks the user to update the daemon before starting work; it does
 not fall back to the synchronous import path. Existing relay RPC routing requires
 no server schema or persistence change.
 
+Development UIs persist Action Operations seen and terminal-dismissal decisions
+locally in the existing MMKV storage, under
+`action-operation-acknowledgements-v1` qualified by server and account. The shared
+operation store hydrates these decisions when sync activates that scope, before
+daemon replay. Complete machine lists prune acknowledgements for operations the
+daemon no longer retains. Snapshots and daemon outcomes remain authoritative:
+explicit dismissal hides a terminal failure from Activity and Inbox without
+changing its failed result; Clear recent preserves failures, active work, and
+unresolved setup attention. Dismissal of an unavailable active projection is
+session-local and is cleared when that work is observed again. These local
+preferences are not synchronized across devices. Older UIs ignore the new key;
+upgrading cannot recover acknowledgements lost by a previous app restart.
+
 Cancellation is cooperative during transcript reading and uploading. The current
 page/media/upload effect may finish before cancellation settles; no next message
 or runner startup follows. Accepted messages remain stored with the existing
@@ -375,6 +461,21 @@ transcript import, following, takeover, terminal identity, linking, or writer sa
 The probe can be removed only when daemons predating this method are no longer supported.
 Directory validation remains daemon-owned after successful negotiation, and a relative `cwd`
 continues to return `invalid_request` rather than being reclassified as compatibility fallback.
+
+### Account-pool option policy (development)
+
+Pool policy stays on the existing V3 groups endpoint. The released account-profile
+group reader (UI/server 0.2.15 at `88d45f33a5e5faf3235f621ee168a6f0ca58762d`,
+also pinned in `releasedV0215AccountProfile.ts`) is strict, so adding policy to
+that projection would reject the profile for those readers. This correction
+changes neither the profile payload nor the V3 group schema.
+
+Updated option consumers receive nullable `autoSwitch`: true and false describe
+known V3 policy; null means unknown. A failed or unavailable V3 read retains
+profile-projected choices without claiming automatic switching is disabled.
+The adoption suggestion requires known true. Feature-disabled group choices
+remain hidden. No persisted binding, server migration, or old-client write path
+changes.
 
 ### Priority-pool primary recovery (development)
 
@@ -442,7 +543,35 @@ policy. Do not roll back a database containing this opt-in to that reader withou
 separately validated, authorized data reconciliation. No database rewrite is performed
 by the response projection.
 
+### Claude pool native waiting preference (development)
+
+The optional `claudeCodeAutoContinueAtUsageLimit` pool policy field defaults to
+Happier-managed recovery when absent. Updated V3 readers send
+`happierClaudeCodeAutoContinueAtUsageLimit=1`; the existing reader-capability
+projection omits the field for older strict clients. Older-client policy patches
+merge with the stored policy and preserve this preference. The predecessor query
+schema at `a2c45c86804b24e60ac0b76146a3ef36dfcaa15b` accepts and strips unknown
+query keys, so updated ordinary reads remain usable against that predecessor.
+This is source-schema evidence, not a live mixed-version deployment check.
+
+As with the other optional pool-policy extensions, this is forward coexistence,
+not old-server database rollback support. A pre-field server rejects the stored
+field and falls back to its whole default policy. A database containing the new
+preference needs separately validated, authorized reconciliation before such a
+rollback. The reader projection does not rewrite storage.
+
 ### Account-pool quota-limit selection (development)
+
+The development daemon's soft-switch target gate and live-session model exclusions
+use existing V1 member runtime state and group operations; they add no wire or
+persisted fields. For automatic active-member disable, the daemon commits the
+selector's replacement with the existing active-profile operation before disabling
+the former active member. Released server source at
+`22ac8263cfdbcdb845441b9044ff18199cf7652e` supports both operations. If no usable
+replacement exists, the runtime-state exclusion remains while physical disable
+waits. The server's priority fallback remains unchanged for manual disable,
+member/profile deletion, initial membership, and older daemons. This preserves
+their existing behavior without adding server-owned quota or model selection.
 
 `quotaLimitSelection` is optional in the V1 pool policy and absence means all
 provider-reported allowances. Updated clients author it only when the server
@@ -473,6 +602,36 @@ cancellation from recovery that stopped without an automatic retry. Current
 readers use the shared protocol interpretation; no new event enum or persisted
 recovery state is introduced. Primary-session failures remain visible even when
 independently owned background runs continue.
+
+### Failed-request account attribution (development)
+
+Runtime-auth failure classifications add optional `providerReportedOrganizationId`
+evidence. Explicit `null` means the provider organization is unproven; absence
+retains predecessor classification behavior. Request-issued provider account and
+organization fields likewise preserve explicit unknown values. Recovery intents
+keep their existing V1/V2 versions and keep the failed classification separate
+from their pending or adopted target. Intents written by the 0.2.18 and 0.2.19
+writers remain readable without migration; missing evidence cannot reconstruct
+an identity that was already recorded incorrectly.
+
+Member runtime state adds optional `lastFailureProviderLimitId` so fresh positive
+quota evidence can be matched to the failed allowance. Absence retains the
+conservative account-level rule. Existing freshness and policy cooldown govern
+clearing failure-derived blockers; the soft-switch freshness gate is unchanged.
+These are additive daemon/member-state facts, with no new server operation or
+recovery event version.
+
+Session group-binding metadata adds optional `appliedProfileId`. Updated session
+labels use it as observed account evidence; absent values retain the previous
+pool-account presentation. The existing `profileId` remains the fallback.
+Auth-choice writes omit observed evidence. Predecessor readers ignore this
+optional metadata fact without changing their selection behavior.
+
+Live Claude identity observations use the runner/daemon local turn-lifecycle
+transport. A predecessor daemon rejects the new observation event; the runner
+logs that rejection by default and retains existing session-account behavior.
+This evidence event is separate from turn success and failure, so it cannot
+clear blockers or prove a failed request's credential.
 
 ### Account-pool expiry-first strategy (development)
 
@@ -548,6 +707,28 @@ Draft documents preserve unknown extension fields as JSON. This lets a client wi
 composer contribution edit fields it understands without deleting newer semantic data; it does not
 authorize that client to execute the unknown contribution. Raw files, handles, secrets, and other
 device-only state remain outside the compatibility shape.
+
+### Unreadable account-settings entries (development)
+
+The released web readers `ui-web-v0.2.21` and
+`ui-web-v0.2.21-preview.212` at `f6f4032ffe21310f83a652c0c7dc07a205e66ee8`
+omit profiles, saved secrets and execution guidance entries they cannot parse
+from the runtime view. Replacing an array with that view can erase the omitted
+entries and their pruned profile-secret bindings.
+
+Updated 0.2 writeback uses the same entry schemas as the reader and retains
+unreadable baseline entries and their bindings. They remain unavailable to
+runtime consumers. Readable entries can still be edited or deleted; an unreadable
+collection or an identity collision refuses the affected write rather than
+overwriting unknown data. Profile editors validate with the canonical profile
+schema before submitting. The stored format and server API do not change.
+Older clients retain the destructive write behavior; this correction cannot
+restore entries already erased by an earlier write.
+
+0.3 keeps legacy profile/guidance arrays and bindings as read-only import sources;
+current profile entity admission and the saved-secret mutation owner validate
+writes separately. Its raw settings writer must not reintroduce writable legacy
+arrays to reproduce the 0.2 implementation.
 
 ### Request notification previews (development)
 

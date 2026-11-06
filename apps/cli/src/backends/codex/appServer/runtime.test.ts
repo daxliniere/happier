@@ -13,6 +13,7 @@ import {
     buildConnectedServiceCredentialRecord,
     buildUsageLimitIssueFingerprint,
     type SessionRuntimeIssueV1,
+    type SessionTurnMutationV1,
     SESSION_MEDIA_MESSAGE_MAX_ENTRIES_V1,
     SessionMediaMessageMetaEnvelopeV1Schema,
     SESSION_USAGE_LIMIT_RECOVERY_METADATA_KEY,
@@ -30,6 +31,8 @@ import { createCodexAppServerExecutionRunBackend } from '@/backends/codex/execut
 import { createExecutionRunPermissionHandler } from '@/agent/executionRuns/policy/executionRunPermissionDecision';
 import { MessageQueue2 } from '@/agent/runtime/modeMessageQueue';
 import { createSessionProviderInputConsumer } from '@/agent/runtime/sessionInput/SessionProviderInputConsumer';
+import { ProviderCliNotFoundError } from '@/runtime/managedTools/requireProviderCliCommand';
+import { readCodexTurnFailureSettlement } from '@/backends/codex/runtime/sessionTurnLifecycle';
 import { waitForCondition } from '@/testkit/async/waitFor';
 import { createApiSessionClientFixture, createMutableApiSessionClientFixture } from '@/testkit/backends/sessionFixtures';
 import { createTempDir, removeTempDir } from '@/testkit/fs/tempDir';
@@ -140,6 +143,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
     emitGoalContinuationUsageLimitFailure?: boolean;
     emitGoalContinuationItemsBeforeStarted?: boolean;
     rejectReviewStartMethodUnavailable?: boolean;
+    inlineReviewTexts?: readonly string[];
     rejectStructuredTurnInput?: boolean;
     rejectStructuredSteerInput?: boolean;
     rejectSteerExpectedTurnId?: boolean;
@@ -186,6 +190,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         'let loginStartCount = 0;',
         'let accountReadCount = 0;',
         'let interruptCount = 0;',
+        'let reviewStartCount = 0;',
         `let nativeGoal = ${JSON.stringify(params.nativeGoal ?? null)};`,
         'const resumedThreadIds = new Set();',
         `const managedAllowedApprovalPolicies = ${JSON.stringify(params.managedAllowedApprovalPolicies ?? null)};`,
@@ -215,7 +220,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32602, message: "invalid params: permissions unsupported" } }) + "\\n");',
         '            continue;',
         '        }',
-        `        if (${JSON.stringify(params.rejectPermissionsProfileAsStringShape === true)} && msg.params?.permissions) {`,
+        `        if (${JSON.stringify(params.rejectPermissionsProfileAsStringShape === true)} && msg.params?.permissions && typeof msg.params.permissions !== "string") {`,
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32600, message: "Invalid request: invalid type: map, expected a string" } }) + "\\n");',
         '            continue;',
         '        }',
@@ -225,7 +230,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32000, message: "missing thread/start flags" } }) + "\\n");',
         '            continue;',
         '        }',
-        `        process.stdout.write(JSON.stringify({ id: msg.id, result: { threadId: "thread-started", model: "gpt-5.4", serviceTier: ${JSON.stringify(params.threadStartServiceTier ?? null)}, activePermissionProfile: msg.params?.permissions ?? null } }) + "\\n");`,
+        `        process.stdout.write(JSON.stringify({ id: msg.id, result: { threadId: "thread-started", model: "gpt-5.4", serviceTier: ${JSON.stringify(params.threadStartServiceTier ?? null)}, activePermissionProfile: typeof msg.params?.permissions === "string" ? { id: msg.params.permissions } : null } }) + "\\n");`,
         `        if (${JSON.stringify(params.emitIdleMcpRequestAfterThreadStart === true)}) {`,
         '            setTimeout(() => {',
         '                process.stdout.write(JSON.stringify({ id: "idle-mcp-request", method: "mcpServer/elicitation/request", params: { threadId: "thread-started", id: "request_scoped_idle_mcp", serverName: "happier", message: "Tool \\"change_title\\" needs input", _meta: { tool_params: { title: "Idle Title" } } } }) + "\\n");',
@@ -255,7 +260,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32602, message: "invalid params: permissions unsupported" } }) + "\\n");',
         '            continue;',
         '        }',
-        `        if (${JSON.stringify(params.rejectPermissionsProfileAsStringShape === true)} && msg.params?.permissions) {`,
+        `        if (${JSON.stringify(params.rejectPermissionsProfileAsStringShape === true)} && msg.params?.permissions && typeof msg.params.permissions !== "string") {`,
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32600, message: "Invalid request: invalid type: map, expected a string" } }) + "\\n");',
         '            continue;',
         '        }',
@@ -273,7 +278,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            process.stdout.write(JSON.stringify({ method: "turn/started", params: { threadId: resumedThreadId, turn: { id: resumeTurnId } } }) + "\\n");',
         '            process.stdout.write(JSON.stringify({ method: "item/agentMessage/delta", params: { threadId: resumedThreadId, turnId: resumeTurnId, itemId: "resume_msg_1", delta: "Still working" } }) + "\\n");',
         '            setTimeout(() => {',
-        '                process.stdout.write(JSON.stringify({ id: msg.id, result: { threadId: resumedThreadId, model: msg.params?.model ?? (adoptsOverrideThread ? "gpt-5.4-mini" : "gpt-5.4"), serviceTier: Object.prototype.hasOwnProperty.call(msg.params ?? {}, "serviceTier") ? msg.params.serviceTier : null, activePermissionProfile: msg.params?.permissions ?? null } }) + "\\n");',
+        '                process.stdout.write(JSON.stringify({ id: msg.id, result: { threadId: resumedThreadId, model: msg.params?.model ?? (adoptsOverrideThread ? "gpt-5.4-mini" : "gpt-5.4"), serviceTier: Object.prototype.hasOwnProperty.call(msg.params ?? {}, "serviceTier") ? msg.params.serviceTier : null, activePermissionProfile: typeof msg.params?.permissions === "string" ? { id: msg.params.permissions } : null } }) + "\\n");',
         '            }, 20);',
         '            continue;',
         '        }',
@@ -319,7 +324,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            continue;',
         '        }',
         `        const oversizedPayload = ${JSON.stringify(params.oversizedResumePayloadChars ?? 0)} > 0 ? "x".repeat(${JSON.stringify(params.oversizedResumePayloadChars ?? 0)}) : undefined;`,
-        '        const resumeResponse = JSON.stringify({ id: msg.id, result: { threadId: resumedThreadId, model: msg.params?.model ?? (adoptsOverrideThread ? "gpt-5.4-mini" : "gpt-5.4"), serviceTier: Object.prototype.hasOwnProperty.call(msg.params ?? {}, "serviceTier") ? msg.params.serviceTier : null, activePermissionProfile: msg.params?.permissions ?? null, ...(oversizedPayload ? { oversizedPayload } : {}) } }) + "\\n";',
+        '        const resumeResponse = JSON.stringify({ id: msg.id, result: { threadId: resumedThreadId, model: msg.params?.model ?? (adoptsOverrideThread ? "gpt-5.4-mini" : "gpt-5.4"), serviceTier: Object.prototype.hasOwnProperty.call(msg.params ?? {}, "serviceTier") ? msg.params.serviceTier : null, activePermissionProfile: typeof msg.params?.permissions === "string" ? { id: msg.params.permissions } : null, ...(oversizedPayload ? { oversizedPayload } : {}) } }) + "\\n";',
         `        if (${JSON.stringify(params.resumeResponseDelayMs ?? 0)} > 0) {`,
         `            setTimeout(() => { process.stdout.write(resumeResponse); }, ${JSON.stringify(params.resumeResponseDelayMs ?? 0)});`,
         '        } else {',
@@ -512,12 +517,12 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32601, message: "Method not found: review/start" } }) + "\\n");',
         '            continue;',
         '        }',
-        '        const turnId = "turn-review-native";',
+        '        const turnId = reviewStartCount === 0 ? "turn-review-native" : `turn-review-native-${reviewStartCount + 1}`;',
         '        if (typeof msg.params?.target?.instructions === "string" && msg.params.target.instructions.includes("invalid-review-input")) {',
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32602, message: "invalid params: review target is invalid" } }) + "\\n");',
         '            continue;',
         '        }',
-        '        const reviewText = typeof msg.params?.target?.instructions === "string" && msg.params.target.instructions.includes("different-final") ? "Native review body" : "Native review text";',
+        `        const reviewText = ${JSON.stringify(params.inlineReviewTexts ?? [])}[reviewStartCount++] ?? (typeof msg.params?.target?.instructions === "string" && msg.params.target.instructions.includes("different-final") ? "Native review body" : "Native review text");`,
         '        const finalText = typeof msg.params?.target?.instructions === "string" && msg.params.target.instructions.includes("different-final") ? "Different final assistant text" : reviewText;',
         '        const completionDelayMs = typeof msg.params?.target?.instructions === "string" && msg.params.target.instructions.includes("delayed-review") ? 50 : 15;',
         '        process.stdout.write(JSON.stringify({ id: msg.id, result: { turn: { id: turnId }, reviewThreadId: msg.params?.threadId ?? null } }) + "\\n");',
@@ -542,6 +547,10 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '        continue;',
         '    }',
         '    if (msg.method === "turn/start") {',
+        '        if (msg.params?.permissions != null && typeof msg.params.permissions !== "string") {',
+        '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32600, message: "Invalid request: invalid type: map, expected a string" } }) + "\\n");',
+        '            continue;',
+        '        }',
         `        if (${JSON.stringify(params.rejectPermissionsProfile === true)} && msg.params?.permissions) {`,
         '            process.stdout.write(JSON.stringify({ id: msg.id, error: { code: -32602, message: "invalid params: permissions unsupported" } }) + "\\n");',
         '            continue;',
@@ -1753,6 +1762,7 @@ describe('createCodexAppServerRuntime', () => {
             emitGoalContinuationUsageLimitFailure?: boolean;
             emitGoalContinuationItemsBeforeStarted?: boolean;
             rejectReviewStartMethodUnavailable?: boolean;
+            inlineReviewTexts?: readonly string[];
             rejectStructuredTurnInput?: boolean;
             rejectStructuredSteerInput?: boolean;
             rejectSteerExpectedTurnId?: boolean;
@@ -1824,6 +1834,7 @@ describe('createCodexAppServerRuntime', () => {
             emitGoalContinuationUsageLimitFailure: options.emitGoalContinuationUsageLimitFailure,
             emitGoalContinuationItemsBeforeStarted: options.emitGoalContinuationItemsBeforeStarted,
             rejectReviewStartMethodUnavailable: options.rejectReviewStartMethodUnavailable,
+            inlineReviewTexts: options.inlineReviewTexts,
             rejectStructuredTurnInput: options.rejectStructuredTurnInput,
             rejectStructuredSteerInput: options.rejectStructuredSteerInput,
             rejectSteerExpectedTurnId: options.rejectSteerExpectedTurnId,
@@ -1901,6 +1912,37 @@ describe('createCodexAppServerRuntime', () => {
                 expect.objectContaining({ method: 'thread/start' }),
             ]),
         );
+    });
+
+    it('leaves a missing-CLI startOrLoad failure unsettled for the runner to surface once', async () => {
+        const { root } = await createRuntimeFixture('happier-codex-app-server-runtime-missing-cli-');
+        // The explicit override is exclusive: a bogus HAPPIER_CODEX_PATH defeats the fixture's
+        // fake app-server binary and makes requireProviderCliCommand throw ProviderCliNotFoundError.
+        envScope.patch({
+            HAPPIER_CODEX_APP_SERVER_BIN: undefined,
+            HAPPIER_CODEX_PATH: '/definitely-missing-happier-codex/codex',
+        });
+        const mutations: SessionTurnMutationV1[] = [];
+        const session = {
+            ...createApiSessionClientFixture({ metadata: createRuntimeMetadata(root) }),
+            sessionTurnLifecycle: createSessionTurnLifecycle({
+                sessionId: 'session-missing-cli',
+                enqueueSessionTurn: async (mutation) => { mutations.push(mutation); },
+            }),
+        } as unknown as Parameters<typeof createCodexAppServerRuntimeProduction>[0]['session'];
+        const runtime = createCodexAppServerRuntime({
+            directory: root,
+            session,
+            onThinkingChange: vi.fn(),
+        });
+
+        const error = await runtime.startOrLoad({}).then(() => null, (caught: unknown) => caught);
+
+        expect(error).toBeInstanceOf(ProviderCliNotFoundError);
+        // No provider turn began, so the runner's prompt-loop catch owns the one classified failed
+        // turn; the runtime surfacing it too would double-report resume + fallback attempts.
+        expect(readCodexTurnFailureSettlement(error)).toBeNull();
+        expect(mutations).toEqual([]);
     });
 
     it('retries native resume when Codex transiently cannot initialize its shared SQLite state runtime', async () => {
@@ -2152,10 +2194,7 @@ describe('createCodexAppServerRuntime', () => {
                     method: 'thread/start',
                     params: expect.objectContaining({
                         cwd: root,
-                        permissions: {
-                            type: 'profile',
-                            id: ':workspace',
-                        },
+                        sandbox: 'workspace-write',
                         experimentalRawEvents: true,
                         persistExtendedHistory: true,
                     }),
@@ -2166,36 +2205,31 @@ describe('createCodexAppServerRuntime', () => {
         );
     });
 
-    it('starts safe-yolo app-server threads with auto-reviewer approvals instead of disabling approvals', async () => {
+    it('preserves workspace network access and Auto review when native profiles have narrower permissions', async () => {
         const { root, requestLogPath } = await createRuntimeFixture('happier-codex-app-server-runtime-safe-yolo-start-');
-
         const runtime = createCodexAppServerRuntime({
             directory: root,
             onThinkingChange: vi.fn(),
-            session: { updateMetadata: vi.fn() } as any,
+            session: createApiSessionClientFixture(),
             permissionMode: 'safe-yolo',
         });
 
         await runtime.startOrLoad({});
-
-        const requestLog = (await readFile(requestLogPath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
-        expect(requestLog).toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({
-                    method: 'thread/start',
-                    params: expect.objectContaining({
-                        permissions: {
-                            type: 'profile',
-                            id: ':workspace',
-                        },
-                    }),
-                }),
-            ]),
-        );
-        const startRequest = requestLog.find((entry: { method: string }) => entry.method === 'thread/start') as { params?: Record<string, unknown> } | undefined;
-        expect(startRequest?.params).not.toHaveProperty('sandbox');
-        expect(startRequest?.params).not.toHaveProperty('approvalPolicy');
-        expect(startRequest?.params).not.toHaveProperty('approvalsReviewer');
+        await runtime.sendPrompt('workspace-network');
+        const requests = await readRequestLog(requestLogPath);
+        const start = requests.find((entry) => entry.method === 'thread/start');
+        expect(start?.params).toMatchObject({
+            sandbox: 'workspace-write',
+            approvalPolicy: { granular: expect.objectContaining({ sandbox_approval: true }) },
+            approvalsReviewer: 'auto_review',
+        });
+        expect(start?.params).not.toHaveProperty('permissions');
+        const turn = requests.find((entry) => entry.method === 'turn/start');
+        expect(turn?.params).toMatchObject({
+            sandboxPolicy: { type: 'workspaceWrite', writableRoots: [root], networkAccess: true },
+            approvalsReviewer: 'auto_review',
+        });
+        expect(turn?.params).not.toHaveProperty('permissions');
     });
 
     it('falls back to legacy app-server permission fields after older Codex rejects permission profiles', async () => {
@@ -2217,10 +2251,7 @@ describe('createCodexAppServerRuntime', () => {
         const startRequests = requestLog.filter((entry) => entry.method === 'thread/start') as Array<{ params?: Record<string, unknown> }>;
         expect(startRequests).toHaveLength(2);
         expect(startRequests[0]?.params).toMatchObject({
-            permissions: {
-                type: 'profile',
-                id: ':read-only',
-            },
+            permissions: ':read-only',
         });
         expect(startRequests[0]?.params).not.toHaveProperty('sandbox');
         expect(startRequests[1]?.params).toMatchObject({
@@ -2234,85 +2265,53 @@ describe('createCodexAppServerRuntime', () => {
             approvalPolicy: 'never',
             sandboxPolicy: {
                 type: 'readOnly',
+                networkAccess: false,
             },
         });
         expect(turnStart?.params).not.toHaveProperty('permissions');
     });
 
-    it('uses one managed scalar fallback after canonical Auto reaches a rejected legacy granular policy', async () => {
-        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-managed-auto-', {
-            rejectPermissionsProfile: true,
+    it.each(['start', 'resume', 'turn'] as const)('keeps workspace policy through the managed scalar fallback at %s without disabling native profiles', async (entryPoint) => {
+        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-managed-workspace-', {
+            rejectPermissionsProfileAsStringShape: true,
             managedAllowedApprovalPolicies: ['untrusted', 'on-request', 'never'],
         });
-        const permissionMode = normalizePermissionModeForAgentStart({ agentId: 'codex', value: 'acceptEdits' });
-        expect(permissionMode).toBe('safe-yolo');
+        const autoMode = normalizePermissionModeForAgentStart({ agentId: 'codex', value: 'acceptEdits' });
+        expect(autoMode).toBe('safe-yolo');
+        let permissionMode: PermissionMode = entryPoint === 'turn' ? 'default' : autoMode!;
         const runtime = createCodexAppServerRuntime({
             directory: root,
             onThinkingChange: vi.fn(),
-            session: { updateMetadata: vi.fn() } as any,
-            permissionMode: permissionMode!,
-        });
-
-        await runtime.startOrLoad({});
-        await runtime.sendPrompt('managed-auto');
-
-        const requests = await readRequestLog(requestLogPath);
-        const starts = requests.filter((entry) => entry.method === 'thread/start');
-        expect(starts).toHaveLength(3);
-        expect(starts[0]?.params).toMatchObject({ permissions: { type: 'profile', id: ':workspace' } });
-        expect(starts[1]?.params).toMatchObject({ approvalPolicy: { granular: expect.any(Object) }, approvalsReviewer: 'auto_review' });
-        expect(starts[2]?.params).toMatchObject({ approvalPolicy: 'on-request', approvalsReviewer: 'user', sandbox: 'workspace-write' });
-        const turns = requests.filter((entry) => entry.method === 'turn/start');
-        expect(turns).toHaveLength(1);
-        expect(turns[0]?.params).toMatchObject({ approvalPolicy: 'on-request', approvalsReviewer: 'user', sandboxPolicy: { type: 'workspaceWrite' } });
-    });
-
-    it('uses the managed scalar fallback on thread resume before starting a turn', async () => {
-        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-managed-resume-', {
-            rejectPermissionsProfile: true,
-            managedAllowedApprovalPolicies: ['untrusted', 'on-request', 'never'],
-        });
-        const runtime = createCodexAppServerRuntime({
-            directory: root,
-            onThinkingChange: vi.fn(),
-            session: { updateMetadata: vi.fn() } as any,
-            permissionMode: 'safe-yolo',
-        });
-
-        await runtime.startOrLoad({ resumeId: 'thread-managed-resume' });
-        await runtime.sendPrompt('managed-resume');
-
-        const requests = await readRequestLog(requestLogPath);
-        const resumes = requests.filter((entry) => entry.method === 'thread/resume');
-        expect(resumes).toHaveLength(3);
-        expect(resumes[2]?.params).toMatchObject({ approvalPolicy: 'on-request', approvalsReviewer: 'user', sandbox: 'workspace-write' });
-        const turns = requests.filter((entry) => entry.method === 'turn/start');
-        expect(turns).toHaveLength(1);
-        expect(turns[0]?.params).toMatchObject({ approvalPolicy: 'on-request', sandboxPolicy: { type: 'workspaceWrite' } });
-    });
-
-    it('uses the same managed fallback when Auto first reaches a turn after thread start', async () => {
-        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-managed-turn-', {
-            rejectPermissionsProfile: true,
-            managedAllowedApprovalPolicies: ['untrusted', 'on-request', 'never'],
-        });
-        let permissionMode: PermissionMode = 'default';
-        const runtime = createCodexAppServerRuntime({
-            directory: root,
-            onThinkingChange: vi.fn(),
-            session: { updateMetadata: vi.fn() } as any,
+            session: createApiSessionClientFixture(),
             getPermissionMode: () => permissionMode,
         });
 
-        await runtime.startOrLoad({});
-        permissionMode = 'safe-yolo';
-        await runtime.sendPrompt('managed-turn');
+        await runtime.startOrLoad(entryPoint === 'resume' ? { resumeId: 'thread-managed-workspace' } : {});
+        permissionMode = autoMode!;
+        await runtime.sendPrompt('managed-workspace');
 
-        const turns = (await readRequestLog(requestLogPath)).filter((entry) => entry.method === 'turn/start');
-        expect(turns).toHaveLength(3);
-        expect(turns[0]?.params).toMatchObject({ permissions: { type: 'profile', id: ':workspace' } });
-        expect(turns[1]?.params).toMatchObject({ approvalPolicy: { granular: expect.any(Object) }, approvalsReviewer: 'auto_review' });
-        expect(turns[2]?.params).toMatchObject({ approvalPolicy: 'on-request', approvalsReviewer: 'user', sandboxPolicy: { type: 'workspaceWrite' } });
+        const requests = await readRequestLog(requestLogPath);
+        const method = entryPoint === 'turn' ? 'turn/start' : entryPoint === 'resume' ? 'thread/resume' : 'thread/start';
+        const attempts = requests.filter((entry) => entry.method === method);
+        expect(attempts).toHaveLength(2);
+        expect(attempts[0]?.params).toMatchObject({
+            approvalPolicy: { granular: expect.any(Object) },
+            approvalsReviewer: 'auto_review',
+        });
+        expect(attempts[1]?.params).toMatchObject({ approvalPolicy: 'on-request', approvalsReviewer: 'user' });
+        for (const entry of attempts) expect(entry.params).not.toHaveProperty('permissions');
+        const turns = requests.filter((entry) => entry.method === 'turn/start');
+        expect(turns.at(-1)?.params).toMatchObject({
+            approvalPolicy: 'on-request',
+            approvalsReviewer: 'user',
+            sandboxPolicy: { type: 'workspaceWrite', writableRoots: [root], networkAccess: true },
+        });
+
+        permissionMode = 'read-only';
+        await runtime.sendPrompt('read-only-after-workspace');
+        const readOnlyTurn = (await readRequestLog(requestLogPath)).filter((entry) => entry.method === 'turn/start').at(-1);
+        expect(readOnlyTurn?.params).toMatchObject({ permissions: ':read-only', approvalPolicy: 'never' });
+        expect(readOnlyTurn?.params).not.toHaveProperty('sandboxPolicy');
     });
 
     it('preserves structured input when a managed scalar policy retry is rejected', async () => {
@@ -2342,8 +2341,8 @@ describe('createCodexAppServerRuntime', () => {
         })).rejects.toThrow(/structured turn input unsupported/);
 
         const turns = (await readRequestLog(requestLogPath)).filter((entry) => entry.method === 'turn/start');
-        expect(turns).toHaveLength(3);
-        expect(turns[2]?.params).toMatchObject({
+        expect(turns).toHaveLength(2);
+        expect(turns[1]?.params).toMatchObject({
             approvalPolicy: 'on-request',
             approvalsReviewer: 'user',
             input: [
@@ -2367,8 +2366,8 @@ describe('createCodexAppServerRuntime', () => {
 
         await expect(runtime.startOrLoad({})).rejects.toThrow(/approval_policy/);
         const starts = (await readRequestLog(requestLogPath)).filter((entry) => entry.method === 'thread/start');
-        expect(starts).toHaveLength(2);
-        expect(starts[1]?.params).toMatchObject({ approvalPolicy: { granular: expect.any(Object) } });
+        expect(starts).toHaveLength(1);
+        expect(starts[0]?.params).toMatchObject({ approvalPolicy: { granular: expect.any(Object) } });
     });
 
     it('does not downgrade an ambiguous legacy approval rejection', async () => {
@@ -2386,10 +2385,10 @@ describe('createCodexAppServerRuntime', () => {
 
         await expect(runtime.startOrLoad({})).rejects.toThrow(/invalid approval policy/);
         const starts = (await readRequestLog(requestLogPath)).filter((entry) => entry.method === 'thread/start');
-        expect(starts).toHaveLength(2);
+        expect(starts).toHaveLength(1);
     });
 
-    it('falls back to legacy app-server permission fields when older Codex expects a string profile id', async () => {
+    it('keeps native read-only permissions when Codex 0.166 expects a string profile id', async () => {
         const { root, requestLogPath } = await createRuntimeFixture('happier-codex-app-server-runtime-permission-string-fallback-', {
             rejectPermissionsProfileAsStringShape: true,
         });
@@ -2405,18 +2404,13 @@ describe('createCodexAppServerRuntime', () => {
 
         const requestLog = await readRequestLog(requestLogPath);
         const startRequests = requestLog.filter((entry) => entry.method === 'thread/start') as Array<{ params?: Record<string, unknown> }>;
-        expect(startRequests).toHaveLength(2);
-        expect(startRequests[0]?.params).toMatchObject({
-            permissions: {
-                type: 'profile',
-                id: ':read-only',
-            },
-        });
-        expect(startRequests[1]?.params).toMatchObject({
-            approvalPolicy: 'never',
-            sandbox: 'read-only',
-        });
-        expect(startRequests[1]?.params).not.toHaveProperty('permissions');
+        expect(startRequests).toHaveLength(1);
+        expect(startRequests[0]?.params).toMatchObject({ permissions: ':read-only', approvalPolicy: 'never' });
+        expect(startRequests[0]?.params).not.toHaveProperty('sandbox');
+        await runtime.sendPrompt('native-profile-network-restriction');
+        const turnStart = (await readRequestLog(requestLogPath)).find((entry) => entry.method === 'turn/start');
+        expect(turnStart?.params).toMatchObject({ permissions: ':read-only', approvalPolicy: 'never' });
+        expect(turnStart?.params).not.toHaveProperty('sandboxPolicy');
     });
 
     it('publishes connected-service direct-session metadata when activeServerDir owns CODEX_HOME', async () => {
@@ -2650,10 +2644,7 @@ describe('createCodexAppServerRuntime', () => {
                 expect.objectContaining({
                     params: expect.objectContaining({
                         threadId: 'resume-123',
-                        permissions: {
-                            type: 'profile',
-                            id: ':read-only',
-                        },
+                        permissions: ':read-only',
                         persistExtendedHistory: true,
                         excludeTurns: false,
                     }),
@@ -2819,16 +2810,13 @@ describe('createCodexAppServerRuntime', () => {
                 params: expect.objectContaining({
                     threadId: 'thread-started',
                     input: [{ type: 'text', text: 'hello-world' }],
-                    permissions: {
-                        type: 'profile',
-                        id: ':read-only',
-                    },
+                    permissions: ':read-only',
                 }),
             }),
         ]);
         const turnStart = requestLog.find((entry: { method: string }) => entry.method === 'turn/start') as { params?: Record<string, unknown> } | undefined;
         expect(turnStart?.params).not.toHaveProperty('sandboxPolicy');
-        expect(turnStart?.params).not.toHaveProperty('approvalPolicy');
+        expect(turnStart?.params).toHaveProperty('approvalPolicy', 'never');
     });
 
     it.each([
@@ -3058,7 +3046,11 @@ describe('createCodexAppServerRuntime', () => {
         });
 
         await runtime.startOrLoad({});
-        await expect(runtime.sendPrompt('top-level-failed-turn')).rejects.toThrow(/top-level failed turn/);
+        const failure = await runtime.sendPrompt('top-level-failed-turn').then(() => null, (caught: unknown) => caught);
+        expect(failure).toBeInstanceOf(Error);
+        expect((failure as Error).message).toMatch(/top-level failed turn/);
+        // The runtime already failed the session turn; the runner must not surface it again.
+        expect(readCodexTurnFailureSettlement(failure)).toBe('failed');
 
         expect(sessionTurnLifecycle.completeTurn).not.toHaveBeenCalled();
         expect(sessionTurnLifecycle.failTurn).toHaveBeenCalledWith(expect.objectContaining({
@@ -4847,7 +4839,7 @@ describe('createCodexAppServerRuntime', () => {
                 { type: 'skill', name: 'Review', path: '/skills/review/SKILL.md' },
                 { type: 'image', url: 'https://example.com/review.png' },
             ],
-            permissions: { type: 'profile', id: ':read-only' },
+            permissions: ':read-only',
         });
         // A failed structured submission must leave the runtime ready for a valid follow-up.
         await runtime.sendPrompt('plain-follow-up');
@@ -5205,6 +5197,71 @@ describe('createCodexAppServerRuntime', () => {
         ]);
     });
 
+    it('binds normalized native input identities before dispatching start and steer', async () => {
+        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-normalized-turn-inputs-');
+        const bound: Array<{ turnId: string; localIds: readonly string[] }> = [];
+        const lifecycle = createSessionTurnLifecycle({
+            sessionId: 'normalized-native-inputs',
+            enqueueSessionTurn: async () => {},
+            onTurnInputBound: (input) => { bound.push(input); },
+        });
+        const session = {
+            ...createApiSessionClientFixture({ metadata: createRuntimeMetadata(root) }),
+            sessionTurnLifecycle: lifecycle,
+        } as unknown as Parameters<typeof createCodexAppServerRuntimeProduction>[0]['session'];
+        const runtime = createCodexAppServerRuntime({ directory: root, onThinkingChange: vi.fn(), session });
+        await runtime.startOrLoad({});
+        const completion = runtime.sendPrompt('overlap-start', { localIds: ['normalized-start'] });
+        await waitForCondition(() => runtime.canSteerPrompt(), {
+            timeoutMs: 1_000, intervalMs: 10, label: 'normalized input turn to become steerable',
+        });
+        await runtime.steerPrompt('normalized-steer', { localIds: ['normalized-steer'] });
+        await completion;
+        expect(bound.map(({ localIds }) => localIds)).toEqual([['normalized-start'], ['normalized-steer']]);
+        expect(bound[1].turnId).toBe(bound[0].turnId);
+        expect((await readRequestLog(requestLogPath)).filter(({ method }) => method === 'turn/steer')).toHaveLength(1);
+    });
+
+    it('does not dispatch a steer after its canonical admission outlives the active native turn', async () => {
+        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-steer-admission-race-');
+        let releaseAdmission!: () => void;
+        const admission = new Promise<void>((resolve) => { releaseAdmission = resolve; });
+        let holdAdmission = false;
+        let admissionHeld = false;
+        const lifecycle = createSessionTurnLifecycle({
+            sessionId: 'steer-admission-race',
+            enqueueSessionTurn: async (mutation) => {
+                if (mutation.action === 'begin' && holdAdmission) {
+                    admissionHeld = true;
+                    await admission;
+                }
+            },
+        });
+        const session = {
+            ...createApiSessionClientFixture({ metadata: createRuntimeMetadata(root) }),
+            sessionTurnLifecycle: lifecycle,
+        } as unknown as Parameters<typeof createCodexAppServerRuntimeProduction>[0]['session'];
+        const runtime = createCodexAppServerRuntime({ directory: root, onThinkingChange: vi.fn(), session });
+        await runtime.startOrLoad({});
+        const completion = runtime.sendPrompt('overlap-start', { localId: 'first-input' });
+        await waitForCondition(() => runtime.canSteerPrompt(), {
+            timeoutMs: 1_000, intervalMs: 10, label: 'native turn to become steerable before held admission',
+        });
+        holdAdmission = true;
+        const steer = runtime.steerPrompt('must-not-dispatch-after-completion', { localIds: ['held-steer'] });
+        const outcome = steer.then(() => null, (error: unknown) => error);
+        try {
+            await waitForCondition(() => admissionHeld, {
+                timeoutMs: 1_000, intervalMs: 10, label: 'steer canonical admission to be held',
+            });
+            await completion;
+        } finally {
+            releaseAdmission();
+        }
+        expect(await outcome).toBeInstanceOf(Error);
+        expect((await readRequestLog(requestLogPath)).filter(({ method }) => method === 'turn/steer')).toEqual([]);
+    });
+
     it('does not steer a turn whose ownership changes while structured input is resolving', async () => {
         const { root, requestLogPath } = await createRuntimeFixture(
             'happier-codex-app-server-runtime-steer-input-owner-race-',
@@ -5548,6 +5605,108 @@ describe('createCodexAppServerRuntime', () => {
                 findings: [],
             },
         });
+    });
+
+    it.each([
+        '{"findings":[',
+        'The API returns {"findings":[\n\n' + JSON.stringify({
+            overall_explanation: 'Authorization is missing.',
+            findings: [{
+                title: 'Preserve authorization',
+                body: 'The write skips authorization.',
+                priority: 1,
+                code_location: { absolute_file_path: '/repo/auth.ts', line_range: { start: 10, end: 12 } },
+            }],
+        }),
+        '',
+        [
+            'One correctness issue is present.',
+            '```json',
+            '{"findings":[],"overall_explanation":"No issues found."}',
+            '```',
+            '',
+            'Review comment:',
+            '- Preserve authorization -- /repo/auth.ts:10-12',
+            '  The write skips authorization.',
+        ].join('\n'),
+    ])('reports invalid inline review output and recovers on the next review: %j', async (rawReview) => {
+        const { root } = await createRuntimeFixture('happier-codex-app-server-runtime-inline-review-invalid-', {
+            inlineReviewTexts: [rawReview],
+        });
+        const session = {
+            sessionId: 'sess-inline-review-invalid',
+            updateMetadata: vi.fn(),
+            sendAgentMessageCommitted: vi.fn(async () => {}),
+            sendCodexMessage: vi.fn(),
+        };
+        const runtime = createCodexAppServerRuntime({
+            directory: root,
+            onThinkingChange: vi.fn(),
+            session: session as unknown as ApiSessionClient,
+        });
+
+        const input = {
+            engineIds: ['codex'],
+            instructions: 'Review current changes',
+            runLocation: 'current_session',
+            changeType: 'uncommitted',
+            base: { kind: 'none' },
+        };
+        const result = await runtime.startInlineReview(input);
+
+        expect(result).toMatchObject({ ok: false, errorCode: 'invalid_output' });
+        const committedCalls = session.sendAgentMessageCommitted.mock.calls as unknown as Array<
+            [string, { type?: string; message?: string; text?: string; sidechainId?: string | null }, { localId?: string; meta?: { happier?: unknown } }]
+        >;
+        const rawMessages = committedCalls.filter(([, body]) => body.type === 'message' && !body.sidechainId && body.message === rawReview);
+        expect(new Set(rawMessages.map(([, , options]) => options.localId)).size).toBe(rawReview ? 1 : 0);
+        if (rawReview) expect(rawMessages[0]?.[2]?.meta?.happier).toBeUndefined();
+
+        await expect(runtime.startInlineReview(input)).resolves.toMatchObject({ ok: true, reviewTurnId: 'turn-review-native-2' });
+        const recoveredCalls = session.sendAgentMessageCommitted.mock.calls as unknown as Array<
+            [string, { type?: string; message?: string }, { meta?: { happier?: unknown } }]
+        >;
+        const recoveredMessage = recoveredCalls.find(([, body]) => body.type === 'message' && body.message === 'Native review text');
+        expect(recoveredMessage?.[2]?.meta?.happier).toMatchObject({ kind: 'review_findings.v2' });
+    });
+
+    it.each(['thread startup', 'pending turn'] as const)('preserves the admitted inline review when another starts during %s', async (phase) => {
+        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-app-server-runtime-inline-overlap-');
+        const input = {
+            engineIds: ['codex'],
+            instructions: 'Review current changes',
+            runLocation: 'current_session',
+            changeType: 'uncommitted',
+            base: { kind: 'none' },
+        };
+        let rejectedStart: Promise<void> | undefined;
+        const rejectConcurrentStart = () => {
+            rejectedStart = expect(runtime.startInlineReview(input)).rejects.toThrow(/turn in flight/);
+        };
+        const runtime = createCodexAppServerRuntime({
+            directory: root,
+            onThinkingChange: vi.fn((thinking: boolean) => {
+                if (thinking && phase === 'pending turn' && !rejectedStart) rejectConcurrentStart();
+            }),
+            session: {
+                sessionId: 'sess-inline-overlap',
+                updateMetadata: vi.fn(),
+                sendAgentMessageCommitted: vi.fn(async () => {}),
+                sendCodexMessage: vi.fn(),
+            } as unknown as ApiSessionClient,
+        });
+
+        // The callback above runs after admission but before sending review/start,
+        // so this exercises overlap without racing a provider-output timer.
+        const firstReview = runtime.startInlineReview(input);
+        if (phase === 'thread startup') rejectConcurrentStart();
+        await expect(firstReview).resolves.toMatchObject({ ok: true, reviewTurnId: 'turn-review-native' });
+        expect(rejectedStart).toBeDefined();
+        await rejectedStart;
+        await expect(runtime.startInlineReview(input)).resolves.toMatchObject({ ok: true, reviewTurnId: 'turn-review-native-2' });
+        const requests = await readRequestLog(requestLogPath);
+        expect(requests.filter(({ method }) => method === 'thread/start')).toHaveLength(1);
+        expect(requests.filter(({ method }) => method === 'review/start')).toHaveLength(2);
     });
 
     it('starts an app-server thread before inline native review when none is active', async () => {
@@ -10801,6 +10960,39 @@ describe('createCodexAppServerRuntime', () => {
             type: 'message',
             message: expect.stringContaining('upstream provider rejected'),
         }));
+    });
+
+    it('records context-window exhaustion as the failed turn when Codex recovery is disabled', async () => {
+        const { root, fakeAppServer } = await createRuntimeFixture('happier-codex-app-server-runtime-context-window-disabled-lifecycle-');
+        const processEnv = createCodexAppServerProcessEnv(fakeAppServer, {
+            HAPPIER_CODEX_CONTEXT_WINDOW_RECOVERY_MODE: 'off',
+        });
+        const mutations: SessionTurnMutationV1[] = [];
+        const runtime = createCodexAppServerRuntime({
+            directory: root,
+            processEnv,
+            onThinkingChange: vi.fn(),
+            session: {
+                ...createApiSessionClientFixture({ metadata: createRuntimeMetadata(root) }),
+                sessionTurnLifecycle: createSessionTurnLifecycle({
+                    sessionId: 'session-context-window-disabled',
+                    enqueueSessionTurn: async (mutation) => { mutations.push(mutation); },
+                }),
+            } as unknown as Parameters<typeof createCodexAppServerRuntimeProduction>[0]['session'],
+        });
+
+        await runtime.startOrLoad({});
+        const error = await runtime.sendPrompt('context-window-exhausted-once').then(() => null, (caught: unknown) => caught);
+
+        expect(error).toBeInstanceOf(Error);
+        // No retry remains, so the runtime records the provider failure itself and the runner
+        // must not report it again.
+        expect(readCodexTurnFailureSettlement(error)).toBe('failed');
+        expect(mutations.at(-1)).toMatchObject({
+            action: 'fail',
+            provider: 'codex',
+            issue: expect.objectContaining({ provider: 'codex' }),
+        });
     });
 
     it('surfaces the original context-window failure when retrying after compaction fails again', async () => {

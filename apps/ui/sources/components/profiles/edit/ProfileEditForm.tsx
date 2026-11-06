@@ -4,7 +4,12 @@ import { StyleSheet } from 'react-native-unistyles';
 import { useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
-import { type AIBackendProfile } from '@/sync/domains/profiles/profileCompatibility';
+import {
+    AIBackendProfileSchema,
+    getProfileDefaultBackendTarget,
+    isProfileCompatibleWithBackendTarget,
+    type AIBackendProfile,
+} from '@/sync/domains/profiles/profileCompatibility';
 import { type SavedSecret } from '@/sync/domains/settings/savedSecretTypes';
 import { normalizeProfileDefaultPermissionMode, type PermissionMode } from '@/sync/domains/permissions/permissionTypes';
 import { getPermissionModeLabelForAgentType, getPermissionModeOptionsForAgentType, normalizePermissionModeForAgentType } from '@/sync/domains/permissions/permissionModeOptions';
@@ -257,19 +262,23 @@ export function ProfileEditForm({
         return out;
     });
 
+    const [defaultBackendTargetKey, setDefaultBackendTargetKey] = React.useState<string | null>(
+        profile.defaultBackendTargetKey ?? null,
+    );
+
     React.useEffect(() => {
         setCompatibilityByTargetKeyState((prev) => {
             let changed = false;
             const next = { ...prev };
             for (const entry of resolvedBackendEntries) {
                 if (typeof next[entry.targetKey] !== 'boolean') {
-                    next[entry.targetKey] = profile.isBuiltIn ? false : entry.family === 'builtInAgent';
+                    next[entry.targetKey] = isProfileCompatibleWithResolvedBackendEntry(profile, entry);
                     changed = true;
                 }
             }
             return changed ? next : prev;
         });
-    }, [profile.isBuiltIn, resolvedBackendEntries]);
+    }, [profile, resolvedBackendEntries]);
 
     const [authMode, setAuthMode] = React.useState<AIBackendProfile['authMode']>(profile.authMode);
     const [requiresMachineLogin, setRequiresMachineLogin] = React.useState<AIBackendProfile['requiresMachineLogin']>(profile.requiresMachineLogin);
@@ -474,6 +483,7 @@ export function ProfileEditForm({
     const [openPermissionProvider, setOpenPermissionProvider] = React.useState<null | string>(null);
     const [openStorageProvider, setOpenStorageProvider] = React.useState<null | string>(null);
     const [openPromptBehaviorMenu, setOpenPromptBehaviorMenu] = React.useState<null | 'title' | 'response'>(null);
+    const [openDefaultBackendMenu, setOpenDefaultBackendMenu] = React.useState(false);
     const titleUpdatesModeItems = React.useMemo(getCodingPromptTitleUpdatesModeItems, []);
     const responseOptionsModeItems = React.useMemo(getCodingPromptResponseOptionsModeItems, []);
 
@@ -549,6 +559,7 @@ export function ProfileEditForm({
             defaultPermissionModesByTargetKey,
             defaultTranscriptStorageModesByTargetKey,
             compatibilityByTargetKeyState,
+            defaultBackendTargetKey,
             authMode,
             requiresMachineLogin,
             derivedEnvVarRequirements,
@@ -566,6 +577,7 @@ export function ProfileEditForm({
             defaultPermissionModesByTargetKey,
             defaultTranscriptStorageModesByTargetKey,
             compatibilityByTargetKeyState,
+            defaultBackendTargetKey,
             authMode,
             requiresMachineLogin,
             derivedEnvVarRequirements,
@@ -577,6 +589,7 @@ export function ProfileEditForm({
     }, [
         authMode,
         compatibilityByTargetKeyState,
+        defaultBackendTargetKey,
         defaultPermissionModesByTargetKey,
         defaultTranscriptStorageModesByTargetKey,
         environmentVariables,
@@ -593,16 +606,19 @@ export function ProfileEditForm({
     }, [isDirty, onDirtyChange]);
 
     const toggleCompatibility = React.useCallback((targetKey: string) => {
-        setCompatibilityByTargetKeyState((prev) => {
-            const next = { ...prev, [targetKey]: !prev[targetKey] };
-            const enabledCount = resolvedBackendEntries.filter((entry) => next[entry.targetKey] === true).length;
-            if (enabledCount === 0) {
-                Modal.alert(t('common.error'), t('profiles.aiBackend.selectAtLeastOneError'));
-                return prev;
-            }
-            return next;
-        });
-    }, [resolvedBackendEntries]);
+        const wasEnabled = compatibilityByTargetKeyState[targetKey] === true;
+        const enabledCount = resolvedBackendEntries.filter(
+            (entry) => (entry.targetKey === targetKey ? !wasEnabled : compatibilityByTargetKeyState[entry.targetKey] === true),
+        ).length;
+        if (enabledCount === 0) {
+            Modal.alert(t('common.error'), t('profiles.aiBackend.selectAtLeastOneError'));
+            return;
+        }
+        setCompatibilityByTargetKeyState((prev) => ({ ...prev, [targetKey]: !wasEnabled }));
+        if (!wasEnabled) return;
+        // Disallowing a backend also drops it as the profile's default backend.
+        setDefaultBackendTargetKey((prev) => (prev === targetKey ? null : prev));
+    }, [compatibilityByTargetKeyState, resolvedBackendEntries]);
 
     const openSetupGuide = React.useCallback(async () => {
         const url = profileDocs?.setupGuideUrl;
@@ -619,11 +635,6 @@ export function ProfileEditForm({
     }, [profileDocs?.setupGuideUrl]);
 
     const handleSave = React.useCallback((): boolean => {
-        if (!name.trim()) {
-            Modal.alert(t('common.error'), t('profiles.nameRequired'));
-            return false;
-        }
-
         const { defaultPermissionModeClaude, defaultPermissionModeCodex, defaultPermissionModeGemini, ...profileBase } = profile as any;
         const defaultPermissionModeByTargetKey = stripLegacyProviderSentinelTargetKeys(
             stripUndefinedRecordValues(
@@ -653,18 +664,26 @@ export function ProfileEditForm({
                 delete defaultPersistenceModeByTargetKey[entry.targetKey];
             }
         }
-        const compatibilityByTargetKey = stripLegacyProviderSentinelTargetKeys(
-            stripUndefinedRecordValues(
+        const compatibilityByTargetKey = stripUndefinedRecordValues(
+            stripLegacyProviderSentinelTargetKeys(
                 (profileBase.compatibilityByTargetKey as Record<string, boolean | undefined>) ?? {},
+                resolvedBackendEntries,
             ),
-            resolvedBackendEntries,
         );
         for (const entry of resolvedBackendEntries) {
             compatibilityByTargetKey[entry.targetKey] = compatibilityByTargetKeyState[entry.targetKey] === true;
         }
+        const defaultBackendTarget = getProfileDefaultBackendTarget({
+            defaultBackendTargetKey: defaultBackendTargetKey ?? undefined,
+        });
+        const isDefaultBackendCompatible = defaultBackendTarget !== null && isProfileCompatibleWithBackendTarget({
+            compatibilityByTargetKey,
+            compatibility: {},
+            isBuiltIn: profile.isBuiltIn,
+        }, defaultBackendTarget);
 
         const persistedAuthMode = effectiveAuthMode;
-        return onSave({
+        const draft = {
             ...profileBase,
             name: name.trim(),
             environmentVariables,
@@ -682,6 +701,9 @@ export function ProfileEditForm({
             defaultPersistenceModeByAgent: {},
             compatibilityByTargetKey,
             compatibility: {},
+            defaultBackendTargetKey: isDefaultBackendCompatible
+                ? defaultBackendTargetKey ?? undefined
+                : undefined,
             codingPromptBehaviorV1: sessionTitleUpdatesOverride || responseOptionsOverride
                 ? {
                     v: 1,
@@ -690,9 +712,16 @@ export function ProfileEditForm({
                 }
                 : undefined,
             updatedAt: Date.now(),
-        }, secretBindingsDraft);
+        };
+        const parsed = AIBackendProfileSchema.safeParse(draft);
+        if (!parsed.success) {
+            Modal.alert(t('common.error'), t(name.trim() ? 'profiles.invalidProfile' : 'profiles.nameRequired'));
+            return false;
+        }
+        return onSave(parsed.data, secretBindingsDraft);
     }, [
         compatibilityByTargetKeyState,
+        defaultBackendTargetKey,
         defaultPermissionModesByTargetKey,
         defaultTranscriptStorageModesByTargetKey,
         derivedEnvVarRequirements,
@@ -721,11 +750,12 @@ export function ProfileEditForm({
     }, [handleSave, saveRef]);
 
     return (
-        <ItemList ref={popoverBoundaryRef} style={containerStyle} keyboardShouldPersistTaps="handled">
+        <ItemList ref={popoverBoundaryRef} style={containerStyle} keyboardAware keyboardShouldPersistTaps="handled">
             <ItemGroup title={t('profiles.profileName')}>
                 <React.Fragment>
                     <View style={styles.inputContainer}>
                         <TextInput
+                            testID="profile-name"
                             style={styles.textInput}
                             placeholder={t('profiles.enterName')}
                             placeholderTextColor={theme.colors.input.placeholder}
@@ -902,6 +932,81 @@ export function ProfileEditForm({
                     );
                 })()}
             </ItemGroup>
+
+            {(() => {
+                const compatibleEntries = resolvedBackendEntries.filter((entry) => compatibilityByTargetKeyState[entry.targetKey] === true);
+                if (compatibleEntries.length === 0) return null;
+                const selectedEntry = compatibleEntries.find((entry) => entry.targetKey === defaultBackendTargetKey) ?? null;
+                return (
+                    <ItemGroup
+                        title={t('profiles.defaultBackend.title')}
+                        footer={t('profiles.defaultBackend.footer')}
+                    >
+                        <DropdownMenu
+                            open={openDefaultBackendMenu}
+                            onOpenChange={setOpenDefaultBackendMenu}
+                            popoverBoundaryRef={popoverBoundaryRef}
+                            variant="selectable"
+                            search={false}
+                            showCategoryTitles={false}
+                            matchTriggerWidth={true}
+                            connectToTrigger={true}
+                            rowKind="item"
+                            selectedId={defaultBackendTargetKey ?? '__none__'}
+                            trigger={({ toggle }) => (
+                                <Item
+                                    testID="profile-default-backend-trigger"
+                                    title={selectedEntry?.title ?? (defaultBackendTargetKey
+                                        ? t('common.unavailable')
+                                        : t('profiles.defaultBackend.noneTitle'))}
+                                    subtitle={selectedEntry
+                                        ? t('profiles.defaultBackend.selectedSubtitle')
+                                        : defaultBackendTargetKey ? undefined : t('profiles.defaultBackend.noneSubtitle')}
+                                    leftElement={selectedEntry
+                                        ? <AgentIcon agentId={selectedEntry.iconAgentId} size={24} color={theme.colors.text.secondary} />
+                                        : undefined}
+                                    rightElement={(
+                                        <Icon
+                                            name={openDefaultBackendMenu ? 'caret-up' : 'caret-down'}
+                                            size={20}
+                                            color={theme.colors.text.secondary}
+                                        />
+                                    )}
+                                    showChevron={false}
+                                    onPress={toggle}
+                                    showDivider={false}
+                                />
+                            )}
+                            items={[
+                                {
+                                    id: '__none__',
+                                    testID: 'profile-default-backend-none',
+                                    title: t('profiles.defaultBackend.noneTitle'),
+                                    subtitle: t('profiles.defaultBackend.noneSubtitle'),
+                                    icon: (
+                                        <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                                            <Icon name="sliders-horizontal" size={20} color={theme.colors.text.secondary} />
+                                        </View>
+                                    ),
+                                },
+                                ...compatibleEntries.map((entry) => ({
+                                    id: entry.targetKey,
+                                    testID: `profile-default-backend-${entry.targetKey}`,
+                                    title: entry.title,
+                                    subtitle: entry.subtitle ?? undefined,
+                                    icon: (
+                                        <AgentIcon agentId={entry.iconAgentId} size={24} color={theme.colors.text.secondary} />
+                                    ),
+                                })),
+                            ]}
+                            onSelect={(id) => {
+                                setDefaultBackendTargetKey(id === '__none__' ? null : id);
+                                setOpenDefaultBackendMenu(false);
+                            }}
+                        />
+                    </ItemGroup>
+                );
+            })()}
             <ItemGroup
                 title={t('profiles.defaultPermissions.title')}
                 footer={t('profiles.defaultPermissions.footer')}
@@ -1150,6 +1255,7 @@ export function ProfileEditForm({
                     </View>
                     <View style={{ flex: 1 }}>
                         <Pressable
+                            testID="profile-save"
                             onPress={handleSave}
                             style={({ pressed }) => ({
                                 backgroundColor: theme.colors.button.primary.background,

@@ -32,6 +32,7 @@ export const ACTION_IDS = [
   'session.title.set',
   'session.aliases.recover',
   'session.model.set',
+  'session.config_option.set',
   'session.permission_mode.set',
   'session.archive',
   'session.unarchive',

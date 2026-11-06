@@ -1,6 +1,6 @@
 {
   "name": "@happier-dev/cli",
-  "version": "0.2.17",
+  "version": "0.2.20",
   "happierForkVersion": "0.2.19-fork.44",
   "happierForkRelease": "rc7.1",
   "description": "Mobile and Web client for Claude Code and Codex",

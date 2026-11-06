@@ -17,7 +17,7 @@ import { PushableAsyncIterable } from '@/utils/PushableAsyncIterable';
 import { recordToolTraceEvent } from '@/agent/tools/trace/toolTrace';
 
 import type { EnhancedMode } from '@/backends/claude/loop';
-import { mapToClaudeMode, resolveClaudeSdkPermissionModeFromEnhancedMode } from '@/backends/claude/utils/permissionMode';
+import { mapToClaudeMode, resolveClaudeSdkPermissionModeFromEnhancedMode, shouldAllowClaudePermissionBypass } from '@/backends/claude/utils/permissionMode';
 import { resolveClaudeSettingSources } from '@/backends/claude/utils/resolveClaudeSettingSources';
 import { getDefaultClaudeCodePathForAgentSdk } from '@/backends/claude/sdk/utils';
 import { normalizeAvailableCommands } from '@/agent/acp/commands/publishSlashCommands';
@@ -36,11 +36,11 @@ import { tryMergeUserMcpConfigArgsIntoHappierMcp } from '@/backends/claude/utils
 import { ensureClaudeJsRuntimeExecutable } from '@/backends/claude/utils/ensureClaudeJsRuntimeExecutable';
 import {
     resolveModeEffortLevelsForModel,
-    buildClaudeUltracodeSettingsJson,
     resolveClaudeEffortForModel,
     resolveClaudeUltracodeForModel,
 } from '@/backends/claude/utils/claudeEffort';
 import { withCurrentHappierSessionId } from '@/agent/runtime/session/currentSessionIdEnv';
+import { resolveClaudeLaunchSettingsOverlayArg } from '@/backends/claude/utils/resolveClaudeLaunchSettingsOverlay';
 
 import type { SDKMessage, SDKSystemMessage, SDKUserMessage } from '@/backends/claude/sdk';
 import { readClaudeMainChainAssistantModelId } from '../sessionModels/readClaudeMainChainAssistantModelId';
@@ -59,7 +59,6 @@ import {
     readClaudeSessionHookProviderTaskActivity,
 } from '@/backends/claude/providerActivity/createClaudeProviderActivityLedger';
 import type { createClaudeProviderRuntimeActivityAdapter } from '@/backends/claude/providerActivity/createClaudeProviderRuntimeActivityAdapter';
-import { hasClaudeQueuedUserTurns } from './resultTurnBoundary';
 import {
     handleClaudeRuntimeActivityLoss,
     createClaudeRuntimeActivityEvidence,
@@ -71,6 +70,7 @@ import {
 import { repairClaudeTranscriptAfterInterrupt } from './agentSdk/repairClaudeTranscriptAfterInterrupt';
 import { readNonBlankOpaqueIdentifier } from '@/utils/opaqueIdentifiers';
 import { parseCheckpointsCommand, parseRewindCommand } from './agentSdk/claudeAgentSdkSlashCommands';
+import { completeClaudeRemoteClear } from './localCommands';
 import {
     mapClaudeRateLimitEventToQuotaEvidence,
     readClaudeRateLimitEventWindows,
@@ -361,9 +361,7 @@ export async function claudeRemoteAgentSdk(opts: {
 
     const specialCommand = parseSpecialCommand(initial.message);
     if (specialCommand.type === 'clear') {
-        opts.onCompletionEvent?.('Context was reset');
-        opts.onSessionReset?.();
-        promptSettlements.accept(initial);
+        await completeClaudeRemoteClear(opts, () => promptSettlements.accept(initial));
         return;
     }
 
@@ -723,17 +721,24 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
             ultracode: mode.ultracode,
             supportedLevels: effortSupportedLevels,
         });
+        const claudeSubprocessEnv = withCurrentHappierSessionId({
+            ...buildClaudeSubprocessEnv({ envOverlay: sessionEnvOverlay }),
+        }, opts.happySessionId ?? '');
         const extraArgs = (() => {
             const out: Record<string, string | null> = Object.create(null);
             out['replay-user-messages'] = null;
             if (debugEnabled) out.debug = debugCategories.length > 0 ? debugCategories.join(',') : null;
             if (verboseEnabled) out.verbose = null;
-            if (resolvedUltracode) out.settings = buildClaudeUltracodeSettingsJson();
+            const settings = resolveClaudeLaunchSettingsOverlayArg({
+                settingsPath: undefined,
+                launchSettings: resolvedUltracode ? { ultracode: true } : {},
+                // The subprocess environment intentionally strips Happier's selection marker.
+                // Resolve launch policy from the runner before that boundary is sanitized.
+                env: { ...process.env, ...sessionEnvOverlay },
+            });
+            if (settings) out.settings = settings;
             return Object.keys(out).length > 0 ? out : undefined;
         })();
-        const claudeSubprocessEnv = withCurrentHappierSessionId({
-            ...buildClaudeSubprocessEnv({ envOverlay: sessionEnvOverlay }),
-        }, opts.happySessionId ?? '');
         logClaudeRuntimeAuthEnvDiagnostic({
             logPrefix: 'claudeRemoteAgentSdk',
             sessionId: opts.sessionId ?? null,
@@ -760,7 +765,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
             // selected settingSources. Its runtime treats null as the omit sentinel, so use that
             // at this external boundary while continuing to pass explicit non-default modes.
             permissionMode: mappedPermissionMode === 'default' ? null : mappedPermissionMode,
-            allowDangerouslySkipPermissions: true,
+            allowDangerouslySkipPermissions: shouldAllowClaudePermissionBypass(claudeSubprocessEnv),
             ...(resolvedEffort ? { effort: resolvedEffort } : {}),
             model: argOverrides.model ?? mode.model,
             fallbackModel: argOverrides.fallbackModel ?? mode.fallbackModel,
@@ -1473,6 +1478,85 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                 signal.addEventListener('abort', () => resolve(ABORTED), { once: true });
             });
 
+        const handleFileCheckpointCommand = async (next: ClaudeRemoteProviderAcceptedPrompt<EnhancedMode>): Promise<boolean> => {
+            const checkpointsCommand = parseCheckpointsCommand(next.message);
+            const rewindCommand = parseRewindCommand(next.message);
+            if (!checkpointsCommand && !rewindCommand) return false;
+
+            promptSettlements.accept(next);
+            if (checkpointsCommand) {
+                if (!enableFileCheckpointing) {
+                    opts.onCompletionEvent?.('No checkpoints are available unless file checkpointing is enabled.');
+                    return true;
+                }
+
+                if (checkpointIds.length === 0) {
+                    opts.onCompletionEvent?.('No checkpoints have been captured yet.');
+                    return true;
+                }
+
+                opts.onCompletionEvent?.(
+                    [
+                        'Available checkpoints (newest first):',
+                        ...checkpointIds
+                            .slice()
+                            .reverse()
+                            .map((id) => `- ${id}`),
+                        '',
+                        'Note: Agent SDK rewind restores files only; it does not rewind the conversation.',
+                        'To rewind: /rewind <checkpoint-id> --confirm',
+                    ].join('\n'),
+                );
+                return true;
+            }
+
+            if (rewindCommand) {
+                if (!enableFileCheckpointing) {
+                    opts.onCompletionEvent?.('Rewind is not available unless file checkpointing is enabled.');
+                    return true;
+                }
+
+                const checkpointId = rewindCommand.checkpointId ?? lastCheckpointId;
+                if (!checkpointId) {
+                    opts.onCompletionEvent?.('No checkpoint id is available yet. Send a normal message first, then try /rewind again.');
+                    return true;
+                }
+
+                if (!rewindCommand.confirmed) {
+                    opts.onCompletionEvent?.(
+                        [
+                            'Rewind is a destructive filesystem operation.',
+                            'It restores files to a previous checkpoint and may discard your local file edits.',
+                            '',
+                            'Important: Agent SDK rewind restores files only; it does not rewind the conversation.',
+                            '',
+                            `To confirm, re-run: /rewind ${checkpointId} --confirm`,
+                        ].join('\n'),
+                    );
+                    return true;
+                }
+
+                const result: unknown = await response.rewindFiles?.(checkpointId, undefined);
+                if (result && typeof result === 'object' && 'canRewind' in result && result.canRewind === false) {
+                    const error = 'error' in result && typeof result.error === 'string' ? result.error : 'Rewind failed';
+                    opts.onCompletionEvent?.(error);
+                    return true;
+                }
+
+                emitMessage({
+                    type: 'system',
+                    subtype: 'happier',
+                    happierTraceMarker: 'checkpoint-rewind',
+                    checkpointId,
+                });
+                recordTraceMarker({ kind: 'checkpoint-rewind', payload: { marker: 'checkpoint-rewind', checkpointId } });
+                opts.onCompletionEvent?.(`Rewound files to checkpoint ${checkpointId}`);
+                return true;
+            }
+
+            return false;
+        };
+
         const scheduleNextMessagePump = () => {
             if (nextMessagePump) return;
 
@@ -1508,90 +1592,17 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                             return;
                         }
 
-                        const checkpointsCommand = parseCheckpointsCommand(next.message);
-                        if (checkpointsCommand) {
-                            if (!enableFileCheckpointing) {
-                                opts.onCompletionEvent?.('No checkpoints are available unless file checkpointing is enabled.');
-                                promptSettlements.accept(next);
-                                continue;
-                            }
-
-                            if (checkpointIds.length === 0) {
-                                opts.onCompletionEvent?.('No checkpoints have been captured yet.');
-                                promptSettlements.accept(next);
-                                continue;
-                            }
-
-                            opts.onCompletionEvent?.(
-                                [
-                                    'Available checkpoints (newest first):',
-                                    ...checkpointIds
-                                        .slice()
-                                        .reverse()
-                                        .map((id) => `- ${id}`),
-                                    '',
-                                    'Note: Agent SDK rewind restores files only; it does not rewind the conversation.',
-                                    'To rewind: /rewind <checkpoint-id> --confirm',
-                                ].join('\n'),
-                            );
-                            promptSettlements.accept(next);
-                            continue;
-                        }
-
-                        const rewindCommand = parseRewindCommand(next.message);
-                        if (rewindCommand) {
-                            if (!enableFileCheckpointing) {
-                                opts.onCompletionEvent?.('Rewind is not available unless file checkpointing is enabled.');
-                                promptSettlements.accept(next);
-                                continue;
-                            }
-
-                            const checkpointId = rewindCommand.checkpointId ?? lastCheckpointId;
-                            if (!checkpointId) {
-                                opts.onCompletionEvent?.('No checkpoint id is available yet. Send a normal message first, then try /rewind again.');
-                                promptSettlements.accept(next);
-                                continue;
-                            }
-
-                            if (!rewindCommand.confirmed) {
-                                opts.onCompletionEvent?.(
-                                    [
-                                        'Rewind is a destructive filesystem operation.',
-                                        'It restores files to a previous checkpoint and may discard your local file edits.',
-                                        '',
-                                        'Important: Agent SDK rewind restores files only; it does not rewind the conversation.',
-                                        '',
-                                        `To confirm, re-run: /rewind ${checkpointId} --confirm`,
-                                    ].join('\n'),
-                                );
-                                promptSettlements.accept(next);
-                                continue;
-                            }
-
-                            promptSettlements.accept(next);
-                            const result = await (response as any).rewindFiles?.(checkpointId, undefined);
-                            if (result && typeof result === 'object' && (result as any).canRewind === false) {
-                                const error = typeof (result as any).error === 'string' ? (result as any).error : 'Rewind failed';
-                                opts.onCompletionEvent?.(error);
-                                continue;
-                            }
-
-                            emitMessage({
-                                type: 'system',
-                                subtype: 'happier',
-                                happierTraceMarker: 'checkpoint-rewind',
-                                checkpointId,
-                            } as any);
-                            recordTraceMarker({ kind: 'checkpoint-rewind', payload: { marker: 'checkpoint-rewind', checkpointId } });
-                            opts.onCompletionEvent?.(`Rewound files to checkpoint ${checkpointId}`);
+                        // A local command read after a result owns a new launcher turn, but an
+                        // explicit action during provider work must not complete that active turn.
+                        const completesLocalTurn = !foregroundTurnInterruptActive;
+                        if (await handleFileCheckpointCommand(next)) {
+                            if (completesLocalTurn) await opts.onReady();
                             continue;
                         }
 
                         const nextSpecial = parseSpecialCommand(next.message);
                         if (nextSpecial.type === 'clear') {
-                            opts.onCompletionEvent?.('Context was reset');
-                            opts.onSessionReset?.();
-                            promptSettlements.accept(next);
+                            await completeClaudeRemoteClear(opts, () => promptSettlements.accept(next));
                             messages.end();
                             try {
                                 response?.close?.();
@@ -2312,9 +2323,10 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                 const didRequestThisResult = awaitingRequestedTurnInterruptResult;
                 awaitingRequestedTurnInterruptResult = false;
                 const failure = readAgentSdkResultFailure(message);
-                const hasQueuedUserTurns = hasClaudeQueuedUserTurns(message);
-                if (failure && !hasQueuedUserTurns) {
-                    if (didRequestThisResult && message.subtype === 'error_during_execution') {
+                const retainForeground = promptSettlements.shouldRetainForegroundForResult(message);
+                const isRequestedExecutionInterrupt = didRequestThisResult && message.subtype === 'error_during_execution';
+                if (failure && !retainForeground) {
+                    if (isRequestedExecutionInterrupt) {
                         if (!didFinalizeTurn) {
                             await releaseCurrentTurnForResult();
                         }
@@ -2323,7 +2335,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                     await reconcileRuntimeActivityForResult();
                     throw new Error(failure);
                 }
-                if (failure) opts.onCompletionEvent?.(failure);
+                if (failure && !isRequestedExecutionInterrupt) opts.onCompletionEvent?.(failure);
 
                 const resultText = extractResultText(message);
                 if (!streamedTranscriptWriter && !didPublishAssistantTextThisTurn && resultText) {
@@ -2338,12 +2350,12 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                     flushBufferedStreamEventAssistantMessage(message);
                 }
 
-                if (hasQueuedUserTurns) {
-                    // A resumed notification or failed earlier command can finish before the
-                    // submitted user send. Preserve its output without releasing foreground custody.
+                if (retainForeground) {
+                    // Preserve output from earlier or partially answered work until the submitted
+                    // prompts have outcomes. Session backlog alone does not identify those prompts.
                     lastTurnFlushSummary = await flushStreamedTranscriptWriter('turn-end');
                     maybeEmitResultAssistantFallback(message, resultText);
-                    resetForegroundTurn();
+                    if (!didReleaseTurnForResult && !didFinalizeTurn) resetForegroundTurn();
                     if (isCompactCommand) {
                         emitCompactionCompleted();
                         isCompactCommand = false;

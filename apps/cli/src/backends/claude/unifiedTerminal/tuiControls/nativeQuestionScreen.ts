@@ -1,6 +1,8 @@
 import stringWidth from 'string-width';
 import { normalizeStructuredQuestionDescriptors, type StructuredQuestionLike } from '@happier-dev/protocol';
 
+import { isClaudeNativePreviewQuestion } from '../../utils/normalizeClaudeAskUserQuestionInput';
+
 import { readClaudeNativeDialogScreenLines } from './nativeScreenCapture';
 
 export type ClaudeNativeQuestionPresentation = Readonly<{
@@ -10,15 +12,21 @@ export type ClaudeNativeQuestionPresentation = Readonly<{
   question: string | null;
   multiSelect: boolean;
   nextFocused: boolean;
+  /** Preview choices have annotations instead of an inline freeform answer. */
+  freeformIndex: number | null;
+  notes: 'none' | 'draft' | 'editing';
   options: readonly Readonly<{ label: string; focused: boolean; checked: boolean | null; continuationLines?: readonly string[] }>[];
+  /** The review heading and earlier answers are above the viewport. */
+  reviewClipped: boolean;
   reviewAnswers: readonly Readonly<{ question: string; answer: string }>[];
 }>;
 
 const FOCUS = '[>›❯]';
 const ROW = new RegExp(`^\\s*(${FOCUS})?\\s*(\\d+)\\.(?:\\s+(.+?))?\\s*$`, 'u');
+const REVIEW_SUBMIT_ROW = new RegExp(`^\\s*${FOCUS}?\\s*1\\. Submit answers$`, 'u');
 const RULE = /^[\s─━]+$/u;
 const HEADER = /^\s*(?:←\s+)?[☐☒]\s+.+?\s*$/u;
-const HINT = /^Enter to select · (?:↑\/↓ to navigate|Tab\/Arrow keys to navigate)(?: · ctrl\+g to edit in .+)? · Esc to cancel$/u;
+const HINT = /^Enter to select · (?:↑\/↓ to navigate|Tab\/Arrow keys to navigate)(?: · n to add notes)?(?: · Tab to switch questions)?(?: · ctrl\+g to edit in .+)? · Esc to cancel$/u;
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
@@ -58,36 +66,90 @@ function matchesOptionLabel(option: ClaudeNativeQuestionPresentation['options'][
   return matchesRenderedLines([option.label, ...(option.continuationLines ?? []).map((line) => line.trim())], expected, true);
 }
 
-/** Native question forms characterized against real Claude Code 2.1.304, 309 and 310 tmux captures. */
+function matchesQuestionHeading(presentation: ClaudeNativeQuestionPresentation, expected: string): boolean {
+  if (presentation.tabs !== null) return matchesClaudeNativeQuestionText(presentation.question ?? '', expected);
+  const lines = (presentation.question ?? '').split('\n').map(normalized).filter(Boolean);
+  const first = lines[0];
+  if (!first) return false;
+  const text = normalized(expected);
+  // The viewport may start in the middle of the question. Match its complete visible
+  // suffix, preserving the same word-wrap rules used for full headings and choices.
+  for (let start = text.indexOf(first); start >= 0; start = text.indexOf(first, start + 1)) {
+    if (matchesRenderedLines(lines, text.slice(start))) return true;
+  }
+  return false;
+}
+
+/** Native question forms characterized against real Claude Code 2.1.304, 309, 310 and 316 tmux captures. */
 export function parseClaudeNativeQuestionScreen(rawText: string): ClaudeNativeQuestionPresentation | null {
   let lines = readClaudeNativeDialogScreenLines(rawText);
   let headerIndex = -1;
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     if (HEADER.test(lines[index]!)) { headerIndex = index; break; }
   }
-  const bodyStart = headerIndex + 1;
-  const review = lines.slice(bodyStart).find((line) => line.trim().length > 0)?.trim() === 'Review your answers';
   const boundary = /^([─━]+)(?:\s.*)?$/u.exec(lines[headerIndex - 1] ?? '')
     ?? lines.map((line) => /^([─━]+)(?:\s.*)?$/u.exec(line)).reverse().find((match) => match !== null);
-  if (!boundary && !review) return null;
-  // Claude's split view can place unrelated content beside its dialog. The native
-  // rule establishes the dialog's own width, rather than the full terminal width.
+  // Claude's split view can place unrelated content beside its dialog. Crop to
+  // the native rule before deciding which dialog rows are blank or continued.
   if (boundary) {
     const width = boundary[1]!.length;
     lines = lines.map((line, index) => index >= headerIndex ? clipDialogLine(line, width).trimEnd() : line);
   }
-  const header = lines[headerIndex]?.trim() ?? '';
-  const multiple = header.startsWith('←');
-  if (multiple && !/\s+✔ Submit\s+→$/u.test(header)) return null;
-  const tabText = multiple ? header.replace(/^←\s+/u, '').replace(/\s+✔ Submit\s+→$/u, '') : header;
-  const tabs = headerIndex < 0 ? null : [...tabText.matchAll(/([☐☒])\s+([^☐☒]+?)(?=\s+[☐☒]|$)/gu)]
-    .map((match) => ({ header: match[2]!.trim(), answered: match[1] === '☒' }));
+  let bodyStart = headerIndex + 1;
+  const multiple = lines[headerIndex]?.trimStart().startsWith('←') ?? false;
+  if (multiple) {
+    // Each native tab wraps within its own column, independently of its neighbours.
+    while (bodyStart < lines.length && lines[bodyStart]!.trim()) bodyStart += 1;
+  }
+  const reviewHeading = lines.slice(bodyStart).find((line) => line.trim().length > 0)?.trim() === 'Review your answers';
+  const tail = lines.filter((line) => line.trim().length > 0).slice(-3);
+  const reviewClipped = headerIndex < 0 && !reviewHeading
+    && tail[0]?.trim() === 'Ready to submit your answers?'
+    && REVIEW_SUBMIT_ROW.test(tail[1] ?? '')
+    && /^\s*[>›❯]?\s*2\. Cancel$/u.test(tail[2] ?? '');
+  const review = reviewHeading || reviewClipped;
+  if (!boundary && !review) return null;
+  const header = lines[headerIndex] ?? '';
+  let tabs: ClaudeNativeQuestionPresentation['tabs'] = null;
+  if (multiple) {
+    if (!/→\s*$/u.test(header)) return null;
+    const markers = [...header.matchAll(/[☐☒✔]/gu)];
+    if (markers.length < 2 || markers.at(-1)?.[0] !== '✔' || markers.slice(0, -1).some((match) => match[0] === '✔')) return null;
+    // The checkbox has one leading cell of padding; wrapped text resumes there.
+    const columns = [...markers.map((match) => stringWidth(header.slice(0, match.index)) - 1), stringWidth(header.slice(0, header.lastIndexOf('→')))];
+    const captions = markers.map((_, index) => lines.slice(headerIndex, bodyStart).map((line, row) => {
+      const start = columns[index]! + (row === 0 ? 2 : 0);
+      return clipDialogLine(line, columns[index + 1]!).slice(clipDialogLine(line, start).length).trim();
+    }).filter(Boolean).join('\n'));
+    if (!matchesClaudeNativeQuestionText(captions.at(-1) ?? '', 'Submit')) return null;
+    tabs = markers.slice(0, -1).map((match, index) => ({ header: captions[index]!, answered: match[0] === '☒' }));
+  } else if (headerIndex >= 0) {
+    tabs = [...header.matchAll(/([☐☒])\s+([^☐☒]+?)(?=\s+[☐☒]|$)/gu)]
+      .map((match) => ({ header: match[2]!.trim(), answered: match[1] === '☒' }));
+  }
   if (tabs && (tabs.length === 0 || (!multiple && tabs.length !== 1))) return null;
   const body = lines.slice(bodyStart);
-  const first = body.findIndex((line) => (
-    review ? new RegExp(`^\\s*${FOCUS}?\\s*1\\. Submit answers$`, 'u').test(line) : ROW.test(line)
-  ));
+  // Review answers are arbitrary text and may themselves contain numbered controls.
+  const first = review
+    ? body.reduce((last, line, index) => REVIEW_SUBMIT_ROW.test(line) ? index : last, -1)
+    : body.findIndex((line) => ROW.test(line));
   if (first < 0) return null;
+  // A preview is a second column inside the native dialog, not part of an option.
+  // Restrict clipping to the choices: the question and footer still span the dialog.
+  const box = / {2,}┌─+┐\s*$/u.exec(body[first]!);
+  const previewColumn = !review && box ? stringWidth(body[first]!.slice(0, box.index + box[0].indexOf('┌'))) : null;
+  let notes: ClaudeNativeQuestionPresentation['notes'] = 'none';
+  if (previewColumn !== null) {
+    const end = body.findIndex((line, index) => index > first && RULE.test(line) && line.trim().length > 0);
+    if (end < 0) return null;
+    const rightColumn = body.slice(first, end).map((line) => line.slice(clipDialogLine(line, previewColumn).length).trim());
+    const notesStart = rightColumn.findIndex((line) => line.startsWith('Notes: '));
+    if (notesStart < 0) return null;
+    // Notes can wrap or contain explicit newlines, even after placeholder-shaped text.
+    if (rightColumn.slice(notesStart).filter(Boolean).join('\n') !== 'Notes: press n to add notes') notes = 'draft';
+    for (let index = first; index < end; index += 1) body[index] = clipDialogLine(body[index]!, previewColumn).trimEnd();
+  }
+
   const heading = body.slice(0, first).map((line) => line.replace(/^( ?)│/u, '$1 ')).filter((line) => line.trim().length > 0);
   const options: { label: string; focused: boolean; checked: boolean | null; continuationLines: string[] }[] = [];
   let labelColumn = 0;
@@ -125,6 +187,7 @@ export function parseClaudeNativeQuestionScreen(rawText: string): ClaudeNativeQu
         checked = true;
         label = label.slice(0, -2);
       }
+      if (previewColumn !== null) labelColumn -= 1;
       options.push({ label, focused: Boolean(match[1]), checked, continuationLines: [] });
     } else if (new RegExp(`^\\s*(${FOCUS})?\\s+Next$`, 'u').test(line)) {
       nextFocused = new RegExp(`^\\s*${FOCUS}`, 'u').test(line);
@@ -138,7 +201,10 @@ export function parseClaudeNativeQuestionScreen(rawText: string): ClaudeNativeQu
   if (review) {
     if ((tabs && !multiple) || options.length !== 2 || options[0]?.label !== 'Submit answers' || options[1]?.label !== 'Cancel') return null;
     if (body.slice(optionsEnd).some((line) => line.trim().length > 0)) return null;
-    const entries = heading.slice(1);
+    const firstEntry = reviewClipped ? heading.findIndex((line) => /^\s*●\s+/u.test(line)) : 1;
+    // Only the top viewport fragment may be missing. Never skip an entry in the middle.
+    if (reviewClipped && (firstEntry < 0 || heading.slice(0, firstEntry).some((line) => !/^\s{3,}\S/u.test(line)))) return null;
+    const entries = heading.slice(firstEntry);
     if (entries.pop()?.trim() !== 'Ready to submit your answers?') return null;
     const incomplete = entries[0]?.trim() === '⚠ You have not answered all questions';
     if (incomplete) entries.shift();
@@ -166,42 +232,64 @@ export function parseClaudeNativeQuestionScreen(rawText: string): ClaudeNativeQu
       if (incomplete !== (reviewAnswers.length < tabs.length)) return null;
     } else if (incomplete) return null;
   } else {
-    if (heading.length === 0 || options.length === 0) return null;
+    if ((heading.length === 0 && tabs !== null) || options.length === 0) return null;
     const footer = body.slice(optionsEnd).filter((line) => line.trim().length > 0);
-    if (footer.length < 3 || !RULE.test(footer[0]!) || !/^\s*\d+\. Chat about this$/u.test(footer[1]!) || !HINT.test(footer.slice(2).map((line) => line.trim()).join(' '))) return null;
+    const hint = footer.slice(2).map((line) => line.trim()).join(' ');
+    if (footer.length < 3 || !RULE.test(footer[0]!) || !(previewColumn !== null ? /^\s+Chat about this$/u : /^\s*\d+\. Chat about this$/u).test(footer[1]!) || !HINT.test(hint)) return null;
+    // The editor owns navigation even when its text equals the idle notes hint.
+    if (previewColumn !== null && hint.includes(' · ctrl+g to edit in ')) notes = 'editing';
     if (multiSelect && options.some((option) => option.checked === null)) return null;
-    const freeform = options.at(-1)!;
-    const continuation = freeform.continuationLines;
-    if (continuation.length > 0) freeform.label = [freeform.label, ...continuation].join('\n');
+    if (previewColumn === null) {
+      const freeform = options.at(-1)!;
+      const continuation = freeform.continuationLines;
+      if (continuation.length > 0) freeform.label = [freeform.label, ...continuation].join('\n');
+    }
   }
-  return { kind: review ? 'review' : 'question', tabs, question: review ? null : heading.map((line) => line.trim()).join('\n'), multiSelect, nextFocused, options, reviewAnswers };
+  return { kind: review ? 'review' : 'question', tabs, question: review || heading.length === 0 ? null : heading.map((line) => line.trim()).join('\n'), multiSelect, nextFocused, freeformIndex: review || previewColumn !== null ? null : options.length - 1, notes, options, reviewClipped, reviewAnswers };
 }
 
-/** Correlates a native presentation with hook-owned questions, independent of selection progress. */
-export function matchesClaudeNativeQuestionScreen(
+/** One page identity for publication and navigation, independent of selection progress. */
+export function resolveClaudeNativeQuestionScreen(
   presentation: ClaudeNativeQuestionPresentation,
   questions: readonly StructuredQuestionLike[],
-): boolean {
+  editingQuestionIndex?: number,
+): Readonly<{ kind: 'question'; questionIndex: number }> | Readonly<{ kind: 'review' }> | null {
   const result = normalizeStructuredQuestionDescriptors(questions);
-  if (!result.ok) return false;
+  if (!result.ok) return null;
   const tabs = presentation.tabs;
   if (tabs && (result.questions.length !== tabs.length || !result.questions.every((question, index) => {
     const caption = tabs[index]!.header;
     const header = question.header ?? '';
-    // Claude abbreviates inactive tabs at narrow widths. The full question and
-    // options below remain the authority for identifying the current native page.
+    // Claude abbreviates inactive tabs at narrow widths. The visible question and
+    // complete choices identify the current native page.
     return matchesClaudeNativeQuestionText(caption, header)
       || caption.endsWith('…') && normalized(header).startsWith(normalized(caption.slice(0, -1)));
-  }))) return false;
+  }))) return null;
   if (presentation.kind === 'review') {
     const answered = tabs ? result.questions.filter((_, index) => tabs[index]!.answered) : result.questions;
-    return answered.length === presentation.reviewAnswers.length
-      && answered.every((question, index) => matchesClaudeNativeQuestionText(presentation.reviewAnswers[index]?.question ?? '', question.question ?? ''));
+    const offset = presentation.reviewClipped ? answered.length - presentation.reviewAnswers.length : 0;
+    const matches = offset >= 0 && presentation.reviewAnswers.length === answered.length - offset
+      && answered.slice(offset).every((question, index) => matchesClaudeNativeQuestionText(presentation.reviewAnswers[index]?.question ?? '', question.question ?? ''));
+    return matches ? { kind: 'review' } : null;
   }
-  const matches = result.questions.filter((question) => matchesClaudeNativeQuestionText(presentation.question ?? '', question.question ?? ''));
-  if (matches.length !== 1) return false;
-  const question = matches[0]!;
-  return question.multiSelect === presentation.multiSelect
-    && presentation.options.length === question.options.length + 1
-    && question.options.every((option, index) => matchesOptionLabel(presentation.options[index]!, option.label));
+  const matches = result.questions.flatMap((question, questionIndex) => {
+    const hasFreeformRow = !isClaudeNativePreviewQuestion(questions[questionIndex]!);
+    return question.multiSelect === presentation.multiSelect
+      && (presentation.freeformIndex !== null) === hasFreeformRow
+      && presentation.options.length === question.options.length + Number(hasFreeformRow)
+      && question.options.every((option, index) => matchesOptionLabel(presentation.options[index]!, option.label))
+      // Only the answer operation that identified this page and still sees its own draft
+      // can retain its identity after typing scrolls the entire heading out of view.
+      && (presentation.question === null && tabs === null
+        ? questionIndex === editingQuestionIndex
+        : matchesQuestionHeading(presentation, question.question ?? '')) ? [questionIndex] : [];
+  });
+  return matches.length === 1 ? { kind: 'question', questionIndex: matches[0]! } : null;
+}
+
+export function matchesClaudeNativeQuestionScreen(
+  presentation: ClaudeNativeQuestionPresentation,
+  questions: readonly StructuredQuestionLike[],
+): boolean {
+  return resolveClaudeNativeQuestionScreen(presentation, questions) !== null;
 }

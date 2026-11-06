@@ -27,6 +27,7 @@ const BROKER_SCOPED_TOKEN = deriveConnectedServiceBrokerRefreshToken('token');
 import { buildRuntimeAuthRecoveryKey } from './connectedServices/runtimeAuth/recoveryKey/runtimeAuthRecoveryKey';
 import {
   RuntimeAuthRecoveryScheduler,
+  buildRuntimeAuthRecoveryAttemptId,
   type RuntimeAuthRecoveryDiagnostic,
 } from './connectedServices/runtimeAuth/RuntimeAuthRecoveryScheduler';
 import {
@@ -204,7 +205,7 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
     }
   });
 
-  it('accepts and retires an exact old-target report after the registered runtime adopted a newer generation', async () => {
+  it('retires a mismatched report when the registered runtime cannot prove a newer adopted generation', async () => {
     resetConnectedServiceRuntimeAuthFailureReportDedupeForTests();
     const outboxDir = await createTempDir('happier-runtime-auth-post-apply-superseded-');
     const beginClassifiedFailure = vi.fn();
@@ -246,7 +247,7 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
             serviceId: 'openai-codex',
             groupId: 'main',
             profileId: 'batiplus',
-            generation: 1225,
+            generation: 1224,
             credentialRevision: 'csr_bbbbbbbbbbbbbbbbbbbbbb',
           }),
           resolveCurrentRuntimeAuthFailureSource: async ({ classification: currentClassification }) =>
@@ -255,17 +256,6 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
               readRuntimeIdentity,
               resolveCurrentCredential: async () => null,
             }),
-          runtimeAuthApply: {
-            directLiveHotAuth: {
-              supportsInTurnApply: true,
-              requiresExactRuntimeIdentity: true,
-              refreshSelectionResync: 'required',
-              authMode: {
-                kind: 'external_token_injection',
-                surface: 'test-codex-runtime',
-              },
-            },
-          },
         }),
       handleConnectedServiceRuntimeAuthFailure,
       runtimeAuthRecoveryScheduler: {
@@ -319,7 +309,7 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
       expect(beginClassifiedFailure).not.toHaveBeenCalled();
       expect(handleConnectedServiceRuntimeAuthFailure).toHaveBeenCalledWith(expect.objectContaining({
         sessionId: tracked.happySessionId,
-        interruptedOriginId: 'runtime-auth-report:post-apply-superseded',
+        interruptedOriginId: buildRuntimeAuthRecoveryAttemptId('runtime-auth-report:post-apply-superseded'),
         sourceAuthorization: expect.objectContaining({
           status: 'recovery_superseded',
           reason: 'source_tuple_mismatch',
@@ -2465,7 +2455,7 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
   });
 
   it('preserves generation apply failure results when recovery scheduling fails', async () => {
-    const debugSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     const handleConnectedServiceRuntimeAuthFailure = vi.fn(async () => ({
       status: 'switch_attempted',
       result: {
@@ -2529,12 +2519,12 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
         },
       });
       expect(enqueueApplyFailure).toHaveBeenCalled();
-      expect(debugSpy).toHaveBeenCalledWith(
+      expect(warnSpy).toHaveBeenCalledWith(
         '[CONTROL SERVER] Connected-service runtime auth recovery scheduling failed after apply failure',
         expect.objectContaining({ sessionId: 'sess_1' }),
       );
     } finally {
-      debugSpy.mockRestore();
+      warnSpy.mockRestore();
       await app.close();
     }
   });
@@ -3042,7 +3032,6 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
 
   it('returns typed handler failures when handler recovery scheduling also fails', async () => {
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
-    const debugSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {});
     const handleConnectedServiceRuntimeAuthFailure = vi.fn(async () => {
       throw new Error('switch coordinator crashed');
     });
@@ -3095,12 +3084,11 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
         },
       });
       expect(enqueueHandlerFailure).toHaveBeenCalled();
-      expect(debugSpy).toHaveBeenCalledWith(
+      expect(warnSpy).toHaveBeenCalledWith(
         '[CONTROL SERVER] Connected-service runtime auth recovery scheduling failed after handler failure',
         expect.objectContaining({ sessionId: 'sess_1' }),
       );
     } finally {
-      debugSpy.mockRestore();
       warnSpy.mockRestore();
       await app.close();
     }
@@ -3542,6 +3530,19 @@ describe('createDaemonControlApp connected-service runtime auth handling', () =>
         event: 'prompt_or_steer',
         requestedAction: { v: 1, kind: 'steer_if_active' },
         activeTurnId: 'session-turn:exact-1',
+      });
+      const providerIdentity = {
+        serviceId: 'claude-subscription', groupId: 'pool', providerOrganizationId: 'org-live',
+        sourceSessionId: 'claude-session', observedAtMs: 200,
+      };
+      const observation = await app.inject({
+        method: 'POST', url: '/connected-service-turn-lifecycle',
+        headers: { 'x-happier-daemon-token': 'token' },
+        payload: { sessionId: 'sess_1', event: 'provider_identity_observed', providerIdentity },
+      });
+      expect(observation.statusCode).toBe(200);
+      expect(handleConnectedServiceTurnLifecycle).toHaveBeenLastCalledWith({
+        sessionId: 'sess_1', event: 'provider_identity_observed', providerIdentity,
       });
     } finally {
       await app.close();
@@ -4351,7 +4352,7 @@ describe('startDaemonControlServer connected-service runtime wiring', () => {
         },
       });
       expect(handleConnectedServiceRuntimeAuthFailure).toHaveBeenCalledWith({
-        interruptedOriginId: 'runtime-auth-report:continuation-origin',
+        interruptedOriginId: buildRuntimeAuthRecoveryAttemptId('runtime-auth-report:continuation-origin'),
         sessionId: 'sess_1',
         switchesThisTurn: 0,
         classification: expect.objectContaining({

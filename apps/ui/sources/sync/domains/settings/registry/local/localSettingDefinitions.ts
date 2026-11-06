@@ -15,6 +15,7 @@ import {
 } from '@/theme/profiles/themeProfilePersistence';
 import { SessionListFocusedFolderV1Schema } from '@/sync/domains/session/folders';
 import { DesktopPathMappingsSchema } from '@/sync/domains/files/localFilePath';
+import { AccountPetDesktopOverlayVisibilityModeSchema } from '../account/accountPetSettingDefinitions';
 import {
     DEFAULT_LOADING_INDICATOR_PAUSE_ID,
     DEFAULT_LOADING_INDICATOR_SPEED_ID,
@@ -66,7 +67,7 @@ function serializePetCompanionSizeScaleBucket(value: number): 'small' | 'default
     return 'xlarge';
 }
 
-const PetEnabledOverrideSchema = z.enum(['inherit', 'enabled', 'disabled']);
+export const PetEnabledOverrideSchema = z.enum(['inherit', 'enabled', 'disabled']);
 const PetSelectedOverrideSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('inherit') }),
     z.object({
@@ -78,13 +79,11 @@ const PetSelectedOverrideSchema = z.discriminatedUnion('kind', [
         sourceKey: z.string().min(1),
     }),
 ]);
-const DesktopPetOverlayVisibilityModeOverrideSchema = z.enum([
+export const DesktopPetOverlayVisibilityModeOverrideSchema = z.enum([
     'inherit',
-    'attentionOrActive',
-    'alwaysWhenEnabled',
-    'attentionOnly',
+    ...AccountPetDesktopOverlayVisibilityModeSchema.options,
 ]);
-const DesktopPetOverlayAnchorSchema = z.enum(['bottomRight', 'bottomLeft', 'topRight', 'topLeft']);
+export const DesktopPetOverlayAnchorSchema = z.enum(['bottomRight', 'bottomLeft', 'topRight', 'topLeft']);
 const DesktopPetOverlayOffsetSchema = z.object({
     x: z.number(),
     y: z.number(),

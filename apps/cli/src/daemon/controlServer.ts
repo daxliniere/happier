@@ -56,6 +56,7 @@ import {
   buildConnectedServiceBridgeRefreshFailureResponse,
 } from './connectedServices/refresh/bridgeRefreshFailureContract';
 import { TrackedSession } from './types';
+import type { StopSessionOptions } from './sessions/stopSession';
 import {
   StopSessionResultSchema,
   type StopSessionResult,
@@ -84,6 +85,7 @@ import {
   SessionConnectedServiceAuthSwitchRpcParamsSchema,
   SessionRunnerRuntimeStateV1Schema,
   SessionRunnerStatusGetRequestV1Schema,
+  StopSessionRequestSchema,
   type ConnectedServiceId,
   type ConnectedServiceQuotaSnapshotV1,
   type RestartAllSessionRunnersRequestV1,
@@ -124,6 +126,7 @@ import {
   buildRuntimeAuthRecoveryTerminalResult,
 } from './connectedServices/runtimeAuth/projection/connectedServiceRuntimeAuthRecoveryProjection';
 import { buildRuntimeAuthRecoveryKey } from './connectedServices/runtimeAuth/recoveryKey/runtimeAuthRecoveryKey';
+import { buildRuntimeAuthRecoveryAttemptId } from './connectedServices/runtimeAuth/RuntimeAuthRecoveryScheduler';
 import { buildRuntimeAuthRecoveryAttemptTransitionLocalId } from './connectedServices/runtimeAuth/commitConnectedServiceRuntimeAuthRecoverySessionEvent';
 import { lazySchema } from '@happier-dev/protocol';
 
@@ -170,6 +173,7 @@ type RuntimeAuthRecoverySchedulerForControlServer = Readonly<{
     switchesThisTurn: number;
     classification: ConnectedServiceRuntimeFailureClassification;
     resumePromptMode?: 'standard' | 'off' | 'custom';
+    deferToScheduler?: boolean;
   }>) => Promise<unknown>;
   enqueueHandlerFailure?: (input: Readonly<{
     reportId?: string;
@@ -304,6 +308,7 @@ async function beginRuntimeAuthRecoveryIntake(input: Readonly<{
   switchesThisTurn: number;
   classification: ConnectedServiceRuntimeFailureClassification;
   resumePromptMode: 'standard' | 'off' | 'custom';
+  deferToScheduler?: boolean;
 }>): Promise<Readonly<{ ok: true; created: boolean; recovery?: unknown }> | Readonly<{ ok: false; error: unknown }>> {
   if (!input.runtimeAuthRecoveryScheduler?.beginClassifiedFailure) return { ok: true, created: false };
   try {
@@ -313,6 +318,7 @@ async function beginRuntimeAuthRecoveryIntake(input: Readonly<{
       switchesThisTurn: input.switchesThisTurn,
       classification: input.classification,
       resumePromptMode: input.resumePromptMode,
+      ...(input.deferToScheduler ? { deferToScheduler: true } : {}),
     });
     return { ok: true, created: true, recovery };
   } catch (error) {
@@ -337,6 +343,433 @@ function resolveDaemonControlBodyLimitBytes(): number {
 
   return Math.max(1024 * 1024, Math.min(parsed, 64 * 1024 * 1024));
 }
+
+export type RuntimeAuthFailureReportBody = Readonly<{
+  reportId?: string;
+  sessionId: string;
+  switchesThisTurn?: number;
+  resumePromptMode?: 'standard' | 'off' | 'custom';
+  classification: ConnectedServiceRuntimeFailureClassification;
+}>;
+
+export type RuntimeAuthFailureReportResult =
+  | Readonly<{ ok: true; result: unknown; resumePromptMode?: 'standard' | 'off' | 'custom'; recoveryReceipt?: NonNullable<ReturnType<typeof buildRuntimeAuthRecoveryReceipt>> }>
+  | Readonly<{ ok: false; errorCode: 'connected_service_runtime_auth_handler_unavailable' | 'connected_service_runtime_auth_recovery_intake_failed' }>;
+
+/** One report intake owner for authenticated control requests and daemon-owned outbox delivery. */
+export function createRuntimeAuthFailureReportIntake({
+  handleConnectedServiceRuntimeAuthFailure,
+  authorizeConnectedServiceRuntimeAuthFailure,
+  resolveConnectedServiceRuntimeAuthResumePromptMode,
+  runtimeAuthRecoveryScheduler,
+  isShuttingDown,
+}: Pick<Parameters<typeof createDaemonControlApp>[0],
+  | 'handleConnectedServiceRuntimeAuthFailure'
+  | 'authorizeConnectedServiceRuntimeAuthFailure'
+  | 'resolveConnectedServiceRuntimeAuthResumePromptMode'
+  | 'runtimeAuthRecoveryScheduler'
+  | 'isShuttingDown'
+>): (body: RuntimeAuthFailureReportBody) => Promise<RuntimeAuthFailureReportResult> {
+  const runtimeAuthReportClaims = new Map<string, Readonly<{
+    claimedAtMs: number;
+    result: Promise<unknown>;
+    settled: boolean;
+  }>>();
+  const runtimeAuthReportClaimTtlMs = 24 * 60 * 60_000;
+  const runtimeAuthReportClaimMaxSettledEntries = 256;
+  const pruneSettledRuntimeAuthReportClaims = (): void => {
+    let settledEntries = 0;
+    for (const claim of runtimeAuthReportClaims.values()) {
+      if (claim.settled) settledEntries += 1;
+    }
+    for (const [key, claim] of runtimeAuthReportClaims) {
+      if (settledEntries <= runtimeAuthReportClaimMaxSettledEntries) break;
+      if (!claim.settled) continue;
+      runtimeAuthReportClaims.delete(key);
+      settledEntries -= 1;
+    }
+  };
+  const claimRuntimeAuthReport = async <T>(input: Readonly<{
+    reportId?: string;
+    execute: () => Promise<T>;
+    retainSettled?: (result: T) => boolean;
+  }>): Promise<T> => {
+    const reportId = typeof input.reportId === 'string' ? input.reportId.trim() : '';
+    if (!reportId) return await input.execute();
+    const nowMs = Date.now();
+    for (const [key, claim] of runtimeAuthReportClaims) {
+      if (claim.settled && nowMs - claim.claimedAtMs > runtimeAuthReportClaimTtlMs) {
+        runtimeAuthReportClaims.delete(key);
+      }
+    }
+    const existing = runtimeAuthReportClaims.get(reportId);
+    if (existing) {
+      const joined = await existing.result as T;
+      return joined;
+    }
+    pruneSettledRuntimeAuthReportClaims();
+    const result = input.execute();
+    runtimeAuthReportClaims.set(reportId, { claimedAtMs: nowMs, result, settled: false });
+    void result.then((settled) => {
+      if (input.retainSettled?.(settled) === false && runtimeAuthReportClaims.get(reportId)?.result === result) {
+        runtimeAuthReportClaims.delete(reportId);
+      } else if (runtimeAuthReportClaims.get(reportId)?.result === result) {
+        runtimeAuthReportClaims.set(reportId, { claimedAtMs: nowMs, result, settled: true });
+        pruneSettledRuntimeAuthReportClaims();
+      }
+    }).catch(() => {
+      if (runtimeAuthReportClaims.get(reportId)?.result === result) {
+        runtimeAuthReportClaims.delete(reportId);
+      }
+    });
+    const settled = await result;
+    return settled;
+  };
+
+
+  return async (body) => await claimRuntimeAuthReport({
+    reportId: body.reportId,
+    retainSettled: (result) => result.ok === true,
+    execute: async () => {
+    if (!handleConnectedServiceRuntimeAuthFailure) {
+      return {
+        ok: false as const,
+        errorCode: 'connected_service_runtime_auth_handler_unavailable' as const,
+      };
+    }
+    const startedAtMs = Date.now();
+    const sessionId = body.sessionId;
+    const switchesThisTurn = body.switchesThisTurn ?? 0;
+    let classification = body.classification;
+    const resolvedResumePromptMode = await (resolveConnectedServiceRuntimeAuthResumePromptMode?.({
+      classification,
+      ...(body.resumePromptMode ? { explicit: body.resumePromptMode } : {}),
+    }) ?? Promise.resolve(body.resumePromptMode ?? 'standard')).catch((error) => {
+      logger.warn('[CONTROL SERVER] Runtime-auth resume prompt policy unavailable; using standard mode', {
+        sessionId, error: readSafeDaemonControlErrorDiagnostic(error),
+      });
+      return 'standard' as const;
+    });
+    let resumePromptMode = resolvedResumePromptMode;
+    let recoveryReceipt: ReturnType<typeof buildRuntimeAuthRecoveryReceipt> = null;
+    let recoveryAttemptId: string | null = null;
+    let recoveryIntakeCreated = false;
+    const ok = (result: unknown) => ({
+      ok: true as const,
+      result,
+      ...(resolveConnectedServiceRuntimeAuthResumePromptMode ? { resumePromptMode } : {}),
+      ...(recoveryReceipt ? { recoveryReceipt } : {}),
+    });
+    const okForRecovery = (result: unknown, recovery?: unknown) => {
+      const nextReceipt = buildRuntimeAuthRecoveryReceipt({
+        reportId: body.reportId,
+        recovery,
+      });
+      if (nextReceipt) recoveryReceipt = nextReceipt;
+      return ok(result);
+    };
+    // Daemon-lifecycle guard: if the daemon is shutting down, do NOT run the
+    // recovery handler and do NOT create a new durable recovery intent from this
+    // in-band report. Already-persisted intents remain owned by the scheduler and
+    // can be re-driven by a healthy future daemon.
+    if (isShuttingDown?.() === true) {
+      return {
+        ok: true as const,
+        result: {
+          status: 'daemon_lifecycle_unavailable' as const,
+          reason: 'recovery_deferred_shutdown' as const,
+        },
+      };
+    }
+    let sourceAuthorization: Awaited<ReturnType<NonNullable<
+      typeof authorizeConnectedServiceRuntimeAuthFailure
+    >>> | undefined;
+    try {
+      sourceAuthorization = await authorizeConnectedServiceRuntimeAuthFailure?.({
+        sessionId,
+        classification,
+      });
+    } catch (error) {
+      logger.warn('[CONTROL SERVER] Connected-service runtime auth source verification unavailable', {
+        sessionId,
+        serviceId: classification.serviceId,
+        error: readSafeDaemonControlErrorDiagnostic(error),
+      });
+      return {
+        ok: false as const,
+        errorCode: 'connected_service_runtime_auth_recovery_intake_failed' as const,
+      };
+    }
+    const adoptedSuccessor = sourceAuthorization?.status === 'recovery_superseded' && 'adoptedTarget' in sourceAuthorization;
+    // An adopted account supersedes source selection, not custody of the failed
+    // turn. Only the scheduler may resume it, through its existing admission.
+    const deferToScheduler = adoptedSuccessor && Boolean(runtimeAuthRecoveryScheduler?.beginClassifiedFailure);
+    const isRuntimeAuthRecoveryOwnedFailure = deferToScheduler || !isTemporaryRetryOwnedConnectedServiceRuntimeFailure(classification);
+    if (sourceAuthorization && sourceAuthorization.status !== 'authorized' && !deferToScheduler) {
+      const result = await handleConnectedServiceRuntimeAuthFailure({
+        sessionId,
+        switchesThisTurn,
+        classification,
+        ...(body.reportId ? { interruptedOriginId: buildRuntimeAuthRecoveryAttemptId(body.reportId) } : {}),
+        resumePromptMode,
+        sourceAuthorization,
+      });
+      return ok(result);
+    }
+    classification = applyAuthorizedRuntimeAuthFailureSourceBinding(classification, sourceAuthorization);
+    if (isRuntimeAuthRecoveryOwnedFailure) {
+      const intake = await beginRuntimeAuthRecoveryIntake({
+        runtimeAuthRecoveryScheduler,
+        reportId: body.reportId,
+        sessionId,
+        switchesThisTurn,
+        classification,
+        resumePromptMode,
+        ...(deferToScheduler ? { deferToScheduler: true } : {}),
+      });
+      if (!intake.ok) {
+        const diagnostic = readSafeDaemonControlErrorDiagnostic(intake.error);
+        logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery intake failed', {
+          ...buildConnectedServiceRuntimeAuthSwitchAttemptLogContext({
+            sessionId,
+            classification,
+            handlerFailure: {
+              errorCode: 'runtime_auth_recovery_intake_failed',
+              errorName: diagnostic.name,
+              errorMessage: diagnostic.message,
+            },
+            routedThroughFsm: false,
+            startedAtMs,
+            finishedAtMs: Date.now(),
+          }),
+          kind: classification.kind,
+          error: diagnostic,
+        });
+        return {
+          ok: false as const,
+          errorCode: 'connected_service_runtime_auth_recovery_intake_failed' as const,
+        };
+      }
+      recoveryReceipt = buildRuntimeAuthRecoveryReceipt({
+        reportId: body.reportId,
+        recovery: intake.recovery,
+      });
+      recoveryAttemptId = readRuntimeAuthRecoveryAttemptId(intake.recovery);
+      recoveryIntakeCreated = intake.created;
+      if (intake.created) {
+        resumePromptMode = readRuntimeAuthRecoveryResumePromptMode(intake.recovery);
+      }
+      if (deferToScheduler) {
+        return okForRecovery(isScheduledRuntimeAuthRecovery(intake.recovery)
+          ? buildRuntimeAuthRecoveryScheduledResult({ classification, recovery: intake.recovery })
+          : buildRuntimeAuthRecoveryTerminalResult({ classification, recovery: intake.recovery }), intake.recovery);
+      }
+    }
+    const canSettleRecoveryAttempt = isRuntimeAuthRecoveryOwnedFailure
+      && (!recoveryIntakeCreated || recoveryAttemptId !== null);
+    try {
+      const result = await handleConnectedServiceRuntimeAuthFailure({
+        sessionId,
+        switchesThisTurn,
+        classification,
+        ...(recoveryAttemptId
+          ? { interruptedOriginId: recoveryAttemptId }
+          : body.reportId ? { interruptedOriginId: buildRuntimeAuthRecoveryAttemptId(body.reportId) } : {}),
+        resumePromptMode,
+        ...(sourceAuthorization ? { sourceAuthorization } : {}),
+      });
+      if (canSettleRecoveryAttempt && isRuntimeAuthApplyFailureResult(result) && runtimeAuthRecoveryScheduler?.enqueueApplyFailure) {
+        try {
+          const recovery = await runtimeAuthRecoveryScheduler.enqueueApplyFailure({
+            reportId: body.reportId,
+            sessionId,
+            switchesThisTurn,
+            classification,
+            result,
+            ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
+          });
+          if (isScheduledRuntimeAuthRecovery(recovery)) {
+            return okForRecovery(buildRuntimeAuthRecoveryScheduledResult({
+                classification,
+                recovery,
+                originalResult: result,
+              }), recovery);
+          }
+          if (isTerminalRuntimeAuthRecovery(recovery)) {
+            return okForRecovery(buildRuntimeAuthRecoveryTerminalResult({
+                classification,
+                recovery,
+                originalResult: result,
+              }), recovery);
+          }
+        } catch (schedulerError) {
+          logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery scheduling failed after apply failure', {
+            sessionId,
+            error: readSafeDaemonControlErrorDiagnostic(schedulerError),
+          });
+        }
+      }
+      const recoveredProofKind = resolveRuntimeAuthSwitchSuccessProof(result);
+      if (recoveredProofKind && canSettleRecoveryAttempt) {
+        const recoveryKey = buildRuntimeAuthRecoveryKey({
+          sessionId,
+          serviceId: classification.serviceId,
+          profileId: classification.profileId,
+          groupId: classification.groupId,
+        });
+        const resolveRecoveryProof = async (): Promise<unknown> => {
+          if (runtimeAuthRecoveryScheduler?.markProviderOutcomeProofByKey) {
+            return await runtimeAuthRecoveryScheduler.markProviderOutcomeProofByKey({
+              recoveryKey,
+              proofKind: recoveredProofKind,
+              ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
+            });
+          }
+          if (!recoveryAttemptId && runtimeAuthRecoveryScheduler?.markSucceededByKey) {
+            return await runtimeAuthRecoveryScheduler.markSucceededByKey(recoveryKey);
+          }
+          if (!recoveryAttemptId && runtimeAuthRecoveryScheduler?.cancelByKey) {
+            return await runtimeAuthRecoveryScheduler.cancelByKey(recoveryKey);
+          }
+          return undefined;
+        };
+        await resolveRecoveryProof().catch((error) => {
+          logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery proof resolution failed after success', {
+            sessionId,
+            recoveryKey,
+            proofKind: recoveredProofKind,
+            error: readSafeDaemonControlErrorDiagnostic(error),
+          });
+        });
+      }
+      const recoveryKey = buildRuntimeAuthRecoveryKey({
+        sessionId,
+        serviceId: classification.serviceId,
+        profileId: classification.profileId,
+        groupId: classification.groupId,
+      });
+      if (recoveryAttemptId) {
+        await runtimeAuthRecoveryScheduler?.markAwaitingProviderOutcomeProofForResultByKey?.({
+          recoveryKey,
+          result,
+          expectedAttemptId: recoveryAttemptId,
+        }).catch((error) => {
+          logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery proof-wait mark failed after local recovery result', {
+            sessionId,
+            recoveryKey,
+            error: readSafeDaemonControlErrorDiagnostic(error),
+          });
+        });
+      }
+      // F0/INC-2 (in-band path): group-exhausted and switch-limited results are
+      // durable waits — re-arm the just-intaken intent at the computed/floored
+      // wake time instead of terminalizing it. The classification gate runs here
+      // (so the terminal branch below never sees a durable-wait result even when
+      // the scheduler double lacks the re-arm method); the wake TIME is resolved
+      // by the scheduler on its own clock.
+      const disposition = resolveRuntimeAuthRecoveryResultDisposition({
+        result,
+        classificationFailureKind: classification.kind,
+        classificationProfileId: classification.profileId,
+        classificationResetsAtMs: classification.resetsAtMs ?? null,
+        nowMs: Date.now(),
+      });
+      if (disposition?.kind === 'durable_wait') {
+        if (recoveryAttemptId) {
+          await runtimeAuthRecoveryScheduler?.markDurableWaitForResultByKey?.({
+            recoveryKey,
+            result,
+            classificationFailureKind: classification.kind,
+            classificationResetsAtMs: classification.resetsAtMs ?? null,
+            expectedAttemptId: recoveryAttemptId,
+          }).catch((error) => {
+            logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery durable-wait re-arm failed after group-exhausted result', {
+              sessionId,
+              recoveryKey,
+              error: readSafeDaemonControlErrorDiagnostic(error),
+            });
+          });
+        }
+        return ok(result);
+      }
+      const terminalReason = disposition?.kind === 'terminal' ? disposition.reason : null;
+      if (terminalReason && canSettleRecoveryAttempt) {
+        try {
+          const terminalRecovery = await runtimeAuthRecoveryScheduler?.markTerminalByKey?.({
+            recoveryKey,
+            terminalReason,
+            ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
+          });
+          const terminalReceipt = buildRuntimeAuthRecoveryReceipt({
+            reportId: body.reportId,
+            recovery: terminalRecovery,
+          });
+          if (terminalReceipt) recoveryReceipt = terminalReceipt;
+        } catch (error) {
+          logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery terminalization failed after terminal result', {
+            sessionId,
+            recoveryKey,
+            error: readSafeDaemonControlErrorDiagnostic(error),
+          });
+        }
+      }
+      return ok(result);
+    } catch (error) {
+      const diagnostic = readSafeDaemonControlErrorDiagnostic(error);
+      logger.warn('[CONTROL SERVER] Connected-service runtime auth failure handler failed', {
+        ...buildConnectedServiceRuntimeAuthSwitchAttemptLogContext({
+          sessionId,
+          classification,
+          handlerFailure: {
+            errorCode: 'unexpected_error',
+            errorName: diagnostic.name,
+            errorMessage: diagnostic.message,
+          },
+          routedThroughFsm: false,
+          startedAtMs,
+          finishedAtMs: Date.now(),
+        }),
+        kind: classification.kind,
+        error: diagnostic,
+      });
+      if (canSettleRecoveryAttempt && runtimeAuthRecoveryScheduler?.enqueueHandlerFailure) {
+        try {
+          const recovery = await runtimeAuthRecoveryScheduler.enqueueHandlerFailure({
+            reportId: body.reportId,
+            sessionId,
+            switchesThisTurn,
+            classification,
+            error,
+            ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
+          });
+          if (isScheduledRuntimeAuthRecovery(recovery)) {
+            return okForRecovery(buildRuntimeAuthRecoveryScheduledResult({
+                classification,
+                recovery,
+              }), recovery);
+          }
+          if (isTerminalRuntimeAuthRecovery(recovery)) {
+            return okForRecovery(buildRuntimeAuthRecoveryTerminalResult({
+                classification,
+                recovery,
+              }), recovery);
+          }
+        } catch (schedulerError) {
+          logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery scheduling failed after handler failure', {
+            sessionId,
+            error: readSafeDaemonControlErrorDiagnostic(schedulerError),
+          });
+        }
+      }
+      return ok({
+          status: 'recovery_handler_failed' as const,
+          errorCode: 'unexpected_error' as const,
+        });
+    }
+    },
+  });
+}
+
 
 export function createDaemonControlApp({
   getChildren,
@@ -370,11 +803,12 @@ export function createDaemonControlApp({
   runtimeAuthRecoveryScheduler,
   isShuttingDown,
   requestSelfRestart,
+  runtimeAuthFailureReportIntake,
 }: {
   getChildren: () => TrackedSession[];
   machineId: string;
   runtimeId?: string;
-  stopSession: (sessionId: string) => Promise<StopSessionResult>;
+  stopSession: (sessionId: string, options?: StopSessionOptions) => Promise<StopSessionResult>;
   prepareStopSession?: (child: TrackedSession) => Promise<void> | void;
   spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>;
   resolveSpawnSessionByNonce?: (spawnNonce: string) => Promise<SpawnSessionNonceResolution> | SpawnSessionNonceResolution;
@@ -419,6 +853,7 @@ export function createDaemonControlApp({
     explicit?: 'standard' | 'off' | 'custom';
   }>) => Promise<'standard' | 'off' | 'custom'>;
   runtimeAuthRecoveryScheduler?: RuntimeAuthRecoverySchedulerForControlServer;
+  runtimeAuthFailureReportIntake?: (body: RuntimeAuthFailureReportBody) => Promise<RuntimeAuthFailureReportResult>;
   // Daemon-lifecycle guard. When the daemon is shutting down (or the control server is
   // stopping), runtime-auth recovery handlers MUST NOT run switch/restart/continuation:
   // post-shutdown work can never reach provider-outcome proof and races a dying endpoint.
@@ -495,64 +930,13 @@ export function createDaemonControlApp({
     error: z.string(),
   });
 
-  const runtimeAuthReportClaims = new Map<string, Readonly<{
-    claimedAtMs: number;
-    result: Promise<unknown>;
-    settled: boolean;
-  }>>();
-  const runtimeAuthReportClaimTtlMs = 24 * 60 * 60_000;
-  const runtimeAuthReportClaimMaxSettledEntries = 256;
-  const pruneSettledRuntimeAuthReportClaims = (): void => {
-    let settledEntries = 0;
-    for (const claim of runtimeAuthReportClaims.values()) {
-      if (claim.settled) settledEntries += 1;
-    }
-    for (const [key, claim] of runtimeAuthReportClaims) {
-      if (settledEntries <= runtimeAuthReportClaimMaxSettledEntries) break;
-      if (!claim.settled) continue;
-      runtimeAuthReportClaims.delete(key);
-      settledEntries -= 1;
-    }
-  };
-  const claimRuntimeAuthReport = async <T>(input: Readonly<{
-    reportId?: string;
-    execute: () => Promise<T>;
-    retainSettled?: (result: T) => boolean;
-    onResult?: (result: T) => void;
-  }>): Promise<T> => {
-    const reportId = typeof input.reportId === 'string' ? input.reportId.trim() : '';
-    if (!reportId) return await input.execute();
-    const nowMs = Date.now();
-    for (const [key, claim] of runtimeAuthReportClaims) {
-      if (claim.settled && nowMs - claim.claimedAtMs > runtimeAuthReportClaimTtlMs) {
-        runtimeAuthReportClaims.delete(key);
-      }
-    }
-    const existing = runtimeAuthReportClaims.get(reportId);
-    if (existing) {
-      const joined = await existing.result as T;
-      input.onResult?.(joined);
-      return joined;
-    }
-    pruneSettledRuntimeAuthReportClaims();
-    const result = input.execute();
-    runtimeAuthReportClaims.set(reportId, { claimedAtMs: nowMs, result, settled: false });
-    void result.then((settled) => {
-      if (input.retainSettled?.(settled) === false && runtimeAuthReportClaims.get(reportId)?.result === result) {
-        runtimeAuthReportClaims.delete(reportId);
-      } else if (runtimeAuthReportClaims.get(reportId)?.result === result) {
-        runtimeAuthReportClaims.set(reportId, { claimedAtMs: nowMs, result, settled: true });
-        pruneSettledRuntimeAuthReportClaims();
-      }
-    }).catch(() => {
-      if (runtimeAuthReportClaims.get(reportId)?.result === result) {
-        runtimeAuthReportClaims.delete(reportId);
-      }
-    });
-    const settled = await result;
-    input.onResult?.(settled);
-    return settled;
-  };
+  const intakeRuntimeAuthFailureReport = runtimeAuthFailureReportIntake ?? createRuntimeAuthFailureReportIntake({
+    handleConnectedServiceRuntimeAuthFailure,
+    authorizeConnectedServiceRuntimeAuthFailure,
+    resolveConnectedServiceRuntimeAuthResumePromptMode,
+    runtimeAuthRecoveryScheduler,
+    isShuttingDown,
+  });
 
   const requireAuth = async (request: { headers: Record<string, unknown> }, reply: any): Promise<void> => {
     const rawHeader = (request.headers as any)['x-happier-daemon-token'];
@@ -839,337 +1223,14 @@ export function createDaemonControlApp({
     },
     preHandler: requireAuth,
   }, async (request, reply) => {
-    return await claimRuntimeAuthReport({
-      reportId: request.body.reportId,
-      retainSettled: (result) => result.ok === true,
-      onResult: (result) => {
-        if (result.ok === true) return;
-        reply.code(result.errorCode === 'connected_service_runtime_auth_handler_unavailable' ? 501 : 503);
-      },
-      execute: async () => {
-    if (!handleConnectedServiceRuntimeAuthFailure) {
-      reply.code(501);
-      return {
-        ok: false as const,
-        errorCode: 'connected_service_runtime_auth_handler_unavailable' as const,
-      };
-    }
-    const startedAtMs = Date.now();
-    const sessionId = request.body.sessionId;
-    const switchesThisTurn = request.body.switchesThisTurn ?? 0;
-    let classification = request.body.classification as ConnectedServiceRuntimeFailureClassification;
-    const resolvedResumePromptMode = await (resolveConnectedServiceRuntimeAuthResumePromptMode?.({
-      classification,
-      ...(request.body.resumePromptMode ? { explicit: request.body.resumePromptMode } : {}),
-    }) ?? Promise.resolve(request.body.resumePromptMode ?? 'standard')).catch(() => 'standard' as const);
-    let resumePromptMode = resolvedResumePromptMode;
-    let recoveryReceipt: ReturnType<typeof buildRuntimeAuthRecoveryReceipt> = null;
-    let recoveryAttemptId: string | null = null;
-    let recoveryIntakeCreated = false;
-    const ok = (result: unknown) => ({
-      ok: true as const,
-      result,
-      ...(resolveConnectedServiceRuntimeAuthResumePromptMode ? { resumePromptMode } : {}),
-      ...(recoveryReceipt ? { recoveryReceipt } : {}),
+    const result = await intakeRuntimeAuthFailureReport({
+      ...request.body,
+      classification: request.body.classification as ConnectedServiceRuntimeFailureClassification,
     });
-    const okForRecovery = (result: unknown, recovery?: unknown) => {
-      const nextReceipt = buildRuntimeAuthRecoveryReceipt({
-        reportId: request.body.reportId,
-        recovery,
-      });
-      if (nextReceipt) recoveryReceipt = nextReceipt;
-      return ok(result);
-    };
-    // Daemon-lifecycle guard: if the daemon is shutting down, do NOT run the
-    // recovery handler and do NOT create a new durable recovery intent from this
-    // in-band report. Already-persisted intents remain owned by the scheduler and
-    // can be re-driven by a healthy future daemon.
-    if (isShuttingDown?.() === true) {
-      return {
-        ok: true as const,
-        result: {
-          status: 'daemon_lifecycle_unavailable' as const,
-          reason: 'recovery_deferred_shutdown' as const,
-        },
-      };
+    if (!result.ok) {
+      reply.code(result.errorCode === 'connected_service_runtime_auth_handler_unavailable' ? 501 : 503);
     }
-    const isRuntimeAuthRecoveryOwnedFailure = !isTemporaryRetryOwnedConnectedServiceRuntimeFailure(classification);
-    let sourceAuthorization: Awaited<ReturnType<NonNullable<
-      typeof authorizeConnectedServiceRuntimeAuthFailure
-    >>> | undefined;
-    try {
-      sourceAuthorization = await authorizeConnectedServiceRuntimeAuthFailure?.({
-        sessionId,
-        classification,
-      });
-    } catch (error) {
-      logger.warn('[CONTROL SERVER] Connected-service runtime auth source verification unavailable', {
-        sessionId,
-        serviceId: classification.serviceId,
-        error: readSafeDaemonControlErrorDiagnostic(error),
-      });
-      reply.code(503);
-      return {
-        ok: false as const,
-        errorCode: 'connected_service_runtime_auth_recovery_intake_failed' as const,
-      };
-    }
-    if (sourceAuthorization && sourceAuthorization.status !== 'authorized') {
-      const result = await handleConnectedServiceRuntimeAuthFailure({
-        sessionId,
-        switchesThisTurn,
-        classification,
-        ...(request.body.reportId ? { interruptedOriginId: request.body.reportId } : {}),
-        resumePromptMode,
-        sourceAuthorization,
-      });
-      return ok(result);
-    }
-    classification = applyAuthorizedRuntimeAuthFailureSourceBinding(classification, sourceAuthorization);
-    if (isRuntimeAuthRecoveryOwnedFailure) {
-      const intake = await beginRuntimeAuthRecoveryIntake({
-        runtimeAuthRecoveryScheduler,
-        reportId: request.body.reportId,
-        sessionId,
-        switchesThisTurn,
-        classification,
-        resumePromptMode,
-        ...(sourceAuthorization ? { sourceAuthorization } : {}),
-      });
-      if (!intake.ok) {
-        const diagnostic = readSafeDaemonControlErrorDiagnostic(intake.error);
-        logger.warn('[CONTROL SERVER] Connected-service runtime auth recovery intake failed', {
-          ...buildConnectedServiceRuntimeAuthSwitchAttemptLogContext({
-            sessionId,
-            classification,
-            handlerFailure: {
-              errorCode: 'runtime_auth_recovery_intake_failed',
-              errorName: diagnostic.name,
-              errorMessage: diagnostic.message,
-            },
-            routedThroughFsm: false,
-            startedAtMs,
-            finishedAtMs: Date.now(),
-          }),
-          kind: classification.kind,
-          error: diagnostic,
-        });
-        reply.code(503);
-        return {
-          ok: false as const,
-          errorCode: 'connected_service_runtime_auth_recovery_intake_failed' as const,
-        };
-      }
-      recoveryReceipt = buildRuntimeAuthRecoveryReceipt({
-        reportId: request.body.reportId,
-        recovery: intake.recovery,
-      });
-      recoveryAttemptId = readRuntimeAuthRecoveryAttemptId(intake.recovery);
-      recoveryIntakeCreated = intake.created;
-      if (intake.created) {
-        resumePromptMode = readRuntimeAuthRecoveryResumePromptMode(intake.recovery);
-      }
-    }
-    const canSettleRecoveryAttempt = isRuntimeAuthRecoveryOwnedFailure
-      && (!recoveryIntakeCreated || recoveryAttemptId !== null);
-    try {
-      const result = await handleConnectedServiceRuntimeAuthFailure({
-        sessionId,
-        switchesThisTurn,
-        classification,
-        ...(request.body.reportId ? { interruptedOriginId: request.body.reportId } : {}),
-        resumePromptMode,
-        ...(sourceAuthorization ? { sourceAuthorization } : {}),
-      });
-      if (canSettleRecoveryAttempt && isRuntimeAuthApplyFailureResult(result) && runtimeAuthRecoveryScheduler?.enqueueApplyFailure) {
-        try {
-          const recovery = await runtimeAuthRecoveryScheduler.enqueueApplyFailure({
-            reportId: request.body.reportId,
-            sessionId,
-            switchesThisTurn,
-            classification,
-            result,
-            ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
-          });
-          if (isScheduledRuntimeAuthRecovery(recovery)) {
-            return okForRecovery(buildRuntimeAuthRecoveryScheduledResult({
-                classification,
-                recovery,
-                originalResult: result,
-              }), recovery);
-          }
-          if (isTerminalRuntimeAuthRecovery(recovery)) {
-            return okForRecovery(buildRuntimeAuthRecoveryTerminalResult({
-                classification,
-                recovery,
-                originalResult: result,
-              }), recovery);
-          }
-        } catch (schedulerError) {
-          logger.debug('[CONTROL SERVER] Connected-service runtime auth recovery scheduling failed after apply failure', {
-            sessionId,
-            error: readSafeDaemonControlErrorDiagnostic(schedulerError),
-          });
-        }
-      }
-      const recoveredProofKind = resolveRuntimeAuthSwitchSuccessProof(result);
-      if (recoveredProofKind && canSettleRecoveryAttempt) {
-        const recoveryKey = buildRuntimeAuthRecoveryKey({
-          sessionId,
-          serviceId: classification.serviceId,
-          profileId: classification.profileId,
-          groupId: classification.groupId,
-        });
-        const resolveRecoveryProof = async (): Promise<unknown> => {
-          if (runtimeAuthRecoveryScheduler?.markProviderOutcomeProofByKey) {
-            return await runtimeAuthRecoveryScheduler.markProviderOutcomeProofByKey({
-              recoveryKey,
-              proofKind: recoveredProofKind,
-              ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
-            });
-          }
-          if (!recoveryAttemptId && runtimeAuthRecoveryScheduler?.markSucceededByKey) {
-            return await runtimeAuthRecoveryScheduler.markSucceededByKey(recoveryKey);
-          }
-          if (!recoveryAttemptId && runtimeAuthRecoveryScheduler?.cancelByKey) {
-            return await runtimeAuthRecoveryScheduler.cancelByKey(recoveryKey);
-          }
-          return undefined;
-        };
-        await resolveRecoveryProof().catch((error) => {
-          logger.debug('[CONTROL SERVER] Connected-service runtime auth recovery proof resolution failed after success', {
-            sessionId,
-            recoveryKey,
-            proofKind: recoveredProofKind,
-            error: readSafeDaemonControlErrorDiagnostic(error),
-          });
-        });
-      }
-      const recoveryKey = buildRuntimeAuthRecoveryKey({
-        sessionId,
-        serviceId: classification.serviceId,
-        profileId: classification.profileId,
-        groupId: classification.groupId,
-      });
-      if (recoveryAttemptId) {
-        await runtimeAuthRecoveryScheduler?.markAwaitingProviderOutcomeProofForResultByKey?.({
-          recoveryKey,
-          result,
-          expectedAttemptId: recoveryAttemptId,
-        }).catch((error) => {
-          logger.debug('[CONTROL SERVER] Connected-service runtime auth recovery proof-wait mark failed after local recovery result', {
-            sessionId,
-            recoveryKey,
-            error: readSafeDaemonControlErrorDiagnostic(error),
-          });
-        });
-      }
-      // F0/INC-2 (in-band path): group-exhausted and switch-limited results are
-      // durable waits — re-arm the just-intaken intent at the computed/floored
-      // wake time instead of terminalizing it. The classification gate runs here
-      // (so the terminal branch below never sees a durable-wait result even when
-      // the scheduler double lacks the re-arm method); the wake TIME is resolved
-      // by the scheduler on its own clock.
-      const disposition = resolveRuntimeAuthRecoveryResultDisposition({
-        result,
-        classificationFailureKind: classification.kind,
-        classificationResetsAtMs: classification.resetsAtMs ?? null,
-        nowMs: Date.now(),
-      });
-      if (disposition?.kind === 'durable_wait') {
-        if (recoveryAttemptId) {
-          await runtimeAuthRecoveryScheduler?.markDurableWaitForResultByKey?.({
-            recoveryKey,
-            result,
-            classificationFailureKind: classification.kind,
-            classificationResetsAtMs: classification.resetsAtMs ?? null,
-            expectedAttemptId: recoveryAttemptId,
-          }).catch((error) => {
-            logger.debug('[CONTROL SERVER] Connected-service runtime auth recovery durable-wait re-arm failed after group-exhausted result', {
-              sessionId,
-              recoveryKey,
-              error: readSafeDaemonControlErrorDiagnostic(error),
-            });
-          });
-        }
-        return ok(result);
-      }
-      const terminalReason = disposition?.kind === 'terminal' ? disposition.reason : null;
-      if (terminalReason && canSettleRecoveryAttempt) {
-        try {
-          const terminalRecovery = await runtimeAuthRecoveryScheduler?.markTerminalByKey?.({
-            recoveryKey,
-            terminalReason,
-            ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
-          });
-          const terminalReceipt = buildRuntimeAuthRecoveryReceipt({
-            reportId: request.body.reportId,
-            recovery: terminalRecovery,
-          });
-          if (terminalReceipt) recoveryReceipt = terminalReceipt;
-        } catch (error) {
-          logger.debug('[CONTROL SERVER] Connected-service runtime auth recovery terminalization failed after terminal result', {
-            sessionId,
-            recoveryKey,
-            error: readSafeDaemonControlErrorDiagnostic(error),
-          });
-        }
-      }
-      return ok(result);
-    } catch (error) {
-      const diagnostic = readSafeDaemonControlErrorDiagnostic(error);
-      logger.warn('[CONTROL SERVER] Connected-service runtime auth failure handler failed', {
-        ...buildConnectedServiceRuntimeAuthSwitchAttemptLogContext({
-          sessionId,
-          classification,
-          handlerFailure: {
-            errorCode: 'unexpected_error',
-            errorName: diagnostic.name,
-            errorMessage: diagnostic.message,
-          },
-          routedThroughFsm: false,
-          startedAtMs,
-          finishedAtMs: Date.now(),
-        }),
-        kind: classification.kind,
-        error: diagnostic,
-      });
-      if (canSettleRecoveryAttempt && runtimeAuthRecoveryScheduler?.enqueueHandlerFailure) {
-        try {
-          const recovery = await runtimeAuthRecoveryScheduler.enqueueHandlerFailure({
-            reportId: request.body.reportId,
-            sessionId,
-            switchesThisTurn,
-            classification,
-            error,
-            ...(recoveryAttemptId ? { expectedAttemptId: recoveryAttemptId } : {}),
-          });
-          if (isScheduledRuntimeAuthRecovery(recovery)) {
-            return okForRecovery(buildRuntimeAuthRecoveryScheduledResult({
-                classification,
-                recovery,
-              }), recovery);
-          }
-          if (isTerminalRuntimeAuthRecovery(recovery)) {
-            return okForRecovery(buildRuntimeAuthRecoveryTerminalResult({
-                classification,
-                recovery,
-              }), recovery);
-          }
-        } catch (schedulerError) {
-          logger.debug('[CONTROL SERVER] Connected-service runtime auth recovery scheduling failed after handler failure', {
-            sessionId,
-            error: readSafeDaemonControlErrorDiagnostic(schedulerError),
-          });
-        }
-      }
-      return ok({
-          status: 'recovery_handler_failed' as const,
-          errorCode: 'unexpected_error' as const,
-        });
-    }
-      },
-    });
+    return result;
   });
 
   typed.post('/connected-service-turn-lifecycle', {
@@ -1203,6 +1264,7 @@ export function createDaemonControlApp({
       ...(request.body.turnId ? { turnId: request.body.turnId } : {}),
       ...(request.body.requestedAction ? { requestedAction: request.body.requestedAction } : {}),
       ...(request.body.activeTurnId !== undefined ? { activeTurnId: request.body.activeTurnId } : {}),
+      ...(request.body.providerIdentity ? { providerIdentity: request.body.providerIdentity } : {}),
     });
     return { ok: true as const, result };
   });
@@ -1737,9 +1799,7 @@ export function createDaemonControlApp({
   // Stop specific session
   typed.post('/stop-session', {
     schema: {
-      body: z.object({
-        sessionId: z.string()
-      }),
+      body: StopSessionRequestSchema,
       response: {
         200: StopSessionResultSchema,
         401: authSchema401,
@@ -1747,10 +1807,10 @@ export function createDaemonControlApp({
     },
     preHandler: requireAuth,
   }, async (request) => {
-    const { sessionId } = request.body;
+    const { sessionId, source } = request.body;
 
     logger.debug(`[CONTROL SERVER] Stop session request: ${sessionId}`);
-    return await stopSession(sessionId);
+    return await stopSession(sessionId, { source, transport: 'local_http' });
   });
 
   // Spawn new session
@@ -2229,13 +2289,14 @@ export function startDaemonControlServer({
   handleExecutionRunConnectedServiceMaterialize,
   handleExecutionRunConnectedServiceRelease,
   runtimeAuthRecoveryScheduler,
+  runtimeAuthFailureReportIntake,
   isShuttingDown,
   requestSelfRestart,
 }: {
   getChildren: () => TrackedSession[];
   machineId: string;
   runtimeId?: string;
-  stopSession: (sessionId: string) => Promise<StopSessionResult>;
+  stopSession: (sessionId: string, options?: StopSessionOptions) => Promise<StopSessionResult>;
   prepareStopSession?: (child: TrackedSession) => Promise<void> | void;
   spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>;
   resolveSpawnSessionByNonce?: (spawnNonce: string) => Promise<SpawnSessionNonceResolution> | SpawnSessionNonceResolution;
@@ -2275,6 +2336,7 @@ export function startDaemonControlServer({
     explicit?: 'standard' | 'off' | 'custom';
   }>) => Promise<'standard' | 'off' | 'custom'>;
   runtimeAuthRecoveryScheduler?: RuntimeAuthRecoverySchedulerForControlServer;
+  runtimeAuthFailureReportIntake?: (body: RuntimeAuthFailureReportBody) => Promise<RuntimeAuthFailureReportResult>;
   isShuttingDown?: () => boolean;
   handleConnectedServiceTurnLifecycle?: (
     input: ConnectedServiceTurnLifecycleRequestBody,
@@ -2353,6 +2415,7 @@ export function startDaemonControlServer({
       handleExecutionRunConnectedServiceMaterialize,
       handleExecutionRunConnectedServiceRelease,
       runtimeAuthRecoveryScheduler,
+      runtimeAuthFailureReportIntake,
       isShuttingDown,
       requestSelfRestart,
     });

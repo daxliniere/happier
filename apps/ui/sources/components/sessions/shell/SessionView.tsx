@@ -295,7 +295,7 @@ import {
 } from '@/components/sessions/attachments/sessionAttachmentDraftStore';
 import { formatAttachmentsBlock, uploadAttachmentDraftsToSession } from '@/components/sessions/attachments/uploadAttachmentDraftsToSession';
 import { buildAttachmentMessageMeta } from '@/components/sessions/attachments/buildAttachmentMessageMeta';
-import { mergeMessageMetaOverrides } from '@/components/sessions/agentInput/structuredInputMentions';
+import { mergeMessageMetaOverrides, readComposerStructuredInputMentionsFromMeta } from '@/components/sessions/agentInput/structuredInputMentions';
 import { Text } from '@/components/ui/text/Text';
 import { AppPaneScopeHost } from '@/components/appShell/panes/AppPaneScopeHost';
 import { useRegisterSessionPaneDriver } from '@/components/sessions/panes/useRegisterSessionPaneDriver';
@@ -1568,9 +1568,14 @@ export const SessionView = React.memo((props: SessionViewProps) => {
         ? props.surfaceFocusedOverride
         : routeFocused;
     const anchorPathname = useSurfaceAnchorPathname(pathname);
+    // Web retains every visit for Back/Forward, so a stack can hold several entries of one session.
+    // The pathname anchors a surface under an overlay or under its own sub-route, but on the session
+    // root another entry is focused and owns it: an unfocused entry there is only history, and
+    // rendering it mounted one more hidden surface per earlier visit (issue #864).
     const isRouteAnchor = typeof props.routeAnchorOverride === 'boolean'
         ? props.routeAnchorOverride
-        : isOwnedSessionRoutePathname(anchorPathname, sessionId);
+        : isOwnedSessionRoutePathname(anchorPathname, sessionId)
+            && (surfaceFocused || !isOwnedSessionRootPathname(pathname, sessionId));
     const shouldRenderSessionSurface = surfaceFocused || isRouteAnchor;
     const shouldRetainSessionSurface = Platform.OS === 'web' ? shouldRenderSessionSurface : true;
     const directSessionRuntime = useDirectSessionRuntime({
@@ -4435,11 +4440,11 @@ function SessionViewLoaded({
     const restorePendingEditComposerSnapshotIfSafe = React.useCallback((edit: PendingMessageComposerEditState) => {
         setDraftValue(edit.previousDraftText);
         restorePendingEditAttachmentDraftsIfSafe(edit);
-        restorePendingEditSemanticDraftsIfSafe(edit);
+        restoreSemanticDraftValuesFromSnapshot(edit.previousSemanticDraftSnapshot);
         inputComposerRestoreTransientStateRef.current(edit.previousTransientInputState);
     }, [
         restorePendingEditAttachmentDraftsIfSafe,
-        restorePendingEditSemanticDraftsIfSafe,
+        restoreSemanticDraftValuesFromSnapshot,
         setDraftValue,
     ]);
     const restorePendingEditNonTextComposerSnapshotIfSafe = React.useCallback((edit: PendingMessageComposerEditState) => {
@@ -4490,11 +4495,21 @@ function SessionViewLoaded({
         clearMountedArmedContinuationAfterAcceptedComposerClear();
         inputComposerClearTransientStateRef.current();
         setDraftValue(editText);
+        if (draftScope) {
+            const rawRecord = request.message.rawRecord;
+            existingSessionDraftSemanticValues.write(draftScope, sessionId, 'structuredInput.mentions',
+                readComposerStructuredInputMentionsFromMeta({
+                    meta: rawRecord && typeof rawRecord === 'object' && 'meta' in rawRecord ? rawRecord.meta : null,
+                    text: editText,
+                }));
+        }
     }, [
         captureComposerSemanticDraftSnapshot,
         captureDraftForOutboundHandoff,
         clearDraftCurrentness,
         composerTextStore,
+        draftScope,
+        sessionId,
         clearMountedArmedContinuationAfterAcceptedComposerClear,
         replaceSessionAttachmentDrafts,
         setDraftValue,
@@ -4579,13 +4594,23 @@ function SessionViewLoaded({
             });
             return readSessionConfigOptionOverridesState(nextMetadata);
         });
-        fireAndForget(sync.publishSessionAcpConfigOptionOverrideToMetadata({
-            sessionId,
-            configId,
-            value: valueId,
-            updatedAt,
-        }), { tag: 'SessionView.updateSessionConfigOptionOverride' });
-    }, [session.metadata, sessionId]);
+        fireAndForget((async () => {
+            const result = await actionExecutor.execute('session.config_option.set', {
+                sessionId, configId, valueId,
+            }, { surface: 'ui_button', defaultSessionId: sessionId });
+            const deferred = result.ok && result.result && typeof result.result === 'object'
+                && 'kind' in result.result && result.result.kind === 'approval_request_created';
+            if (!result.ok || deferred) {
+                setOptimisticSessionConfigOptionOverrides((current) => resolveNextOptimisticAcpConfigOptionOverrides({
+                    current,
+                    incoming: sessionConfigOptionOverrides,
+                    sessionChanged: false,
+                    rejected: { configId, updatedAt },
+                }) as typeof current);
+            }
+            if (!result.ok) throw new Error(result.error);
+        })(), { tag: 'SessionView.updateSessionConfigOptionOverride' });
+    }, [actionExecutor, session.metadata, sessionConfigOptionOverrides, sessionId]);
     const buildNextMessageMetaOverrides = React.useCallback((
         metaOverrides: Record<string, unknown> | undefined,
         destination: SessionComposerSendDestination,
@@ -5257,7 +5282,7 @@ function SessionViewLoaded({
             setIsComposerSendPending(true);
             fireAndForget((async () => {
                 try {
-                    await sync.updatePendingMessage(sessionId, activePendingEdit.pendingId, nextText);
+                    await sync.updatePendingMessage(sessionId, activePendingEdit.pendingId, nextText, sendOptions?.structuredInputMetaOverrides ?? {});
                     if (pendingMessageEditRef.current?.pendingId === activePendingEdit.pendingId) {
                         setPendingMessageEdit(null);
                         restorePendingEditComposerSnapshotIfSafe(activePendingEdit);

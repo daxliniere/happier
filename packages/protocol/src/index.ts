@@ -565,6 +565,8 @@ export {
   ProviderAccountSubjectRefV1Schema,
   ProviderAccountUsageConfidenceV1Schema,
   ProviderAccountUsageDiagnosticV1Schema,
+  getProviderAccountUsageRefreshErrorAt,
+  isProviderAccountUsageRefreshRequestSettled,
   ProviderAccountUsageQuotaScopeV1Schema,
   ProviderAccountUsageRecordIdSchema,
   ProviderAccountUsageRecordKeyV1Schema,
@@ -605,6 +607,7 @@ export {
   CONNECTED_SERVICE_AUTO_DISABLE_PLAN_INVALID_QUERY_KEY,
   CONNECTED_SERVICE_POOL_QUOTA_LIMIT_SELECTION_QUERY_KEY,
   CONNECTED_SERVICE_POOL_EXPIRY_FIRST_QUERY_KEY,
+  CONNECTED_SERVICE_CLAUDE_AUTO_CONTINUE_QUERY_KEY,
   CONNECTED_SERVICE_AUTH_GROUP_READER_CAPABILITY_QUERY_VALUE,
   ConnectedServiceAuthGroupReaderCapabilitiesQueryV1Schema,
   appendConnectedServiceAuthGroupReaderCapabilities,
@@ -1337,11 +1340,13 @@ export {
 } from './mcpServers/resolveEffectiveServersV1.js';
 export {
   areSessionMcpSelectionsEquivalent,
+  isSessionHappierToolsEnabled,
   parseSessionMcpSelectionV1Json,
   readSessionMcpSelectionRestartRequiredV1FromMetadata,
   readSessionMcpSelectionV1FromMetadata,
   SessionMcpSelectionRestartRequiredV1Schema,
   SessionMcpSelectionV1Schema,
+  SessionMcpSelectionV1InputSchema,
   type SessionMcpSelectionRestartRequiredV1,
   type SessionMcpSelectionV1,
 } from './mcpServers/sessionSelectionV1.js';
@@ -1653,6 +1658,13 @@ export {
 
 export { SENT_FROM_VALUES, SentFromSchema, createSentFromSchema, type SentFrom } from './sentFrom.js';
 export {
+    HAPPIER_SESSION_MESSAGE_PROVENANCE_META_KEY,
+    SessionMessageProvenanceV1Schema,
+    readSessionMessageProvenanceV1,
+    renderSessionMessageProvenanceContextV1,
+    type SessionMessageProvenanceV1,
+} from './sessionMessages/sessionMessageProvenance.js';
+export {
   AuthStatusEnvelopeSchema,
   AuthStatusResultSchema,
   SessionControlEnvelopeBaseSchema,
@@ -1749,6 +1761,7 @@ export {
   SESSION_USAGE_LIMIT_RECOVERY_OPERATION_RESULT_ERROR_STATUSES_V1,
   SESSION_USAGE_LIMIT_RECOVERY_OPERATION_RESULT_OK_STATUSES_V1,
   SESSION_USAGE_LIMIT_RECOVERY_STATE_FIELD_ID,
+  SESSION_USAGE_LIMIT_RECOVERY_STOPPED_PROBE_ERROR,
   TurnTerminalStatusV1Schema,
   V2SessionByIdNotFoundSchema,
   V2SessionByIdResponseSchema,
@@ -1821,6 +1834,7 @@ export {
   type SessionUsageLimitRecoveryV1,
   buildUsageLimitIssueFingerprint,
   isSessionUsageLimitRecoveryForIssue,
+  isSessionUsageLimitRecoveryStoppedByPolicy,
   readSessionUsageLimitRecoveryForIssue,
   type TurnTerminalStatusV1,
   type V2SessionByIdNotFound,
@@ -2005,6 +2019,8 @@ export {
   type NativeSessionAliasAssignmentV1,
   type NativeSessionAliasesV1,
 } from './sessionMetadata/nativeSessionAliasesV1.js';
+
+export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
 
 export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
 
@@ -3606,6 +3622,12 @@ export {
   BUG_REPORT_FALLBACK_MAX_LABEL_LENGTH,
   buildBugReportFallbackIssueUrl,
   buildBugReportExportBundle,
+  BugReportLogSelectionSchema,
+  BugReportSessionDiagnosticsSchema,
+  resolveBugReportLogSelection,
+  BUG_REPORT_LOG_SOURCE_KINDS,
+  type BugReportLogSelection,
+  type BugReportSessionDiagnostics,
   formatBugReportFallbackIssueBody,
   appendBugReportReporterToSummary,
   hasAcceptedBugReportArtifactKind,
@@ -3661,6 +3683,7 @@ export {
   EnvironmentVariableSchema,
   SavedSecretSchema,
   getBuiltInBackendProfile,
+  getProfileDefaultBackendTarget,
   getRequiredConfigEnvVarNames,
   getMissingRequiredConfigEnvVarNames,
   getProfileEnvironmentVariables,

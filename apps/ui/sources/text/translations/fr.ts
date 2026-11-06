@@ -1393,7 +1393,39 @@ export const fr: TranslationStructure = {
     },
 
     bugReports: {
+        reportSession: "Signaler un problème avec cette session",
+        sessionPickerTitle: "Session liée",
+        sessionPickerSubtitle: "Choisis la session concernée par ce rapport.",
+        sessionPickerSearchPlaceholder: "Rechercher des sessions",
+        sessionPickerNoResults: "Aucune session correspondante",
+        noRelatedSession: "Aucune session liée",
         composer: {
+            scopeChanged: "Le compte sélectionné a changé. Choisis à nouveau la session avant de joindre les diagnostics.",
+            addMoreDetails: "Ajouter des détails (optionnel)",
+            technicalInformation: "Informations techniques",
+            relatedSession: "Session liée (optionnel)",
+            chooseSession: "Choisir une session",
+            changeSession: "Changer de session",
+            removeSession: "Retirer la session",
+            selectedSession: "Session sélectionnée",
+            logOptions: {
+                daemonTitle: "Logs de l’app et du daemon",
+                daemonDetail: "Activité de l’app et logs de connexion de l’ordinateur et du serveur sélectionnés.",
+                sessionTitle: "Logs de session Happier",
+                sessionDetail: "Activité de la session qui nous aide à examiner ce problème.",
+                providerTitle: "Transcription du provider",
+                providerDetail: "Transcription de la session du provider, si nécessaire.",
+                technicalOnly: "Informations techniques uniquement",
+                technicalOnlyDetail: "Exclure tous les logs bruts de ce rapport.",
+            },
+            collection: {
+                collected: "Joints",
+                unavailable: "Indisponibles",
+                disabled: "Non inclus",
+                unsupported: "Mets à jour la CLI pour joindre ces logs",
+                skipped: "Ignorés",
+                error: "Collecte impossible",
+            },
             alerts: {
                 previewUnavailableTitle: 'Aperçu indisponible',
                 previewUnavailableBody: 'Impossible de construire l’aperçu des diagnostics.',
@@ -1449,13 +1481,13 @@ export const fr: TranslationStructure = {
             },
             issueDetails: {
                 title: 'Décris le problème',
-                subtitle: 'Donne assez de détails pour qu’on puisse reproduire et diagnostiquer vite.',
+                subtitle: "Un titre et une courte description suffisent pour commencer.",
                 titleLabel: 'Titre (obligatoire)',
                 titlePlaceholder: 'Titre court du problème',
                 githubUsernameLabel: 'Nom d’utilisateur GitHub (optionnel)',
                 githubUsernamePlaceholder: 'Utilisé comme contact dans le corps de l’issue',
-                summaryLabel: 'Résumé concis (obligatoire)',
-                summaryPlaceholder: 'Résumé en un paragraphe',
+                summaryLabel: "Que s’est-il passé ? (obligatoire)",
+                summaryPlaceholder: "Raconte-nous ce qui n’a pas fonctionné.",
                 currentBehaviorLabel: 'Comportement actuel (optionnel)',
                 currentBehaviorPlaceholder: 'Que se passe-t-il réellement ?',
                 expectedBehaviorLabel: 'Comportement attendu (optionnel)',
@@ -1510,9 +1542,9 @@ export const fr: TranslationStructure = {
                 },
             },
             consent: {
-                title: 'Consentement',
-                understandTitle: 'Je comprends que les diagnostics peuvent inclure des métadonnées techniques',
-                understandSubtitle: 'N’inclus pas de mots de passe, de tokens d’accès ni de clés privées.',
+                title: "Avant l’envoi",
+                understandTitle: "Partager ce rapport et les diagnostics sélectionnés",
+                understandSubtitle: "Le texte du rapport est public. Les pièces jointes de diagnostic sont envoyées en privé aux mainteneurs de Happier. Les logs de session peuvent contenir des extraits de conversation.",
             },
             submit: {
                 requiredFieldsHint: 'Complète les champs obligatoires pour pouvoir envoyer.',
@@ -2952,6 +2984,8 @@ export const fr: TranslationStructure = {
                 membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} activés`,
                 optionsTitle: 'Options',
                 autoSwitchTitle: 'Repli automatique',
+                claudeCodeAutoContinueAtUsageLimitTitle: "Laisser Claude attendre aux limites d’utilisation",
+                claudeCodeAutoContinueAtUsageLimitSubtitle: "Pour les nouvelles sessions, Claude attend et reprend automatiquement après la réinitialisation de la limite. Désactivez pour confier la reprise à Happier.",
                 autoQuotaResetTitle: "Utiliser automatiquement les resets de quota",
                 autoQuotaResetSubtitle: "Utilise un reset disponible uniquement si aucun compte du pool n’est prêt et que son quota épuisé peut être réinitialisé. Désactivé par défaut.",
                 autoDisablePlanInvalidTitle: "Désactiver les comptes incompatibles avec le modèle sélectionné",
@@ -4648,6 +4682,8 @@ export const fr: TranslationStructure = {
     },
 
     errors: {
+        quotaRefreshFailed: "Impossible d’actualiser l’utilisation. Réessaie.",
+        quotaRefreshRetryAt: ({ time }: { time: string }) => `Impossible d’actualiser l’utilisation. Réessaie après ${time}.`,
         machineRpcDecryptionFailed: "Impossible de déchiffrer les données de cette machine. Connecte-toi avec la clé de compte correspondante et réessaie.",
         machineRpcContextUnavailable: "La connexion à cette machine est indisponible. Actualise tes machines et réessaie.",
         networkError: 'Erreur réseau',
@@ -5168,6 +5204,7 @@ export const fr: TranslationStructure = {
             readyTitle: 'Limite d’utilisation réinitialisée',
             resetBody: ({ time }: { time: string }) => `Ce provider demande à la session d’attendre jusqu’à ${time} avant de continuer.`,
             genericBody: 'Ce provider demande à la session d’attendre avant de continuer.',
+            stoppedBody: 'La récupération automatique s’est arrêtée et ne réessaiera pas d’elle-même. Réessayez ci-dessous.',
             resetCreditBody: ({ count }: { count: number }) => `${count} ${count === 1 ? 'réinitialisation de quota' : 'réinitialisations de quota'} en attente.`,
             resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) => `${count} ${count === 1 ? 'réinitialisation de quota' : 'réinitialisations de quota'} en attente ; la prochaine expire ${time}.`,
             readyBody: 'Tu peux reprendre cette session maintenant.',
@@ -7050,7 +7087,10 @@ export const fr: TranslationStructure = {
         },
         askUserQuestion: {
             submit: 'Envoyer la réponse',
+            dismiss: 'Ignorer la question',
+            dismissed: 'Question ignorée',
             submissionFailures: {
+                unconfirmed: "La validation a été envoyée à Claude, mais la confirmation est encore en attente. Réessayez pour vérifier ou ouvrez le terminal Claude.",
                 update: 'Mets à jour le CLI Happier, puis réessaie.',
                 reconnect: 'Reconnecte cette session, puis réessaie.',
                 retry: 'La réponse n’a pas pu être acceptée. Vérifie-la et réessaie.',
@@ -10364,6 +10404,8 @@ settingsSession: {
     },
 
     message: {
+        provenanceFrom: ({ source }: { source: string }) => `De ${source}`,
+        provenanceSession: 'Session',
         sessionReferenceUnavailable: 'Session indisponible',
         sessionReferenceOpen: ({ name }: { name: string }) => `Ouvrir la session ${name}`,
         switchedToMode: ({ mode }: { mode: string }) => `Mode ${mode} activé`,
@@ -10411,7 +10453,7 @@ settingsSession: {
     chatFooter: {
         permissionsTerminalOnly: 'Les permissions ne s’affichent que dans le terminal. Réinitialise ou envoie un message pour piloter depuis l’app.',
         sessionRunningLocally: 'Cette session tourne localement sur cet ordinateur. Tu peux passer en distant pour la piloter depuis l’app.',
-        sessionRunningLocallyAndRemotely: 'Cette session est attachée localement dans OpenCode et reste pilotable depuis l’app.',
+        sessionRunningLocallyAndRemotely: 'Cette session est attachée localement et reste pilotable depuis l’app.',
         switchingToRemote: 'Passage en mode distant…',
         switchToRemote: 'Passer en distant',
         detachLocalTerminal: 'Détacher le terminal',
@@ -10768,6 +10810,7 @@ settingsSession: {
         enterTmuxTempDir: 'Saisis le chemin du répertoire temporaire',
         tmuxUpdateEnvironment: 'Mettre à jour l’environnement automatiquement',
         nameRequired: 'Le nom du profil est obligatoire',
+        invalidProfile: 'Vérifiez le nom du profil, les variables d’environnement et les valeurs par défaut avant d’enregistrer.',
         deleteConfirm: ({ name }: { name: string }) => `Veux-tu vraiment supprimer le profil "${name}"?`,
         editProfile: 'Modifier le profil',
         addProfileTitle: 'Nouveau profil',
@@ -10902,6 +10945,13 @@ settingsSession: {
                 plan: 'Planifier avant d’exécuter',
                 bypassPermissions: 'Ignorer toutes les permissions',
             },
+        },
+        defaultBackend: {
+            title: 'Backend d\'IA par défaut',
+            footer: 'Démarre les nouvelles sessions sur ce backend lorsque le profil est sélectionné et qu\'aucun autre backend n\'est choisi.',
+            noneTitle: 'Aucun backend par défaut',
+            noneSubtitle: 'Happier choisit le backend comme d\'habitude.',
+            selectedSubtitle: 'Utilisé lors du démarrage d\'une session avec ce profil.',
         },
         defaultPermissions: {
             title: 'Permissions par défaut',

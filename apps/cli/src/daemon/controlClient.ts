@@ -61,6 +61,7 @@ import {
   type SessionRunnerRuntimeStateV1,
   type SessionRunnerStatusGetRequestV1,
   type SpawnSessionNonceResolution,
+  type StopSessionRequestSource,
 } from '@happier-dev/protocol';
 import {
   StopSessionResultSchema,
@@ -578,6 +579,7 @@ export async function notifyDaemonConnectedServiceTurnLifecycle(
     ...(body.turnId ? { turnId: body.turnId } : {}),
     ...(body.requestedAction ? { requestedAction: body.requestedAction } : {}),
     ...(body.activeTurnId !== undefined ? { activeTurnId: body.activeTurnId } : {}),
+    ...(body.providerIdentity ? { providerIdentity: body.providerIdentity } : {}),
   }, options);
   if (
     response
@@ -837,9 +839,10 @@ export async function listDaemonSessions(): Promise<any[]> {
 
 export async function stopDaemonSession(
   sessionId: string,
-  options: DaemonControlRequestOptions = {},
+  options: DaemonControlRequestOptions & { source?: StopSessionRequestSource } = {},
 ): Promise<StopSessionResult> {
-  const result = await daemonPost('/stop-session', { sessionId }, options);
+  const { source, ...requestOptions } = options;
+  const result = await daemonPost('/stop-session', { sessionId, ...(source ? { source } : {}) }, requestOptions);
   return StopSessionResultSchema.parse(result);
 }
 

@@ -1,3 +1,4 @@
+import type { ConnectedServiceQuotaReadMetadata } from '@/sync/api/account/connectedServiceQuotaReadMetadata';
 import { getConnectedServiceCredentialSealed } from '@/sync/api/account/apiConnectedServicesV2';
 import { getConnectedServiceCredentialPlain } from '@/sync/api/account/apiConnectedServicesV3';
 import { resolveAccountScopedCryptoMaterialFromCredentials } from '@/sync/domains/connectedServices/resolveAccountScopedCryptoMaterialFromCredentials';
@@ -54,7 +55,7 @@ export type QuotaSnapshotStoreEntry = Readonly<{
     snapshot: ConnectedServiceQuotaSnapshotV1 | null;
     loading: boolean;
     error: string | null;
-    /** True until the requested refresh produces a newer snapshot, fails, or is cancelled. */
+    /** True until the server settles the requested refresh, a read fails, or it is cancelled. */
     refreshing: boolean;
 }>;
 
@@ -90,7 +91,7 @@ type InternalEntry = {
     consecutiveErrors: number;
     loadPromise: Promise<ConnectedServiceQuotaSnapshotV1 | null> | null;
     refreshPromise: Promise<void> | null;
-    refreshSinceFetchedAt: number | null;
+    refreshAccepted: boolean;
     pollRetainCount: number;
     pollTimer: ReturnType<typeof setTimeout> | null;
     pollContext: QuotaSnapshotLoadContext | null;
@@ -136,7 +137,7 @@ function getOrCreateEntry(key: string): InternalEntry {
         consecutiveErrors: 0,
         loadPromise: null,
         refreshPromise: null,
-        refreshSinceFetchedAt: null,
+        refreshAccepted: false,
         pollRetainCount: 0,
         pollTimer: null,
         pollContext: null,
@@ -325,6 +326,8 @@ async function runLoad(key: string, ctx: QuotaSnapshotLoadContext): Promise<Conn
         publish(key, entry);
         const requiresOrganization = connectedServiceUsageRequiresOrganizationId(ctx.serviceId);
         let organizationContext: ProviderAccountUsageOrganizationContext | null = null;
+        let readMetadata: ConnectedServiceQuotaReadMetadata | null = null;
+        let opened: ConnectedServiceQuotaSnapshotV1 | null = null;
         try {
             const mode = await ctx.resolveAccountMode();
             if (!isCurrentEntry()) return null;
@@ -339,12 +342,13 @@ async function runLoad(key: string, ctx: QuotaSnapshotLoadContext): Promise<Conn
                 }
             }
 
-            let opened: ConnectedServiceQuotaSnapshotV1 | null = null;
             if (mode === 'plain') {
-                opened = await getConnectedServiceQuotaSnapshotPlain(ctx.credentials, {
+                const result = await getConnectedServiceQuotaSnapshotPlain(ctx.credentials, {
                     serviceId: ctx.serviceId,
                     profileId: ctx.profileId,
                 });
+                opened = result?.snapshot ?? null;
+                readMetadata = result?.metadata ?? null;
             }
 
             if (!isCurrentEntry()) return null;
@@ -353,6 +357,7 @@ async function runLoad(key: string, ctx: QuotaSnapshotLoadContext): Promise<Conn
                     serviceId: ctx.serviceId,
                     profileId: ctx.profileId,
                 });
+                readMetadata = sealed?.metadata ?? null;
                 opened = sealed
                     ? openConnectedServiceQuotaViewSnapshot(ctx.credentials, sealed.sealed, {
                         serviceId: ctx.serviceId,
@@ -378,6 +383,13 @@ async function runLoad(key: string, ctx: QuotaSnapshotLoadContext): Promise<Conn
                 opened = subscription === previous.subscription ? previous : { ...previous, subscription };
             }
             entry.snapshot = opened ?? (entry.refreshing ? entry.snapshot : null);
+            if (opened && readMetadata?.status === 'error' && readMetadata.refreshRequestedAt === undefined) {
+                const retryAfter = opened.evidence?.headers?.['retry-after'];
+                const retryAt = typeof retryAfter === 'string' ? Date.parse(retryAfter) : NaN;
+                entry.error = Number.isFinite(retryAt) && retryAt > Date.now()
+                    ? t('errors.quotaRefreshRetryAt', { time: new Date(retryAt).toLocaleString() })
+                    : t('errors.quotaRefreshFailed');
+            }
             entry.consecutiveErrors = 0;
             entry.nextFetchAtMs = computeNextFetchAtMs(opened);
             return opened;
@@ -391,12 +403,14 @@ async function runLoad(key: string, ctx: QuotaSnapshotLoadContext): Promise<Conn
         } finally {
             if (isCurrentEntry()) {
                 entry.loading = false;
-                if (entry.refreshSinceFetchedAt !== null) {
-                    if (entry.error || (entry.snapshot && entry.snapshot.fetchedAt > entry.refreshSinceFetchedAt)) {
+                if (entry.refreshAccepted) {
+                    // Only a real, opened read can attest that the server's lifecycle marker cleared.
+                    if (entry.error || (opened && readMetadata && readMetadata.refreshRequestedAt === undefined)) {
                         entry.refreshing = false;
-                        entry.refreshSinceFetchedAt = null;
+                        entry.refreshAccepted = false;
                     } else {
-                        // An accepted refresh is still pending, regardless of the old snapshot's freshness.
+                        // This owner has no daemon-presence fact. Keep the server's request pending;
+                        // elapsed UI time cannot establish whether a provider attempt has finished.
                         entry.nextFetchAtMs = Date.now() + QUOTA_SNAPSHOT_POLL_MS;
                     }
                 }
@@ -444,7 +458,7 @@ export function retainQuotaSnapshotPolling(key: string, ctx: QuotaSnapshotLoadCo
         if (current.pollRetainCount === 0) {
             current.pollContext = null;
             clearPollTimer(current);
-            current.refreshSinceFetchedAt = null;
+            current.refreshAccepted = false;
             current.refreshing = false;
             publish(key, current);
         }
@@ -469,11 +483,8 @@ export async function refreshQuotaSnapshot(key: string, ctx: QuotaSnapshotLoadCo
     const promise = Promise.resolve(previousRefresh).then(async () => {
         // A new intent waits for the cancelled request without inheriting its completion.
         if (entry.refreshPromise !== promise || !entry.refreshing || !isCurrentEntry()) return;
-        const inFlightFetchedAt = (await entry.loadPromise
-            ?.then((snapshot) => snapshot?.fetchedAt ?? 0)
-            .catch(() => 0)) ?? 0;
+        await entry.loadPromise;
         if (entry.refreshPromise !== promise || !isCurrentEntry() || !entry.refreshing) return;
-        entry.refreshSinceFetchedAt = Math.max(entry.snapshot?.fetchedAt ?? 0, inFlightFetchedAt);
         try {
             const mode = await ctx.resolveAccountMode();
             if (entry.refreshPromise !== promise || !isCurrentEntry() || !entry.refreshing) return;
@@ -485,11 +496,16 @@ export async function refreshQuotaSnapshot(key: string, ctx: QuotaSnapshotLoadCo
             }
             if (!ok) throw new Error(t('common.error'));
             if (entry.refreshPromise !== promise || !isCurrentEntry() || !entry.refreshing) return;
+            // A consumer may have started a read while the POST was pending. Its
+            // pre-request metadata cannot attest that this accepted refresh settled.
+            await entry.loadPromise;
+            if (entry.refreshPromise !== promise || !isCurrentEntry() || !entry.refreshing) return;
+            entry.refreshAccepted = true;
             await runLoad(key, ctx);
         } catch (error) {
             if (entry.refreshPromise !== promise || !isCurrentEntry() || !entry.refreshing) return;
             entry.error = sanitizeEndpointErrorMessage(error) ?? t('common.error');
-            entry.refreshSinceFetchedAt = null;
+            entry.refreshAccepted = false;
             entry.refreshing = false;
         }
     });
@@ -501,7 +517,7 @@ export async function refreshQuotaSnapshot(key: string, ctx: QuotaSnapshotLoadCo
         if (entries.get(key) === entry && entry.refreshPromise === promise) {
             entry.refreshPromise = null;
             if (!isCurrentEntry() || entry.pollRetainCount === 0) {
-                entry.refreshSinceFetchedAt = null;
+                entry.refreshAccepted = false;
                 entry.refreshing = false;
             }
             publish(key, entry);

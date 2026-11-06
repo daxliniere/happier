@@ -49,8 +49,11 @@ function loadDefaultPrismaClientModule(): typeof import("@prisma/client") {
  * Runtime callers must use this sidecar-aware CommonJS loader instead of a
  * named ESM import from `@prisma/client`; packaged server builds externalize
  * Prisma and cannot rely on named-import interop from its generated module.
+ * Generated providers own their null sentinels, so initialization updates this
+ * live binding together with the active client.
  */
-export const prismaRuntime: typeof import("@prisma/client").Prisma = loadDefaultPrismaClientModule().Prisma;
+const defaultPrismaRuntime = loadDefaultPrismaClientModule().Prisma;
+export let prismaRuntime: typeof import("@prisma/client").Prisma = defaultPrismaRuntime;
 
 function createDefaultPrismaClient(): PrismaClientType {
     const { PrismaClient } = loadDefaultPrismaClientModule();
@@ -111,6 +114,7 @@ export function resolvePreferredGeneratedClientEntrypoint(
 }
 
 let _db: PrismaClientType | null = null;
+let _sqliteReadinessClient: PrismaClientType | null = null;
 let _pglite: PGlite | null = null;
 let _pgliteServer: PGLiteSocketServer | null = null;
 let _provider: DbProvider | null = null;
@@ -189,10 +193,13 @@ async function initDbFromGeneratedClient(provider: "mysql" | "sqlite"): Promise<
         throw new Error("Database client is already initialized.");
     }
     _provider = provider;
-    _db = await createGeneratedPrismaClient(provider);
+    const mod = await loadGeneratedPrismaClientModule(provider);
+    const client = new mod.PrismaClient();
+    prismaRuntime = mod.Prisma;
+    _db = client;
 }
 
-async function createGeneratedPrismaClient(provider: "mysql" | "sqlite"): Promise<PrismaClientType> {
+async function loadGeneratedPrismaClientModule(provider: "mysql" | "sqlite"): Promise<Pick<typeof import("@prisma/client"), "Prisma" | "PrismaClient">> {
     const entrypoint =
         provider === "mysql"
             ? resolveGeneratedClientEntrypoint("../../generated/mysql-client")
@@ -211,14 +218,15 @@ async function createGeneratedPrismaClient(provider: "mysql" | "sqlite"): Promis
         }
         throw err;
     }
-    if (!mod?.PrismaClient) {
+    if (!mod?.PrismaClient || !mod?.Prisma) {
         throw new Error(`Invalid generated Prisma client module: ${entrypoint}`);
     }
-    return new mod.PrismaClient() as PrismaClientType;
+    return mod;
 }
 
 export async function createDbSqliteMaintenanceClient(): Promise<PrismaClientType> {
-    return createGeneratedPrismaClient("sqlite");
+    const mod = await loadGeneratedPrismaClientModule("sqlite");
+    return new mod.PrismaClient();
 }
 
 export async function initDbMysql(): Promise<void> {
@@ -231,6 +239,7 @@ export async function initDbSqlite(): Promise<void> {
         throw new Error("Database client is not initialized after initDbFromGeneratedClient(sqlite).");
     }
     await applySqliteRuntimePragmas(_db, process.env);
+    _sqliteReadinessClient = await createDbSqliteMaintenanceClient();
     const diagnostics = resolveSqliteStartupDiagnosticsFromEnv(process.env);
     log(
         { module: "storage", event: "sqlite-startup-diagnostics", sqlite: diagnostics },
@@ -462,13 +471,34 @@ export async function applySqliteRuntimePragmas(client: PrismaClientType, env: N
     await client.$queryRawUnsafe(`PRAGMA journal_size_limit=${pragmas.journalSizeLimitBytes};`);
 }
 
+// Readiness checks the database on its own SQLite connection. The server-light app pool
+// is deliberately a single connection, so one slow application read would otherwise queue
+// the probe behind it (#832). Reading `sqlite_master` opens a read transaction on the file,
+// so an unreadable or non-database file fails the probe; SQLite answers `SELECT 1` without
+// touching the file. Other providers keep `SELECT 1` on the app pool.
+export async function probeDbReadiness(): Promise<void> {
+    if (_sqliteReadinessClient) {
+        await _sqliteReadinessClient.$queryRawUnsafe("SELECT count(*) FROM sqlite_master;");
+        return;
+    }
+    await db.$queryRaw`SELECT 1`;
+}
+
+export async function disconnectDbReadinessProbe(): Promise<void> {
+    const readinessClient = _sqliteReadinessClient;
+    _sqliteReadinessClient = null;
+    await readinessClient?.$disconnect();
+}
+
 export async function shutdownDbClient(): Promise<void> {
     if (_pglite || _pgliteServer || _provider === "pglite") {
         throw new Error("shutdownDbClient() cannot shut down PGlite; call shutdownDbPglite() instead");
     }
+    await disconnectDbReadinessProbe();
     const client = _db;
     _db = null;
     _provider = null;
+    prismaRuntime = defaultPrismaRuntime;
     if (client) {
         await client.$disconnect();
     }
@@ -481,6 +511,7 @@ export async function shutdownDbPglite(): Promise<void> {
     const client = _db;
     _db = null;
     _provider = null;
+    prismaRuntime = defaultPrismaRuntime;
     if (client) {
         await client.$disconnect();
     }

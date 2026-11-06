@@ -1182,6 +1182,138 @@ describe('runCodex CodexACP resume behavior', () => {
     ]);
   });
 
+  describe('Codex startup failures before any provider turn', () => {
+    type FailMutation = Readonly<{ action: 'fail'; turnId: string; issue?: Record<string, unknown> }>;
+
+    function installLifecycleBackedSession(): { mutations: Array<Record<string, unknown>> } {
+      const mutations: Array<Record<string, unknown>> = [];
+      let nextTurnId = 0;
+      initializeBackendRunSessionSpy.mockImplementationOnce(async (opts: any) => {
+        const initialized = await initializeDefaultBackendRunSession(opts);
+        initialized.session.sessionTurnLifecycle = createSessionTurnLifecycle({
+          sessionId: initialized.session.sessionId,
+          createId: () => `startup-failure-${++nextTurnId}`,
+          now: () => 123,
+          enqueueSessionTurn: async (mutation) => {
+            mutations.push(mutation);
+          },
+        });
+        return initialized;
+      });
+      return { mutations };
+    }
+
+    function installAppServerRuntime(overrides: Record<string, unknown>): void {
+      resolveRunnerMcpServersSpy.mockImplementationOnce(async () => ({
+        happierMcpServer: { url: 'http://127.0.0.1:0', stop: vi.fn() },
+        mcpServers: {},
+      }));
+      createCodexAppServerRuntimeSpy.mockImplementationOnce(() => ({
+        ...createDefaultCodexAppServerRuntimeMock(),
+        ...overrides,
+      }));
+    }
+
+    function queueUserMessages(count: number): void {
+      let waitCallCount = 0;
+      sessionInputConsumerWaitForNextInputImpl = async () => {
+        waitCallCount += 1;
+        if (waitCallCount > count) return null;
+        return {
+          message: `prompt ${waitCallCount}`,
+          mode: { permissionMode: 'default', permissionModeUpdatedAt: 1 },
+          isolate: false,
+          hash: `hash-startup-failure-${waitCallCount}`,
+        };
+      };
+    }
+
+    async function runRemoteCodex(extra: Record<string, unknown> = {}): Promise<{ ok: boolean; error?: unknown }> {
+      const { runCodex } = await import('./runCodex');
+      return await runCodex({
+        credentials: { token: 'test' } as Credentials,
+        startedBy: 'terminal',
+        startingMode: 'remote',
+        codexBackendMode: 'appServer',
+        permissionMode: 'default',
+        permissionModeUpdatedAt: 1,
+        ...extra,
+      } as any)
+        .then(() => ({ ok: true }))
+        .catch((error: unknown) => ({ ok: false, error }));
+    }
+
+    function readFailMutations(mutations: ReadonlyArray<Record<string, unknown>>): FailMutation[] {
+      return mutations.filter((mutation): mutation is FailMutation => mutation.action === 'fail');
+    }
+
+    function readEmittedSessionMessages(): string[] {
+      return (lastSessionClient?.sendSessionEvent as ReturnType<typeof vi.fn> | undefined)?.mock.calls
+        .map((call) => call[0]?.message)
+        .filter((message): message is string => typeof message === 'string') ?? [];
+    }
+
+    it('surfaces a non-missing-CLI startup failure as exactly one classified failed turn', async () => {
+      const { mutations } = installLifecycleBackedSession();
+      installAppServerRuntime({
+        startOrLoad: vi.fn(async () => {
+          throw new Error('Codex app-server initialize failed: handshake closed');
+        }),
+      });
+      queueUserMessages(1);
+
+      const outcome = await runRemoteCodex();
+
+      expect(outcome).toMatchObject({ ok: true });
+      const failures = readFailMutations(mutations);
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toEqual(expect.objectContaining({
+        provider: 'codex',
+        issue: expect.objectContaining({ scope: 'primary_session', status: 'failed' }),
+      }));
+      // The classified failed turn carries the error; the raw status message would only duplicate it.
+      expect(readEmittedSessionMessages().some((message) => message.startsWith('Codex process error:'))).toBe(false);
+    });
+
+    it('settles an ACP startup failure through the ACP runtime failTurn owner', async () => {
+      resolveRunnerMcpServersSpy.mockImplementationOnce(async () => ({
+        happierMcpServer: { url: 'http://127.0.0.1:0', stop: vi.fn() },
+        mcpServers: {},
+      }));
+      const startupFailure = new Error('Codex ACP initialize failed');
+      const failTurn = vi.fn(async () => true);
+      createCodexAcpRuntimeSpy.mockImplementationOnce(() => ({
+        getSessionId: () => null,
+        supportsInFlightSteer: () => false,
+        isTurnInFlight: () => false,
+        beginTurn: vi.fn(),
+        cancel: vi.fn(async () => {}),
+        reset: vi.fn(async () => {}),
+        startOrLoad: vi.fn(async () => {
+          throw startupFailure;
+        }),
+        setSessionMode: vi.fn(async () => {}),
+        setSessionModel: vi.fn(async () => {}),
+        setSessionConfigOption: vi.fn(async () => {}),
+        steerPrompt: vi.fn(async () => {}),
+        sendPrompt: vi.fn(async () => {}),
+        sendPromptWithMeta: vi.fn(async () => {}),
+        compactContext: vi.fn(async () => {}),
+        failTurn,
+        flushTurn: vi.fn(async () => {}),
+        rollbackConversation: vi.fn(async () => ({ ok: false, errorCode: 'unsupported_action', errorMessage: 'unsupported' })),
+      }));
+      queueUserMessages(1);
+
+      const outcome = await runRemoteCodex({ codexBackendMode: 'acp' });
+
+      expect(outcome).toMatchObject({ ok: true });
+      expect(failTurn).toHaveBeenCalledTimes(1);
+      expect(failTurn).toHaveBeenCalledWith(startupFailure);
+      expect(readEmittedSessionMessages().some((message) => message.startsWith('Codex process error:'))).toBe(false);
+    });
+  });
+
   it('explains an active Codex writer instead of suggesting that app-server cannot run', async () => {
     resolveRunnerMcpServersSpy.mockImplementationOnce(async () => ({
       happierMcpServer: { url: 'http://127.0.0.1:0', stop: vi.fn() },
@@ -2206,6 +2338,7 @@ describe('runCodex CodexACP resume behavior', () => {
     expect(providerInputOutcomeObserverMock).toHaveBeenCalledWith({
       kind: 'accepted',
       localId: 'codex-compact-63',
+      delivery: { kind: 'command' },
     });
   });
 
@@ -2275,6 +2408,7 @@ describe('runCodex CodexACP resume behavior', () => {
     expect(providerInputOutcomeObserverMock).toHaveBeenCalledWith({
       kind: 'accepted',
       localId: 'codex-clear-64',
+      delivery: { kind: 'command' },
     });
   });
 
@@ -2982,6 +3116,7 @@ describe('runCodex CodexACP resume behavior', () => {
       kind: 'accepted',
       localId: 'local-user-message-mode-change',
       providerTurnId: 'turn-app-server-mode-steer',
+      delivery: { kind: 'primary_turn' },
     });
     expect(appServerRuntime.sendPrompt).not.toHaveBeenCalled();
     expect(outcome.ok).toBe(false);
@@ -3393,6 +3528,7 @@ describe('runCodex CodexACP resume behavior', () => {
       kind: 'accepted',
       localId: 'pending-local-provider-claim',
       providerTurnId: 'turn-provider-owned-pending',
+      delivery: { kind: 'primary_turn' },
     });
   });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { mkdtemp, readFile, rm, stat, unlink } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as childProcess from 'child_process';
@@ -29,6 +30,10 @@ import type { SessionHookData } from '../utils/startHookServer';
 import { createDeferred } from '@/testkit/async/deferred';
 import { resolveClaudeRemoteLaunchErrorDisposition } from '../claudeRemoteLauncher';
 import { createSessionRuntimeActivity } from '@/session/runtimeActivity/createSessionRuntimeActivity';
+import { createFakeControlPort } from './tuiControls/fakeControlPort';
+import { resolveTerminalPromptWriteBudget } from '@/agent/runtime/terminal/injection/promptWriteTimeout';
+import { ClaudeUnifiedTerminalHostDeadError } from './createClaudeUnifiedController';
+import { isClaudeUnifiedTerminalRuntimeIssueError } from './surfaceClaudeUnifiedTerminalRuntimeIssue';
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
@@ -103,6 +108,58 @@ function baseOptions(
 }
 
 describe('runClaudeUnifiedTerminalSession launch disposition', () => {
+  it.each([
+    { menuVisible: true, closes: true, applications: 2 },
+    { menuVisible: false, closes: true, applications: 2 },
+    { menuVisible: true, closes: false, applications: 2 },
+    { menuVisible: true, closes: true, applications: 0 },
+  ])('releases the usage menu once at injection after concurrent exact applications (visible: $menuVisible, closes: $closes, applications: $applications)', async ({ menuVisible, closes, applications }) => {
+    const menu = readFileSync(new URL('./tuiControls/__fixtures__/incident-89861-ratelimit-resume.ansi', import.meta.url), 'utf8');
+    const idle = readFileSync(new URL('./tuiControls/__fixtures__/healthy-92862-idle.ansi', import.meta.url), 'utf8');
+    let visible = menuVisible;
+    const port = createFakeControlPort({ captures: [idle], onSendSpecialKey: (key) => {
+      if (key === 'Escape' && closes) visible = false;
+    } });
+    // The terminal is the system boundary: captures reflect the effect of an actual key send.
+    vi.spyOn(port, 'captureScreen').mockImplementation(async () => ({
+      status: 'captured', capture: { text: visible ? menu : idle, capturedAtMs: 1, hostKind: 'tmux' },
+    }));
+    const wake = vi.fn();
+    let exactApplication: (() => Promise<void>) | undefined;
+    const adapter = createAdapter({
+      createControlPort: () => port,
+      injectUserPrompt: vi.fn(async () => {
+        expect(visible).toBe(false);
+        return { status: 'injected', at: 1, bytesWritten: 8 } as const;
+      }),
+    });
+    const abort = new AbortController();
+    await runClaudeUnifiedTerminalSession({
+      ...baseOptions(adapter, abort),
+      registerConnectedServiceExactApplicationHandler: (handler) => { exactApplication = handler; },
+      onConnectedServiceExactApplicationReleased: wake,
+      createController: async ({ inputInjection }) => ({
+        run: async () => {
+          if (!exactApplication) throw new Error('Expected exact-application registration');
+          const apply = exactApplication;
+          await Promise.all(Array.from({ length: applications }, () => apply()));
+          expect(wake).toHaveBeenCalledTimes(applications);
+          expect(port.sentKeys).toEqual([]);
+          await expect(inputInjection.injectUserPrompt({
+            text: 'Continue', multiline: false,
+            origin: { kind: 'ui_pending', clientId: 'test-client', nonce: 'continuation' },
+            scheduling: { timeoutMs: resolveTerminalPromptWriteBudget('Continue').timeoutMs },
+          })).resolves.toMatchObject({ status: menuVisible && !closes ? 'deferred' : 'injected' });
+          expect(port.sentKeys).toEqual(menuVisible ? ['Escape'] : []);
+          expect(visible).toBe(menuVisible && !closes);
+          abort.abort();
+        },
+        dispose: async () => undefined,
+      }),
+    });
+    expect(adapter.injectUserPrompt).toHaveBeenCalledTimes(menuVisible && !closes ? 0 : 1);
+  });
+
   it.runIf(process.platform !== 'win32').each(['wrapper-died', 'termination-unproven'] as const)('retains provider tasks when the same-pane launcher dies with its native provider alive (%s)', async (outcome) => {
     const directory = await mkdtemp(join(tmpdir(), 'happier-claude-unified-wrapper-death-'));
     const nativePidPath = join(directory, 'native-pid');
@@ -231,6 +288,89 @@ describe('runClaudeUnifiedTerminalSession launch disposition', () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+  it.runIf(process.platform !== 'win32').each(['unexpected-exit', 'expected-prompt-input-exit'] as const)(
+    'retires tasks when an independently hosted provider exits while its pane stays alive (%s)', async outcome => {
+    vi.stubEnv('HAPPIER_CLAUDE_UNIFIED_TERMINAL_HOST_LIVENESS_POLL_MS', '1000');
+    reloadConfiguration();
+    const providerInvocation = { command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] };
+    const provider = spawn(providerInvocation.command, providerInvocation.args, { stdio: 'ignore' });
+    const providerPid = provider.pid;
+    const abortController = new AbortController();
+    const ledger = createClaudeProviderActivityLedger();
+    ledger.apply({ type: 'started', sessionId: 'claude-resume-id', taskId: 'background-child' });
+    const states: string[] = [];
+    const runtimeActivityAdapter = createClaudeProviderRuntimeActivityAdapter({
+      providerActivityLedger: ledger,
+      contributionHandle: {
+        report: async snapshot => { states.push(snapshot.state); },
+        markUnknown: async () => { states.push('unknown'); },
+        dispose: async () => {},
+      },
+    });
+    let observationStarted = false;
+    let liveProviderProbes = 0;
+    let hook: ((data: SessionHookData) => void) | undefined;
+    const terminalEvents: Array<{ reason: string; source: string }> = [];
+    const thinking: boolean[] = [];
+    const adapter = createAdapter({
+      captureInputState: async () => ({ stable: true, currentInput: 'What would you like to work on?\n> ', observedAt: Date.now() }),
+      // The terminal-host boundary reports the native argv. Process identity and exit
+      // remain real OS observations inside the production liveness bridge.
+      evaluateLiveness: async () => {
+        if (observationStarted && provider.exitCode === null && provider.signalCode === null) liveProviderProbes += 1;
+        return {
+          paneAlive: true, observedAt: Date.now(),
+          paneForegroundProcesses: providerPid && provider.exitCode === null && provider.signalCode === null
+            ? [{ pid: providerPid, argv: [providerInvocation.command, ...providerInvocation.args] }]
+            : [],
+        };
+      },
+    });
+    const session = runClaudeUnifiedTerminalSession({
+      ...baseOptions(adapter, abortController),
+      path: tmpdir(), happySessionId: undefined, createController: undefined,
+      buildSpawn: async () => ({ spawnArgv: [providerInvocation.command, ...providerInvocation.args], spawnEnv: {}, providerInvocation }),
+      subscribeClaudeSessionHooks: callback => { hook = callback; return () => {}; },
+      providerActivityLedger: ledger, runtimeActivityAdapter,
+      onThinkingChange: value => { thinking.push(value); },
+      onPromptTurnTerminal: event => { terminalEvents.push(event); },
+      onWorkflowActivityObserverReady: () => {
+        observationStarted = true;
+        hook?.({ hook_event_name: 'UserPromptSubmit', session_id: 'claude-resume-id', prompt: 'continue' });
+      },
+    });
+    const settled = session.then(() => undefined, (error: unknown) => error);
+    try {
+      expect(providerPid).toBeDefined();
+      // A second live probe establishes that the monitor has already captured the
+      // first probe's PID/fingerprint before the independent provider exits.
+      await vi.waitFor(() => expect(liveProviderProbes).toBeGreaterThanOrEqual(2), { timeout: 5000 });
+      expect(thinking).toContain(true);
+      expect(ledger.getActiveProviderTaskCount()).toBe(1);
+      if (outcome === 'expected-prompt-input-exit') {
+        hook?.({ hook_event_name: 'SessionEnd', session_id: 'claude-resume-id', reason: 'prompt_input_exit' });
+        expect(ledger.getActiveProviderTaskCount()).toBe(1);
+      }
+      provider.kill();
+      expect(await waitForProcessExit(providerPid!)).toBe(true);
+      const error = await settled;
+      if (outcome === 'unexpected-exit') {
+        expect(error).toBeInstanceOf(ClaudeUnifiedTerminalHostDeadError);
+        expect(resolveClaudeRemoteLaunchErrorDisposition({ error, exitReason: null, runtimeTerminationStarted: false })).toBe('surface');
+        expect(isClaudeUnifiedTerminalRuntimeIssueError(error)).toBe(true);
+        expect(terminalEvents).toMatchObject([{ reason: 'process-exited', source: 'claude_local_process_exit' }]);
+      } else expect(error).toBeUndefined();
+      expect(thinking.at(-1)).toBe(false);
+      expect(ledger.getActiveProviderTaskCount()).toBe(0);
+      expect(states.at(-1)).toBe('idle');
+    } finally {
+      abortController.abort();
+      await killProcessTree(provider);
+      await settled;
+      vi.unstubAllEnvs();
+      reloadConfiguration();
+    }
+  });
   it.each(['expected-exit', 'confirmed-death', 'inconclusive'] as const)(
     'retains provider tasks when host exit cannot prove native provider exit (%s)',
     async (outcome) => {
@@ -273,10 +413,12 @@ describe('runClaudeUnifiedTerminalSession launch disposition', () => {
           abortController.abort();
         }
         const error = await settled;
-        if (outcome === 'confirmed-death') expect(error).toMatchObject({ errors: [
-          { code: 'claude_unified_terminal_host_dead' }, { code: 'claude_native_provider_exit_unverified' },
-        ] });
-        else expect(error).toBeUndefined();
+        if (outcome === 'confirmed-death') {
+          expect(error).toMatchObject({ errors: [
+            { code: 'claude_unified_terminal_host_dead' }, { code: 'claude_native_provider_exit_unverified' },
+          ] });
+          expect(resolveClaudeRemoteLaunchErrorDisposition({ error, exitReason: null, runtimeTerminationStarted: false })).toBe('preserve-resume-and-exit');
+        } else expect(error).toBeUndefined();
         expect(ledger.getActiveProviderTaskCount()).toBe(1);
       } finally {
         abortController.abort();

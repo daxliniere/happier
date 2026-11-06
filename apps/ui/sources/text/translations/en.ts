@@ -1391,7 +1391,39 @@ export const en = {
     },
 
     bugReports: {
+        reportSession: "Report an issue with this session",
+        sessionPickerTitle: "Related session",
+        sessionPickerSubtitle: "Choose the session this report is about.",
+        sessionPickerSearchPlaceholder: "Search sessions",
+        sessionPickerNoResults: "No matching sessions",
+        noRelatedSession: "No related session",
         composer: {
+            scopeChanged: "The selected account changed. Choose the session again before attaching diagnostics.",
+            addMoreDetails: "Add more details (optional)",
+            technicalInformation: "Technical information",
+            relatedSession: "Related session (optional)",
+            chooseSession: "Choose a session",
+            changeSession: "Change session",
+            removeSession: "Remove session",
+            selectedSession: "Session selected",
+            logOptions: {
+                daemonTitle: "App and daemon logs",
+                daemonDetail: "App activity and connection logs from the selected computer and server.",
+                sessionTitle: "Happier session logs",
+                sessionDetail: "Session activity that helps us investigate this issue.",
+                providerTitle: "Provider transcript",
+                providerDetail: "Provider session transcript, when needed.",
+                technicalOnly: "Technical information only",
+                technicalOnlyDetail: "Leave all raw logs out of this report.",
+            },
+            collection: {
+                collected: "Attached",
+                unavailable: "Unavailable",
+                disabled: "Not included",
+                unsupported: "Update the CLI to attach these logs",
+                skipped: "Skipped",
+                error: "Could not collect",
+            },
             alerts: {
                 previewUnavailableTitle: 'Preview unavailable',
                 previewUnavailableBody: 'Could not build diagnostics preview.',
@@ -1447,13 +1479,13 @@ export const en = {
             },
             issueDetails: {
                 title: 'Describe the issue',
-                subtitle: 'Provide enough detail so we can reproduce and diagnose quickly.',
+                subtitle: "A title and a short description are enough to get started.",
                 titleLabel: 'Title (required)',
                 titlePlaceholder: 'Short issue title',
                 githubUsernameLabel: 'GitHub username (optional)',
                 githubUsernamePlaceholder: 'Used as contact info in the issue body',
-                summaryLabel: 'Concise summary (required)',
-                summaryPlaceholder: 'One-paragraph summary',
+                summaryLabel: "What happened? (required)",
+                summaryPlaceholder: "Tell us what went wrong.",
                 currentBehaviorLabel: 'Current behavior (optional)',
                 currentBehaviorPlaceholder: 'What actually happens?',
                 expectedBehaviorLabel: 'Expected behavior (optional)',
@@ -1508,9 +1540,9 @@ export const en = {
                 },
             },
             consent: {
-                title: 'Consent',
-                understandTitle: 'I understand diagnostics may include technical metadata',
-                understandSubtitle: 'Do not include passwords, access tokens, or private keys.',
+                title: "Before sending",
+                understandTitle: "Share this report and the selected diagnostics",
+                understandSubtitle: "Report text is public. Diagnostic attachments are sent privately to Happier maintainers. Session logs can include conversation excerpts.",
             },
             submit: {
                 requiredFieldsHint: 'Complete the required fields to enable submission.',
@@ -2953,6 +2985,8 @@ export const en = {
                 membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} enabled`,
                 optionsTitle: 'Options',
                 autoSwitchTitle: 'Automatic fallback',
+                claudeCodeAutoContinueAtUsageLimitTitle: "Let Claude wait for usage limits",
+                claudeCodeAutoContinueAtUsageLimitSubtitle: "For new sessions, let Claude wait and continue automatically when a limit resets. Turn off to let Happier manage recovery.",
                 autoQuotaResetTitle: "Automatically use quota resets",
                 autoQuotaResetSubtitle: "Spend a banked reset only when no pool account is ready and quota exhaustion can be reset. Off by default.",
                 autoDisablePlanInvalidTitle: "Disable accounts that cannot use the selected model",
@@ -4668,6 +4702,8 @@ export const en = {
     },
 
     errors: {
+        quotaRefreshFailed: "Could not refresh usage. Try again.",
+        quotaRefreshRetryAt: ({ time }: { time: string }) => `Could not refresh usage. Try again after ${time}.`,
         machineRpcDecryptionFailed: "Unable to decrypt data from this machine. Sign in with the matching account key and try again.",
         machineRpcContextUnavailable: "This machine’s connection is unavailable. Refresh your machines and try again.",
         networkError: 'Network error occurred',
@@ -5189,6 +5225,7 @@ export const en = {
             readyTitle: 'Usage limit reset',
             resetBody: ({ time }: { time: string }) => `This provider is asking the session to wait until ${time} before continuing.`,
             genericBody: 'This provider is asking the session to wait before continuing.',
+            stoppedBody: 'Automatic recovery stopped and won’t retry on its own. Try again below.',
             resetCreditBody: ({ count }: { count: number }) => `${count} usage ${count === 1 ? 'reset is' : 'resets are'} available.`,
             resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) => `${count} usage ${count === 1 ? 'reset is' : 'resets are'} available; next expires ${time}.`,
             readyBody: 'You can resume this session now.',
@@ -7095,7 +7132,10 @@ export const en = {
         },
         askUserQuestion: {
             submit: 'Submit Answer',
+            dismiss: 'Dismiss question',
+            dismissed: 'Question dismissed',
             submissionFailures: {
+                unconfirmed: "Submit was sent to Claude, but confirmation is still pending. Try again to check, or open the Claude terminal.",
                 update: 'Update Happier CLI, then try again.',
                 reconnect: 'Reconnect this session, then try again.',
                 retry: 'The answer could not be accepted. Review it and try again.',
@@ -10409,6 +10449,8 @@ settingsSession: {
     },
 
     message: {
+        provenanceFrom: ({ source }: { source: string }) => `From ${source}`,
+        provenanceSession: 'Session',
         sessionReferenceUnavailable: 'Unavailable session',
         sessionReferenceOpen: ({ name }: { name: string }) => `Open session ${name}`,
         switchedToMode: ({ mode }: { mode: string }) => `Switched to ${mode} mode`,
@@ -10456,7 +10498,7 @@ settingsSession: {
     chatFooter: {
         permissionsTerminalOnly: 'Permissions are shown in the terminal only. Reset or send a message to control from the app.',
         sessionRunningLocally: 'This session is running locally on this computer. You can switch to remote to control it from the app.',
-        sessionRunningLocallyAndRemotely: 'This session is attached locally in OpenCode and is still controllable from the app.',
+        sessionRunningLocallyAndRemotely: 'This session is attached locally and is still controllable from the app.',
         switchingToRemote: 'Switching to remote mode…',
         switchToRemote: 'Switch to remote',
         detachLocalTerminal: 'Detach terminal',
@@ -10813,6 +10855,7 @@ settingsSession: {
         enterTmuxTempDir: 'Enter temp directory path',
         tmuxUpdateEnvironment: 'Update environment automatically',
         nameRequired: 'Profile name is required',
+        invalidProfile: 'Check the profile name, environment variables, and defaults before saving.',
         deleteConfirm: ({ name }: { name: string }) => `Are you sure you want to delete the profile "${name}"?`,
         editProfile: 'Edit Profile',
         addProfileTitle: 'Add New Profile',
@@ -10947,6 +10990,13 @@ settingsSession: {
                 plan: 'Plan before executing',
                 bypassPermissions: 'Skip all permissions',
             },
+        },
+        defaultBackend: {
+            title: 'Default AI backend',
+            footer: 'Starts new sessions on this backend when the profile is selected and no other backend is chosen.',
+            noneTitle: 'No default',
+            noneSubtitle: 'Happier picks the backend as usual.',
+            selectedSubtitle: 'Used when starting a session with this profile.',
         },
         defaultPermissions: {
             title: 'Default permissions',

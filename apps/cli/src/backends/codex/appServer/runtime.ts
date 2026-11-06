@@ -38,6 +38,7 @@ import { logger } from '@/ui/logger';
 import { delay } from '@/utils/time';
 import { createSerializedWorkQueueDiagnostics, type SerializedWorkDiagnosticContext } from '@/utils/serializedWorkQueueDiagnostics';
 import { readNonBlankOpaqueIdentifier } from '@/utils/opaqueIdentifiers';
+import { markCodexTurnFailureSettled } from '../runtime/sessionTurnLifecycle';
 import type {
     ActiveTurnPendingPumpOptions,
     DrainPendingOptions,
@@ -108,7 +109,6 @@ import {
 } from './rollbackMetadata';
 import {
     isCodexAppServerInvalidRequestForMethodError,
-    isCodexAppServerInvalidRequestMapExpectedStringError,
     isCodexAppServerInvalidParamsForFieldError,
     isCodexAppServerInvalidParamsError,
     isCodexAppServerDefinitiveMethodNotFoundError,
@@ -134,6 +134,7 @@ import {
 import { mapCodexRateLimitResetCreditsToQuotaRecoveryCredits } from '../quota/codexQuotaRecoveryCredits';
 import { fetchCodexRateLimitResetCredits } from '../quota/codexRateLimitResetCreditsClient';
 import { buildCodexNativeReviewFindingsV2Payload } from '@/agent/reviews/normalize/codex/buildCodexNativeReviewFindingsV2Payload';
+import { parseCodexReviewText } from '@/agent/reviews/normalize/codex/parseCodexReviewText';
 import { resolveCodexAppServerNativeReviewRequest } from './reviews/resolveCodexAppServerNativeReviewRequest';
 import { createCodexAppServerSessionTurnTracker } from './turns/codexAppServerSessionTurnTracker';
 import { CodexAppServerHistoryBoundary } from './codexAppServerHistoryBoundary';
@@ -355,7 +356,7 @@ type PendingRawAssistantFinal = Readonly<{
 
 const CODEX_TRANSCRIPT_INITIAL_CHECKPOINT_DELAY_MS = 0;
 
-type CodexAppServerPermissionSupport = 'unknown' | 'supported' | 'legacy' | 'legacy-managed-scalar';
+type CodexAppServerPermissionSupport = 'unknown' | 'supported' | 'legacy';
 
 type CodexAppServerPromptOptions = Readonly<{
     metadata?: unknown;
@@ -1118,7 +1119,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
     setOnPromptAcceptedByProvider: (_callback: CodexAppServerPromptAcceptedCallback | null) => void;
     setOnUndeliverablePrompts: (_callback: CodexAppServerUndeliverablePromptsCallback | null) => void;
     startReview: (_request: CodexAppServerReviewStartRequest) => Promise<void | UnsupportedSessionRuntimeMethodResult>;
-    startInlineReview: (_input: unknown) => Promise<Readonly<{ ok: true; reviewTurnId: string | null }> | UnsupportedSessionRuntimeMethodResult | Readonly<{ ok: false; errorCode: 'invalid_parameters' | 'inline_review_not_supported'; error: string }>>;
+    startInlineReview: (_input: unknown) => Promise<Readonly<{ ok: true; reviewTurnId: string | null }> | UnsupportedSessionRuntimeMethodResult | Readonly<{ ok: false; errorCode: 'invalid_parameters' | 'inline_review_not_supported' | 'invalid_output'; error: string }>>;
     handleUserMessage: (_request: Readonly<{
         text: string;
         localId?: string;
@@ -1208,6 +1209,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
     let hasServiceTierOverride = false;
     let pendingTurnStartSeqInclusive: number | null = null;
     let permissionSupport: CodexAppServerPermissionSupport = 'unknown';
+    let managedScalarFallback = false;
     let lastRateLimitSnapshot: unknown = null;
     let onPromptAcceptedByProvider: CodexAppServerPromptAcceptedCallback | null = null;
     let onUndeliverablePrompts: CodexAppServerUndeliverablePromptsCallback | null = null;
@@ -1228,6 +1230,17 @@ export function createCodexAppServerRuntime(params: Readonly<{
     const activeProviderTurnItemIds = new Set<string>();
     let latestConnectedServiceRuntimeIdentity: CodexConnectedServiceRuntimeAppliedIdentity | null =
         params.initialConnectedServiceRuntimeIdentity ?? null;
+    const capturePendingTurnRequestIdentity = (turn: PendingTurn): PendingTurn => {
+        // Preparation can await persistence or media reads while hot auth applies. Capture only
+        // when issuing the provider request, then retain this tuple through its terminal report.
+        const identity = latestConnectedServiceRuntimeIdentity;
+        const captured = {
+            ...turn,
+            connectedServiceRuntimeIdentityAtStart: identity ? Object.freeze({ ...identity }) : null,
+        };
+        if (pendingTurn?.promise === turn.promise) pendingTurn = captured;
+        return captured;
+    };
     // A disposed process has no live proof. Retain its applied selection only as
     // the seed for the next process, whose external tokens must be applied again.
     let nextClientConnectedServiceIdentity = latestConnectedServiceRuntimeIdentity;
@@ -1564,7 +1577,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
     const nativeReviewCompletionTextByStreamScope = new Map<string, string>();
     const rawAssistantFinalByItemKey = new Map<string, PendingRawAssistantFinal>();
     const persistedMediaDedupeKeys = new Set<string>();
-    let activeInlineReview = false;
+    let activeInlineReview: { outputError: string | null } | null = null;
     const canSteerPrompt = (): boolean => {
         return Boolean(
             pendingTurn
@@ -1646,17 +1659,17 @@ export function createCodexAppServerRuntime(params: Readonly<{
             permissionMode,
             directory: params.directory,
             target,
-            managedScalarFallback: permissionSupport === 'legacy-managed-scalar',
+            managedScalarFallback,
         });
     };
 
     const buildCurrentPermissionParams = (target: 'thread' | 'turn'): Record<string, unknown> => {
         const permissionMode = getCurrentPermissionMode();
         if (permissionMode === 'default') return {};
-        if (permissionSupport === 'legacy' || permissionSupport === 'legacy-managed-scalar') {
+        if (permissionSupport === 'legacy') {
             return buildCurrentLegacyPermissionParams(target);
         }
-        return buildCodexAppServerPermissionsParams({ permissionMode });
+        return buildCodexAppServerPermissionsParams({ permissionMode, directory: params.directory, target, managedScalarFallback });
     };
 
     const requestWithManagedPermissionFallback = (
@@ -1665,22 +1678,25 @@ export function createCodexAppServerRuntime(params: Readonly<{
         target: 'thread' | 'turn',
         requestParams: Record<string, unknown>,
         options?: CodexAppServerRequestOptions,
+        onRequestIssued?: () => void,
     ): Promise<unknown> => {
         const approvalPolicy = requestParams.approvalPolicy;
-        if (permissionSupport !== 'legacy'
-            || normalizePermissionModeToIntent(getCurrentPermissionMode()) !== 'safe-yolo'
+        if (normalizePermissionModeToIntent(getCurrentPermissionMode()) !== 'safe-yolo'
             || !approvalPolicy || typeof approvalPolicy !== 'object' || Array.isArray(approvalPolicy)
             || !Object.prototype.hasOwnProperty.call(approvalPolicy, 'granular')
             || requestParams.approvalsReviewer !== 'auto_review') {
+            onRequestIssued?.();
             return client.request(method, requestParams, options);
         }
+        onRequestIssued?.();
         return client.request(method, requestParams, options).catch(async (error: unknown) => {
             if (!isCodexAppServerManagedGranularApprovalRejection(error, method)) throw error;
-            permissionSupport = 'legacy-managed-scalar';
+            managedScalarFallback = true;
             logger.warn('[codex-app-server] Managed policy rejected Auto granular approvals; using on-request with user review for this session');
+            onRequestIssued?.();
             return await client.request(method, {
                 ...requestParams,
-                ...buildCurrentLegacyPermissionParams(target),
+                ...buildCurrentPermissionParams(target),
             }, options);
         });
     };
@@ -1688,8 +1704,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
     const shouldRetryWithoutPermissionProfile = (error: unknown, requestParams: Record<string, unknown>): boolean => {
         return Object.prototype.hasOwnProperty.call(requestParams, 'permissions')
             && (isCodexAppServerMethodNotFoundError(error)
-                || isCodexAppServerInvalidParamsForFieldError(error, 'permissions')
-                || isCodexAppServerInvalidRequestMapExpectedStringError(error));
+                || isCodexAppServerInvalidParamsForFieldError(error, 'permissions'));
     };
 
     const setThinking = (nextThinking: boolean): void => {
@@ -2253,25 +2268,29 @@ export function createCodexAppServerRuntime(params: Readonly<{
 
     const commitInlineReviewFindings = (
         update: Extract<CodexAppServerStreamUpdate, { type: 'review-mode-completed' }>,
-    ): void => {
+    ): boolean => {
         const reviewText = update.review.trim();
-        if (!reviewText) return;
 
         const reviewTurnId = latestPendingTurnId ?? pendingTurn?.turnId ?? 'unknown-turn';
         const sessionId = trimSessionId(params.session.sessionId) ?? 'current-session';
-        const payload = buildCodexNativeReviewFindingsV2Payload({
+        const parsed = parseCodexReviewText(reviewText);
+        const payload = parsed?.format === 'native' ? buildCodexNativeReviewFindingsV2Payload({
             runId: `session-review:${sessionId}:${reviewTurnId}`,
             callId: update.itemId,
             backendId: 'codex',
             backendTarget: { kind: 'builtInAgent', agentId: 'codex' },
-            rawText: reviewText,
+            review: parsed.review,
             generatedAtMs: Date.now(),
-        });
-        if (!payload) return;
+        }) : null;
+        if (!payload) {
+            if (activeInlineReview) activeInlineReview.outputError = 'Codex review output could not be parsed.';
+            return false;
+        }
+        if (activeInlineReview) activeInlineReview.outputError = null;
 
         const commitSession = params.transcriptSession ?? params.session;
         const sendAgentMessageCommitted = commitSession.sendAgentMessageCommitted;
-        if (typeof sendAgentMessageCommitted !== 'function') return;
+        if (typeof sendAgentMessageCommitted !== 'function') return false;
         startDetachedProviderProjection('review-mode-completed:transcript-ack', () => (
             sendAgentMessageCommitted.call(
                 commitSession,
@@ -2288,6 +2307,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
                 },
             )
         ));
+        return true;
     };
 
     const applyStreamUpdate = async (update: CodexAppServerStreamUpdate, context: StreamUpdateContext): Promise<void> => {
@@ -2431,8 +2451,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
             deletePendingRawAssistantFinalForNormalizedItem(context.streamScopeId, update.itemId);
             nativeReviewCompletionTextByStreamScope.set(context.streamScopeId, update.review);
             if (activeInlineReview && !context.sidechainId) {
-                commitInlineReviewFindings(update);
-                return;
+                if (commitInlineReviewFindings(update)) return;
             }
             appendStreamFinal(itemKey, update.review, assistantTextByItemId, (deltaText) => {
                 itemTranscriptBridge.appendAssistantDelta({
@@ -3139,6 +3158,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
             emitAllPendingProviderPromptsAsUndeliverable();
         }
         if (options?.error) {
+            // This runtime has terminalized the session turn for this failure (failed or
+            // interrupted above); the runner must not surface it as another failed turn.
+            markCodexTurnFailureSettled(options.error, options.flushReason === 'failure' ? 'failed' : 'interrupted');
             activeTurn.reject(options.error);
             return;
         }
@@ -3219,8 +3241,13 @@ export function createCodexAppServerRuntime(params: Readonly<{
     const surfaceCodexAppServerTurnFailure = async (
         failure: Error,
         providerTurnId: string | null,
-        deferPresentationToPromptLoop = false,
+        options: Readonly<{
+            deferPresentationToPromptLoop?: boolean;
+            /** The provider turn already ended without a failure record (cancelled for a retry that will not run). */
+            providerTurnAlreadyEnded?: boolean;
+        }> = {},
     ): Promise<Awaited<ReturnType<typeof surfacePrimarySessionRuntimeIssue>> | null> => {
+        const deferPresentationToPromptLoop = options.deferPresentationToPromptLoop === true;
         if (!deferPresentationToPromptLoop) {
             try {
                 params.session.sendCodexMessage({
@@ -3237,15 +3264,22 @@ export function createCodexAppServerRuntime(params: Readonly<{
             cause: 'status_error' as const,
             error: failure,
         };
-        const issue = params.session.sessionTurnLifecycle || deferPresentationToPromptLoop
+        // A lifecycle-backed active turn records this issue through finishPendingTurn; an
+        // already-ended turn has no such owner left, so the failure allocates its own failed turn.
+        const recordAfterEndedTurn = options.providerTurnAlreadyEnded === true && Boolean(params.session.sessionTurnLifecycle);
+        const issue = (params.session.sessionTurnLifecycle && !recordAfterEndedTurn) || deferPresentationToPromptLoop
             ? classifyPrimarySessionRuntimeIssue(issueInput)
             : await surfacePrimarySessionRuntimeIssue({
                 ...issueInput,
                 session: params.session,
+                ...(recordAfterEndedTurn ? { allocateTurnWhenIdle: true } : {}),
             }).catch((error) => {
                 logger.debug('[codex-app-server] Failed to surface primary runtime issue (non-fatal)', error);
                 return null;
             });
+        if (recordAfterEndedTurn && issue) {
+            markCodexTurnFailureSettled(failure, 'failed');
+        }
         if (!params.session.sessionTurnLifecycle && !deferPresentationToPromptLoop) {
             publishCodexTurnAbortedMessage();
         }
@@ -3287,7 +3321,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
         // lifecycle slot and permanently hides the exact auth/quota classification.
         let issue: Awaited<ReturnType<typeof surfacePrimarySessionRuntimeIssue>> | null = null;
         try {
-            issue = await surfaceCodexAppServerTurnFailure(failure, providerTurnId, deferPresentationToPromptLoop);
+            issue = await surfaceCodexAppServerTurnFailure(failure, providerTurnId, { deferPresentationToPromptLoop });
         } finally {
             // Diagnostics and lifecycle persistence must never retain native turn
             // ownership after the provider process/turn has already terminated.
@@ -4499,9 +4533,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
         pendingTurnStartSeqInclusive = readLastObservedMessageSeq(params.session);
         activeTurnHasMeaningfulContextWindowRecoveryActivity = false;
         const changeTrackingReady = beginTurnChangeTracking();
-        const activeTurn = createPendingTurn(activeThreadId, {
-            connectedServiceRuntimeIdentityAtStart: latestConnectedServiceRuntimeIdentity,
-        });
+        let activeTurn = createPendingTurn(activeThreadId);
         activeTurn.promise.catch(() => undefined);
         pendingTurn = activeTurn;
         pendingTurnHasProviderAttributedActivity = false;
@@ -4513,6 +4545,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
         recordInProgressBestEffort();
         await changeTrackingReady;
         try {
+            activeTurn = capturePendingTurnRequestIdentity(activeTurn);
             const response = await client.request('thread/compact/start', {
                 threadId: activeThreadId,
             });
@@ -4565,7 +4598,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
         debugDetails: unknown,
     ): Promise<void> => {
         logger.debug(debugMessage, debugDetails);
-        const issue = await surfaceCodexAppServerTurnFailure(originalFailure, null);
+        // Context-window exhaustion cancels the provider turn so compaction can retry it. With no
+        // retry left, this is the only owner that can record the failure.
+        const issue = await surfaceCodexAppServerTurnFailure(originalFailure, null, { providerTurnAlreadyEnded: true });
         await updateUsageLimitRecoveryFromSurfacedIssue(issue);
     };
 
@@ -4597,7 +4632,6 @@ export function createCodexAppServerRuntime(params: Readonly<{
         const changeTrackingReady = beginTurnChangeTracking();
         const activeTurn = createPendingTurn(activeThreadId, {
             providerPrompt: options?.providerPrompt ?? null,
-            connectedServiceRuntimeIdentityAtStart: latestConnectedServiceRuntimeIdentity,
         });
         activeTurn.promise.catch(() => undefined);
         pendingTurn = activeTurn;
@@ -4635,8 +4669,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
                 throw new Error('Codex app-server already has a turn in flight');
             }
             const client = await ensureClient();
-            const activeTurn = await beginPendingTurnForThread(activeThreadId);
+            let activeTurn = await beginPendingTurnForThread(activeThreadId);
             try {
+                activeTurn = capturePendingTurnRequestIdentity(activeTurn);
                 const response = await client.request('review/start', {
                     threadId: activeThreadId,
                     target: request.target,
@@ -4712,7 +4747,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
 
     const startInlineReview = async (
         input: unknown,
-    ): Promise<Readonly<{ ok: true; reviewTurnId: string | null }> | UnsupportedSessionRuntimeMethodResult | Readonly<{ ok: false; errorCode: 'invalid_parameters' | 'inline_review_not_supported'; error: string }>> => {
+    ): Promise<Readonly<{ ok: true; reviewTurnId: string | null }> | UnsupportedSessionRuntimeMethodResult | Readonly<{ ok: false; errorCode: 'invalid_parameters' | 'inline_review_not_supported' | 'invalid_output'; error: string }>> => {
         const parsedInlineInput = ReviewStartInputSchema.safeParse(input);
         if (!parsedInlineInput.success || parsedInlineInput.data.engineIds.length !== 1 || parsedInlineInput.data.engineIds[0] !== 'codex') {
             return { ok: false, errorCode: 'inline_review_not_supported', error: 'inline_review_not_supported' };
@@ -4728,18 +4763,25 @@ export function createCodexAppServerRuntime(params: Readonly<{
             return { ok: false, errorCode: 'invalid_parameters', error: resolved.error ?? resolved.reason };
         }
 
-        if (!threadId) {
-            await startOrLoad({});
+        if (activeInlineReview) {
+            throw new Error('Codex app-server already has a turn in flight');
         }
 
-        activeInlineReview = true;
+        const inlineReviewState: { outputError: string | null } = { outputError: 'Codex review did not return usable output.' };
+        activeInlineReview = inlineReviewState;
         let reviewTurnResult: string | void | UnsupportedSessionRuntimeMethodResult;
         try {
+            if (!threadId) {
+                await startOrLoad({});
+            }
             reviewTurnResult = await startReviewTurn(resolved.request);
         } finally {
-            activeInlineReview = false;
+            if (activeInlineReview === inlineReviewState) activeInlineReview = null;
         }
         if (reviewTurnResult && typeof reviewTurnResult === 'object') return reviewTurnResult;
+        if (inlineReviewState.outputError) {
+            return { ok: false, errorCode: 'invalid_output', error: inlineReviewState.outputError };
+        }
         return { ok: true, reviewTurnId: reviewTurnResult ?? null };
     };
 
@@ -4862,6 +4904,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
             currentReasoningEffort = null;
             currentServiceTier = null;
             permissionSupport = 'unknown';
+            managedScalarFallback = false;
             nextClientConnectedServiceIdentity = latestConnectedServiceRuntimeIdentity ?? nextClientConnectedServiceIdentity;
             latestConnectedServiceRuntimeIdentity = null;
             await disposeClient();
@@ -4981,13 +5024,17 @@ export function createCodexAppServerRuntime(params: Readonly<{
                 ...(clientUserMessageId ? { clientUserMessageId } : {}),
             };
             const finishAcceptedSteer = async (): Promise<void> => {
-                await turnBoundaryTracker.appendSteerMessage({ localId: options?.localId ?? null });
+                await turnBoundaryTracker.appendSteerMessage({ localId: clientUserMessageId });
                 if (!clientUserMessageId) {
                     markPendingProviderPromptAccepted(pendingProviderPrompt, expectedTurnId);
                 }
                 options?.onProviderPromptAccepted?.();
             };
             try {
+                await turnBoundaryTracker.beginSteerInput({ localId: clientUserMessageId });
+                if (pendingTurn?.promise !== activeTurn.promise || !canSteerPrompt()) {
+                    throw new Error('Codex app-server active turn is not steerable');
+                }
                 await client.request('turn/steer', {
                     ...payload,
                     input: structuredInput,
@@ -5046,8 +5093,8 @@ export function createCodexAppServerRuntime(params: Readonly<{
                 const clientUserMessageId = pendingProviderPrompt.localIds?.length === 1
                     ? pendingProviderPrompt.localIds[0]
                     : null;
-                const activeTurn = await beginPendingTurnForThread(activeThreadId, {
-                    localId: optionsForAttempt?.localId ?? null,
+                let activeTurn = await beginPendingTurnForThread(activeThreadId, {
+                    localId: clientUserMessageId,
                     userMessageSeq: optionsForAttempt?.userMessageSeq ?? null,
                     providerPrompt: pendingProviderPrompt,
                 });
@@ -5081,8 +5128,11 @@ export function createCodexAppServerRuntime(params: Readonly<{
                         ...buildCurrentPermissionParams('turn'),
                     };
                     let response: unknown;
+                    const captureRequestIdentity = (): void => {
+                        activeTurn = capturePendingTurnRequestIdentity(activeTurn);
+                    };
                     try {
-                        response = await requestWithManagedPermissionFallback(client, 'turn/start', 'turn', turnStartParams);
+                        response = await requestWithManagedPermissionFallback(client, 'turn/start', 'turn', turnStartParams, undefined, captureRequestIdentity);
                         if (Object.prototype.hasOwnProperty.call(turnStartParams, 'permissions')) {
                             permissionSupport = 'supported';
                         }
@@ -5093,7 +5143,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
                                 ...baseTurnStartParams,
                                 ...buildCurrentLegacyPermissionParams('turn'),
                             };
-                            response = await requestWithManagedPermissionFallback(client, 'turn/start', 'turn', turnStartParams);
+                            response = await requestWithManagedPermissionFallback(client, 'turn/start', 'turn', turnStartParams, undefined, captureRequestIdentity);
                         } else {
                             throw error;
                         }

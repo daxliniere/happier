@@ -378,6 +378,7 @@ const baseExpoConfig = {
         },
         plugins: [
             expoBuildPropertiesPlugin,
+            ["./plugins/withAndroidNetworkSecurityConfig.js", expoBuildPropertiesPlugin[1].android],
             require("./plugins/withEinkCompatibility.js"),
             require("./plugins/withAndroidReactNativeArchitectures.js"),
             require("./modules/happier-hardware-keyboard-shortcuts/app.plugin.js"),

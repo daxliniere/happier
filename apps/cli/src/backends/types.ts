@@ -283,6 +283,8 @@ export type AgentCatalogEntry = Readonly<{
    * Optional CLI subcommand handler for this agent.
    */
   getCliCommandHandler?: () => Promise<CommandHandler>;
+  /** Default daemon autostart policy for a direct interactive terminal invocation. */
+  autostartDaemonInInteractiveTerminal?: boolean;
   getCliCapabilityOverride?: () => Promise<Capability>;
   /**
    * Optional extra capabilities contributed by this agent.
@@ -419,7 +421,7 @@ export type AgentCatalogEntry = Readonly<{
    * owns only the "where would that id's log be" step.
    */
   resolveAgentNativeSessionLogPath?: (
-    input: Readonly<{ vendorResumeId: string }>,
+    input: Readonly<{ vendorResumeId: string; metadata?: Record<string, unknown> }>,
   ) => Promise<string | null> | string | null;
   /**
    * Optional provider-owned goal control adapter for inactive/offline local sessions.

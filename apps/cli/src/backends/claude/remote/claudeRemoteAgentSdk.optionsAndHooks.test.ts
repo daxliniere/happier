@@ -16,6 +16,7 @@ import { resolveClaudeProjectId } from '../utils/path';
 import type { SessionWorkflowRunSnapshotV1 } from '@happier-dev/protocol';
 import { createClaudeWorkflowActivitySource } from '../workflows/claudeWorkflowActivitySource';
 import { completedNativeChildTranscript } from '../workflows/claudeWorkflowActivitySource.testkit';
+import { createEnvKeyScope } from '@/testkit/env/envScope';
 
 const ORIGINAL_CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
 
@@ -376,7 +377,16 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
         expect(onEffectiveModel).toHaveBeenLastCalledWith({ modelId: 'claude-next' });
     });
 
-    it('passes ultracode through the --settings extraArg for xhigh-capable models', async () => {
+    it.each([false, true])('merges ultracode and the pool continuation default into one SDK settings argument (pool %s)', async (pool) => {
+        const envScope = createEnvKeyScope([HAPPIER_CONNECTED_SERVICE_SELECTIONS_ENV_KEY, 'HAPPIER_CLAUDE_AUTO_CONTINUE_AT_USAGE_LIMIT']);
+        envScope.patch({
+            HAPPIER_CLAUDE_AUTO_CONTINUE_AT_USAGE_LIMIT: undefined,
+            [HAPPIER_CONNECTED_SERVICE_SELECTIONS_ENV_KEY]: pool ? JSON.stringify([{
+                kind: 'group', serviceId: 'claude-subscription', groupId: 'pool',
+                activeProfileId: 'work', fallbackProfileId: 'work', generation: 1,
+            }]) : undefined,
+        });
+        try {
         let capturedOptions: any = null;
 
         const createQuery = vi.fn((_params: any) => {
@@ -421,8 +431,11 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
 
         expect(capturedOptions).toBeTruthy();
         expect(capturedOptions.extraArgs).toMatchObject({
-            settings: JSON.stringify({ ultracode: true }),
+            settings: JSON.stringify({ ultracode: true, ...(pool ? { autoContinueAtUsageLimit: false } : {}) }),
         });
+        } finally {
+            envScope.restore();
+        }
     });
 
     it('omits the ultracode settings extraArg for models without xhigh support', async () => {
@@ -519,6 +532,68 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
         expect(capturedOptions).toBeTruthy();
         expect(capturedOptions.model).toBe('claude-sonnet-4-6[1m]');
         expect(capturedOptions.effort).toBe('low');
+    });
+
+    it('suppresses the requested interrupt error while the replacement prompt awaits its own result', async () => {
+        type CreateQuery = NonNullable<Parameters<typeof claudeRemoteAgentSdk>[0]['createQuery']>;
+        let finishInput!: () => void;
+        const inputFinished = new Promise<void>((resolve) => { finishInput = resolve; });
+        let releaseReplacementResult!: () => void;
+        const replacementResultReady = new Promise<void>((resolve) => { releaseReplacementResult = resolve; });
+        let reachedInterruptedResult = false;
+        const interrupt = vi.fn(async () => {});
+        // The SDK control response can acknowledge interrupt before its separate result frame.
+        // Keep the real runner, prompt settlement and input iterable beneath that SDK boundary.
+        const createQuery = (({ prompt }: Parameters<CreateQuery>[0]) => ({
+            async *[Symbol.asyncIterator]() {
+                const input = (prompt as AsyncIterable<import('@anthropic-ai/claude-agent-sdk').SDKUserMessage>)[Symbol.asyncIterator]();
+                const first = await input.next();
+                if (first.done) throw new Error('Expected initial prompt');
+                yield { type: 'system', subtype: 'init', session_id: 'interrupted-session' };
+                const replacement = await input.next();
+                if (replacement.done) throw new Error('Expected replacement prompt');
+                // This older result's queue snapshot predates the replacement's submission.
+                yield { type: 'result', subtype: 'error_during_execution', session_id: 'interrupted-session',
+                    errors: ['Interrupted by user'], user_message_uuid: first.value.uuid, queued_turn_count: 0 };
+                reachedInterruptedResult = true;
+                await replacementResultReady;
+                yield { type: 'result', subtype: 'success', session_id: 'interrupted-session',
+                    result: 'Replacement answered', user_message_uuid: replacement.value.uuid, queued_turn_count: 0 };
+                await inputFinished;
+            },
+            interrupt,
+            close() { finishInput(); },
+        })) as unknown as CreateQuery;
+        const onReady = vi.fn();
+        const onCompletionEvent = vi.fn();
+        const prompts = [
+            { message: 'first', mode: makeMode(), userMessageLocalIds: ['first'] },
+            { message: 'replacement', mode: makeMode(), userMessageLocalIds: ['replacement'], pendingProviderAction: 'interrupt_and_send' as const },
+        ];
+        const runner = claudeRemoteAgentSdk({
+            sessionId: null, transcriptPath: null, path: '/tmp', claudeArgs: [], claudeExecutablePath: '/tmp/claude',
+            canCallTool: async () => ({ behavior: 'allow', updatedInput: {} }), isAborted: () => false,
+            nextMessage: async () => {
+                const prompt = prompts.shift();
+                if (prompt) return prompt;
+                await inputFinished;
+                return null;
+            },
+            onReady, onCompletionEvent, onSessionFound: () => {}, onMessage: () => {}, createQuery,
+        });
+        void runner.catch(() => {});
+        try {
+            await vi.waitFor(() => { expect(reachedInterruptedResult).toBe(true); });
+            expect(interrupt).toHaveBeenCalledOnce();
+            expect(onReady).not.toHaveBeenCalled();
+            expect(onCompletionEvent.mock.calls.flat()).not.toContainEqual(expect.stringContaining('error_during_execution'));
+            releaseReplacementResult();
+            await vi.waitFor(() => { expect(onReady).toHaveBeenCalledOnce(); });
+        } finally {
+            releaseReplacementResult();
+            finishInput();
+            await runner;
+        }
     });
 
     it('exposes a turn interrupt handler that stops the active task via query.stopTask()', async () => {
@@ -1235,7 +1310,7 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
         expect(updatedTranscript).toContain('"tool_use_id":"toolu_1"');
     });
 
-    it('omits effort when the mode specifies reasoningEffort=high (provider default)', async () => {
+    it('forwards explicit effort even when it equals the catalog default', async () => {
         let capturedOptions: any = null;
 
         const createQuery = vi.fn((_params: any) => {
@@ -1280,7 +1355,7 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
 
         expect(capturedOptions).toBeTruthy();
         expect(capturedOptions.model).toBe('claude-opus-4-6');
-        expect('effort' in capturedOptions ? capturedOptions.effort : undefined).toBeUndefined();
+        expect(capturedOptions.effort).toBe('high');
     });
 
     it('uses the resolved JavaScript runtime path instead of a raw node default', async () => {
@@ -2605,32 +2680,49 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
         }
     });
 
-    it('always sets allowDangerouslySkipPermissions so permission mode can escalate to bypassPermissions at runtime', async () => {
-        let capturedOptions: any = null;
+    it.each([
+        { uid: 1000, sandbox: undefined, bubblewrap: undefined, allowed: true },
+        { uid: 0, sandbox: undefined, bubblewrap: undefined, allowed: false },
+        { uid: 0, sandbox: '0', bubblewrap: 'true', allowed: false },
+        { uid: 0, sandbox: '1', bubblewrap: undefined, allowed: true },
+        { uid: 0, sandbox: undefined, bubblewrap: '1', allowed: true },
+    ])('pre-enables bypass only where Claude permits it ($uid/$sandbox/$bubblewrap)', async ({ uid, sandbox, bubblewrap, allowed }) => {
+        const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+        Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'linux' });
+        const uidDescriptor = Object.getOwnPropertyDescriptor(process, 'getuid');
+        const previousSandbox = process.env.IS_SANDBOX;
+        const previousBubblewrap = process.env.CLAUDE_CODE_BUBBLEWRAP;
+        Object.defineProperty(process, 'getuid', { configurable: true, value: () => uid });
+        if (sandbox === undefined) delete process.env.IS_SANDBOX;
+        else process.env.IS_SANDBOX = sandbox;
+        if (bubblewrap === undefined) delete process.env.CLAUDE_CODE_BUBBLEWRAP;
+        else process.env.CLAUDE_CODE_BUBBLEWRAP = bubblewrap;
+        try {
+            let capturedOptions: any = null;
 
-        const createQuery = vi.fn((_params: any) => {
-            capturedOptions = _params.options;
-            return {
-                async *[Symbol.asyncIterator]() {
-                    yield { type: 'result' } as any;
-                },
-                close: vi.fn(),
-                setPermissionMode: vi.fn(),
-                setModel: vi.fn(),
-                setMaxThinkingTokens: vi.fn(),
-                supportedCommands: vi.fn(async () => []),
-                supportedModels: vi.fn(async () => []),
-            } as any;
-        });
-
-        const runOnce = async (modeOverrides: any) => {
-            capturedOptions = null;
-            let didSendFirst = false;
-            const nextMessage = vi.fn(async () => {
-                if (didSendFirst) return null;
-                didSendFirst = true;
-                return { message: 'hello', mode: makeMode(modeOverrides) };
+            const createQuery = vi.fn((_params: any) => {
+                capturedOptions = _params.options;
+                return {
+                    async *[Symbol.asyncIterator]() {
+                        yield { type: 'result' } as any;
+                    },
+                    close: vi.fn(),
+                    setPermissionMode: vi.fn(),
+                    setModel: vi.fn(),
+                    setMaxThinkingTokens: vi.fn(),
+                    supportedCommands: vi.fn(async () => []),
+                    supportedModels: vi.fn(async () => []),
+                } as any;
             });
+
+            const runOnce = async (modeOverrides: any) => {
+                capturedOptions = null;
+                let didSendFirst = false;
+                const nextMessage = vi.fn(async () => {
+                    if (didSendFirst) return null;
+                    didSendFirst = true;
+                    return { message: 'hello', mode: makeMode(modeOverrides) };
+                });
 
                 await claudeRemoteAgentSdk({
                     sessionId: null,
@@ -2640,19 +2732,31 @@ describe('claudeRemoteAgentSdk options and hooks', () => {
                     claudeExecutablePath: '/tmp/claude',
                     canCallTool: async () => ({ behavior: 'allow', updatedInput: {} }),
                     isAborted: () => false,
-                nextMessage,
-                onReady: () => {},
-                onSessionFound: () => {},
-                onMessage: () => {},
-                createQuery,
-            } as any);
+                    nextMessage,
+                    onReady: () => {},
+                    onSessionFound: () => {},
+                    onMessage: () => {},
+                    createQuery,
+                } as any);
 
-            return capturedOptions;
-        };
+                return capturedOptions;
+            };
 
-        expect((await runOnce({ permissionMode: 'default' }))?.allowDangerouslySkipPermissions).toBe(true);
-        expect((await runOnce({ permissionMode: 'bypassPermissions' }))?.allowDangerouslySkipPermissions).toBe(true);
-        expect((await runOnce({ permissionMode: 'default', agentModeId: 'plan' }))?.allowDangerouslySkipPermissions).toBe(true);
+            for (const permissionMode of ['default', 'safe-yolo', 'acceptEdits', 'bypassPermissions'] as const) {
+                const options = await runOnce({ permissionMode });
+                expect(options?.allowDangerouslySkipPermissions).toBe(allowed);
+                expect(options?.permissionMode).toBe(permissionMode === 'default' ? null : permissionMode === 'safe-yolo' ? 'auto' : permissionMode);
+            }
+            expect((await runOnce({ permissionMode: 'default', agentModeId: 'plan' }))?.allowDangerouslySkipPermissions).toBe(allowed);
+        } finally {
+            Object.defineProperty(process, 'platform', platformDescriptor);
+            if (uidDescriptor) Object.defineProperty(process, 'getuid', uidDescriptor);
+            else Reflect.deleteProperty(process, 'getuid');
+            if (previousSandbox === undefined) delete process.env.IS_SANDBOX;
+            else process.env.IS_SANDBOX = previousSandbox;
+            if (previousBubblewrap === undefined) delete process.env.CLAUDE_CODE_BUBBLEWRAP;
+            else process.env.CLAUDE_CODE_BUBBLEWRAP = previousBubblewrap;
+        }
     });
 
     it('uses the Agent SDK omit sentinel when Happier resolves to default, but passes non-default modes', async () => {

@@ -34,6 +34,16 @@ Before adding or changing a provider/runtime/install/update flow, classify it as
 
 Provider detection, install status, daemon validation, runtime spawning, and UI/installables must reuse the same source of truth. Backend CLIs should prefer user/system installs by default over Happier-managed installs unless an explicit setting says otherwise.
 
+In current development source, the shared provider catalog selects `@opencode/cli`
+for managed OpenCode installs, latest-version lookup, and package-manager attribution.
+The managed installer approves only that package's build through pnpm; OpenCode's
+own postinstall selects and verifies its native binary, including AVX2/baseline
+and libc variants. Happier does not duplicate that selection. Other managed
+packages retain `--ignore-scripts`. Existing `opencode-ai` package-manager installs
+retain their original owner, update command, and latest-version source; managed
+updates select OpenCode 2. CLI version probing accepts the vendor's `opencode v2.x.y`
+output and exposes the normalized version.
+
 In current development source (not yet released), MCP package-runner resolution
 honors configured `npx`, `npm`, `yarn`, `pnpm`, and `bunx` commands, including explicit
 executable paths. `normalizePackageRunnerInvocation` resolves the executable using
@@ -59,6 +69,13 @@ installation). Other command scripts retain shell execution and its existing
 quoting, including npm JavaScript wrappers and wrappers whose target is missing
 or still a text placeholder. Recognition does not choose a different installation
 or modify the subprocess environment.
+
+In current development source (not yet released), filtered Claude and terminal
+launcher environments share `apps/cli/src/utils/env/windowsSystemEnv.ts` for the
+Windows system-variable baseline. They retain inherited installation and shared
+data paths, including `ProgramFiles` (used by Docker CLI plugin discovery) and
+`ProgramFiles(x86)`, with Windows case-insensitive key matching. This does not
+copy arbitrary ambient secrets or synthesize missing variables such as `HOME`.
 
 In current development source, vendor installers preserve the Windows process
 environment's `Path` spelling; cloning that environment and replacing it with an
@@ -97,7 +114,13 @@ checkouts must run the build script before installing a Windows service. A self-
 resolves the launcher from its runtime root
 (`packages/cli-common/src/firstPartyRuntime/resolveSelfContainedCliRuntimeRoot.ts`, the same root
 the CLI's `resolveCliRuntimeAssetPath` uses): a `~/.happier/bin/happier|hprev|hdev` shortcut is a
-hardlink or copy, so it maps to `~/.happier/<cli root>/current`; any other self-contained binary
+hardlink or copy, so it maps to the active payload under that shim's install home. The default
+`happier` shortcut follows that home's `default-cli-release-channel.json` (stable when missing);
+channel shortcuts and their legacy aliases retain their own channel. Asset reads and packaged
+child entrypoints share `resolveInstalledCliRuntimeRootPath`, which uses the existing install
+layout and `current.version` resolver to bypass Windows junctions, falling back to `current`
+for legacy installs without a marker. The process's data home does not redirect a launched shim
+to another install. Any other self-contained binary
 uses its own directory. Node and Bun processes use the package asset. Windows hstack has no
 supported shortcut installer today, so a binary hstack resolves the launcher beside itself; a
 future Windows hstack shortcut must be added to that runtime-root mapping.
@@ -130,6 +153,13 @@ On Windows, `HAPPIER_NO_PATH_UPDATE` skips PATH changes only, not state-home per
 This does not copy or migrate credentials from a previous data home.
 
 ## Desktop executable identity
+
+In current development source, desktop builds retain the full dev/preview semantic
+version in Tauri's app configuration, matching the updater feed on every platform.
+The Windows build pipeline sets the separate `bundle.windows.wix.version` numeric
+MSI version; converting the app version itself would make the updater offer the
+installed build repeatedly. Build preparation and bundle finalization use the same
+version projection in `scripts/pipeline/tauri/build-updater-artifacts.mjs`.
 
 Current development source configures `mainBinaryName` per desktop channel:
 `happier-desktop`, `happier-desktop-preview`, and `happier-desktop-dev`. These names

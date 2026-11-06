@@ -645,6 +645,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
     } = useTranscriptWebViewportTelemetryDiagnostics({
         chatListNativeId,
         itemsRef,
+        listRef,
         listContentHeightRef,
         listLayoutHeightRef,
         olderPaginationSnapshotRef,
@@ -1187,6 +1188,8 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         return { limit: Math.max(1, Math.trunc(configuredLimit)) };
     }, []);
     const [firstListPaintObserved, setFirstListPaintObserved] = React.useState(false);
+    const firstListPaintObservedRef = React.useRef(false);
+    useCommittedTranscriptRef(firstListPaintObservedRef, firstListPaintObserved);
     const [nativeViewportPaintObserved, setNativeViewportPaintObservedState] = React.useState(false);
     const nativeViewportPaintObservedRef = React.useRef(false);
     const updateNativeViewportPaintObserved = React.useCallback((observed: boolean) => {
@@ -2095,8 +2098,20 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
     // inline arrow here would churn the entry host's session-open effect deps on every render.
     const isScrollableRef = React.useRef<() => boolean>(() => false);
     const isScrollableForEntryHost = React.useCallback((): boolean => isScrollableRef.current(), []);
+    // The open-time fill asks the pager's own threshold predicate rather than keeping a second
+    // "enough history" rule. Web-only: only the web post-settle fill consumes it.
+    const isOlderPaginationNearEdge = olderPagination.isNearOlderEdge;
+    const isViewportNearOlderEdge = React.useCallback((): boolean => {
+        const metrics = resolveWebScrollMetrics();
+        if (!metrics) return false;
+        return isOlderPaginationNearEdge({
+            offsetY: metrics.scrollTop,
+            scrollable: isWebTranscriptScrollable(metrics, 1),
+        });
+    }, [isOlderPaginationNearEdge, resolveWebScrollMetrics]);
     const entryHost = useTranscriptEntryHost({
         activeTargetWindowTargetRef,
+        firstListPaintObservedRef,
         anchorLookupExhaustedRef,
         anchorLookupInFlightRef,
         anchorLookupLoadCountRef,
@@ -2125,6 +2140,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         isLoaded: props.isLoaded,
         isScrollable: isScrollableForEntryHost,
         isViewportAnchorSeqLoaded,
+        isViewportNearOlderEdge,
         jumpToSeq: props.jumpToSeq,
         jumpToSeqActiveRef,
         lastScrollOffsetForIntentRef,

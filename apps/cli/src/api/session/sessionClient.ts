@@ -1,4 +1,5 @@
 import { logger } from '@/ui/logger'
+import { buildSessionEventContent } from './sessionEventContent';
 import { EventEmitter } from 'node:events'
 import axios from 'axios';
 import { Socket } from 'socket.io-client'
@@ -414,6 +415,7 @@ function isSessionProviderInputRejectedBeforeEffectReason(
 export type SessionProviderInputOutcome =
     | (SessionProviderInputOutcomeIdentity & Readonly<{
         kind: 'accepted';
+        delivery?: Readonly<{ kind: 'primary_turn' | 'command' }>;
         providerRequestId?: string;
         providerTurnId?: string;
         /** Model captured for this new provider prompt before dispatch. Omitted for in-flight steer. */
@@ -440,8 +442,9 @@ const STALE_LOCAL_ACTIVE_TURN_RECONCILE_MS = 5 * 60 * 1000;
 
 function isProviderProgressTranscriptBody(value: unknown): boolean {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    const role = (value as { role?: unknown }).role;
-    return role !== 'user';
+    const body = value as { role?: unknown; content?: { type?: unknown; data?: { type?: unknown } } };
+    return body.role !== 'user'
+        && !(body.role === 'agent' && body.content?.type === 'event' && body.content.data?.type === 'message');
 }
 
 function readPlannedServerRestartRetryAfterMs(payload: unknown): number | undefined {
@@ -643,6 +646,11 @@ export class ApiSessionClient extends EventEmitter {
         state: PendingMaterializationDeliveryState;
         requestedAction?: PendingRequestedActionV1;
         providerAction?: import('@happier-dev/protocol').PendingProviderAction;
+        acceptedDeliveryKind?: 'primary_turn' | 'command';
+        turnPublication?: {
+            turnId: string | null;
+            published: boolean;
+        };
     }>>();
     // Generic reversible provider-path blocks retain identity so exact late provider evidence can
     // still settle the row. A proven pre-provider lifecycle failure retires it after durable block.
@@ -1122,6 +1130,17 @@ export class ApiSessionClient extends EventEmitter {
             sessionId: this.sessionId,
             getSocket: () => this.socket as any,
             requestReconnect: (reason) => this.kickSessionSocketReconnectForDurableMutation(reason),
+            onSessionTurnDelivered: (mutation) => {
+                if (mutation.action !== 'begin') return;
+                let changed = false;
+                for (const claim of this.canonicalPendingDeliveryByLocalId.values()) {
+                    if (claim.turnPublication?.turnId === mutation.turnId && !claim.turnPublication.published) {
+                        claim.turnPublication.published = true;
+                        changed = true;
+                    }
+                }
+                if (changed) this.publishPendingEligibilityWake();
+            },
             deliverAgentStateRequestSettlement: async (mutation) => {
                 const decrypted = await openAgentStateRequestSettlement(this.requestSettlementEncryptionScope, mutation.content);
                 // The crypto boundary also returns null for a wrong key. Retain that
@@ -1245,6 +1264,20 @@ export class ApiSessionClient extends EventEmitter {
         this.sessionTurnLifecycle = createSessionTurnLifecycle({
             sessionId: this.sessionId,
             enqueueSessionTurn: createSessionTurnMutationWriter(this.sessionMutationOutbox).enqueueSessionTurn,
+            onTurnInputBound: ({ turnId, localIds }) => {
+                for (const localId of this.normalizeProviderAcceptedUserMessageLocalIds(localIds)) {
+                    const publication = this.ensureCanonicalPendingTurnPublication(localId);
+                    if (!publication) continue;
+                    if (publication.turnId !== null && publication.turnId !== turnId) {
+                        // A provider continuation may reuse delivery attribution after exact acceptance.
+                        // That acceptance still belongs to the original turn. Before acceptance, an
+                        // authorized retry instead owns its newly admitted turn's publication.
+                        if (this.providerInputTerminalOutcomeByLocalId.get(localId) === 'accepted') continue;
+                        publication.published = false;
+                    }
+                    publication.turnId = turnId;
+                }
+            },
             onTurnFailure: (issue) => {
                 const recovery = this.usageLimitRecoveryRuntime;
                 if (recovery) void recovery.observeFailure(issue).catch(recovery.reportError);
@@ -1712,6 +1745,22 @@ export class ApiSessionClient extends EventEmitter {
         if (this.acceptedCanonicalPendingDeliveryResolutionLocalIdsInFlight.has(localId)) return;
         this.acceptedCanonicalPendingDeliveryResolutionLocalIdsInFlight.add(localId);
         try {
+            const claim = this.canonicalPendingDeliveryByLocalId.get(localId);
+            if (!claim) return;
+            if (claim.acceptedDeliveryKind === 'primary_turn') {
+                const publication = this.ensureCanonicalPendingTurnPublication(localId);
+                if (!publication) return;
+                if (publication.turnId === null) {
+                    logger.infoFile('[pendingQueue] accepted input awaits canonical turn correlation', {
+                        sessionId: this.sessionId, localId,
+                    });
+                }
+                while (!publication.published) {
+                    if (!this.isAcceptedCanonicalPendingDeliveryOperationCurrent(authority)
+                        || !this.canonicalPendingDeliveryByLocalId.has(localId)) return;
+                    if (!await this.waitForPendingEligibilityUpdate(authority.abortSignal)) return;
+                }
+            }
             // Retain one settlement operation for the accepted localId until it commits or its
             // existing session/runtime authority ends. Retrying settlement never invokes input.
             for (let attempt = 0; ; attempt += 1) {
@@ -3740,98 +3789,11 @@ export class ApiSessionClient extends EventEmitter {
             ...(params.messageRole ? { messageRole: params.messageRole } : {}),
             ...(params.sessionEventType ? { sessionEventType: params.sessionEventType } : {}),
         });
-        if (this.transcriptStorage === 'direct') {
-
-            if (!params.requireCommit) {
-                this.pendingMaterializedLocalIds.add(localId);
-            }
-
-            const ack = await (async () => {
-                try {
-                    const raw = await emitSocketWithAck({
-                        socket: this.socket as any,
-                        event: 'message',
-                        payload: {
-                            sid: this.sessionId,
-                            message: params.message,
-                            localId,
-                            echoToSender: true,
-                            sidechainId: params.sidechainId,
-                            ...(params.messageRole ? { messageRole: params.messageRole } : {}),
-                            ...(params.sessionEventType ? { sessionEventType: params.sessionEventType } : {}),
-                        },
-                    });
-
-                    const parsed = MessageAckResponseSchema.safeParse(raw);
-                    return parsed.success ? parsed.data : null;
-                } catch (error) {
-                    logger.debug('[SOCKET] Direct transcript commit ack failed', {
-                        localId,
-                        sidechainId: params.sidechainId,
-                        requireCommit: params.requireCommit,
-                        error: serializeAxiosErrorForLog(error),
-                    });
-                    return null;
-                }
-            })();
-
-            if (ack && ack.ok === true) {
-                if (params.requireWriteDisposition === true) {
-                    if (ack.localId !== localId) {
-                        this.sessionMessageCommitRetry.complete(retryToken);
-                        throw new Error(`Exact message commit ACK localId mismatch for ${localId}`);
-                    }
-                    if (typeof ack.didWrite !== 'boolean') {
-                        this.sessionMessageCommitRetry.complete(retryToken);
-                        throw new Error(`Exact message commit ACK for ${localId} omitted didWrite`);
-                    }
-                }
-                if (this.sessionMessageCommitRetry.complete(retryToken)) {
-                    if (params.markAsUserMessage === true) {
-                        this.markAgentQueueEchoSuppressedLocalId(ack.localId ?? localId);
-                        this.markAgentQueueDeliveredLocalId(ack.localId ?? localId);
-                    }
-                    this.markCommittedLocalIdAwaitingEcho(localId);
-                    this.lastObservedMessageSeq = Math.max(this.lastObservedMessageSeq, ack.seq);
-                    if (params.markAsUserMessage === true) {
-                        this.lastObservedUserMessageSeq = Math.max(this.lastObservedUserMessageSeq, ack.seq);
-                        this.recordCommittedUserMessageSeq(ack.localId ?? localId, ack.seq);
-                    }
-                }
-                return {
-                    localId: ack.localId ?? localId,
-                    messageId: ack.id,
-                    seq: ack.seq,
-                    didWrite: ack.didWrite ?? null,
-                };
-            }
-            if (ack && ack.ok === false) {
-                if (this.sessionMessageCommitRetry.complete(retryToken) && !params.requireCommit) {
-                    this.deleteMaterializedLocalId(localId);
-                }
-                logger.debug('[SOCKET] Direct transcript commit rejected', {
-                    localId,
-                    sidechainId: params.sidechainId,
-                    requireCommit: params.requireCommit,
-                    error: ack.error,
-                });
-                throw new Error(ack.error);
-            }
-            if (!this.sessionMessageCommitRetry.readCurrent(retryToken)) return null;
-            if (!params.requireCommit) {
-                this.scheduleCommitRetry(retryToken);
-                return null;
-            }
-            logger.debug('[SOCKET] Direct transcript commit was not confirmed', {
-                localId,
-                sidechainId: params.sidechainId,
-                requireCommit: params.requireCommit,
-            });
-            this.sessionMessageCommitRetry.complete(retryToken);
-            throw new Error('Message send not confirmed');
+        const isDirectTranscript = this.transcriptStorage === 'direct';
+        const storageLabel = isDirectTranscript ? 'Direct' : 'Persisted';
+        if (!isDirectTranscript || !params.requireCommit) {
+            this.pendingMaterializedLocalIds.add(localId);
         }
-
-        this.pendingMaterializedLocalIds.add(localId);
         const ack = await (async () => {
             try {
                 const raw = await emitSocketWithAck({
@@ -3851,7 +3813,7 @@ export class ApiSessionClient extends EventEmitter {
                 const parsed = MessageAckResponseSchema.safeParse(raw);
                 return parsed.success ? parsed.data : null;
             } catch (error) {
-                logger.debug('[SOCKET] Persisted transcript commit ack failed', {
+                logger.debug(`[SOCKET] ${storageLabel} transcript commit ack failed`, {
                     localId,
                     sidechainId: params.sidechainId,
                     requireCommit: params.requireCommit,
@@ -3878,7 +3840,7 @@ export class ApiSessionClient extends EventEmitter {
                     this.markAgentQueueDeliveredLocalId(ack.localId ?? localId);
                 }
                 this.markCommittedLocalIdAwaitingEcho(localId);
-                // ACK confirms persistence. Do not inject a synthetic update here: outbound sends are not prompts.
+                // Outbound acknowledgements are transcript observations, not provider input.
                 this.lastObservedMessageSeq = Math.max(this.lastObservedMessageSeq, ack.seq);
                 if (params.markAsUserMessage === true) {
                     this.lastObservedUserMessageSeq = Math.max(this.lastObservedUserMessageSeq, ack.seq);
@@ -3894,10 +3856,10 @@ export class ApiSessionClient extends EventEmitter {
         }
 
         if (ack && ack.ok === false) {
-            if (this.sessionMessageCommitRetry.complete(retryToken)) {
+            if (this.sessionMessageCommitRetry.complete(retryToken) && (!isDirectTranscript || !params.requireCommit)) {
                 this.deleteMaterializedLocalId(localId);
             }
-            logger.debug('[SOCKET] Persisted transcript commit rejected', {
+            logger.warnFile(`[SOCKET] ${storageLabel} transcript commit rejected`, {
                 localId,
                 sidechainId: params.sidechainId,
                 requireCommit: params.requireCommit,
@@ -3910,6 +3872,19 @@ export class ApiSessionClient extends EventEmitter {
         }
 
         if (!this.sessionMessageCommitRetry.readCurrent(retryToken)) return null;
+        if (isDirectTranscript) {
+            if (!params.requireCommit) {
+                this.scheduleCommitRetry(retryToken);
+                return null;
+            }
+            logger.debug('[SOCKET] Direct transcript commit was not confirmed', {
+                localId,
+                sidechainId: params.sidechainId,
+                requireCommit: params.requireCommit,
+            });
+            this.sessionMessageCommitRetry.complete(retryToken);
+            throw new Error('Message send not confirmed');
+        }
         if (params.requireCommit) {
             if (params.requireWriteDisposition === true) {
                 this.sessionMessageCommitRetry.complete(retryToken);
@@ -5158,19 +5133,8 @@ export class ApiSessionClient extends EventEmitter {
         });
     }
 
-    private buildSessionEventContent(event: SessionEventMessage, id: string) {
-        return {
-            role: 'agent',
-            content: {
-                id,
-                type: 'event',
-                data: event
-            }
-        };
-    }
-
     sendSessionEvent(event: SessionEventMessage, id?: string) {
-        const content = this.buildSessionEventContent(event, id ?? randomUUID());
+        const content = buildSessionEventContent(event, id ?? randomUUID());
 
         this.logSendWhileDisconnected('session event', { eventType: event.type });
 
@@ -5193,7 +5157,7 @@ export class ApiSessionClient extends EventEmitter {
         opts: { localId: string },
     ): Promise<SessionMessageCommitResult> {
         const localId = requireExactCommitLocalId(opts?.localId);
-        const content = this.buildSessionEventContent(event, localId);
+        const content = buildSessionEventContent(event, localId);
 
         this.logSendWhileDisconnected('session event', { eventType: event.type });
 
@@ -5462,6 +5426,15 @@ export class ApiSessionClient extends EventEmitter {
         return normalized;
     }
 
+    private ensureCanonicalPendingTurnPublication(localId: string) {
+        const claim = this.canonicalPendingDeliveryByLocalId.get(localId);
+        if (!claim) return null;
+        if (claim.turnPublication) return claim.turnPublication;
+        const turnPublication = { turnId: null as string | null, published: false };
+        this.canonicalPendingDeliveryByLocalId.set(localId, { ...claim, turnPublication });
+        return turnPublication;
+    }
+
     /**
      * Bind one provider-owned exact-input evidence producer to this live session generation.
      * Rebinding fences every older observer, so a replaced runtime cannot settle current Queue
@@ -5603,6 +5576,17 @@ export class ApiSessionClient extends EventEmitter {
         }
 
         if (!this.canonicalPendingDeliveryByLocalId.has(localId)) return;
+        if (outcome.kind === 'accepted') {
+            const claim = this.canonicalPendingDeliveryByLocalId.get(localId)!;
+            this.canonicalPendingDeliveryByLocalId.set(localId, { ...claim, acceptedDeliveryKind: outcome.delivery?.kind });
+            if (!outcome.delivery) {
+                // Released producers report exact custody without a corresponding primary-turn witness.
+                // Preserve their settlement contract until each producer can supply that witness.
+                logger.infoFile('[pendingQueue] accepted input uses opaque producer delivery contract', {
+                    sessionId: this.sessionId, localId, providerId: producer.providerId, providerMode: producer.mode,
+                });
+            }
+        }
         this.providerInputUncertainLocalIds.delete(localId);
         this.providerInputTerminalOutcomeByLocalId.set(localId, terminalOutcome);
 

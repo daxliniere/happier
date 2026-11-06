@@ -1263,13 +1263,13 @@ export const it: TranslationStructure = {
   appCrash: {
       saveDiagnostics: "Salva diagnostica",
       diagnosticsSaveFailed: "Impossibile salvare la diagnostica. I dettagli dell’errore sono ancora disponibili. Riprova o copiali.",
-      copyFailed: "Impossibile copiare i dettagli del crash. Riprova.",
-      discardFailed: "Impossibile eliminare il crash salvato. Riprova.",
-      restartWithoutReport: "Riavvia senza salvare",
-      reportSaveFailed: "Impossibile salvare i dettagli del crash. Copiali prima di riavviare oppure riprova la segnalazione.",
-      savedReportNotice: "Il crash salvato è mostrato qui sotto. Controllalo e modificalo prima di inviarlo. Resta su questo dispositivo fino all’invio o all’eliminazione.",
-      discardSavedReport: "Elimina il crash salvato",
-      stackTruncated: "Stack abbreviato per questo campo. Il crash completo resta salvato su questo dispositivo.",
+    copyFailed: "Impossibile copiare i dettagli del crash. Riprova.",
+    discardFailed: "Impossibile eliminare il crash salvato. Riprova.",
+    restartWithoutReport: "Riavvia senza salvare",
+    reportSaveFailed: "Impossibile salvare i dettagli del crash. Copiali prima di riavviare oppure riprova la segnalazione.",
+    savedReportNotice: "Il crash salvato è mostrato qui sotto. Controllalo e modificalo prima di inviarlo. Resta su questo dispositivo fino all’invio o all’eliminazione.",
+    discardSavedReport: "Elimina il crash salvato",
+    stackTruncated: "Stack abbreviato per questo campo. Il crash completo resta salvato su questo dispositivo.",
     title: "Qualcosa è andato storto",
     subtitle:
       "Happier ha riscontrato un errore imprevisto. Puoi riavviare l'interfaccia dell'app o copiare i dettagli per l'assistenza.",
@@ -1440,6 +1440,7 @@ export const it: TranslationStructure = {
     enterTmuxTempDir: "Inserisci percorso directory temporanea",
     tmuxUpdateEnvironment: "Aggiorna ambiente automaticamente",
     nameRequired: "Il nome del profilo è obbligatorio",
+    invalidProfile: 'Controlla il nome del profilo, le variabili d’ambiente e i valori predefiniti prima di salvare.',
     deleteConfirm: ({ name }: { name: string }) =>
       `Sei sicuro di voler eliminare il profilo "${name}"?`,
     editProfile: "Modifica profilo",
@@ -1593,6 +1594,13 @@ export const it: TranslationStructure = {
         plan: "Pianifica prima di eseguire",
         bypassPermissions: "Salta tutti i permessi",
       },
+    },
+    defaultBackend: {
+        title: 'Backend IA predefinito',
+        footer: 'Avvia le nuove sessioni su questo backend quando il profilo è selezionato e non viene scelto un altro backend.',
+        noneTitle: 'Nessun predefinito',
+        noneSubtitle: 'Happier sceglie il backend come di consueto.',
+        selectedSubtitle: 'Usato all\'avvio di una sessione con questo profilo.',
     },
     defaultPermissions: {
       title: "Permessi predefiniti",
@@ -1884,7 +1892,39 @@ export const it: TranslationStructure = {
   },
 
   bugReports: {
+    reportSession: "Segnala un problema con questa sessione",
+    sessionPickerTitle: "Sessione correlata",
+    sessionPickerSubtitle: "Scegli la sessione a cui si riferisce questa segnalazione.",
+    sessionPickerSearchPlaceholder: "Cerca sessioni",
+    sessionPickerNoResults: "Nessuna sessione corrispondente",
+    noRelatedSession: "Nessuna sessione correlata",
     composer: {
+      scopeChanged: "L’account selezionato è cambiato. Scegli di nuovo la sessione prima di allegare i dati diagnostici.",
+      addMoreDetails: "Aggiungi altri dettagli (facoltativo)",
+      technicalInformation: "Informazioni tecniche",
+      relatedSession: "Sessione correlata (facoltativa)",
+      chooseSession: "Scegli una sessione",
+      changeSession: "Cambia sessione",
+      removeSession: "Rimuovi sessione",
+      selectedSession: "Sessione selezionata",
+      logOptions: {
+        daemonTitle: "Log dell’app e del daemon",
+        daemonDetail: "Attività dell’app e log di connessione dal computer e dal server selezionati.",
+        sessionTitle: "Log della sessione Happier",
+        sessionDetail: "Attività della sessione che ci aiuta a indagare sul problema.",
+        providerTitle: "Trascrizione del provider",
+        providerDetail: "Trascrizione della sessione del provider, quando serve.",
+        technicalOnly: "Solo informazioni tecniche",
+        technicalOnlyDetail: "Escludi tutti i log grezzi da questa segnalazione.",
+      },
+      collection: {
+        collected: "Allegati",
+        unavailable: "Non disponibili",
+        disabled: "Non inclusi",
+        unsupported: "Aggiorna la CLI per allegare questi log",
+        skipped: "Ignorati",
+        error: "Impossibile raccogliere",
+      },
       alerts: {
         previewUnavailableTitle: "Anteprima non disponibile",
         previewUnavailableBody: "Impossibile creare l’anteprima della diagnostica.",
@@ -1947,15 +1987,14 @@ export const it: TranslationStructure = {
       },
       issueDetails: {
         title: "Descrivi il problema",
-        subtitle:
-          "Fornisci abbastanza dettagli per consentirci di riprodurre e diagnosticare rapidamente.",
+        subtitle: "Per iniziare bastano un titolo e una breve descrizione.",
         titleLabel: "Titolo (obbligatorio)",
         titlePlaceholder: "Titolo breve",
         githubUsernameLabel: "Username GitHub (opzionale)",
         githubUsernamePlaceholder:
           "Usato come contatto nel corpo dell’issue",
-        summaryLabel: "Riepilogo conciso (obbligatorio)",
-        summaryPlaceholder: "Riepilogo in un paragrafo",
+        summaryLabel: "Cos’è successo? (obbligatorio)",
+        summaryPlaceholder: "Raccontaci cosa è andato storto.",
         currentBehaviorLabel: "Comportamento attuale (opzionale)",
         currentBehaviorPlaceholder: "Cosa succede davvero?",
         expectedBehaviorLabel: "Comportamento previsto (opzionale)",
@@ -2014,11 +2053,9 @@ export const it: TranslationStructure = {
         },
       },
       consent: {
-        title: "Consenso",
-        understandTitle:
-          "Capisco che la diagnostica può includere metadati tecnici",
-        understandSubtitle:
-          "Non includere password, token di accesso o chiavi private.",
+        title: "Prima di inviare",
+        understandTitle: "Condividi questa segnalazione e i dati diagnostici selezionati",
+        understandSubtitle: "Il testo della segnalazione è pubblico. Gli allegati diagnostici vengono inviati privatamente ai manutentori di Happier. I log della sessione possono includere estratti delle conversazioni.",
       },
       submit: {
         requiredFieldsHint:
@@ -3534,6 +3571,8 @@ export const it: TranslationStructure = {
         membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} abilitati`,
         optionsTitle: "Opzioni",
         autoSwitchTitle: "Fallback automatico",
+        claudeCodeAutoContinueAtUsageLimitTitle: "Lascia che Claude attenda ai limiti di utilizzo",
+        claudeCodeAutoContinueAtUsageLimitSubtitle: "Nelle nuove sessioni, Claude attende e riprende automaticamente quando il limite si reimposta. Disattiva per affidare il recupero a Happier.",
         autoQuotaResetTitle: "Usa automaticamente i reset della quota",
         autoQuotaResetSubtitle: "Consuma un reset disponibile solo quando nessun account del pool è pronto e la quota esaurita può essere ripristinata. Disattivato per impostazione predefinita.",
         autoDisablePlanInvalidTitle: "Disattiva gli account che non possono usare il modello selezionato",
@@ -5326,6 +5365,8 @@ export const it: TranslationStructure = {
   },
 
   errors: {
+    quotaRefreshFailed: "Impossibile aggiornare l’utilizzo. Riprova.",
+    quotaRefreshRetryAt: ({ time }: { time: string }) => `Impossibile aggiornare l’utilizzo. Riprova dopo ${time}.`,
     machineRpcDecryptionFailed: "Impossibile decifrare i dati di questa macchina. Accedi con la chiave dell’account corrispondente e riprova.",
     machineRpcContextUnavailable: "La connessione a questa macchina non è disponibile. Aggiorna le macchine e riprova.",
     networkError: "Si è verificato un errore di rete",
@@ -5862,6 +5903,7 @@ export const it: TranslationStructure = {
       resetBody: ({ time }: { time: string }) =>
         `Questo provider chiede alla sessione di attendere fino a ${time} prima di continuare.`,
       genericBody: "Questo provider chiede alla sessione di attendere prima di continuare.",
+      stoppedBody: "Il recupero automatico si è interrotto e non riproverà da solo. Riprova qui sotto.",
       resetCreditBody: ({ count }: { count: number }) =>
         `${count} ${count === 1 ? "reset di utilizzo disponibile" : "reset di utilizzo disponibili"}.`,
       resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) =>
@@ -7777,7 +7819,10 @@ export const it: TranslationStructure = {
     },
     askUserQuestion: {
         submit: "Invia risposta",
+        dismiss: 'Ignora la domanda',
+        dismissed: 'Domanda ignorata',
         submissionFailures: {
+            unconfirmed: "Le risposte sono state inviate a Claude, ma la conferma è ancora in attesa. Riprova per verificare oppure apri il terminale Claude.",
             update: "Aggiorna Happier CLI e riprova.",
             reconnect: "Riconnetti questa sessione e riprova.",
             retry: "La risposta non è stata accettata. Controllala e riprova.",
@@ -11367,6 +11412,8 @@ settingsSession: {
   },
 
   message: {
+    provenanceFrom: ({ source }: { source: string }) => `Da ${source}`,
+    provenanceSession: 'Sessione',
     sessionReferenceUnavailable: "Sessione non disponibile",
     sessionReferenceOpen: ({ name }: { name: string }) => `Apri la sessione ${name}`,
     switchedToMode: ({ mode }: { mode: string }) =>
@@ -11420,7 +11467,7 @@ settingsSession: {
     sessionRunningLocally:
       "Questa sessione è in esecuzione localmente su questo computer. Puoi passare a remoto per controllarla dall’app.",
     sessionRunningLocallyAndRemotely:
-      "Questa sessione è collegata localmente in OpenCode ed è ancora controllabile dall’app.",
+      "Questa sessione è collegata localmente ed è ancora controllabile dall’app.",
     switchingToRemote: "Passaggio alla modalità remota…",
     switchToRemote: "Passa a remoto",
     detachLocalTerminal: "Scollega terminale",

@@ -33,10 +33,10 @@ import type { createClaudeProviderRuntimeActivityAdapter } from './providerActiv
 import { isClaudeLegacyRequiredHookObservationFailure, isReplaySdkMessage } from './remote/runtimeActivityEvidence';
 import { materializeClaudeMcpConfigArgsForSpawn } from './utils/materializeClaudeMcpConfigArgsForSpawn';
 import { normalizeCurrentHappierSessionId } from '@/agent/runtime/session/currentSessionIdEnv';
-import { hasClaudeQueuedUserTurns } from './remote/resultTurnBoundary';
 import type { ClaudeEffectiveModelObservation } from './sessionModels/effectiveModelUpdate';
 import { readClaudeMainChainAssistantModelId } from './sessionModels/readClaudeMainChainAssistantModelId';
 import { isLivePrimaryClaudeProviderMessage, isSidechainSessionHook } from './utils/sessionHookAttribution';
+import { completeClaudeRemoteClear } from './remote/localCommands';
 
 function buildClaudeEffortArgs(params: Readonly<{
     modelId: unknown;
@@ -217,13 +217,7 @@ export async function claudeRemote(opts: {
 
     // Handle /clear command
     if (specialCommand.type === 'clear') {
-        if (opts.onCompletionEvent) {
-            opts.onCompletionEvent('Context was reset');
-        }
-        if (opts.onSessionReset) {
-            opts.onSessionReset();
-        }
-        promptSettlements.accept(initial);
+        await completeClaudeRemoteClear(opts, () => promptSettlements.accept(initial));
         return;
     }
 
@@ -427,7 +421,7 @@ export async function claudeRemote(opts: {
             if (message.type === 'result') {
                 // The CLI already owns these sends; keep draining its result stream rather
                 // than waiting for another Pending message while that work is still running.
-                if (hasClaudeQueuedUserTurns(message)) continue;
+                if (promptSettlements.shouldRetainForegroundForResult(message)) continue;
                 updateThinking(false);
                 logger.debug('[claudeRemote] Result received, exiting claudeRemote');
 

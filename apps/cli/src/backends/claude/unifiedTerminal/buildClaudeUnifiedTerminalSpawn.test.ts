@@ -111,8 +111,9 @@ describe('buildClaudeUnifiedTerminalSpawn', () => {
   });
 
   it.each([
+    { model: 'claude-opus-5-5', current: 'medium', currentUpdatedAt: 30, supportsEffort: true, cliEffort: undefined, expected: 'medium' },
     { model: 'claude-sonnet-5', current: undefined, currentUpdatedAt: 0, supportsEffort: true, cliEffort: undefined, expected: 'low' },
-    { model: 'claude-sonnet-5', current: 'high', currentUpdatedAt: 30, supportsEffort: true, cliEffort: undefined, expected: undefined },
+    { model: 'claude-sonnet-5', current: 'high', currentUpdatedAt: 30, supportsEffort: true, cliEffort: undefined, expected: 'high' },
     { model: 'claude-sonnet-5', current: undefined, currentUpdatedAt: 0, supportsEffort: true, cliEffort: 'medium', expected: 'medium' },
     { model: 'claude-haiku-4-5', current: undefined, currentUpdatedAt: 0, supportsEffort: true, cliEffort: undefined, expected: undefined },
     { model: 'claude-sonnet-5', current: undefined, currentUpdatedAt: 0, supportsEffort: false, cliEffort: undefined, expected: undefined },
@@ -185,6 +186,43 @@ describe('buildClaudeUnifiedTerminalSpawn', () => {
     expect(launchArgs).not.toContain('bypassPermissions');
   });
 
+  it.each([
+    { permissionMode: 'default', sandbox: undefined, allowed: false },
+    { permissionMode: 'safe-yolo', sandbox: undefined, allowed: false },
+    { permissionMode: 'bypassPermissions', sandbox: undefined, allowed: false },
+    { permissionMode: 'default', sandbox: '1', allowed: true },
+  ] as const)('preserves root permission intent using the effective child sandbox ($permissionMode/$sandbox)', async ({ permissionMode, sandbox, allowed }) => {
+    const uidDescriptor = Object.getOwnPropertyDescriptor(process, 'getuid');
+    Object.defineProperty(process, 'getuid', { configurable: true, value: () => 0 });
+    patchProcessPlatform('linux');
+    try {
+      // The child overlay, rather than the runner's environment, decides sandbox status.
+      await withPatchedEnv({ IS_SANDBOX: '1', CLAUDE_CODE_BUBBLEWRAP: undefined }, async () => {
+        const spawn = await buildClaudeUnifiedTerminalSpawn({
+          path: '/workspace/project',
+          first: { message: 'hello', mode: { permissionMode } },
+          envOverlay: { IS_SANDBOX: sandbox ?? '0' },
+          deps: {
+            resolveClaudeCliPath: () => '/usr/local/bin/claude',
+            isClaudeCliJavaScriptFile: () => false,
+            ensureClaudeJsRuntimeExecutable: async () => '/managed/node',
+            terminalLaunchSpecRunnerPath: '/happier/scripts/terminal_launch_spec_runner.cjs',
+            resolveCommandInvocation: ({ command, args }) => ({ command, args: [...args] }),
+          },
+        });
+        const launch = await readLaunchSpecFromSpawn(spawn);
+        expect(launch.args?.includes('--allow-dangerously-skip-permissions')).toBe(allowed);
+        if (permissionMode !== 'default') {
+          expect(launch.args).toEqual(expect.arrayContaining(['--permission-mode', permissionMode === 'safe-yolo' ? 'auto' : permissionMode]));
+        }
+        expect(launch.env?.IS_SANDBOX).toBe(sandbox ?? '0');
+      });
+    } finally {
+      if (uidDescriptor) Object.defineProperty(process, 'getuid', uidDescriptor);
+      else Reflect.deleteProperty(process, 'getuid');
+    }
+  });
+
   it('writes per-session runner diagnostics paths into the launch spec when a happy session id is available', async () => {
     const spawn = await buildClaudeUnifiedTerminalSpawn({
       path: '/workspace/project',
@@ -247,32 +285,39 @@ describe('buildClaudeUnifiedTerminalSpawn', () => {
   );
 
   it('preserves Windows verbatim argument handling from the resolved Claude invocation', async () => {
-    const spawn = await buildClaudeUnifiedTerminalSpawn({
-      path: 'C:\\workspace\\project',
-      first: {
-        message: 'hello',
-        mode: {
-          permissionMode: 'default',
+    patchProcessPlatform('win32');
+    await withPatchedEnv({ ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)' }, async () => {
+      const spawn = await buildClaudeUnifiedTerminalSpawn({
+        path: 'C:\\workspace\\project',
+        first: {
+          message: 'hello',
+          mode: {
+            permissionMode: 'default',
+          },
         },
-      },
-      deps: {
-        resolveClaudeCliPath: () => 'C:\\Users\\alice\\AppData\\Roaming\\npm\\claude.cmd',
-        isClaudeCliJavaScriptFile: () => false,
-        ensureClaudeJsRuntimeExecutable: async () => 'C:\\happier\\runtime.exe',
-        claudeLocalLauncherPath: 'C:\\happier\\scripts\\claude_local_launcher.cjs',
-        terminalLaunchSpecRunnerPath: 'C:\\happier\\scripts\\terminal_launch_spec_runner.cjs',
-        resolveCommandInvocation: () => ({
-          command: 'C:\\Windows\\System32\\cmd.exe',
-          args: ['/d', '/s', '/c', '"C:\\Users\\alice\\AppData\\Roaming\\npm\\claude.cmd"'],
-          windowsVerbatimArguments: true,
-        }),
-      },
-    });
+        deps: {
+          resolveClaudeCliPath: () => 'C:\\Users\\alice\\AppData\\Roaming\\npm\\claude.cmd',
+          isClaudeCliJavaScriptFile: () => false,
+          ensureClaudeJsRuntimeExecutable: async () => 'C:\\happier\\runtime.exe',
+          claudeLocalLauncherPath: 'C:\\happier\\scripts\\claude_local_launcher.cjs',
+          terminalLaunchSpecRunnerPath: 'C:\\happier\\scripts\\terminal_launch_spec_runner.cjs',
+          resolveCommandInvocation: () => ({
+            command: 'C:\\Windows\\System32\\cmd.exe',
+            args: ['/d', '/s', '/c', '"C:\\Users\\alice\\AppData\\Roaming\\npm\\claude.cmd"'],
+            windowsVerbatimArguments: true,
+          }),
+        },
+      });
 
-    const launchSpec = await readLaunchSpecFromSpawn(spawn);
-    expect(launchSpec).toMatchObject({
-      command: 'C:\\Windows\\System32\\cmd.exe',
-      windowsVerbatimArguments: true,
+      const launchSpec = await readLaunchSpecFromSpawn(spawn);
+      expect(launchSpec).toMatchObject({
+        command: 'C:\\Windows\\System32\\cmd.exe',
+        windowsVerbatimArguments: true,
+      });
+      expect(launchSpec.env).toMatchObject({ ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)' });
+      expect(spawn.spawnEnv).toMatchObject({ ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)' });
+      // Shell closure cannot prove the native CLI stopped.
+      expect(spawn.providerInvocation).toBeUndefined();
     });
   });
 
@@ -387,6 +432,7 @@ describe('buildClaudeUnifiedTerminalSpawn', () => {
     const launchSpec = await readLaunchSpecFromSpawn(spawn);
     expect(launchSpec.command).toBe('/managed/node');
     expect(launchSpec.args?.[0]).toBe('/happier/scripts/claude_local_launcher.cjs');
+    expect(spawn.providerInvocation).toEqual({ command: launchSpec.command, args: launchSpec.args });
     expect(launchSpec.args).toContain('/tmp/plugin');
     expect(launchSpec.args).toContain('/tmp/settings.json');
     expect(JSON.stringify(launchSpec.args)).not.toContain('synthetic-sensitive-value');
@@ -425,7 +471,7 @@ async function readOverlayFromArgs(args: readonly string[], hookSettingsPath: st
   return JSON.parse(await readFile(overlayArg, 'utf8')) as Record<string, unknown>;
 }
 
-  it('merges ultracode into the single --settings overlay when the mode enables it', async () => {
+  it.each([false, true])('merges ultracode and pool continuation into the single settings overlay (pool %s)', async (pool) => {
     const { mkdtemp, readFile, stat, writeFile } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
@@ -436,6 +482,12 @@ async function readOverlayFromArgs(args: readonly string[], hookSettingsPath: st
     try {
       const spawn = await buildClaudeUnifiedTerminalSpawn({
         path: '/workspace/project',
+        envOverlay: pool ? {
+          [HAPPIER_CONNECTED_SERVICE_SELECTIONS_ENV_KEY]: JSON.stringify([{
+            kind: 'group', serviceId: 'claude-subscription', groupId: 'pool',
+            activeProfileId: 'work', fallbackProfileId: 'work', generation: 1,
+          }]),
+        } : {},
         first: {
           message: 'hello',
           mode: {
@@ -459,6 +511,7 @@ async function readOverlayFromArgs(args: readonly string[], hookSettingsPath: st
       const args = launchSpec.args ?? [];
       const overlay = await readOverlayFromArgs(args, hookSettingsPath);
       expect(overlay.ultracode).toBe(true);
+      expect(overlay.autoContinueAtUsageLimit).toBe(pool ? false : undefined);
       expect(overlay).not.toHaveProperty('skipDangerousModePermissionPrompt');
       // The hook settings content survives the merge.
       expect(overlay.permissions).toEqual({ allow: ['mcp__happier__change_title'] });
@@ -834,6 +887,7 @@ async function readOverlayFromArgs(args: readonly string[], hookSettingsPath: st
     expect(spawn.spawnArgv).not.toContain('/usr/local/bin/claude');
     const launchSpec = await readLaunchSpecFromSpawn(spawn);
     expect(launchSpec.command).toBe('/usr/local/bin/claude');
+    expect(spawn.providerInvocation).toEqual({ command: launchSpec.command, args: launchSpec.args });
     expect(launchSpec.env?.DISABLE_AUTOUPDATER).toBe('1');
   });
 

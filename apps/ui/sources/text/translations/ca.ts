@@ -1482,7 +1482,39 @@ export const ca: TranslationStructure = {
     },
 
     bugReports: {
+        reportSession: "Informa d’un problema amb aquesta sessió",
+        sessionPickerTitle: "Sessió relacionada",
+        sessionPickerSubtitle: "Tria la sessió a què fa referència aquest informe.",
+        sessionPickerSearchPlaceholder: "Cerca sessions",
+        sessionPickerNoResults: "No hi ha sessions coincidents",
+        noRelatedSession: "Cap sessió relacionada",
         composer: {
+            scopeChanged: "El compte seleccionat ha canviat. Torna a triar la sessió abans d’adjuntar els diagnòstics.",
+            addMoreDetails: "Afegeix més detalls (opcional)",
+            technicalInformation: "Informació tècnica",
+            relatedSession: "Sessió relacionada (opcional)",
+            chooseSession: "Tria una sessió",
+            changeSession: "Canvia la sessió",
+            removeSession: "Treu la sessió",
+            selectedSession: "Sessió seleccionada",
+            logOptions: {
+                daemonTitle: "Registres de l’app i del daemon",
+                daemonDetail: "Activitat de l’app i registres de connexió de l’ordinador i el servidor seleccionats.",
+                sessionTitle: "Registres de la sessió de Happier",
+                sessionDetail: "Activitat de la sessió que ens ajuda a investigar aquest problema.",
+                providerTitle: "Transcripció del proveïdor",
+                providerDetail: "Transcripció de la sessió del proveïdor, quan calgui.",
+                technicalOnly: "Només informació tècnica",
+                technicalOnlyDetail: "Exclou tots els registres en brut d’aquest informe.",
+            },
+            collection: {
+                collected: "Adjunts",
+                unavailable: "No disponibles",
+                disabled: "No inclosos",
+                unsupported: "Actualitza la CLI per adjuntar aquests registres",
+                skipped: "Omesos",
+                error: "No s’han pogut recollir",
+            },
             alerts: {
                 previewUnavailableTitle: 'Previsualització no disponible',
                 previewUnavailableBody: 'No s\'ha pogut construir la previsualització de diagnòstics.',
@@ -1538,13 +1570,13 @@ export const ca: TranslationStructure = {
             },
             issueDetails: {
                 title: 'Descriu el problema',
-                subtitle: 'Proporciona prou detall perquè el puguem reproduir i diagnosticar ràpidament.',
+                subtitle: "Per començar n’hi ha prou amb un títol i una descripció breu.",
                 titleLabel: 'Títol (obligatori)',
                 titlePlaceholder: 'Títol curt',
                 githubUsernameLabel: 'Usuari de GitHub (opcional)',
                 githubUsernamePlaceholder: 'S’usa com a contacte al cos de l’issue',
-                summaryLabel: 'Resum concís (obligatori)',
-                summaryPlaceholder: 'Resum d’un paràgraf',
+                summaryLabel: "Què ha passat? (obligatori)",
+                summaryPlaceholder: "Explica’ns què ha fallat.",
                 currentBehaviorLabel: 'Comportament actual (opcional)',
                 currentBehaviorPlaceholder: 'Què passa realment?',
                 expectedBehaviorLabel: 'Comportament esperat (opcional)',
@@ -1599,9 +1631,9 @@ export const ca: TranslationStructure = {
                 },
             },
             consent: {
-                title: 'Consentiment',
-                understandTitle: 'Entenc que els diagnòstics poden incloure metadades tècniques',
-                understandSubtitle: 'No incloguis contrasenyes, tokens d’accés o claus privades.',
+                title: "Abans d’enviar",
+                understandTitle: "Comparteix aquest informe i els diagnòstics seleccionats",
+                understandSubtitle: "El text de l’informe és públic. Els adjunts de diagnòstic s’envien de manera privada als mantenidors de Happier. Els registres de sessió poden incloure fragments de converses.",
             },
             submit: {
                 requiredFieldsHint: 'Completa els camps obligatoris per habilitar l’enviament.',
@@ -3038,6 +3070,8 @@ export const ca: TranslationStructure = {
                 membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} activats`,
                 optionsTitle: 'Opcions',
                 autoSwitchTitle: 'Fallback automàtic',
+                claudeCodeAutoContinueAtUsageLimitTitle: "Permet que Claude esperi als límits d’ús",
+                claudeCodeAutoContinueAtUsageLimitSubtitle: "A les sessions noves, Claude espera i continua automàticament quan es restableix el límit. Desactiva-ho perquè Happier gestioni la recuperació.",
                 autoQuotaResetTitle: "Utilitza els restabliments de quota automàticament",
                 autoQuotaResetSubtitle: "Gasta un restabliment disponible només quan cap compte del grup està preparat i es pot restablir la quota esgotada. Desactivat per defecte.",
                 autoDisablePlanInvalidTitle: "Desactiva els comptes que no poden utilitzar el model seleccionat",
@@ -4720,6 +4754,8 @@ export const ca: TranslationStructure = {
     },
 
     errors: {
+        quotaRefreshFailed: "No s’ha pogut actualitzar l’ús. Torna-ho a provar.",
+        quotaRefreshRetryAt: ({ time }: { time: string }) => `No s’ha pogut actualitzar l’ús. Torna-ho a provar després de ${time}.`,
         machineRpcDecryptionFailed: "No es poden desxifrar les dades d’aquesta màquina. Inicia la sessió amb la clau de compte corresponent i torna-ho a provar.",
         machineRpcContextUnavailable: "La connexió amb aquesta màquina no està disponible. Actualitza les màquines i torna-ho a provar.",
         networkError: 'Error de connexió',
@@ -5184,6 +5220,7 @@ deps: {
             readyTitle: 'El límit d’ús s’ha restablert',
             resetBody: ({ time }: { time: string }) => `Aquest proveïdor demana esperar fins a ${time} abans de continuar.`,
             genericBody: 'Aquest proveïdor demana esperar abans de continuar.',
+            stoppedBody: 'La recuperació automàtica s’ha aturat i no es tornarà a intentar sola. Torna-ho a provar a sota.',
             resetCreditBody: ({ count }: { count: number }) => `${count} ${count === 1 ? 'restabliment d’ús disponible' : 'restabliments d’ús disponibles'}.`,
             resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) => `${count} ${count === 1 ? 'restabliment d’ús disponible' : 'restabliments d’ús disponibles'}; el següent caduca ${time}.`,
             readyBody: 'Ara pots reprendre aquesta sessió.',
@@ -7079,7 +7116,10 @@ deps: {
         },
         askUserQuestion: {
             submit: 'Envia resposta',
+            dismiss: 'Descarta la pregunta',
+            dismissed: 'Pregunta descartada',
             submissionFailures: {
+                unconfirmed: "Les respostes s’han enviat a Claude, però la confirmació encara està pendent. Torna-ho a provar per comprovar-ho o obre el terminal de Claude.",
                 update: 'Actualitza el CLI de Happier i torna-ho a provar.',
                 reconnect: 'Torna a connectar aquesta sessió i torna-ho a provar.',
                 retry: 'No s’ha pogut acceptar la resposta. Revisa-la i torna-ho a provar.',
@@ -10313,6 +10353,8 @@ settingsSession: {
     },
 
     message: {
+        provenanceFrom: ({ source }: { source: string }) => `De ${source}`,
+        provenanceSession: 'Sessió',
         sessionReferenceUnavailable: 'Sessió no disponible',
         sessionReferenceOpen: ({ name }: { name: string }) => `Obre la sessió ${name}`,
         switchedToMode: ({ mode }: { mode: string }) => `S'ha canviat al mode ${mode}`,
@@ -10360,7 +10402,7 @@ settingsSession: {
       chatFooter: {
           permissionsTerminalOnly: 'Els permisos només es mostren al terminal. Reinicia o envia un missatge per controlar des de l\'app.',
           sessionRunningLocally: 'This session is running locally.',
-          sessionRunningLocallyAndRemotely: 'Aquesta sessió està adjunta localment a OpenCode i encara es pot controlar des de l’app.',
+          sessionRunningLocallyAndRemotely: 'Aquesta sessió està adjunta localment i encara es pot controlar des de l’app.',
           switchingToRemote: 'Canviant al mode remot…',
           switchToRemote: 'Canvia a remot',
           detachLocalTerminal: 'Desconnecta el terminal',
@@ -10636,6 +10678,7 @@ settingsSession: {
         tmuxUpdateEnvironment: 'Actualitza l\'entorn tmux',
         deleteConfirm: ({ name }: { name: string }) => `Segur que vols eliminar el perfil "${name}"?`,
         nameRequired: 'El nom del perfil és obligatori',
+        invalidProfile: 'Revisa el nom del perfil, les variables d’entorn i els valors predeterminats abans de desar.',
         builtIn: 'Integrat',
         custom: 'Personalitzat',
         builtInSaveAsHint: 'Desar un perfil integrat crea un nou perfil personalitzat.',
@@ -10767,6 +10810,13 @@ settingsSession: {
                 plan: 'Planifica abans d\'executar',
                 bypassPermissions: 'Salta tots els permisos',
             },
+        },
+        defaultBackend: {
+            title: 'Backend d\'IA predeterminat',
+            footer: 'Inicia sessions noves en aquest backend quan el perfil està seleccionat i no se\'n tria un altre.',
+            noneTitle: 'Sense predeterminat',
+            noneSubtitle: 'Happier tria el backend com de costum.',
+            selectedSubtitle: 'S\'utilitza en iniciar una sessió amb aquest perfil.',
         },
         defaultPermissions: {
             title: 'Permisos per defecte',

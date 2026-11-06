@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createSessionTurnLifecycle } from '@/agent/runtime/session/turn/lifecycle';
 import type { SessionTurnMutationV1 } from '@/api/session/mutations/sessionMutationTypes';
+import { createDeferred } from '@/testkit/async/deferred';
 
 import { claudeRemoteAgentSdk } from './claudeRemoteAgentSdk';
 import { makeMode } from './claudeRemoteAgentSdk.testkit';
@@ -9,6 +10,200 @@ import { makeMode } from './claudeRemoteAgentSdk.testkit';
 type CreateQuery = NonNullable<Parameters<typeof claudeRemoteAgentSdk>[0]['createQuery']>;
 
 describe('claudeRemoteAgentSdk post-result streaming', () => {
+    it.each(['/checkpoints', '/rewind'])('keeps the provider turn active while handling %s as an explicit action', async (command) => {
+        const lifecycle = createSessionTurnLifecycle({ sessionId: 'active-local-command', enqueueSessionTurn: async () => {} });
+        const commandHandled = createDeferred<void>();
+        const ready = createDeferred<void>();
+        const closed = createDeferred<void>();
+        let reads = 0;
+        const accepted: string[] = [];
+        const createQuery = (({ prompt }: Parameters<CreateQuery>[0]) => ({
+            async *[Symbol.asyncIterator]() {
+                const input = await (prompt as AsyncIterable<import('@anthropic-ai/claude-agent-sdk').SDKUserMessage>)[Symbol.asyncIterator]().next();
+                if (input.done) throw new Error('Expected initial prompt');
+                yield { ...input.value, isReplay: true, session_id: 'native-active-command' };
+                await commandHandled.promise;
+                expect(lifecycle.hasActiveTurn()).toBe(true);
+                yield { type: 'result', subtype: 'success', session_id: 'native-active-command', queued_turn_count: 0 };
+                await closed.promise;
+            },
+            close() { closed.resolve(); },
+        })) as unknown as CreateQuery;
+        try {
+            await claudeRemoteAgentSdk({
+                sessionId: null, transcriptPath: null, path: '/tmp', claudeExecutablePath: '/tmp/claude',
+                canCallTool: async () => ({ behavior: 'allow', updatedInput: {} }), isAborted: () => false,
+                nextMessage: async () => {
+                    const index = reads++;
+                    if (index === 0) {
+                        await lifecycle.beginTurn({ provider: 'claude' });
+                        return { message: 'hello', mode: makeMode(), userMessageLocalIds: ['hello'] };
+                    }
+                    if (index === 1) {
+                        return { message: command, mode: makeMode(), userMessageLocalIds: ['command'], pendingProviderAction: 'steer' };
+                    }
+                    commandHandled.resolve();
+                    await ready.promise;
+                    return null;
+                },
+                onReady: async () => {
+                    await lifecycle.completeTurn({ provider: 'claude' });
+                    ready.resolve();
+                },
+                onMessage() {}, onSessionFound() {}, createQuery,
+                onPromptAcceptedByProvider: ({ userMessageLocalIds }) => { accepted.push(...userMessageLocalIds); },
+            });
+            expect(accepted.sort()).toEqual(['command', 'hello']);
+            expect(lifecycle.hasActiveTurn()).toBe(false);
+        } finally {
+            ready.resolve();
+            closed.resolve();
+            await lifecycle.endSession();
+        }
+    });
+
+    it.each([
+        { command: '/clear', checkpointing: false, canRewind: true },
+        { command: '/checkpoints', checkpointing: false, canRewind: true },
+        { command: '/rewind', checkpointing: false, canRewind: true },
+        { command: '/checkpoints', checkpointing: true, canRewind: true },
+        { command: '/rewind checkpoint --confirm', checkpointing: true, canRewind: true },
+        { command: '/rewind checkpoint --confirm', checkpointing: true, canRewind: false },
+    ])('completes a locally handled $command turn after a provider result (checkpointing=$checkpointing, canRewind=$canRewind)', async ({ command, checkpointing, canRewind }) => {
+        const lifecycle = createSessionTurnLifecycle({ sessionId: 'local-command-session', enqueueSessionTurn: async () => {} });
+        const ready = createDeferred<void>();
+        const closed = createDeferred<void>();
+        const accepted: string[] = [];
+        let reads = 0;
+        let nextPromptUnblocked = false;
+        let rewindCompleted = false;
+        // The external SDK query is the boundary; the prompt pump and turn lifecycle remain real.
+        const createQuery = (({ prompt }: Parameters<CreateQuery>[0]) => ({
+            async *[Symbol.asyncIterator]() {
+                const input = await (prompt as AsyncIterable<import('@anthropic-ai/claude-agent-sdk').SDKUserMessage>)[Symbol.asyncIterator]().next();
+                if (input.done) throw new Error('Expected initial prompt');
+                yield { ...input.value, isReplay: true, session_id: 'native-local-command' };
+                yield { type: 'result', subtype: 'success', session_id: 'native-local-command', queued_turn_count: 0 };
+                await closed.promise;
+            },
+            async rewindFiles() {
+                expect(lifecycle.hasActiveTurn()).toBe(true);
+                await Promise.resolve();
+                rewindCompleted = true;
+                return { canRewind, error: canRewind ? undefined : 'Checkpoint is unavailable' };
+            },
+            close() { closed.resolve(); },
+        })) as unknown as CreateQuery;
+        try {
+            await claudeRemoteAgentSdk({
+                sessionId: null, transcriptPath: null, path: '/tmp', claudeExecutablePath: '/tmp/claude',
+                canCallTool: async () => ({ behavior: 'allow', updatedInput: {} }), isAborted: () => false,
+                nextMessage: async () => {
+                    const index = reads++;
+                    if (index === 1) await ready.promise;
+                    if (index > 1) {
+                        nextPromptUnblocked = !lifecycle.hasActiveTurn();
+                        return null;
+                    }
+                    await lifecycle.beginTurn({ provider: 'claude' });
+                    return { message: index === 0 ? 'hello' : command, mode: makeMode({ claudeRemoteEnableFileCheckpointing: checkpointing }), userMessageLocalIds: [index === 0 ? 'hello' : 'command'] };
+                },
+                onReady: async () => {
+                    if (accepted.includes('command') && command.includes('--confirm')) expect(rewindCompleted).toBe(true);
+                    await lifecycle.completeTurn({ provider: 'claude' });
+                    ready.resolve();
+                },
+                onMessage() {}, onSessionFound() {}, createQuery,
+                onPromptAcceptedByProvider: ({ userMessageLocalIds }) => { accepted.push(...userMessageLocalIds); },
+            });
+            expect(accepted).toEqual(['hello', 'command']);
+            expect(lifecycle.hasActiveTurn()).toBe(false);
+            if (command !== '/clear') expect(nextPromptUnblocked).toBe(true);
+        } finally {
+            closed.resolve();
+            await lifecycle.endSession();
+        }
+    });
+
+    it.each(['user_message_uuid', 'user_message_uuids'] as const)('releases an answered prompt despite session backlog using %s and ignores its late result during the next prompt', async (attributionField) => {
+        let finishInput!: () => void;
+        const inputFinished = new Promise<void>((resolve) => { finishInput = resolve; });
+        let releaseSecondResult!: () => void;
+        const secondResultReady = new Promise<void>((resolve) => { releaseSecondResult = resolve; });
+        let reachedSecondPrompt = false;
+        let reachedPreviousTrailers = false;
+        let allowSecondPrompt!: () => void;
+        const secondPromptAllowed = new Promise<void>((resolve) => { allowSecondPrompt = resolve; });
+        const attribution = (uuid: string | undefined) => attributionField === 'user_message_uuids'
+            ? { user_message_uuids: ['foreign-prompt', uuid] }
+            : { user_message_uuid: uuid };
+        const createQuery = (({ prompt }: Parameters<CreateQuery>[0]) => ({
+            async *[Symbol.asyncIterator]() {
+                const input = (prompt as AsyncIterable<import('@anthropic-ai/claude-agent-sdk').SDKUserMessage>)[Symbol.asyncIterator]();
+                const first = await input.next();
+                if (first.done) throw new Error('Expected initial prompt');
+                yield { type: 'system', subtype: 'init', session_id: 'claude-resumed' };
+                // Consumed during a notification turn; no replay echo was emitted.
+                yield { type: 'result', subtype: 'success', session_id: 'claude-resumed', queued_turn_count: 1,
+                    origin: { kind: 'task-notification' }, result: 'first answered', ...attribution(first.value.uuid) };
+                yield { type: 'result', subtype: 'success', session_id: 'claude-resumed', queued_turn_count: 1,
+                    result: 'late queued result', ...attribution(first.value.uuid) };
+                yield { type: 'result', subtype: 'success', session_id: 'claude-resumed', queued_turn_count: 0,
+                    result: 'late terminal result', ...attribution(first.value.uuid) };
+                reachedPreviousTrailers = true;
+                const second = await Promise.race([input.next(), inputFinished.then(() => null)]);
+                if (!second || second.done) return;
+                expect(second.value.message.content).toEqual([{ type: 'text', text: 'second prompt' }]);
+                // A late result and idle from the previous work must not finish the new prompt.
+                yield { type: 'result', subtype: 'success', session_id: 'claude-resumed', queued_turn_count: 0,
+                    result: 'late first result', ...attribution(first.value.uuid) };
+                yield { type: 'system', subtype: 'session_state_changed', session_id: 'claude-resumed', state: 'idle' };
+                reachedSecondPrompt = true;
+                await secondResultReady;
+                yield { type: 'result', subtype: 'success', session_id: 'claude-resumed', queued_turn_count: 0,
+                    result: 'second answered', ...attribution(second.value.uuid) };
+                await inputFinished;
+            },
+            close() { finishInput(); },
+        })) as unknown as CreateQuery;
+        const onReady = vi.fn();
+        const acceptedLocalIds: Array<readonly string[]> = [];
+        const prompts = ['first', 'second'].map((id) => ({
+            message: `${id} prompt`, mode: makeMode({ claudeRemoteAgentSdkEnabled: true }), userMessageLocalIds: [id],
+        }));
+        const runner = claudeRemoteAgentSdk({
+            sessionId: null, transcriptPath: null, path: '/tmp', claudeArgs: [], claudeExecutablePath: '/tmp/claude',
+            canCallTool: async () => ({ behavior: 'allow', updatedInput: {} }), isAborted: () => false,
+            nextMessage: async () => {
+                const prompt = prompts.shift();
+                if (prompt) {
+                    if (prompt.userMessageLocalIds[0] === 'second') await Promise.race([secondPromptAllowed, inputFinished]);
+                    return prompt;
+                }
+                await inputFinished;
+                return null;
+            },
+            onReady, onMessage: () => {}, onSessionFound: () => {}, createQuery,
+            onPromptAcceptedByProvider: ({ userMessageLocalIds }) => { acceptedLocalIds.push(userMessageLocalIds); },
+        });
+        void runner.catch(() => {});
+        try {
+            await vi.waitFor(() => { expect(onReady).toHaveBeenCalledOnce(); });
+            await vi.waitFor(() => { expect(reachedPreviousTrailers).toBe(true); });
+            expect(onReady).toHaveBeenCalledOnce();
+            allowSecondPrompt();
+            await vi.waitFor(() => { expect(reachedSecondPrompt).toBe(true); });
+            expect(onReady).toHaveBeenCalledOnce();
+            expect(acceptedLocalIds).toEqual([['first']]);
+            releaseSecondResult();
+            await vi.waitFor(() => { expect(onReady).toHaveBeenCalledTimes(2); });
+            expect(acceptedLocalIds).toEqual([['first'], ['second']]);
+        } finally {
+            allowSecondPrompt(); releaseSecondResult(); finishInput();
+            await runner;
+        }
+    });
+
     it.each(['success', 'error_during_execution'] as const)('keeps the submitted turn active when a %s result reports queued user sends', async (subtype) => {
         let releaseQueuedTurn!: () => void;
         const queuedTurn = new Promise<void>((resolve) => { releaseQueuedTurn = resolve; });

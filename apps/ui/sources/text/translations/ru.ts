@@ -1290,13 +1290,13 @@ export const ru: TranslationStructure = {
   appCrash: {
       saveDiagnostics: "Сохранить диагностику",
       diagnosticsSaveFailed: "Не удалось сохранить диагностику. Сведения об ошибке по-прежнему доступны. Повторите попытку или скопируйте их.",
-      copyFailed: "Не удалось скопировать сведения о сбое. Повторите попытку.",
-      discardFailed: "Не удалось удалить сохранённый сбой. Повторите попытку.",
-      restartWithoutReport: "Перезапустить без сохранения",
-      reportSaveFailed: "Не удалось сохранить сведения о сбое. Скопируйте их перед перезапуском или повторите отправку отчёта.",
-      savedReportNotice: "Сохранённый сбой показан ниже. Проверьте и отредактируйте его перед отправкой. Он останется на устройстве до отправки или удаления.",
-      discardSavedReport: "Удалить сохранённый сбой",
-      stackTruncated: "Стек сокращён для этого поля. Полные сведения о сбое сохранены на этом устройстве.",
+    copyFailed: "Не удалось скопировать сведения о сбое. Повторите попытку.",
+    discardFailed: "Не удалось удалить сохранённый сбой. Повторите попытку.",
+    restartWithoutReport: "Перезапустить без сохранения",
+    reportSaveFailed: "Не удалось сохранить сведения о сбое. Скопируйте их перед перезапуском или повторите отправку отчёта.",
+    savedReportNotice: "Сохранённый сбой показан ниже. Проверьте и отредактируйте его перед отправкой. Он останется на устройстве до отправки или удаления.",
+    discardSavedReport: "Удалить сохранённый сбой",
+    stackTruncated: "Стек сокращён для этого поля. Полные сведения о сбое сохранены на этом устройстве.",
     title: "Что-то пошло не так",
     subtitle:
       "В Happier произошла непредвиденная ошибка. Можно перезапустить интерфейс приложения или скопировать детали для поддержки.",
@@ -1501,7 +1501,39 @@ export const ru: TranslationStructure = {
   },
 
   bugReports: {
+    reportSession: "Сообщить о проблеме с этой сессией",
+    sessionPickerTitle: "Связанная сессия",
+    sessionPickerSubtitle: "Выберите сессию, к которой относится этот отчёт.",
+    sessionPickerSearchPlaceholder: "Поиск сессий",
+    sessionPickerNoResults: "Подходящих сессий нет",
+    noRelatedSession: "Без связанной сессии",
     composer: {
+      scopeChanged: "Выбранный аккаунт изменился. Выберите сессию заново, прежде чем прикреплять диагностические данные.",
+      addMoreDetails: "Добавить подробности (необязательно)",
+      technicalInformation: "Техническая информация",
+      relatedSession: "Связанная сессия (необязательно)",
+      chooseSession: "Выбрать сессию",
+      changeSession: "Изменить сессию",
+      removeSession: "Убрать сессию",
+      selectedSession: "Сессия выбрана",
+      logOptions: {
+        daemonTitle: "Логи приложения и демона",
+        daemonDetail: "Активность приложения и логи подключения с выбранных компьютера и сервера.",
+        sessionTitle: "Логи сессии Happier",
+        sessionDetail: "Активность сессии, которая помогает нам разобраться в проблеме.",
+        providerTitle: "Переписка с провайдером",
+        providerDetail: "Переписка в сессии провайдера, если потребуется.",
+        technicalOnly: "Только техническая информация",
+        technicalOnlyDetail: "Не включать в этот отчёт никакие необработанные логи.",
+      },
+      collection: {
+        collected: "Прикреплено",
+        unavailable: "Недоступно",
+        disabled: "Не включено",
+        unsupported: "Обновите CLI, чтобы прикрепить эти логи",
+        skipped: "Пропущено",
+        error: "Не удалось собрать",
+      },
       alerts: {
         previewUnavailableTitle: "Предпросмотр недоступен",
         previewUnavailableBody: "Не удалось собрать предпросмотр диагностики.",
@@ -1575,15 +1607,14 @@ export const ru: TranslationStructure = {
       },
       issueDetails: {
         title: "Опишите проблему",
-        subtitle:
-          "Добавьте достаточно деталей, чтобы мы могли быстро воспроизвести и диагностировать.",
+        subtitle: "Для начала достаточно заголовка и краткого описания.",
         titleLabel: "Заголовок (обязательно)",
         titlePlaceholder: "Короткий заголовок",
         githubUsernameLabel: "Имя пользователя GitHub (необязательно)",
         githubUsernamePlaceholder:
           "Используется как контактная информация в тексте issue",
-        summaryLabel: "Краткое описание (обязательно)",
-        summaryPlaceholder: "Описание в один абзац",
+        summaryLabel: "Что произошло? (обязательно)",
+        summaryPlaceholder: "Расскажите, что пошло не так.",
         currentBehaviorLabel: "Текущее поведение (необязательно)",
         currentBehaviorPlaceholder: "Что происходит на самом деле?",
         expectedBehaviorLabel: "Ожидаемое поведение (необязательно)",
@@ -1642,11 +1673,9 @@ export const ru: TranslationStructure = {
         },
       },
       consent: {
-        title: "Согласие",
-        understandTitle:
-          "Я понимаю, что диагностика может включать технические метаданные",
-        understandSubtitle:
-          "Не включайте пароли, токены доступа или приватные ключи.",
+        title: "Перед отправкой",
+        understandTitle: "Поделиться этим отчётом и выбранными диагностическими данными",
+        understandSubtitle: "Текст отчёта общедоступен. Диагностические вложения отправляются приватно сопровождающим Happier. Логи сессии могут содержать фрагменты разговоров.",
       },
       submit: {
         requiredFieldsHint:
@@ -3143,6 +3172,8 @@ export const ru: TranslationStructure = {
         membersSubtitle: ({ enabled, total }: { enabled: number; total: number }) => `${enabled}/${total} включено`,
         optionsTitle: "Параметры",
         autoSwitchTitle: "Автоматический резерв",
+        claudeCodeAutoContinueAtUsageLimitTitle: "Разрешить Claude ждать сброса лимита",
+        claudeCodeAutoContinueAtUsageLimitSubtitle: "В новых сессиях Claude ждёт сброса лимита и автоматически продолжает работу. Выключите, чтобы восстановлением управлял Happier.",
         autoQuotaResetTitle: "Автоматически использовать сбросы квоты",
         autoQuotaResetSubtitle: "Расходует доступный сброс, только когда ни один аккаунт пула не готов и исчерпанную квоту можно сбросить. По умолчанию отключено.",
         autoDisablePlanInvalidTitle: "Отключать аккаунты, которым недоступна выбранная модель",
@@ -4926,6 +4957,8 @@ export const ru: TranslationStructure = {
   },
 
     errors: {
+    quotaRefreshFailed: "Не удалось обновить данные об использовании. Повторите попытку.",
+    quotaRefreshRetryAt: ({ time }: { time: string }) => `Не удалось обновить данные об использовании. Повторите попытку после ${time}.`,
     machineRpcDecryptionFailed: "Не удалось расшифровать данные этого компьютера. Войдите с соответствующим ключом аккаунта и попробуйте снова.",
     machineRpcContextUnavailable: "Подключение к этому компьютеру недоступно. Обновите список компьютеров и попробуйте снова.",
     networkError: "Произошла ошибка сети",
@@ -6078,6 +6111,7 @@ export const ru: TranslationStructure = {
       resetBody: ({ time }: { time: string }) =>
         `Этот провайдер просит сессию подождать до ${time} перед продолжением.`,
       genericBody: "Этот провайдер просит сессию подождать перед продолжением.",
+      stoppedBody: "Автоматическое восстановление остановлено и не будет повторяться само. Повторите попытку ниже.",
       resetCreditBody: ({ count }: { count: number }) =>
         `${count} ${count === 1 ? "сброс использования доступен" : "сброса использования доступны"}.`,
       resetCreditExpiresBody: ({ count, time }: { count: number; time: string }) =>
@@ -7508,7 +7542,10 @@ export const ru: TranslationStructure = {
     },
     askUserQuestion: {
         submit: "Отправить ответ",
+        dismiss: 'Закрыть вопрос',
+        dismissed: 'Вопрос закрыт',
         submissionFailures: {
+            unconfirmed: "Ответы отправлены Claude, но подтверждение ещё не получено. Повторите попытку, чтобы проверить, или откройте терминал Claude.",
             update: "Обновите Happier CLI и повторите попытку.",
             reconnect: "Переподключите этот сеанс и повторите попытку.",
             retry: "Не удалось принять ответ. Проверьте его и повторите попытку.",
@@ -10937,6 +10974,8 @@ settingsSession: {
   },
 
   message: {
+    provenanceFrom: ({ source }: { source: string }) => `От ${source}`,
+    provenanceSession: 'Сессия',
     sessionReferenceUnavailable: "Сессия недоступна",
     sessionReferenceOpen: ({ name }: { name: string }) => `Открыть сессию ${name}`,
     switchedToMode: ({ mode }: { mode: string }) =>
@@ -10990,7 +11029,7 @@ settingsSession: {
     sessionRunningLocally:
       "Эта сессия запущена локально на этом компьютере. Вы можете переключиться на удалённый режим, чтобы управлять из приложения.",
     sessionRunningLocallyAndRemotely:
-      "Эта сессия локально подключена в OpenCode и по-прежнему управляется из приложения.",
+      "Эта сессия локально подключена и по-прежнему управляется из приложения.",
     switchingToRemote: "Переключение в удалённый режим…",
     switchToRemote: "Переключиться на удалённый",
     detachLocalTerminal: "Отсоединить терминал",
@@ -11367,6 +11406,7 @@ settingsSession: {
     enterTmuxTempDir: "Введите путь к временному каталогу",
     tmuxUpdateEnvironment: "Обновлять окружение автоматически",
     nameRequired: "Имя профиля обязательно",
+    invalidProfile: 'Перед сохранением проверьте имя профиля, переменные окружения и настройки по умолчанию.',
     deleteConfirm: ({ name }: { name: string }) =>
       `Вы уверены, что хотите удалить профиль "${name}"?`,
     editProfile: "Редактировать Профиль",
@@ -11519,6 +11559,13 @@ settingsSession: {
         plan: "Планировать перед выполнением",
         bypassPermissions: "Пропускать все разрешения",
       },
+    },
+    defaultBackend: {
+        title: 'Бэкенд ИИ по умолчанию',
+        footer: 'Запускает новые сессии на этом бэкенде, когда выбран профиль и другой бэкенд не выбран.',
+        noneTitle: 'Без бэкенда по умолчанию',
+        noneSubtitle: 'Happier выбирает бэкенд как обычно.',
+        selectedSubtitle: 'Используется при запуске сессии с этим профилем.',
     },
     defaultPermissions: {
       title: "Разрешения по умолчанию",
