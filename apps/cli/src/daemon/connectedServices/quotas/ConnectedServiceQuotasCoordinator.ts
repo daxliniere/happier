@@ -4729,7 +4729,9 @@ export class ConnectedServiceQuotasCoordinator {
         });
         if (!native) continue;
         const result = await this.fetchQuotaSnapshot({
-          fetcher, serviceId: fetcher.serviceId, profileId: native.record.profileId, record: native.record, now,
+          fetcher, serviceId: fetcher.serviceId, profileId: native.record.profileId, record: native.record,
+          // A native credential is read from the provider's own files, so it has no stored revision.
+          credentialRevision: null, force: true,
         });
         if (result.type !== 'result' || !result.snapshot || isQuotaUnknownFallbackSnapshot(result.snapshot)) continue;
         const identity = readCredentialAccountIdentity(native.record);

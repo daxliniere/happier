@@ -2022,8 +2022,6 @@ export {
 
 export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
 
-export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
-
 export {
   WINDOWS_REMOTE_SESSION_LAUNCH_MODES,
   WindowsRemoteSessionLaunchModeSchema,
