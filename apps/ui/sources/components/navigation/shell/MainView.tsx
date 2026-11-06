@@ -466,8 +466,8 @@ const PhoneTabbedMainViewContent = React.memo(function PhoneTabbedMainViewConten
                     headerRight={() => <HeaderRight activeTab={headerTab} />}
                     headerLeft={() => (
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {headerTab === 'sessions' ? <ProviderUsageStrip /> : null}
                             <HeaderLogo />
+                            {headerTab === 'sessions' ? <ProviderUsageStrip /> : null}
                         </View>
                     )}
                     headerContentStyle={styles.phoneHeaderContent}

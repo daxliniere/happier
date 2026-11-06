@@ -88,8 +88,8 @@ export const HomeHeader = React.memo(() => {
                 headerRight={() => <HeaderRight />}
                 headerLeft={() => (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <ProviderUsageStrip />
                         <HeaderLeft showAutomations={showAutomations} />
+                        <ProviderUsageStrip />
                     </View>
                 )}
                 headerShadowVisible={false}
