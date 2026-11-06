@@ -9,6 +9,9 @@ import { renderScreen } from '@/dev/testkit';
 
 import { AgentInputProviderUsageBadge } from './AgentInputProviderUsageBadge';
 
+// These presentation tests have no signed-in account or refresh in progress.
+vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+
 const FIXTURE_NOW_MS = Date.parse('2026-05-12T00:00:00.000Z');
 
 // Pin the clock so the live reset countdown renders the same text in every test.

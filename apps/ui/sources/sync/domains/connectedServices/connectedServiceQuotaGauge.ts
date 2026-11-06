@@ -86,6 +86,8 @@ export type ConnectedServiceQuotaGaugeViewModel = Readonly<{
         isLastKnown: boolean;
     }>;
     serviceId: string;
+    /** Retain the displayed account identity for its refresh lifecycle subscription. */
+    sourceProfileId?: string;
     providerDisplayName: string | null;
     activeAccountDisplayLabel: string | null;
     remainingPct: number;
@@ -518,6 +520,7 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
     return {
         subscription,
         serviceId: params.snapshot.serviceId,
+        sourceProfileId: params.snapshot.profileId,
         providerDisplayName: params.providerDisplayName ?? null,
         activeAccountDisplayLabel: params.activeAccountDisplayLabel ?? params.snapshot.accountLabel ?? null,
         remainingPct: effectiveRemainingPct,

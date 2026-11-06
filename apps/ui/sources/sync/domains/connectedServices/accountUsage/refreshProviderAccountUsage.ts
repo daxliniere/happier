@@ -35,17 +35,53 @@ const REFRESH_POLL_INTERVAL_MS = 3_000;
 // so waiting longer than one of its periods adds nothing.
 const REFRESH_WAIT_MS = 30_000;
 
+type RefreshParams = Readonly<{
+    credentials: AuthCredentials;
+    credentialScope: string;
+    recordId: string;
+    mode: CredentialScopedAccountMode;
+}>;
+
+const refreshes = new Map<string, Promise<boolean>>();
+const refreshListeners = new Map<string, Set<() => void>>();
+const refreshKey = (credentialScope: string, recordId: string) => JSON.stringify([credentialScope, recordId]);
+
+export function isProviderAccountUsageRefreshing(credentialScope: string, recordId: string): boolean {
+    return refreshes.has(refreshKey(credentialScope, recordId));
+}
+
+export function subscribeProviderAccountUsageRefresh(credentialScope: string, recordId: string, listener: () => void): () => void {
+    const key = refreshKey(credentialScope, recordId);
+    const listeners = refreshListeners.get(key) ?? new Set<() => void>();
+    refreshListeners.set(key, listeners);
+    listeners.add(listener);
+    return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) refreshListeners.delete(key);
+    };
+}
+
+/** Shared lifecycle of the actual request and freshness wait, including failure and timeout. */
+export function refreshProviderAccountUsage(params: RefreshParams): Promise<boolean> {
+    const key = refreshKey(params.credentialScope, params.recordId);
+    const existing = refreshes.get(key);
+    if (existing) return existing;
+    const publish = () => { for (const listener of refreshListeners.get(key) ?? []) listener(); };
+    const promise = Promise.resolve().then(() => performProviderAccountUsageRefresh(params)).finally(() => {
+        refreshes.delete(key);
+        publish();
+    });
+    refreshes.set(key, promise);
+    publish();
+    return promise;
+}
+
 /**
  * Asks the server to have the owning daemon re-query the provider for this record, then
  * waits for the newer snapshot and publishes it to the shared cache. Resolves false when
  * the request was refused or no newer snapshot arrived within one poll period.
  */
-export async function refreshProviderAccountUsage(params: Readonly<{
-    credentials: AuthCredentials;
-    credentialScope: string;
-    recordId: string;
-    mode: CredentialScopedAccountMode;
-}>): Promise<boolean> {
+async function performProviderAccountUsageRefresh(params: RefreshParams): Promise<boolean> {
     const previousFetchedAtMs = readProviderAccountUsageSnapshotFromCache({
         credentialScope: params.credentialScope,
         recordId: params.recordId,

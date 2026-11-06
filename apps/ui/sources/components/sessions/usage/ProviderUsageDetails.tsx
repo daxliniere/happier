@@ -12,6 +12,15 @@ import {
     type ConnectedServiceQuotaGaugeViewModel,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import { connectedServiceQuotaGaugeFormatter } from './connectedServiceQuotaGaugeFormatter';
+import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
+import { useProviderUsageRefreshState } from '@/hooks/server/connectedServices/useProviderUsageRefreshState';
+import { getProviderUsageRingSize } from './ProviderUsageRing';
+
+function ProviderUsageRefreshIndicator(props: Readonly<{ serviceId: string; sourceProfileId: string; size: number }>) {
+    const refreshing = useProviderUsageRefreshState(props.serviceId, props.sourceProfileId);
+    // The dot mark's visible ink spans 5/6 of its box. Match the ring's visible diameter.
+    return refreshing ? <ActivitySpinner size={Math.round(props.size * 6 / 5)} /> : null;
+}
 
 function mapGaugeToneToMeterTone(tone: ConnectedServiceQuotaGaugeViewModel['tone']): MeterTone {
     if (tone === 'critical') return 'danger';
@@ -46,6 +55,7 @@ const ProviderUsageMeterDetailRight = React.memo(function ProviderUsageMeterDeta
 export function ProviderUsageDetails(props: Readonly<{
     viewModel: ConnectedServiceQuotaGaugeViewModel;
     leading?: React.ReactNode;
+    ringBaseSize?: number;
     onRecoveryCreditPress?: () => void;
     recoveryCreditActionPending?: boolean;
 }>) {
@@ -59,6 +69,13 @@ export function ProviderUsageDetails(props: Readonly<{
             <View style={styles.titleRow}>
                 {props.leading}
                 <Text style={styles.popoverTitle}>{title}</Text>
+                {props.viewModel.sourceProfileId ? (
+                    <ProviderUsageRefreshIndicator
+                        serviceId={props.viewModel.serviceId}
+                        sourceProfileId={props.viewModel.sourceProfileId}
+                        size={getProviderUsageRingSize(props.viewModel, props.ringBaseSize)}
+                    />
+                ) : null}
             </View>
             {props.viewModel.activeAccountDisplayLabel ? (
                 <Text style={styles.popoverAccount}>

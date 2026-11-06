@@ -8,6 +8,10 @@ import { t } from '@/text';
 
 const RAIL_RING_SIZE = 18;
 
+export function getProviderUsageRingSize(gauge: ConnectedServiceQuotaGaugeViewModel, baseSize = RAIL_RING_SIZE): number {
+    return baseSize + Math.max(0, gauge.usageRings.length - 1) * 6;
+}
+
 /**
  * One Agent row's usage ring in the picker rail. A row without a gauge (Agent not
  * installed, not configured, or with no usage source) shows an empty, light-grey
@@ -51,7 +55,7 @@ export function ProviderUsageRing(props: Readonly<{
             rings={rings}
             label={label}
             value={(limits.find((ring) => 'meterId' in ring && ring.meterId === gauge.effectiveMeter?.meterId) ?? limits[0]).ringValueLabel}
-            size={(props.size ?? RAIL_RING_SIZE) + (rings.length - 1) * 6}
+            size={getProviderUsageRingSize(gauge, props.size)}
             testID={props.testID}
             ringTestID={props.ringTestID}
             valueTestID={props.valueTestID}

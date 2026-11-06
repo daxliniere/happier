@@ -21,7 +21,7 @@ vi.mock('@/sync/api/account/apiProviderAccountUsageV2', () => ({
 }));
 
 import { __resetProviderAccountUsageSnapshotCache, readProviderAccountUsageSnapshotFromCache } from './cache';
-import { refreshProviderAccountUsage } from './refreshProviderAccountUsage';
+import { isProviderAccountUsageRefreshing, refreshProviderAccountUsage } from './refreshProviderAccountUsage';
 
 const credentials = { token: 't', secret: 's' } as unknown as AuthCredentials;
 const recordId = 'paug_v1_abcdefgh';
@@ -53,5 +53,26 @@ describe('refreshProviderAccountUsage', () => {
 
         await expect(refreshProviderAccountUsage({ credentials, credentialScope: 'scope', recordId, mode: 'plain' })).resolves.toBe(false);
         expect(api.getPlain).not.toHaveBeenCalled();
+        expect(isProviderAccountUsageRefreshing('scope', recordId)).toBe(false);
+    });
+
+    it('shares the real pending operation and clears its indicator when no fresh usage arrives', async () => {
+        api.requestPlain.mockResolvedValue(true);
+        api.getPlain.mockResolvedValue(snapshot(0));
+        const params = { credentials, credentialScope: 'scope', recordId, mode: 'plain' as const };
+        const done = refreshProviderAccountUsage(params);
+        expect(refreshProviderAccountUsage(params)).toBe(done);
+        expect(isProviderAccountUsageRefreshing('scope', recordId)).toBe(true);
+        expect(isProviderAccountUsageRefreshing('other-account', recordId)).toBe(false);
+        await vi.advanceTimersByTimeAsync(30_000);
+        await expect(done).resolves.toBe(false);
+        expect(isProviderAccountUsageRefreshing('scope', recordId)).toBe(false);
+        expect(api.requestPlain).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears its indicator when the refresh request throws', async () => {
+        api.requestPlain.mockRejectedValue(new Error('offline'));
+        await expect(refreshProviderAccountUsage({ credentials, credentialScope: 'scope', recordId, mode: 'plain' })).rejects.toThrow('offline');
+        expect(isProviderAccountUsageRefreshing('scope', recordId)).toBe(false);
     });
 });

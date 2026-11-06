@@ -8,6 +8,9 @@ import { computeConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/conne
 import { connectedServiceQuotaGaugeFormatter } from './connectedServiceQuotaGaugeFormatter';
 import { ProviderUsageStripContent } from './ProviderUsageStrip';
 
+// These presentation tests have no signed-in account or refresh in progress.
+vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+
 // SVG is a native rendering boundary; the actual rings, popup and quota projection stay real.
 vi.mock('react-native-svg', () => ({
     Svg: (props: Record<string, unknown> & { children?: React.ReactNode }) => React.createElement('Svg', props, props.children),

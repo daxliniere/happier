@@ -102,6 +102,7 @@ function areProviderUsageViewModelsEqual(
         && leftSubscription.accessUntilLabel === rightSubscription.accessUntilLabel
         && leftSubscription.isLastKnown === rightSubscription.isLastKnown);
     return subscriptionEqual && left.serviceId === right.serviceId
+        && left.sourceProfileId === right.sourceProfileId
         && left.providerDisplayName === right.providerDisplayName
         && left.activeAccountDisplayLabel === right.activeAccountDisplayLabel
         && left.remainingPct === right.remainingPct
@@ -209,13 +210,14 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
                 maxWidthCap={360}
                 placement={props.popoverPlacement}
                 testID="agent-input-provider-usage-popover"
-                content={(
+                content={open ? (
                     <ProviderUsageDetails
                         viewModel={props.viewModel}
+                        ringBaseSize={20}
                         onRecoveryCreditPress={props.onRecoveryCreditPress}
                         recoveryCreditActionPending={props.recoveryCreditActionPending}
                     />
-                )}
+                ) : null}
             />
         </>
     );
