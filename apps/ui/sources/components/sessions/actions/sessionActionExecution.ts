@@ -17,6 +17,7 @@ import {
     isSessionActiveArchiveResult,
     isSessionArchivePending,
     stopSessionAndMaybeArchive,
+    stopSessionAndRunAction,
 } from '@/components/sessions/sessionStopArchiveFlow';
 
 import {
@@ -51,8 +52,6 @@ import { getActiveServerSnapshot } from '@/sync/domains/server/serverRuntime';
 import { getSessionStatus } from '@/utils/sessions/sessionUtils';
 import { nowServerMs } from '@/sync/runtime/time';
 import { createSessionActionTarget } from './sessionActionContext';
-import { withSessionArchiveDeadline } from '@/sync/ops/sessionArchiveLifecycle';
-import { delay } from '@/utils/timing/time';
 
 function readCurrentSessionActionTarget(target: SessionActionTarget): SessionActionTarget | null {
     const state = storage.getState();
@@ -78,6 +77,42 @@ function readCurrentSessionActionTarget(target: SessionActionTarget): SessionAct
 
 function canDeleteCurrentSession(target: SessionActionTarget): boolean {
     return target.canDelete && readCurrentSessionActionTarget(target)?.canDelete === true;
+}
+
+async function executeDeleteAction(target: SessionActionTarget, context?: SessionActionExecutionContext): Promise<void | false> {
+    if (!target.canDelete && !target.canStopAndDelete) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+    const confirmed = await Modal.confirm(
+        t('sessionInfo.deleteSession'),
+        t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSessionWarning' : 'sessionInfo.deleteSessionWarning'),
+        { cancelText: t('common.cancel'), confirmText: t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSession' : 'sessionInfo.deleteSession'), destructive: true },
+    );
+    if (!confirmed) return false;
+    const deleteSession = resolveDeleteSession(context);
+    if (target.canStopAndDelete) {
+        // Use the same stop strategy and completion retry as Archive. In 0.2 the DELETE
+        // endpoint does not guard activity, so current scoped lifecycle evidence must do so.
+        await stopSessionAndRunAction({
+            stopSession: async () => {
+                const current = readCurrentSessionActionTarget(target);
+                if (!current?.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+                if (current.canDelete) return { success: true };
+                return await resolveStopSession(context)(target.sessionId, { serverId: target.serverId });
+            },
+            stopErrorMessage: t('sessionInfo.failedToStopSession'),
+            endAction: {
+                errorMessage: t('sessionInfo.failedToDeleteSession'),
+                run: async (options) => {
+                    const current = readCurrentSessionActionTarget(target);
+                    if (!current?.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+                    if (!current.canDelete) return { success: false, code: 'session_active' };
+                    return await deleteSession(target.sessionId, { serverId: target.serverId, ...options });
+                },
+            },
+        });
+        return;
+    }
+    if (!canDeleteCurrentSession(target)) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+    throwIfFailed(await deleteSession(target.sessionId, { serverId: target.serverId }), t('sessionInfo.failedToDeleteSession'));
 }
 
 function resolveStopArchiveFlow(context: SessionActionExecutionContext | undefined) {
@@ -168,39 +203,6 @@ export async function confirmSessionStop(): Promise<boolean> {
         confirmText: t('sessionInfo.stopSession'),
         destructive: true,
     });
-}
-
-/** Confirm once, stop if needed, and retain the normal current-state deletion guard. */
-export async function executeDirectSessionDelete(params: Readonly<{
-    target: SessionActionTarget;
-    sessionName: string;
-    context?: SessionActionExecutionContext;
-}>): Promise<void | false> {
-    if (!params.target.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
-    const confirmed = await Modal.confirm(
-        t('sessionInfo.deleteSession'),
-        `${params.sessionName}\n\n${t('sessionInfo.deleteSessionWarning')}`,
-        { cancelText: t('common.cancel'), confirmText: t('sessionInfo.deleteSession'), destructive: true },
-    );
-    if (!confirmed) return false;
-    let current = readCurrentSessionActionTarget(params.target);
-    if (!current?.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
-    if (!current.canDelete) {
-        const result = await resolveStopSession(params.context)(current.sessionId, { serverId: current.serverId });
-        if (!result.success && !(result.code === 'session_stop_requested' && result.recovery === 'wait_for_inactive')) {
-            throw new HappyError(result.message || t('sessionInfo.failedToStopSession'), false);
-        }
-        current = await withSessionArchiveDeadline(async ({ deadlineMs, signal }) => {
-            let latest = readCurrentSessionActionTarget(params.target);
-            while (latest?.isOwnedByCurrentUser && !latest.canDelete && !signal.aborted && Date.now() < deadlineMs) {
-                await delay(Math.min(200, Math.max(0, deadlineMs - Date.now())));
-                latest = readCurrentSessionActionTarget(params.target);
-            }
-            return latest;
-        });
-    }
-    if (!current?.canDelete) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
-    return await executeSessionAction({ actionId: SESSION_ACTION_DELETE_ID, target: current, context: params.context });
 }
 
 async function executeArchiveAction(target: SessionActionTarget, context?: SessionActionExecutionContext): Promise<void | false> {
@@ -300,15 +302,7 @@ export async function executeSessionAction(params: Readonly<{
             );
             return;
         case SESSION_ACTION_DELETE_ID:
-            // Confirmation can outlive a restore/resume or terminal-host update on another device.
-            if (!canDeleteCurrentSession(params.target)) {
-                throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
-            }
-            throwIfFailed(
-                await resolveDeleteSession(params.context)(params.target.sessionId, { serverId: params.target.serverId }),
-                t('sessionInfo.failedToDeleteSession'),
-            );
-            return;
+            return await executeDeleteAction(params.target, params.context);
         case SESSION_ACTION_PIN_ID:
         case SESSION_ACTION_UNPIN_ID: {
             const setPinned = resolveSetPinned(params.context);

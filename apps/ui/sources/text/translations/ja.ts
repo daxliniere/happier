@@ -1244,6 +1244,15 @@ export const ja: TranslationStructure = {
   },
 
   appCrash: {
+      saveDiagnostics: "診断情報を保存",
+      diagnosticsSaveFailed: "診断情報を保存できませんでした。エラーの詳細は引き続き利用できます。もう一度試すか、コピーしてください。",
+      copyFailed: "クラッシュの詳細をコピーできませんでした。再試行してください。",
+      discardFailed: "保存されたクラッシュを破棄できませんでした。再試行してください。",
+      restartWithoutReport: "保存せずに再起動",
+      reportSaveFailed: "クラッシュの詳細を保存できませんでした。再起動する前にエラーの詳細をコピーするか、報告を再試行してください。",
+      savedReportNotice: "保存されたクラッシュを以下に表示しています。送信前に確認・編集してください。送信または破棄するまで、この端末に保持されます。",
+      discardSavedReport: "保存されたクラッシュを破棄",
+      stackTruncated: "この欄ではスタックを短縮しています。完全なクラッシュ情報はこの端末に保存されています。",
     title: "問題が発生しました",
     subtitle:
       "Happierで予期しないエラーが発生しました。アプリUIを再起動するか、サポート用に詳細をコピーできます。",
@@ -4518,6 +4527,10 @@ localTailscale: {
                         title: "Claude Code の実験機能",
                         footer: "これらの設定は、Happier から開始する Claude のローカル（ターミナル）およびリモート（Agent SDK）セッションの両方に適用されます。"
                     },
+                    claudeIdleReclaim: {
+                        title: "待機中のセッション",
+                        footer: "次のプロンプトで同じ Claude セッションを再開します。再開には少し時間がかかる場合があります。メモリ内の状態は解放されます。バックグラウンドタスク、予定された処理、ファイルチェックポイントがある間は実行を続けます。統合ターミナルのセッションは停止しません。"
+                    },
                     claudeRemoteSdk: {
                         title: "クラシックランタイム（Agent SDK フォールバック）",
                         footer: "統合ターミナルランタイムがオフまたは利用できない場合に Agent SDK パスを使用します。"
@@ -4601,6 +4614,14 @@ localTailscale: {
                     claudeCodeExperimentalAgentTeamsEnabled: {
                         title: "Agent Teams を強制的に有効化",
                         subtitle: "Happier から開始するすべての Claude セッションで、Claude Code の実験的 Agent Teams（エージェント群）を有効にします。"
+                    },
+                    claudeRemoteIdleReclaimEnabled: {
+                        title: "待機中の Claude プロセスを解放",
+                        subtitle: "一定時間操作がないとメモリを解放します。初期設定はオフです。"
+                    },
+                    claudeRemoteIdleReclaimTimeoutMinutes: {
+                        title: "待機時間（分）",
+                        subtitle: "有効にしたリモート Claude セッションを待機状態に保つ時間を選びます。"
                     },
                     claudeRemoteAgentSdkEnabled: {
                         title: "Agent SDK フォールバックを使用",
@@ -7220,6 +7241,8 @@ localTailscale: {
     deleteSessionConfirm: "セッションを完全に削除しますか？",
     deleteSessionWarning:
       "この操作は取り消せません。このセッションに関連するすべてのメッセージとデータが完全に削除されます。",
+    stopAndDeleteSession: "停止して削除",
+    stopAndDeleteSessionWarning: "セッションを停止し、すべてのメッセージとデータを完全に削除します。この操作は取り消せません。",
     failedToDeleteSession: "セッションの削除に失敗しました",
     sessionDeleted: "セッションが正常に削除されました",
     manageSharing: "共有を管理",

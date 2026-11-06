@@ -51,6 +51,12 @@ const INTERACTIVE_DESCENDANT_SELECTOR = [
     '[role="link"]',
 ].join(',');
 
+function readPointerType(event: unknown): string | null {
+    const value = (event as { nativeEvent?: { pointerType?: unknown }; pointerType?: unknown } | null);
+    const pointerType = value?.nativeEvent?.pointerType ?? value?.pointerType;
+    return typeof pointerType === 'string' ? pointerType : null;
+}
+
 function startsFromInteractiveDescendant(event: WebMouseDownActivationEvent): boolean {
     const target = asElementLike(event.target ?? event.nativeEvent?.target);
     const currentTarget = asElementLike(event.currentTarget ?? event.nativeEvent?.currentTarget);
@@ -194,6 +200,8 @@ export function SelectableMenuResults(props: {
     onSelectionChange: (index: number) => void;
     onPressItem: (item: SelectableMenuItem) => void;
     onOpenSubmenu?: (itemId: string, anchorRef: React.RefObject<unknown>) => void;
+    /** The pointer rests on a row (mouse/pen); the menu decides whether its submenu opens or closes. */
+    onHoverItem?: (item: SelectableMenuItem, anchorRef: React.RefObject<unknown>) => void;
     rowVariant: SelectableRowVariant;
     emptyLabel?: string | null;
     showCategoryTitles?: boolean;
@@ -215,20 +223,17 @@ export function SelectableMenuResults(props: {
     const rowAnchorRefs = React.useRef(new Map<string, React.RefObject<View | null>>());
 
     const allItems = React.useMemo(() => props.categories.flatMap((c) => c.items), [props.categories]);
+    const submenuAnchorRegistry = props.submenuAnchorRegistry;
+    // A submenu anchors to its whole row: placed beside the row, the measured flip to the left lands
+    // outside the parent menu instead of on top of it.
     const getRowAnchorRef = React.useCallback((itemId: string): React.RefObject<View | null> => {
         const existing = rowAnchorRefs.current.get(itemId);
         if (existing) return existing;
         const created = React.createRef<View>();
         rowAnchorRefs.current.set(itemId, created);
+        submenuAnchorRegistry?.set(itemId, created as React.RefObject<unknown>);
         return created;
-    }, []);
-    const submenuAnchorRegistry = props.submenuAnchorRegistry;
-    const getSubmenuAnchorRef = React.useCallback((itemId: string): React.RefObject<View | null> => {
-        // Both edges must belong to the row so a left-opening submenu clears the parent menu.
-        const anchor = getRowAnchorRef(itemId);
-        submenuAnchorRegistry?.set(itemId, anchor as React.RefObject<unknown>);
-        return anchor;
-    }, [getRowAnchorRef, submenuAnchorRegistry]);
+    }, [submenuAnchorRegistry]);
     const handleOpenSubmenu = React.useCallback((item: SelectableMenuItem, anchorRef: React.RefObject<unknown>) => {
         if (!item.hasSubmenu || item.disabled) return false;
         props.onOpenSubmenu?.(item.id, anchorRef);
@@ -277,7 +282,6 @@ export function SelectableMenuResults(props: {
                     const isSelected = itemIndex === props.selectedIndex;
                     currentIndex++;
                     const rowAnchorRef = getRowAnchorRef(String(item.id));
-                    const submenuAnchorRef = getSubmenuAnchorRef(String(item.id));
                     const testIdSafeItemId = String(item.id).replace(/[^a-zA-Z0-9_-]/g, '_');
                     const optionTestID = item.testID ?? `dropdown-option-${testIdSafeItemId}`;
                     const handleOptionMouseDownCapture =
@@ -289,12 +293,17 @@ export function SelectableMenuResults(props: {
                                 if (startsFromInteractiveDescendant(activationEvent)) return;
                                 activationEvent.preventDefault?.();
                                 activationEvent.stopPropagation?.();
-                                if (handleOpenSubmenu(item, submenuAnchorRef as React.RefObject<unknown>)) return;
+                                if (handleOpenSubmenu(item, rowAnchorRef as React.RefObject<unknown>)) return;
                                 handleMouseDownActivatedPress(item);
                             })
                             : undefined;
-                    const handleOpenItemSubmenu = () => {
-                        handleOpenSubmenu(item, submenuAnchorRef as React.RefObject<unknown>);
+                    // Hover reports every row; the menu owns the intent (dwell, sibling close, grace).
+                    const handleHoverItem = () => {
+                        if (props.onHoverItem) {
+                            props.onHoverItem(item, rowAnchorRef as React.RefObject<unknown>);
+                            return;
+                        }
+                        handleOpenSubmenu(item, rowAnchorRef as React.RefObject<unknown>);
                     };
                     if (item.swatch) {
                         const swatchFrameLayout = props.registerItemLayout?.(String(itemIndex));
@@ -321,6 +330,7 @@ export function SelectableMenuResults(props: {
                                         onHoverIn={() => {
                                             if (item.disabled) return;
                                             props.onSelectionChange(itemIndex);
+                                            handleHoverItem();
                                         }}
                                         style={({ pressed }) => [styles.swatchHit, pressed ? styles.swatchHitPressed : null]}
                                         {...(Platform.OS === 'web' ? { onMouseDownCapture: handleOptionMouseDownCapture } : {})}
@@ -395,7 +405,7 @@ export function SelectableMenuResults(props: {
                             onHover={() => {
                                 if (item.disabled) return;
                                 props.onSelectionChange(itemIndex);
-                                handleOpenItemSubmenu();
+                                handleHoverItem();
                             }}
                         />
                     );
@@ -404,12 +414,13 @@ export function SelectableMenuResults(props: {
                     return { swatchGroup: null, node: (
                         <View
                             ref={rowAnchorRef}
-                            collapsable={item.hasSubmenu ? false : undefined}
                             key={item.id}
                             testID={`${optionTestID}:scroll-frame`}
-                            onPointerEnter={Platform.OS === 'web' && item.hasSubmenu ? () => {
+                            onPointerEnter={Platform.OS === 'web' ? (event: unknown) => {
+                                // Touch has no hover: a tap opens the submenu through the press path.
+                                if (readPointerType(event) === 'touch' || item.disabled) return;
                                 props.onSelectionChange(itemIndex);
-                                handleOpenItemSubmenu();
+                                handleHoverItem();
                             } : undefined}
                             {...(scrollFrameLayout ? { onLayout: scrollFrameLayout } : {})}
                         >

@@ -146,6 +146,31 @@ existing replay-capture owner. The shared runtime preserves fresh input and
 output emitted during native resume and imports captured history only when
 requested.
 
+## Interactive turn silence notices (development)
+
+The session turn lifecycle owns an observation-only silence timer. While a turn
+is active, correlated live provider messages reset it at provider ingress, before
+transcript filtering or buffering. Transcript delivery, historical replay,
+host-generated messages, and presence heartbeats are not provider activity.
+
+Claude Agent SDK 0.2.123 buffers native messages before its public iterator. The
+remote runner observes its supported spawn transport through a byte-preserving
+stdout transform, so transcript persistence cannot delay receipt observation.
+The existing primary-message classifier excludes SDK control frames, replay, and
+sidechains; native init and compaction receipt extend the existing session
+lineage before later messages in the same burst are classified.
+
+After 15 minutes without such an event, the runner writes one `turn stall noticed`
+entry to its file log, including session and turn identity and the observed event
+age. Continued silence produces no further entry; a new provider event starts a
+new episode. Terminal turn states and session shutdown stop observation.
+`HAPPIER_TURN_STALL_WARN_MS` overrides the interval; `0` disables it.
+
+This development diagnostic changes no session status and performs no abort,
+restart, or other recovery. A healthy long tool call may also be silent. It does
+not detect idle-process CPU spins, establish the cause of a hang, or replace
+provider-specific terminal dialog recovery and task-activity tracking.
+
 ## CLI entry flow
 
 ```mermaid
@@ -1808,7 +1833,22 @@ Active Session RPC checks and CLI/MCP checks route account-owned attempts to
 that same scheduler; ordinary live waits use the shared session controller.
 Account-switch and reset-credit controls keep their existing owners. A failed
 daemon check does not fall back to a competing provider-local scheduler.
-Native usage limits do not enter connected-service authentication recovery.
+Daemon source authorization declines recovery when the tracked Session has no
+Connected Account binding, so native-login waits remain Session-owned. A
+provider-started Codex goal turn can lack member attribution even in a pool
+Session; its accepted failure still reaches daemon intake. Intake binds it to
+the tracked pool while leaving the failed member unknown, and the existing
+switch pipeline probes candidates without assigning a limiter to an unproven
+member. The daemon projects that pool wait even when its profile is null.
+Codex app-server's accepted terminal failure owns the report; account-change and
+temporary-capacity presentation retain prompt-loop handling without a second
+report, and provider-owned intra-turn retries remain nonterminal.
+
+After a successful Codex continuation, the runtime re-reads a previously
+usage-limited native goal and uses the existing status-only goal setter to
+reactivate it if its status remains `usageLimited`. Objective, budget and counters
+are preserved, as are intervening Pause and Complete actions.
+
 Explicit user input is admitted through Pending rather
 than waking an automatic continuation during pre-admission revalidation; the
 existing dispatcher suppresses obsolete continuation when newer input is queued.

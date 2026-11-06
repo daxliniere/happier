@@ -425,6 +425,7 @@ export class ApiMachineClient {
     }: MachineRpcHandlers, deps?: MachineRpcHandlerDeps) {
         const machineRpcLifecycleRegistration = registerMachineRpcHandlers({
             rpcHandlerManager: this.rpcHandlerManager,
+            machineId: this.machine.id,
             handlers: {
                 spawnSession,
                 ...(spawnSessionForHandoff ? { spawnSessionForHandoff } : {}),

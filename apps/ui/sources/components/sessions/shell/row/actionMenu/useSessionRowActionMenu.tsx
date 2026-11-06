@@ -5,7 +5,7 @@ import { t } from '@/text';
 import { useHappyAction } from '@/hooks/ui/useHappyAction';
 import { HappyError } from '@/utils/errors/errors';
 import type { DropdownMenuItem } from '@/components/ui/forms/dropdown/DropdownMenu';
-import { confirmSessionStop, executeDirectSessionDelete, executeSessionAction } from '@/components/sessions/actions/sessionActionExecution';
+import { confirmSessionStop, executeSessionAction } from '@/components/sessions/actions/sessionActionExecution';
 import {
     SESSION_ACTION_ARCHIVE_ID,
     SESSION_ACTION_CLEAR_ATTENTION_STANDING_ID,
@@ -193,10 +193,6 @@ export function useSessionRowActionMenu(params: Readonly<{
                 hideInactiveSessions: params.hideInactiveSessions,
             },
         });
-    });
-
-    const [deletingSession, performDeleteMutation] = useHappyAction(async () => {
-        await executeDirectSessionDelete({ target, sessionName: params.sessionName });
     });
 
     const confirmStopSession = React.useCallback(async () => {
@@ -398,7 +394,11 @@ export function useSessionRowActionMenu(params: Readonly<{
                 await confirmArchiveSession();
                 break;
             case SESSION_ACTION_DELETE_ID:
-                await performDeleteMutation();
+                try {
+                    await executeSessionAction({ actionId: SESSION_ACTION_DELETE_ID, target });
+                } catch (error) {
+                    showActionError(error);
+                }
                 break;
         }
     }, [
@@ -408,14 +408,12 @@ export function useSessionRowActionMenu(params: Readonly<{
         handleReadStateAction,
         handleRenameSession,
         customMenuItems,
-        performDeleteMutation,
         target,
         params.appearance,
         params.onEnterSelectionMode,
         params.onMoveToFolder,
         params.onMoveToProject,
         params.onSelectCustomMenuItem,
-        params.sessionName,
         reminderPresets,
         setReminderPresets,
     ]);
@@ -501,6 +499,6 @@ export function useSessionRowActionMenu(params: Readonly<{
         handleMoreMenuSelect,
         contextMenuItems,
         handleContextMenuSelect,
-        mutatingSession: stoppingSession || archivingSession || deletingSession || params.archiving === true,
+        mutatingSession: stoppingSession || archivingSession || params.archiving === true,
     };
 }

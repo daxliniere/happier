@@ -110,7 +110,7 @@ import { resolveDaemonServiceCliRuntimeFromEnv } from '@/daemon/service/cli';
 
 import { forceStopKnownDaemonPid, isDaemonRunningCurrentlyInstalledHappyVersion, resolveDaemonSpawnSessionByNonce, stopDaemon } from './controlClient';
 import { startDaemonControlServer } from './controlServer';
-import { resolveTrackedSessionCatalogAgentId } from './sessions/resolveTrackedSessionCatalogAgentId';
+import { readBuiltInCatalogAgentIdFromBackendTarget, resolveTrackedSessionCatalogAgentId } from './sessions/resolveTrackedSessionCatalogAgentId';
 import { extractResumeIdFromCommand } from './sessions/extractResumeIdFromCommand';
 import { activatePendingSessionRuntime } from './sessions/activatePendingInactiveSession';
 import {
@@ -463,7 +463,7 @@ import { normalizeAccountSettingsVersionHint } from '@/settings/accountSettings/
 import { refreshAccountSettingsForMinimumVersion } from '@/settings/accountSettings/refreshAccountSettingsForMinimumVersion';
 import { warmActiveAccountSettingsSnapshotBestEffort } from '@/settings/accountSettings/warmActiveAccountSettingsSnapshot';
 import { getActiveAccountSettingsSnapshot } from '@/settings/accountSettings/activeAccountSettingsSnapshot';
-import { isBackendEnabledByAccountSettings } from '@/settings/backendEnabled';
+import { resolveBackendDisabledSpawnError } from '@/settings/backendEnabled';
 import { resolveConfiguredAcpBackendFromAccountSettings } from '@/agent/acp/catalog/configured/resolveConfiguredAcpBackendFromAccountSettings';
 import { fetchSessionByIdCompat, type RawSessionRecord } from '@/session/transport/http/sessionsHttp';
 import { listRetainedConnectedServiceMaterializationIdentityIds } from './connectedServices/materialize/cleanup/listRetainedConnectedServiceMaterializationIdentityIds';
@@ -536,13 +536,6 @@ function resolvePositiveIntEnv(raw: string | undefined, fallback: number, bounds
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(bounds.max, Math.max(bounds.min, parsed));
-}
-
-function readBuiltInCatalogAgentIdFromBackendTarget(target: BackendTargetRefV1 | undefined): CatalogAgentId | null {
-  if (target?.kind !== 'builtInAgent') return null;
-  return typeof target.agentId === 'string' && (CATALOG_AGENT_IDS as readonly string[]).includes(target.agentId)
-    ? (target.agentId as CatalogAgentId)
-    : null;
 }
 
 function resolveTrackedSessionNotificationTitle(tracked: TrackedSession | null | undefined): string | null {
@@ -3324,6 +3317,16 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
               let effectiveResume = normalizedResume;
               const catalogAgentId = resolveCatalogAgentIdFromBackendTarget(backendTarget);
 
+              // A disabled backend never gets a new runner: fresh, forked/replayed, or resumed.
+              // Live runners were already adopted above and are not relaunched. Refuse before any
+              // existing-session recovery can retire terminal state for a launch that will not happen.
+              const launchAccountSettings = getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined;
+              const backendDisabledError = resolveBackendDisabledSpawnError({
+                backendTarget: backendTarget ?? { kind: 'builtInAgent', agentId: catalogAgentId },
+                settings: launchAccountSettings,
+              });
+              if (backendDisabledError) return backendDisabledError;
+
               let sessionAttachPayload: import('@/agent/runtime/sessionAttachPayload').SessionAttachFilePayload | null = null;
               let existingSessionPersistedMetadata: Record<string, unknown> | null = null;
               if (normalizedExistingSessionId) {
@@ -3499,15 +3502,10 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
               // Configured ACP resume is catalog-declared policy plus ACP initialize negotiation.
               // Never turn an inactive resume into a fresh provider session when either proof is absent.
               if (backendTarget?.kind === 'configuredAcpBackend' && (effectiveResume || normalizedExistingSessionId)) {
-                const accountSettings = getActiveAccountSettingsSnapshot()?.settings as Record<string, unknown> | undefined;
-                const configuredBackend = accountSettings
-                  ? resolveConfiguredAcpBackendFromAccountSettings(accountSettings, backendTarget.backendId)
+                const configuredBackend = launchAccountSettings
+                  ? resolveConfiguredAcpBackendFromAccountSettings(launchAccountSettings, backendTarget.backendId)
                   : null;
-                const supportsConfiguredResume = Boolean(
-                  configuredBackend?.capabilities.supportsLoadSession
-                  && accountSettings
-                  && isBackendEnabledByAccountSettings({ backendTarget, settings: accountSettings }),
-                );
+                const supportsConfiguredResume = Boolean(configuredBackend?.capabilities.supportsLoadSession);
                 if (!supportsConfiguredResume) {
                   return {
                     type: 'error',
@@ -7990,7 +7988,7 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                 };
               },
               recordDiagnostic: (event) => {
-                logger.debug('[DAEMON RUN] Connected-service quota diagnostic', event);
+                logger.infoFile('[DAEMON RUN] Connected-service quota diagnostic', event);
               },
               // RD-QUO-13: produce the (previously consumer-only) quota blocked/recovered
               // surfaces from the coordinator's edge-triggered lifecycle transitions —
@@ -8039,7 +8037,7 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                     // result are emitted by the deferral-queue and restart-diagnostic events
                     // respectively when a restart-resume is chosen.
                     const result = await switchCoordinator.switchBeforeTurn(input);
-                    logger.debug('[DAEMON RUN] Connected-service proactive quota switch attempt', {
+                    logger.infoFile('[DAEMON RUN] Connected-service proactive quota switch attempt', {
                       trigger: 'automatic_group_switch',
                       decision: 'proactive_quota_switch_before_turn',
                       sessionId,

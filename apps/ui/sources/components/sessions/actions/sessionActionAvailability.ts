@@ -86,9 +86,9 @@ export function listVisibleSessionActionIds(params: Readonly<{
         ids.push(SESSION_ACTION_UNARCHIVE_ID);
     }
 
-    if ((surface === 'sessionInfo' && target.canDelete)
-        || ((surface === 'rowMenu' || surface === 'nativeContextMenu')
-            && params.directDeleteEnabled === true && target.isOwnedByCurrentUser)) {
+    // Row and native context menus offer Delete only when the person enabled it in Session settings.
+    if (surface !== 'selectionActionBar' && (target.canDelete || target.canStopAndDelete)
+        && ((surface !== 'rowMenu' && surface !== 'nativeContextMenu') || params.directDeleteEnabled === true)) {
         ids.push(SESSION_ACTION_DELETE_ID);
     }
 

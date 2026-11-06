@@ -63,6 +63,7 @@ export function createAttachmentActionChip(params: Readonly<{
     return {
         key: 'attachments-add',
         controlId: 'attachments',
+        ...(params.disabled ? { disabled: true } : {}),
         labelPolicy: 'auto-hide',
         ...(showChooser ? {
             collapsedContentPopover: {

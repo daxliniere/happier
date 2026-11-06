@@ -3973,7 +3973,8 @@ class Sync {
         });
     }
 
-    applySettings = (delta: Partial<Settings>, options?: { source?: SettingsAnalyticsSource }) => {
+    applySettings = (delta: Partial<Settings>, options?: { source?: SettingsAnalyticsSource; durability?: 'immediate';
+        themeProfileMigration?: import('@/theme/profiles/themeProfileTypes').ThemeProfileMigrationIntent }) => {
         applySettingsLocalDelta({
             delta,
             settingsSecretsKey: this.settingsSecretsKey,
@@ -3983,6 +3984,8 @@ class Sync {
             },
             schedulePendingSettingsFlush: () => this.schedulePendingSettingsFlush(),
             source: options?.source,
+            durability: options?.durability,
+            themeProfileMigration: options?.themeProfileMigration,
         });
     }
 
@@ -5337,6 +5340,8 @@ class Sync {
             encryption: this.encryption,
             settingsScope,
             pendingSettings,
+            getLatestPendingSettings: () => areAccountSettingsScopesEqual(this.pendingSettingsScope, settingsScope)
+                ? this.pendingSettings : null,
             settingsSecretsKey: this.settingsSecretsKey,
             settingsSecretsReadKeys: this.settingsSecretsReadKeys,
             clearPendingSettings: (nextPendingSettings) => {

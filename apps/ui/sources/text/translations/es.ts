@@ -1262,6 +1262,15 @@ export const es: TranslationStructure = {
   },
 
   appCrash: {
+      saveDiagnostics: "Guardar diagnósticos",
+      diagnosticsSaveFailed: "No se pudieron guardar los diagnósticos. Los detalles del error siguen disponibles. Inténtalo de nuevo o cópialos.",
+      copyFailed: "No se pudieron copiar los detalles del fallo. Inténtalo de nuevo.",
+      discardFailed: "No se pudo descartar el fallo guardado. Inténtalo de nuevo.",
+      restartWithoutReport: "Reiniciar sin guardar",
+      reportSaveFailed: "No se pudieron guardar los detalles del fallo. Cópialos antes de reiniciar o vuelve a intentar enviar el informe.",
+      savedReportNotice: "El fallo guardado se muestra abajo. Revísalo y edítalo antes de enviarlo. Permanece en este dispositivo hasta enviarlo o descartarlo.",
+      discardSavedReport: "Descartar fallo guardado",
+      stackTruncated: "Pila abreviada para este campo. El fallo completo sigue guardado en este dispositivo.",
     title: "Algo salió mal",
     subtitle:
       "Happier tuvo un error inesperado. Puedes reiniciar la interfaz de la app o copiar los detalles para soporte.",
@@ -4225,6 +4234,10 @@ export const es: TranslationStructure = {
                         title: "Experimentos de Claude Code",
                         footer: "Estos ajustes se aplican tanto a Claude local (terminal) como a Claude remoto (Agent SDK) iniciados por Happier."
                     },
+                    claudeIdleReclaim: {
+                        title: "Sesiones inactivas",
+                        footer: "Tu próximo prompt reanuda la misma sesión de Claude y puede tardar un poco más. Se libera el estado en memoria. Las tareas en segundo plano, el trabajo programado y los puntos de control de archivos la mantienen activa. Las sesiones de terminal unificado siguen activas."
+                    },
                     claudeRemoteSdk: {
                         title: "Runtime clásico (respaldo Agent SDK)",
                         footer: "Usa la ruta Agent SDK cuando el runtime de terminal unificado esté desactivado o no disponible."
@@ -4308,6 +4321,14 @@ export const es: TranslationStructure = {
                     claudeCodeExperimentalAgentTeamsEnabled: {
                         title: "Forzar activación de Agent Teams",
                         subtitle: "Activa Agent Teams experimental de Claude Code (enjambre de agentes) en todas las sesiones de Claude iniciadas por Happier."
+                    },
+                    claudeRemoteIdleReclaimEnabled: {
+                        title: "Liberar procesos inactivos de Claude",
+                        subtitle: "Libera memoria tras un periodo sin actividad. Desactivado por defecto."
+                    },
+                    claudeRemoteIdleReclaimTimeoutMinutes: {
+                        title: "Tiempo de inactividad (minutos)",
+                        subtitle: "Elige cuánto tiempo permanece preparada una sesión remota de Claude con esta opción activada."
                     },
                     claudeRemoteAgentSdkEnabled: {
                         title: "Usar respaldo Agent SDK",
@@ -6947,6 +6968,8 @@ export const es: TranslationStructure = {
     deleteSessionConfirm: "¿Eliminar sesión permanentemente?",
     deleteSessionWarning:
       "Esta acción no se puede deshacer. Todos los mensajes y datos asociados con esta sesión se eliminarán permanentemente.",
+    stopAndDeleteSession: "Detener y eliminar",
+    stopAndDeleteSessionWarning: "Esto detendrá la sesión y eliminará permanentemente todos sus mensajes y datos. Esta acción no se puede deshacer.",
     failedToDeleteSession: "Error al eliminar la sesión",
     sessionDeleted: "Sesión eliminada exitosamente",
     manageSharing: "Gestionar acceso",

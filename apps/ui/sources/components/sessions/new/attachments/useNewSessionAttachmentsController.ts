@@ -199,6 +199,7 @@ export function useNewSessionAttachmentsController(params: Readonly<{
                 onUpdateDraft: updateReviewCommentDraft,
                 onDeleteDraft: deleteReviewCommentDraft,
                 onClearDrafts: discardReviewCommentDrafts,
+                disabled: params.isCreating,
             });
             if (reviewCommentsChip) {
                 chips.push(reviewCommentsChip);

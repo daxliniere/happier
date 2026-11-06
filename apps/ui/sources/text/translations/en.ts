@@ -1104,6 +1104,15 @@ export const en = {
     },
 
     appCrash: {
+        saveDiagnostics: "Save diagnostics",
+        diagnosticsSaveFailed: "Diagnostics could not be saved. Your crash details are still available. Try again or copy them.",
+        copyFailed: "The crash details could not be copied. Try again.",
+        discardFailed: "The saved crash could not be discarded. Try again.",
+        restartWithoutReport: "Restart without saving",
+        reportSaveFailed: "Crash details could not be saved. Copy the error details before restarting, or try reporting again.",
+        savedReportNotice: "The saved crash is shown below. Review and edit it before submitting. It stays on this device until submission or dismissal.",
+        discardSavedReport: "Discard saved crash",
+        stackTruncated: "Stack shortened for this field. The full crash remains saved on this device.",
         title: 'Something went wrong',
         subtitle: 'Happier hit an unexpected error. You can restart the app UI or copy details for support.',
         detailsTitle: 'Error details',
@@ -3933,6 +3942,10 @@ export const en = {
                         title: "Claude Code experiments",
                         footer: "These settings apply to both local Claude (terminal) and remote Claude (Agent SDK) sessions started by Happier."
                     },
+                    claudeIdleReclaim: {
+                        title: "Idle sessions",
+                        footer: "Your next prompt resumes the same Claude session and may take a little longer. In-memory state is released. Background tasks, scheduled work and file checkpointing keep it running. Unified terminal sessions stay running."
+                    },
                     claudeRemoteSdk: {
                         title: "Classic runtime (Agent SDK fallback)",
                         footer: "Use the Agent SDK path when unified terminal runtime is off or unavailable."
@@ -4016,6 +4029,14 @@ export const en = {
                     claudeCodeExperimentalAgentTeamsEnabled: {
                         title: "Force-enable Agent Teams",
                         subtitle: "Enable Claude Code experimental Agent Teams (agent swarm) in all Claude sessions started by Happier."
+                    },
+                    claudeRemoteIdleReclaimEnabled: {
+                        title: "Release idle Claude processes",
+                        subtitle: "Free memory after a quiet period. Off by default."
+                    },
+                    claudeRemoteIdleReclaimTimeoutMinutes: {
+                        title: "Idle after (minutes)",
+                        subtitle: "Choose how long an opted-in remote Claude session stays warm."
                     },
                     claudeRemoteAgentSdkEnabled: {
                         title: "Use Agent SDK fallback",
@@ -6590,6 +6611,8 @@ export const en = {
         deleteSessionSubtitle: 'Permanently remove this session',
         deleteSessionConfirm: 'Delete Session Permanently?',
         deleteSessionWarning: 'This action cannot be undone. All messages and data associated with this session will be permanently deleted.',
+        stopAndDeleteSession: "Stop and delete",
+        stopAndDeleteSessionWarning: "This will stop the session and permanently delete all its messages and data. This action cannot be undone.",
         failedToDeleteSession: 'Failed to delete session',
         sessionDeleted: 'Session deleted successfully',
         renameSession: 'Rename Session',
