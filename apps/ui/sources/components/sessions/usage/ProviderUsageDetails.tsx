@@ -18,8 +18,8 @@ import { getProviderUsageRingSize } from './ProviderUsageRing';
 
 function ProviderUsageRefreshIndicator(props: Readonly<{ serviceId: string; sourceProfileId: string; size: number }>) {
     const refreshing = useProviderUsageRefreshState(props.serviceId, props.sourceProfileId);
-    // The dot mark's visible ink spans 5/6 of its box. Match the ring's visible diameter.
-    return refreshing ? <ActivitySpinner size={Math.round(props.size * 6 / 5)} /> : null;
+    // The dot mark's ink spans 5/6 of its box. Its visible diameter is half the outer ring's.
+    return refreshing ? <ActivitySpinner size={Math.round(props.size * 3 / 5)} /> : null;
 }
 
 function mapGaugeToneToMeterTone(tone: ConnectedServiceQuotaGaugeViewModel['tone']): MeterTone {

@@ -364,7 +364,7 @@ describe('MainView sidebar actions', () => {
             expect(headerLeft.findByTestId('sessions-provider-usage-item:opencode')).toBeTruthy();
             expect(headerLeft.findAllByType('HeaderLogo')).toHaveLength(1);
             expect(headerLeft.getTextContent()).toContain('0');
-            const ring = headerLeft.findAll((node) => node.props.testID === 'sessions-provider-usage:claude'
+            const ring = headerLeft.findAll((node) => node.props?.testID === 'sessions-provider-usage:claude'
                 && node.props.label != null)[0];
             expect(ring?.props.remainingPct).toBe(0);
             expect(ring?.props.tone).toBe('critical');

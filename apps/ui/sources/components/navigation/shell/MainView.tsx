@@ -133,9 +133,11 @@ const styles = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     titleContainer: {
-        flex: 1,
+        flexShrink: 1,
+        minWidth: 0,
         alignItems: 'flex-start',
         marginLeft: -4,
+        marginRight: 8,
     },
     titleText: {
         fontSize: 16,
