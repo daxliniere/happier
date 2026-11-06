@@ -5806,8 +5806,9 @@ export const en = {
                 title: 'Edit pending message',
             },
             removeConfirm: {
-                title: 'Remove pending message?',
+                title: 'Are you sure you want to delete this pending message?',
                 body: 'This will delete the pending message.',
+                actionLabel: 'Delete next pending message',
             },
             discardConfirm: {
                 title: 'Discard pending message?',

@@ -5365,8 +5365,9 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
                     title: '編輯待傳送訊息',
                 },
                 removeConfirm: {
-                    title: '移除待傳送訊息？',
+                    title: '確定要刪除此待傳送訊息嗎？',
                     body: '這將刪除待傳送訊息。',
+                    actionLabel: '刪除下一則待傳送訊息',
                 },
                 discardConfirm: {
                     title: '丟棄待傳送訊息？',

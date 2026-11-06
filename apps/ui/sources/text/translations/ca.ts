@@ -5785,8 +5785,9 @@ deps: {
                   title: 'Edita el missatge pendent',
               },
               removeConfirm: {
-                  title: 'Vols eliminar el missatge pendent?',
+                  title: 'Segur que vols eliminar aquest missatge pendent?',
                   body: 'Això eliminarà el missatge pendent.',
+                  actionLabel: 'Elimina el missatge pendent següent',
               },
               discardConfirm: {
                   title: 'Vols descartar el missatge pendent?',

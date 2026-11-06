@@ -6473,8 +6473,9 @@ export const it: TranslationStructure = {
           title: "Modifica messaggio in sospeso",
         },
         removeConfirm: {
-          title: "Rimuovere il messaggio in sospeso?",
+          title: "Vuoi davvero eliminare questo messaggio in sospeso?",
           body: "Questo eliminerà il messaggio in sospeso.",
+          actionLabel: "Elimina il prossimo messaggio in sospeso",
         },
         discardConfirm: {
           title: "Scartare il messaggio in sospeso?",

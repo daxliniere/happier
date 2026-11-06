@@ -6401,8 +6401,9 @@ localTailscale: {
           title: "保留中メッセージを編集",
         },
         removeConfirm: {
-          title: "保留中メッセージを削除しますか？",
+          title: "この保留中のメッセージを削除してもよろしいですか？",
           body: "保留中メッセージを削除します。",
+          actionLabel: "次の保留中メッセージを削除",
         },
         discardConfirm: {
           title: "保留中メッセージを破棄しますか？",

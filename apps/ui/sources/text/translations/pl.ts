@@ -6150,8 +6150,9 @@ export const pl: TranslationStructure = {
           title: "Edytuj oczekującą wiadomość",
         },
         removeConfirm: {
-          title: "Usunąć oczekującą wiadomość?",
+          title: "Czy na pewno chcesz usunąć tę oczekującą wiadomość?",
           body: "To usunie oczekującą wiadomość.",
+          actionLabel: "Usuń następną oczekującą wiadomość",
         },
         discardConfirm: {
           title: "Odrzucić oczekującą wiadomość?",

@@ -5941,8 +5941,9 @@ export const zhHans: TranslationStructure = {
           title: "编辑待发送消息",
         },
         removeConfirm: {
-          title: "移除待发送消息？",
+          title: "确定要删除这条待发送消息吗？",
           body: "这将删除待发送消息。",
+          actionLabel: "删除下一条待发送消息",
         },
         discardConfirm: {
           title: "丢弃待发送消息？",

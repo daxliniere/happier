@@ -5772,8 +5772,9 @@ export const fr: TranslationStructure = {
                 title: 'Modifier le message en attente',
             },
             removeConfirm: {
-                title: 'Retirer le message en attente ?',
+                title: 'Voulez-vous vraiment supprimer ce message en attente ?',
                 body: 'Cela supprimera le message en attente.',
+                actionLabel: 'Supprimer le prochain message en attente',
             },
             discardConfirm: {
                 title: 'Abandonner le message en attente ?',

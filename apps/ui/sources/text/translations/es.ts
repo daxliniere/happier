@@ -6125,8 +6125,9 @@ export const es: TranslationStructure = {
           title: "Editar mensaje pendiente",
         },
         removeConfirm: {
-          title: "¿Eliminar mensaje pendiente?",
+          title: "¿Seguro que quieres eliminar este mensaje pendiente?",
           body: "Esto eliminará el mensaje pendiente.",
+          actionLabel: "Eliminar el siguiente mensaje pendiente",
         },
         discardConfirm: {
           title: "¿Descartar mensaje pendiente?",

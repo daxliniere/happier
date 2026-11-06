@@ -5785,8 +5785,9 @@ export const de: TranslationStructure = {
                 title: 'Offene Nachricht bearbeiten',
             },
             removeConfirm: {
-                title: 'Offene Nachricht entfernen?',
+                title: 'Möchtest du diese ausstehende Nachricht wirklich löschen?',
                 body: 'Damit wird die offene Nachricht gelöscht.',
+                actionLabel: 'Nächste ausstehende Nachricht löschen',
             },
             discardConfirm: {
                 title: 'Offene Nachricht verwerfen?',
