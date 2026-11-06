@@ -119,7 +119,7 @@ describe("app lock recovery routes (integration)", () => {
             expect((await register(app, userId)).statusCode).toBe(200);
             expect((await requestResetCode(app)).statusCode).toBe(200);
             expect(sentMail.at(-1)).toMatchObject({
-                to: "recovery@example.com",
+                to: "owner@example.com",
                 settings: { host: "smtp.example.com", port: 465, security: "tls", password: "smtp-secret-password" },
             });
 
