@@ -41,7 +41,7 @@ export function useProviderUsageGauges(params: Readonly<{
     fetchEnabled: boolean;
 }>): Readonly<{
     gauges: ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>;
-    /** Agents with a usage source (connected profile or recorded native login), whether or not a gauge could be built. */
+    /** Configured profiles or native logins remain present even when credential health prevents querying. */
     configuredAgentIds: ReadonlySet<AgentId>;
     /** Queries every configured provider, including this Agent's displayed account. */
     refreshAgent: (agentId: AgentId) => void;
@@ -128,7 +128,16 @@ export function useProviderUsageGauges(params: Readonly<{
         return gauges;
     }, [accountUsageSnapshots, allRecordIds, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, latestRuntimeIssuesByAgent]);
     const configuredAgentIds = React.useMemo(() => new Set(
-        params.agentIds.filter((agentId) => profileRefByAgentId.has(agentId) || recordIdsByAgentId.has(agentId) || latestRuntimeIssuesByAgent.has(agentId)),
-    ), [params.agentIds, profileRefByAgentId, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
+        params.agentIds.filter((agentId) => (
+            // Configuration and query eligibility are different facts. A refresh/reconnect status
+            // must not remove a saved provider from the HUD while its figures are unavailable.
+            (getAgentCore(agentId).connectedServices?.supportedServiceIds ?? []).some((serviceId) => (
+                params.accountProfileConnectedServicesV2.some((service) => service.serviceId === serviceId
+                    && service.profiles.some((profile) => profile.profileId.trim().length > 0))
+            ))
+            || recordIdsByAgentId.has(agentId)
+            || latestRuntimeIssuesByAgent.has(agentId)
+        )),
+    ), [params.agentIds, params.accountProfileConnectedServicesV2, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
     return React.useMemo(() => ({ gauges, configuredAgentIds, refreshAgent }), [gauges, configuredAgentIds, refreshAgent]);
 }
