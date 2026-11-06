@@ -189,12 +189,14 @@ describe('useInSessionAgentPickerControls', () => {
     });
 
     it('greys out an uninstalled target and makes it selectable after installation is detected', async () => {
-        const hook = await renderControls({ cliAvailabilityByAgentId: { codex: false } });
+        const hook = await renderControls({ cliAvailabilityByAgentId: { claude: false, codex: false } });
         await openPicker(hook);
+        expect(optionsOf(hook.getCurrent())[0]?.muted).toBe(true);
         expect(optionsOf(hook.getCurrent()).find((option) => option.id === 'builtInAgent:codex'))
             .toMatchObject({ muted: true, disabled: true, focusableWhileDisabled: true });
         expect(hook.getCurrent().armedContinuation).toBeNull();
-        await hook.rerender({ cliAvailabilityByAgentId: { codex: true } });
+        await hook.rerender({ cliAvailabilityByAgentId: { claude: true, codex: true } });
+        expect(optionsOf(hook.getCurrent())[0]?.muted).not.toBe(true);
         expect(optionsOf(hook.getCurrent()).find((option) => option.id === 'builtInAgent:codex'))
             .toMatchObject({ muted: false, disabled: false });
     });

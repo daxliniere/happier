@@ -962,13 +962,20 @@ export function useInSessionAgentPickerControls(
         preferredOptionId: armedTargetKey,
     });
 
+    const currentEntry = entries.find((entry) => entry.targetKey === source.currentBackendTargetKey);
+    const currentCliMissing = Boolean(currentEntry?.builtInAgentId
+        && cliAvailabilityByAgentId?.[currentEntry.builtInAgentId] === false);
+
     const composeAgentPickerOptions = React.useCallback((
         currentAgentOptions: ReadonlyArray<AgentInputChipPickerOption>,
     ): ReadonlyArray<AgentInputChipPickerOption> => {
-        if (targetOptions.length === 0) return currentAgentOptions;
+        if (targetOptions.length === 0) return currentCliMissing
+            ? currentAgentOptions.map((option) => ({ ...option, muted: true }))
+            : currentAgentOptions;
         return [
             ...currentAgentOptions.map((option) => ({
                 ...option,
+                ...(currentCliMissing ? { muted: true } : {}),
                 // One checkmark, on the selection — the same shape every sibling model
                 // picker uses. Once the selection MOVES, though, the running Agent is
                 // left with nothing at all, and "which Agent is running right now" is a
@@ -1007,7 +1014,7 @@ export function useInSessionAgentPickerControls(
             })),
             ...targetOptions,
         ];
-    }, [armedTargetKey, clearArmedContinuation, currentAgentAppliedStatus, currentAgentLabel, targetOptions]);
+    }, [armedTargetKey, clearArmedContinuation, currentAgentAppliedStatus, currentAgentLabel, currentCliMissing, targetOptions]);
 
     return {
         composeAgentPickerOptions,
