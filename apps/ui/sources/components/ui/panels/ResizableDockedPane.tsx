@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Platform, Pressable, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { useResizableDockedPaneCore, type DockedPaneResizeCommitMeta } from './resizable/resizableDockedPaneCore';
 
@@ -17,6 +18,8 @@ export type ResizableDockedPaneProps = Readonly<{
 }>;
 
 export const ResizableDockedPane = React.memo((props: ResizableDockedPaneProps) => {
+    const { theme } = useUnistyles();
+    const [resizeHandleHovered, setResizeHandleHovered] = React.useState(false);
     const resizeEdge = props.resizeEdge ?? 'left';
     const { effectiveSizePx, canResize, panHandlers, webHandleProps } = useResizableDockedPaneCore({
         axis: 'x',
@@ -46,6 +49,8 @@ export const ResizableDockedPane = React.memo((props: ResizableDockedPaneProps) 
                     accessibilityRole="adjustable"
                     accessibilityLabel={t('ui.resizableDockedPane.resizeA11y')}
                     accessibilityHint={t('ui.resizableDockedPane.resizeHint')}
+                    onHoverIn={() => setResizeHandleHovered(true)}
+                    onHoverOut={() => setResizeHandleHovered(false)}
                     {...(Platform.OS === 'web'
                         ? ({
                             ...webHandleProps,
@@ -56,13 +61,26 @@ export const ResizableDockedPane = React.memo((props: ResizableDockedPaneProps) 
                         ...(resizeEdge === 'left' ? { left: 0 } : { right: 0 }),
                         top: 0,
                         bottom: 0,
-                        width: 2,
+                        width: 24,
                         cursor: 'col-resize' as any,
                         zIndex: 1000,
                         userSelect: 'none' as any,
+                        alignItems: resizeEdge === 'left' ? 'flex-start' : 'flex-end',
+                        justifyContent: 'center',
                         ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : null),
                     }}
-                />
+                >
+                    <View
+                        pointerEvents="none"
+                        style={{
+                            width: 4,
+                            height: 32,
+                            borderRadius: 2,
+                            backgroundColor: theme.colors.text.secondary,
+                            opacity: resizeHandleHovered ? 1 : 0.55,
+                        }}
+                    />
+                </Pressable>
             ) : null}
             <View style={{ flex: 1, width: '100%', minHeight: 0 }}>{props.children}</View>
         </View>
