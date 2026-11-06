@@ -352,9 +352,19 @@ describe('useNewSessionConnectedServices', () => {
         writeProviderAccountUsageSnapshotToCache({
             credentialScope: resolveAuthCredentialsScopeKey(quotaApiState.auth.credentials), snapshot,
         });
+        const claudeRecordKey = { ...recordKey, providerId: 'claude' } as const;
+        const claudeRecordId = buildProviderAccountUsageRecordId(claudeRecordKey);
+        writeProviderAccountUsageSnapshotToCache({
+            credentialScope: resolveAuthCredentialsScopeKey(quotaApiState.auth.credentials),
+            snapshot: ProviderAccountUsageSnapshotV1Schema.parse({
+                ...snapshot, recordId: claudeRecordId, recordKey: claudeRecordKey, providerId: 'claude',
+                meters: [{ ...snapshot.meters[0], used: 60 }],
+            }),
+        });
         const session = createSessionFixture({ metadata: {
             path: '/repo', host: 'test', flavor: 'codex',
-            providerAccountUsageRefsV1: { v: 1, recordIds: [recordId], updatedAtMs: Date.now() },
+            // Usage references survive a provider switch; snapshot identity, not current flavor, owns them.
+            providerAccountUsageRefsV1: { v: 1, recordIds: [recordId, claudeRecordId], updatedAtMs: Date.now() },
         } });
         const exhaustedClaude = createSessionFixture({
             id: 'exhausted-claude', metadata: { path: '/repo', host: 'test', flavor: 'claude' },
@@ -384,6 +394,10 @@ describe('useNewSessionConnectedServices', () => {
             // The shared details header must identify the provider even for native limit-only evidence.
             expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('codex')?.providerDisplayName).toBe('agentInput.agent.codex');
             expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.providerDisplayName).toBe('agentInput.agent.claude');
+            await act(async () => storage.setState({ sessions: {
+                [session.id]: session, [exhaustedClaude.id]: { ...exhaustedClaude, lastRuntimeIssue: undefined },
+            } }));
+            expect(hook.getCurrent().providerUsageGaugesByAgentId?.get('claude')?.remainingPct).toBe(40);
         } finally {
             await hook.unmount();
             storage.setState({ sessions: previousSessions, isDataReady: previousReady });

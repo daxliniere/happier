@@ -11,9 +11,11 @@ export function selectLatestProviderUsageRecordIdsByAgent(sessions: ReadonlyArra
     const records = new Map<AgentId, string[]>();
     for (const session of sessions) {
         const providerId = resolveAgentIdFromSessionMetadata(session.metadata);
-        if (!providerId || records.has(providerId)) continue;
+        if (!providerId || (records.get(providerId)?.length ?? 0) > 0) continue;
         const recordIds = readProviderAccountUsageRecordIdsFromMetadata(session.metadata);
-        if (recordIds.length > 0) records.set(providerId, recordIds);
+        // A native provider remains configured even when it cannot report quota figures.
+        // Keep looking through older sessions for its latest published account refs.
+        records.set(providerId, recordIds);
     }
     return records;
 }
@@ -32,7 +34,7 @@ export function collectConfiguredProviderUsageRefreshTargets(params: Readonly<{
         }
     }
     for (const recordIds of params.latestRecordIdsByAgent.values()) {
-        targets.push({ connectedProfileRef: null, recordIds: [...recordIds] });
+        if (recordIds.length > 0) targets.push({ connectedProfileRef: null, recordIds: [...recordIds] });
     }
     return targets;
 }
@@ -50,7 +52,7 @@ export function parseLatestProviderUsageRecordIds(signature: string): ReadonlyMa
     const records = new Map<AgentId, readonly string[]>();
     for (const entry of signature.split('|')) {
         const [agentId, ids] = entry.split(':');
-        if (agentId && ids) records.set(agentId as AgentId, ids.split(','));
+        if (agentId && ids !== undefined) records.set(agentId as AgentId, ids ? ids.split(',') : []);
     }
     return records;
 }

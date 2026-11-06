@@ -46,7 +46,7 @@ import {
 import type { ReviewCommentDraft } from '../domains/input/reviewComments/reviewCommentTypes';
 import type { SessionActionDraft } from '../domains/sessionActions/sessionActionDraftTypes';
 import type { AgentId } from '@happier-dev/agents';
-import { resolveAgentIdFromSessionMetadata } from '@happier-dev/agents';
+import { resolveAgentIdFromFlavor, resolveAgentIdFromSessionMetadata } from '@happier-dev/agents';
 import type { SessionRuntimeIssueV1 } from '@happier-dev/protocol';
 import {
   parseLatestProviderUsageRecordIds,
@@ -1812,17 +1812,18 @@ export function useLatestProviderUsageRecordIdsByAgent(): ReadonlyMap<AgentId, r
   return React.useMemo(() => parseLatestProviderUsageRecordIds(signature), [signature]);
 }
 
-/** Latest-session limit evidence only; unrelated session updates retain the selected map. */
+/** Latest limit evidence per provider; unrelated or unmetered sessions cannot erase account facts. */
 export function useLatestProviderUsageRuntimeIssuesByAgent(): ReadonlyMap<AgentId, SessionRuntimeIssueV1> {
   return getStorage()(useShallow((state) => {
     const issues = new Map<AgentId, SessionRuntimeIssueV1>();
     if (!state.isDataReady) return issues;
-    const seen = new Set<AgentId>();
     for (const session of sortValuesByUpdatedAtDescending(state.sessions)) {
-      const agentId = resolveAgentIdFromSessionMetadata(session.metadata);
-      if (!agentId || seen.has(agentId)) continue;
-      seen.add(agentId);
-      if (session.lastRuntimeIssue?.usageLimit) issues.set(agentId, session.lastRuntimeIssue);
+      const issue = session.lastRuntimeIssue;
+      if (!issue?.usageLimit) continue;
+      // Session metadata follows provider switches; the failure's provider stays authoritative.
+      const agentId = resolveAgentIdFromFlavor(issue.provider);
+      if (!agentId || (issues.get(agentId)?.occurredAt ?? -1) >= issue.occurredAt) continue;
+      issues.set(agentId, issue);
     }
     return issues;
   }));

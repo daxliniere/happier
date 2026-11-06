@@ -32,6 +32,11 @@ describe('useLatestProviderUsageRecordIdsByAgent', () => {
             const before = renders;
             await act(async () => storage.setState({ sessions: { limited: { ...session, thinking: true } } }));
             expect(renders).toBe(before);
+            await act(async () => storage.setState({ sessions: { limited: {
+                ...session, metadata: { ...session.metadata, flavor: 'codex' },
+            } } }));
+            expect(hook.getCurrent().get('claude')).toEqual(issue);
+            expect(hook.getCurrent().has('codex')).toBe(false);
             await act(async () => storage.setState({ sessions: { limited: { ...session, lastRuntimeIssue: undefined } } }));
             expect(hook.getCurrent().has('claude')).toBe(false);
             await hook.unmount();

@@ -77,8 +77,8 @@ export function useProviderUsageGauges(params: Readonly<{
         return new Map([...latestRecordIdsByAgent].filter(([agentId]) => wanted.has(agentId)));
     }, [params.agentIds, latestRecordIdsByAgent]);
     const allRecordIds = React.useMemo(
-        () => params.fetchEnabled ? [...recordIdsByAgentId.values()].flat() : [],
-        [params.fetchEnabled, recordIdsByAgentId],
+        () => params.fetchEnabled ? [...latestRecordIdsByAgent.values()].flat() : [],
+        [params.fetchEnabled, latestRecordIdsByAgent],
     );
     const accountUsageSnapshots = useProviderAccountUsageSnapshots(allRecordIds);
 
@@ -98,7 +98,9 @@ export function useProviderUsageGauges(params: Readonly<{
             const ref = profileRefByAgentId.get(agentId) ?? null;
             const source = selectProviderUsageDisplaySnapshot({
                 providerId: agentId,
-                metadataRecordIds: recordIdsByAgentId.get(agentId) ?? [],
+                // A session can retain usage refs from before a provider switch. The display
+                // selector checks each snapshot's provider identity rather than the session's current one.
+                metadataRecordIds: allRecordIds,
                 accountUsageSnapshotsByRecordId: accountUsageSnapshots,
                 connectedServiceProfileRef: ref ? { ...ref, provenance: 'published_quota_ref' } : null,
                 connectedServiceQuotaView: ref ? quotaSnapshots.snapshotsByKey[connectedServiceProfileKey(ref)] ?? null : null,
@@ -124,7 +126,7 @@ export function useProviderUsageGauges(params: Readonly<{
             if (gauge) gauges.set(agentId, gauge);
         }
         return gauges;
-    }, [accountUsageSnapshots, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
+    }, [accountUsageSnapshots, allRecordIds, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, latestRuntimeIssuesByAgent]);
     const configuredAgentIds = React.useMemo(() => new Set(
         params.agentIds.filter((agentId) => profileRefByAgentId.has(agentId) || recordIdsByAgentId.has(agentId) || latestRuntimeIssuesByAgent.has(agentId)),
     ), [params.agentIds, profileRefByAgentId, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
