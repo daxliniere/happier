@@ -257,7 +257,6 @@ export const DesktopSidebarChrome = React.memo((props: DesktopSidebarChromeProps
                         onPress={props.onPressHome}
                         style={styles.brandButton}
                     />
-                    <ProviderUsageStrip />
                     <View testID="desktop-sidebar-title-container" style={styles.titleContainerLeft}>
                         <View style={styles.titleRow}>
                             <Text testID="desktop-sidebar-title-text" style={styles.titleText} numberOfLines={1}>
@@ -276,6 +275,7 @@ export const DesktopSidebarChrome = React.memo((props: DesktopSidebarChromeProps
                             />
                         </View>
                     </View>
+                    <ProviderUsageStrip />
                 </View>
 
                 {actionsRow}

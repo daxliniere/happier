@@ -84,14 +84,14 @@ export const HomeHeader = React.memo(() => {
     return (
         <View style={{ backgroundColor: theme.colors.background.canvas }}>
             <Header
-                title={<HeaderTitleWithSubtitle />}
-                headerRight={() => <HeaderRight />}
-                headerLeft={() => (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <HeaderLeft showAutomations={showAutomations} />
+                title={(
+                    <>
+                        <HeaderTitleWithSubtitle />
                         <ProviderUsageStrip />
-                    </View>
+                    </>
                 )}
+                headerRight={() => <HeaderRight />}
+                headerLeft={() => <HeaderLeft showAutomations={showAutomations} />}
                 headerShadowVisible={false}
                 headerTransparent={true}
             />

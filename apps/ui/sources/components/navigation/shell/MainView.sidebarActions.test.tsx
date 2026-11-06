@@ -335,7 +335,7 @@ describe('MainView sidebar actions', () => {
         expect(tree!.findAllByType('TabBar')).toHaveLength(0);
     });
 
-    it('keeps exhausted provider usage accessible beside the phone header logo', () => withPopoverWebGlobals(async () => {
+    it('keeps exhausted provider usage accessible with the phone header title', () => withPopoverWebGlobals(async () => {
         await installAgentAssetLoader();
         const { storage } = await import('@/sync/domains/state/storageStore');
         const { createSessionFixture } = await import('@/dev/testkit/fixtures/sessionFixtures');
@@ -356,7 +356,8 @@ describe('MainView sidebar actions', () => {
             metadata: { path: '/repo', host: 'test', flavor: 'opencode' } });
         storage.setState({ sessions: { [session.id]: session, [newerClaude.id]: newerClaude, [openCode.id]: openCode }, isDataReady: true });
         const screen = await renderScreen(<MainView variant="phone" />);
-        const headerLeft = await renderScreen(screen.tree.findByType('Header').props.headerLeft());
+        const header = screen.tree.findByType('Header');
+        const headerLeft = await renderScreen(<>{header.props.headerLeft()}{header.props.title}</>);
         try {
             expect(headerLeft.findByTestId('sessions-provider-usage-item:claude')).toBeTruthy();
             expect(headerLeft.findByTestId('sessions-provider-usage-item:codex')).toBeNull();
