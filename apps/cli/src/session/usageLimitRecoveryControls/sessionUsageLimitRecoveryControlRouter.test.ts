@@ -12,6 +12,7 @@ import type { RawSessionRecord } from '@/session/transport/http/sessionsHttp';
 import { checkRuntimeAuthUsageLimitRecovery } from '@/daemon/connectedServices/runtimeAuth/checkRuntimeAuthUsageLimitRecovery';
 import { RuntimeAuthRecoveryScheduler } from '@/daemon/connectedServices/runtimeAuth/RuntimeAuthRecoveryScheduler';
 import { TemporaryThrottleRecoveryScheduler } from '@/daemon/connectedServices/temporaryThrottle/TemporaryThrottleRecoveryScheduler';
+import { USAGE_LIMIT_RECOVERY_RESET_MARGIN_MS } from './deriveUsageLimitRecoveryTiming';
 
 const mocks = vi.hoisted(() => ({
   fetchAccountMachineReplacements: vi.fn(),
@@ -258,7 +259,7 @@ describe('sessionUsageLimitRecoveryControlRouter', () => {
       status: 'waiting', attemptCount: 0, lastProbeError: null,
       issueFingerprint: buildUsageLimitIssueFingerprint(issue),
       resetAtMs: issue.usageLimit?.resetAtMs,
-      nextCheckAtMs: issue.usageLimit?.resetAtMs,
+      nextCheckAtMs: issue.usageLimit!.resetAtMs! + USAGE_LIMIT_RECOVERY_RESET_MARGIN_MS,
     });
     expect(persisted).not.toHaveProperty('runtimeAuthRecoveryAttemptId');
     expect(persisted.armedAtMs).toBeGreaterThan(terminal.armedAtMs);

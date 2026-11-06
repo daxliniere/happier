@@ -33,6 +33,7 @@ import { buildRuntimeAuthRecoveryKey } from '@/daemon/connectedServices/runtimeA
 import { reportConnectedServiceRuntimeAuthFailureToDaemon } from '@/daemon/connectedServices/runtimeAuth/reportConnectedServiceRuntimeAuthFailureToDaemon';
 import { readRuntimeAuthFailureReportOutboxItems } from '@/daemon/connectedServices/runtimeAuth/reportOutbox/runtimeAuthFailureReportOutbox';
 import { SPAWN_SESSION_ERROR_CODES } from '@happier-dev/protocol';
+import { USAGE_LIMIT_RECOVERY_RESET_MARGIN_MS } from './deriveUsageLimitRecoveryTiming';
 
 const testOs = vi.hoisted(() => ({ homedir: '' }));
 // Isolate the real native startup lock in a temporary OS-home boundary.
@@ -182,7 +183,7 @@ describe('generic usage-limit continuation through the session control boundary'
         serviceId, profileId: null, groupId: null }))).toBeNull();
       expect(await readRuntimeAuthFailureReportOutboxItems({ outboxDir: root })).toHaveLength(0);
       expect(fixture.readRecovery().runtimeAuthRecoveryAttemptId).toBeUndefined();
-      vi.setSystemTime(10_001);
+      vi.setSystemTime(10_001 + USAGE_LIMIT_RECOVERY_RESET_MARGIN_MS);
       expect(await fixture.runtime.controls.checkUsageLimitRecoveryNow({ sessionId: fixture.sessionId }))
         .toMatchObject({ ok: true, status: 'resumed' });
       expect(fixture.readRecovery().status).toBe('cancelled');
@@ -223,6 +224,8 @@ describe('generic usage-limit continuation through the session control boundary'
       await fixture.runtime.observeFailure(nativeIssue);
       expect(fixture.readRecovery()).toMatchObject({ status: 'waiting', selectedAuth: { kind: 'native' } });
       expect(fixture.readRecovery().runtimeAuthRecoveryAttemptId).toBeUndefined();
+      // The fork resumes only after its reset margin has passed.
+      vi.setSystemTime(nativeIssue.usageLimit!.resetAtMs! + USAGE_LIMIT_RECOVERY_RESET_MARGIN_MS + 1);
       expect(await fixture.runtime.controls.checkUsageLimitRecoveryNow({ sessionId: fixture.sessionId }))
         .toMatchObject({ ok: true, status: 'resumed' });
       expect(network.enqueue).toHaveBeenCalledOnce();
