@@ -1,4 +1,4 @@
-import { View, Platform, Linking } from 'react-native';
+import { View, Platform, Linking, Animated } from 'react-native';
 import * as React from 'react';
 import { useRouter } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
@@ -16,6 +16,7 @@ import { runtimeFetch } from '@/utils/system/runtimeFetch';
 import { setClipboardStringSafe } from '@/utils/ui/clipboard';
 import { Modal } from '@/modal';
 import { invokeTauri, isTauriDesktop } from '@/utils/platform/tauri';
+import { CopiedPill } from '@/components/ui/copy/CopiedPill';
 
 type SettingsBelowFoldSectionsRouter = ReturnType<typeof useRouter>;
 type SettingsBelowFoldSectionsTheme = ReturnType<typeof useUnistyles>['theme'];
@@ -391,6 +392,36 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
     const settings = useSettings();
     const [serverVersion, setServerVersion] = React.useState<string | null>(null);
     const [desktopVersion, setDesktopVersion] = React.useState<string | null>(null);
+    const [showVersionCopiedToast, setShowVersionCopiedToast] = React.useState(false);
+    const versionCopiedToastOpacity = React.useRef(new Animated.Value(0)).current;
+    const versionCopiedToastAnimation = React.useRef<Animated.CompositeAnimation | null>(null);
+    const versionCopiedToastPause = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const showCopiedToast = React.useCallback(() => {
+        versionCopiedToastAnimation.current?.stop();
+        if (versionCopiedToastPause.current) clearTimeout(versionCopiedToastPause.current);
+        versionCopiedToastPause.current = null;
+        versionCopiedToastOpacity.setValue(0);
+        setShowVersionCopiedToast(true);
+        const fadeIn = Animated.timing(versionCopiedToastOpacity, { toValue: 1, duration: 120, useNativeDriver: false });
+        versionCopiedToastAnimation.current = fadeIn;
+        fadeIn.start(({ finished }) => {
+            if (!finished) return;
+            versionCopiedToastPause.current = setTimeout(() => {
+                versionCopiedToastPause.current = null;
+                const fadeOut = Animated.timing(versionCopiedToastOpacity, { toValue: 0, duration: 180, useNativeDriver: false });
+                versionCopiedToastAnimation.current = fadeOut;
+                fadeOut.start(({ finished: fadeOutFinished }) => {
+                    if (fadeOutFinished) setShowVersionCopiedToast(false);
+                });
+            }, 900);
+        });
+    }, [versionCopiedToastOpacity]);
+
+    React.useEffect(() => () => {
+        versionCopiedToastAnimation.current?.stop();
+        if (versionCopiedToastPause.current) clearTimeout(versionCopiedToastPause.current);
+    }, []);
     const runtime = React.useMemo(() => readCurrentAppRuntimeInfo(), []);
 
     React.useEffect(() => {
@@ -510,11 +541,24 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
             <Item
                 title={t('common.version')}
                 subtitle={versionDetails}
+                subtitleAccessory={showVersionCopiedToast ? (
+                    <Animated.View style={{ opacity: versionCopiedToastOpacity }}>
+                        <CopiedPill
+                            visible
+                            label={`${t('common.copied')}!`}
+                            testID="settings-version-copied-toast"
+                        />
+                    </Animated.View>
+                ) : null}
                 icon={<Icon name="info" size={29} color={theme.colors.text.secondary} />}
                 onPress={() => {
                     handleVersionClick();
                     void setClipboardStringSafe(versionDetails).then((copied) => {
-                        if (!copied) Modal.alert(t('common.error'), t('items.failedToCopyToClipboard'));
+                        if (!copied) {
+                            Modal.alert(t('common.error'), t('items.failedToCopyToClipboard'));
+                            return;
+                        }
+                        showCopiedToast();
                     });
                 }}
                 showChevron={false}

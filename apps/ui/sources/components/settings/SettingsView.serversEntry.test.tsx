@@ -307,6 +307,7 @@ describe('SettingsView', () => {
         expect(row?.props.subtitle).not.toContain('Expired device');
         await act(async () => { await screen.pressRowByTitle('common.version'); });
         expect(shared.copySpy).toHaveBeenCalledWith(row?.props.subtitle);
+        expect(screen.findByTestId('settings-version-copied-toast')?.props.accessibilityLabel).toBe('Copied!');
     });
 
     it('includes a first-class Relays entry that routes to /server', async () => {
