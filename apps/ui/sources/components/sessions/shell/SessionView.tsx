@@ -3,6 +3,7 @@ import { sendPendingMessageWithIntent } from '@/components/sessions/pending/pend
 import { resolveNewSessionCapabilityProbeContext } from '@/components/sessions/new/modules/newSessionCapabilityProbeContext';
 import type { SessionModelDiscoveryContext } from '@/components/sessions/agentInput/components/AgentInputModelDiscoveryDetail';
 import Color from 'color';
+import { isAgentAuthProbeSafeForBackgroundChecks } from '@happier-dev/agents';
 import { isRecoveredHistoryTranscriptObservationProvenance } from '@happier-dev/protocol';
 
 import { AgentContentView } from '@/components/sessions/transcript/AgentContentView';
@@ -3895,6 +3896,18 @@ function SessionViewLoaded({
     // Read here rather than beside the composer's other draft work because the
     // armed Agent is a Session draft value like the rest, and the picker below is
     // the one owner that writes it.
+    const [agentPickerUsageDemanded, setAgentPickerUsageDemanded] = React.useState(false);
+    const catalogAgentIds = React.useMemo(() => sessionAgentCatalogEntries.flatMap((entry) => (
+        entry.builtInAgentId ? [entry.builtInAgentId] : []
+    )), [sessionAgentCatalogEntries]);
+    const isLocallyAttached = !isHiddenSystemSessionSession && isSessionLocallyAttached(session);
+    const cliAvailability = useCLIDetection(machineId ?? null, {
+        autoDetect: isLocallyAttached || agentPickerUsageDemanded,
+        includeLoginStatus: isLocallyAttached && isAgentAuthProbeSafeForBackgroundChecks(agentId),
+        includeLoginStatusForAgentIds: isLocallyAttached && isAgentAuthProbeSafeForBackgroundChecks(agentId) ? [agentId] : [],
+        agentIds: agentPickerUsageDemanded ? catalogAgentIds : [agentId],
+        serverId: capabilityServerId,
+    });
     const inSessionAgentPicker = useInSessionAgentPickerControls({
         sessionId,
         accountScope: activeServerAccountScope,
@@ -3902,6 +3915,7 @@ function SessionViewLoaded({
         currentAgentLabel,
         currentAgentSessionActive: session.active,
         entries: sessionAgentCatalogEntries,
+        cliAvailabilityByAgentId: cliAvailability.available,
         favoriteBackendTargetKeys: settings.favoriteBackendTargetKeysV1,
         featureDecision: agentSwitchingDecision,
         source: agentContinuationSource,
@@ -4013,14 +4027,10 @@ function SessionViewLoaded({
     });
     // Usage rings in the Agent picker rail. Quota is fetched for the other Agents only once the
     // picker has been approached; the running Agent reuses the composer's own gauge.
-    const [agentPickerUsageDemanded, setAgentPickerUsageDemanded] = React.useState(false);
     const signalAgentPickerUsageIntent = React.useCallback(() => {
         setAgentPickerUsageDemanded(true);
         inSessionAgentPicker.onAgentPickerIntent();
     }, [inSessionAgentPicker.onAgentPickerIntent]);
-    const catalogAgentIds = React.useMemo(() => sessionAgentCatalogEntries.flatMap((entry) => (
-        entry.builtInAgentId ? [entry.builtInAgentId] : []
-    )), [sessionAgentCatalogEntries]);
     const { gauges: providerUsageGaugesByAgentId } = useProviderUsageGauges({
         agentIds: catalogAgentIds,
         accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
@@ -4834,13 +4844,6 @@ function SessionViewLoaded({
     // running to take it". The disposition owner decides it; the two effects
     // below only route it, and neither re-decides it.
     const armedContinuationAwaitingRuntime = armedContinuationDisposition?.awaitingRuntime === true;
-    const isLocallyAttached = !isHiddenSystemSessionSession && isSessionLocallyAttached(session);
-    const cliAvailability = useCLIDetection(machineId ?? null, {
-        autoDetect: isLocallyAttached,
-        includeLoginStatus: isLocallyAttached,
-        agentIds: [agentId],
-        serverId: capabilityServerId,
-    });
     const cliAuthStatus = cliAvailability.authStatus[agentId] ?? null;
     const canReleaseLocalControl = shouldOfferLocalControlRelease(session, cliAuthStatus?.state ?? null);
     const [controlSwitchTo, setControlSwitchTo] = React.useState<'remote' | null>(null);
