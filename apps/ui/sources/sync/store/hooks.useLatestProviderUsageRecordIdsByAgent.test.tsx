@@ -33,7 +33,7 @@ describe('useLatestProviderUsageRecordIdsByAgent', () => {
             await act(async () => storage.setState({ sessions: { limited: { ...session, thinking: true } } }));
             expect(renders).toBe(before);
             await act(async () => storage.setState({ sessions: { limited: {
-                ...session, metadata: { ...session.metadata, flavor: 'codex' },
+                ...session, metadata: { ...session.metadata, path: '/repo', host: 'test', flavor: 'codex' },
             } } }));
             expect(hook.getCurrent().get('claude')).toEqual(issue);
             expect(hook.getCurrent().has('codex')).toBe(false);
