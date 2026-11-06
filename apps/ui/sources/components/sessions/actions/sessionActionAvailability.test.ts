@@ -138,7 +138,7 @@ describe('session action availability', () => {
             overrides: { owner: 'other_user', accessLevel: 'view' },
         });
 
-        expect(listVisibleSessionActionIds({ target: setStandingTarget, surface: 'rowMenu' })
+        expect(listVisibleSessionActionIds({ target: setStandingTarget, surface: 'rowMenu', directDeleteEnabled: true })
             .filter((id) => id !== SESSION_ACTION_MOVE_TO_FOLDER_ID)).toEqual([
             SESSION_ACTION_MARK_UNREAD_ID,
             SESSION_ACTION_SET_ATTENTION_STANDING_ID,
@@ -214,6 +214,7 @@ describe('session action availability', () => {
         const rowLifecycleActionIds = listVisibleSessionActionIds({
             target,
             surface: 'rowMenu',
+            directDeleteEnabled: true,
         }).filter((id) => id !== SESSION_ACTION_MOVE_TO_FOLDER_ID);
         const infoActionIds = listVisibleSessionActionIds({
             target,
