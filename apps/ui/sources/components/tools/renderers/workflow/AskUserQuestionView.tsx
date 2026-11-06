@@ -163,6 +163,11 @@ const styles = StyleSheet.create((theme) => ({
         backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: theme.colors.border.default,
+        // Match Markdown question choices, including when an option is selected.
+        borderLeftWidth: 4,
+        borderRightWidth: 4,
+        borderLeftColor: theme.colors.state.warning.foreground,
+        borderRightColor: theme.colors.state.warning.foreground,
         gap: 10,
         minHeight: 44, // Minimum touch target for mobile
     },
