@@ -54,30 +54,38 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
     const styles = stylesheet;
     const anchorRef = React.useRef<React.ElementRef<typeof View>>(null);
     const [open, setOpen] = React.useState(false);
-    if (agentIds.length === 0) return null;
+    const firstAgentId = agentIds[0];
+    if (!firstAgentId) return null;
     return (
         <>
-            <View ref={anchorRef} collapsable={false} testID="sessions-provider-usage-strip" style={styles.strip} accessibilityLabel={t('agentInput.providerUsage.title')}>
+            <Pressable
+                ref={anchorRef}
+                collapsable={false}
+                testID="sessions-provider-usage-strip"
+                style={styles.strip}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: open }}
+                accessibilityLabel={t('agentInput.providerUsage.accessibilityLabel', {
+                    value: agentIds.map((agentId) => `${t(getAgentCore(agentId).displayNameKey)} ${gauges.get(agentId)?.badgeLabel ?? t('common.unavailable')}`).join(', '),
+                })}
+                onPress={() => {
+                    onRefresh(firstAgentId);
+                    setOpen((previous) => !previous);
+                }}
+            >
                 <HorizontalOverflowScrollView contentContainerStyle={styles.providers} showsHorizontalScrollIndicator={false}>
                     {agentIds.map((agentId) => (
-                        <Pressable
+                        <View
                             key={agentId}
-                            testID={`sessions-provider-usage-trigger:${agentId}`}
+                            testID={`sessions-provider-usage-item:${agentId}`}
                             style={styles.item}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('agentInput.providerUsage.titleForProvider', { provider: t(getAgentCore(agentId).displayNameKey) })}
-                            accessibilityState={{ expanded: open }}
-                            onPress={() => {
-                                onRefresh(agentId);
-                                setOpen((previous) => !previous);
-                            }}
                         >
                             <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
                             <ProviderUsageRing gauge={gauges.get(agentId) ?? null} testID={`sessions-provider-usage:${agentId}`} />
-                        </Pressable>
+                        </View>
                     ))}
                 </HorizontalOverflowScrollView>
-            </View>
+            </Pressable>
             <AgentInputContentPopover
                 open={open}
                 anchorRef={anchorRef}

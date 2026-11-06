@@ -358,16 +358,16 @@ describe('MainView sidebar actions', () => {
         const screen = await renderScreen(<MainView variant="phone" />);
         const headerLeft = await renderScreen(screen.tree.findByType('Header').props.headerLeft());
         try {
-            expect(headerLeft.findByTestId('sessions-provider-usage-trigger:claude')).toBeTruthy();
-            expect(headerLeft.findByTestId('sessions-provider-usage-trigger:codex')).toBeNull();
-            expect(headerLeft.findByTestId('sessions-provider-usage-trigger:opencode')).toBeTruthy();
+            expect(headerLeft.findByTestId('sessions-provider-usage-item:claude')).toBeTruthy();
+            expect(headerLeft.findByTestId('sessions-provider-usage-item:codex')).toBeNull();
+            expect(headerLeft.findByTestId('sessions-provider-usage-item:opencode')).toBeTruthy();
             expect(headerLeft.findAllByType('HeaderLogo')).toHaveLength(1);
             expect(headerLeft.getTextContent()).toContain('0');
             const ring = headerLeft.findAll((node) => node.props.testID === 'sessions-provider-usage:claude'
                 && node.props.label != null)[0];
             expect(ring?.props.remainingPct).toBe(0);
             expect(ring?.props.tone).toBe('critical');
-            await headerLeft.pressByTestIdAsync('sessions-provider-usage-trigger:claude');
+            await headerLeft.pressByTestIdAsync('sessions-provider-usage-strip');
             expect(headerLeft.findByTestId('sessions-provider-usage-section:claude')).toBeTruthy();
         } finally {
             await headerLeft.unmount();

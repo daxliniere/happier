@@ -36,7 +36,7 @@ beforeEach(async () => { await installAgentAssetLoader(); vi.useFakeTimers(); vi
 afterEach(() => { vi.useRealTimers(); });
 
 describe('ProviderUsageStrip', () => {
-    it('opens every configured provider together from either ring and preserves exhausted usage', async () => {
+    it('toggles every provider together from the whole HUD, including its unused space', async () => {
         const refresh = vi.fn();
         const screen = await renderScreen(<ProviderUsageStripContent
             agentIds={['codex', 'claude']}
@@ -44,8 +44,9 @@ describe('ProviderUsageStrip', () => {
             onRefresh={refresh}
         />);
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeNull();
-        const triggers = () => screen.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'button');
-        act(() => triggers()[0].props.onPress());
+        const hud = () => screen.findHostByTestId('sessions-provider-usage-strip')!;
+        expect(hud().props.accessibilityRole).toBe('button');
+        act(() => hud().props.onPress());
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeTruthy();
         expect(screen.findByTestId('agent-input-provider-usage-meter:five_hour')).toBeTruthy();
         expect(screen.findByTestId('agent-input-provider-usage-meter-bar:weekly')).toBeTruthy();
@@ -55,13 +56,13 @@ describe('ProviderUsageStrip', () => {
         expect(screen.getTextContent()).toContain('Codex usage');
         expect(screen.getTextContent()).toContain('Claude usage');
         expect(refresh).toHaveBeenCalledWith('codex');
-        // A second provider trigger closes the same panel rather than leaving a second one open.
-        act(() => triggers()[1].props.onPress());
+        // A second tap anywhere in the same HUD closes the shared panel.
+        act(() => hud().props.onPress());
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeNull();
-        act(() => triggers()[1].props.onPress());
+        act(() => hud().props.onPress());
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeTruthy();
         expect(screen.findByTestId('agent-input-provider-usage-meter:five_hour')).toBeTruthy();
-        expect(refresh).toHaveBeenCalledWith('claude');
+        expect(refresh).toHaveBeenCalledTimes(3);
     });
 
     it('opens the shared details from a configured provider with no figures', async () => {
@@ -70,8 +71,7 @@ describe('ProviderUsageStrip', () => {
             gauges={new Map([['codex', gauge('openai-codex', 'weekly', 10)]])}
             onRefresh={vi.fn()}
         />);
-        const triggers = screen.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'button');
-        act(() => triggers[1].props.onPress());
+        act(() => screen.findHostByTestId('sessions-provider-usage-strip')!.props.onPress());
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeTruthy();
         expect(screen.getTextContent()).toContain('Claude');
         expect(screen.getTextContent()).toContain('Unavailable');
