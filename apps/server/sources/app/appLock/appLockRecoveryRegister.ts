@@ -6,9 +6,8 @@ import type { AppLockResult } from "./appLockRecoveryCode";
  * Stores the recovery escrow for a device lock id owned by the caller. The account must have mail
  * settings, otherwise a forgotten password could never be reset (`mail_not_configured`).
  *
- * Idempotent: retrying with the same lock id replaces the email and recovery key. Devices change
- * their recovery email by registering a new lock id and removing the old one. A lock id that
- * belongs to another account is reported as `not_found`.
+ * Idempotent: retrying replaces the account-wide recovery email and the device escrow. A lock id
+ * that belongs to another account is reported as `not_found`.
  */
 export async function appLockRecoveryRegister(
     ctx: { readonly uid: string },
@@ -20,10 +19,13 @@ export async function appLockRecoveryRegister(
     const existing = await db.appLockRecovery.findUnique({ where: { id: input.lockId }, select: { accountId: true } });
     if (existing && existing.accountId !== ctx.uid) return { ok: false, error: "not_found" };
 
-    await db.appLockRecovery.upsert({
-        where: { id: input.lockId },
-        create: { id: input.lockId, accountId: ctx.uid, email: input.email, recoveryKey: input.recoveryKey },
-        update: { email: input.email, recoveryKey: input.recoveryKey },
+    await db.$transaction(async (tx) => {
+        await tx.appLockMailSettings.update({ where: { accountId: ctx.uid }, data: { recoveryEmail: input.email } });
+        await tx.appLockRecovery.upsert({
+            where: { id: input.lockId },
+            create: { id: input.lockId, accountId: ctx.uid, email: input.email, recoveryKey: input.recoveryKey },
+            update: { email: input.email, recoveryKey: input.recoveryKey },
+        });
     });
     return { ok: true };
 }

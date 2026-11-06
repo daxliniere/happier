@@ -338,9 +338,10 @@ cannot be silently classified as a local key-loading condition.
 
 ## Device app lock (local credential sealing)
 
-The app lock is a per-device setting owned by `apps/ui/sources/auth/appLock/**`; nothing about it is
-synced. Its record (`app_lock_v1`, SecureStore on native, localStorage on web/desktop) holds only
-wrapped keys and preferences:
+The lock state, password wrapping and recovery key remain local to each device. The recovery email
+and SMTP settings are stored by the relay server and shared across devices. The local record
+(`app_lock_v1`, SecureStore on native, localStorage on web/desktop) holds only wrapped keys and
+preferences:
 
 - a random 32-byte **data key** seals every stored credential value at the `TokenStorage` read/write
   boundary as `happier-app-lock:v1:<base64 secretbox>`. The prefix is deliberately not JSON, so a build

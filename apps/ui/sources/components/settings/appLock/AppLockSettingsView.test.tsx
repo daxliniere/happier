@@ -33,6 +33,7 @@ vi.mock('@/sync/domains/state/storageStore', async () => {
 });
 
 const savedMail = {
+    recoveryEmail: 'recipient@example.com',
     host: 'smtp.example.com', port: 587, security: 'starttls', username: 'smtp-user',
     fromAddress: 'sender@example.com', hasPassword: true,
 };
@@ -62,49 +63,44 @@ describe('App lock test email recipient', () => {
         await deactivateAppLock();
     });
 
-    it('uses the entered recovery recipient during setup without prompting or sending to the SMTP sender', async () => {
+    it('uses the saved account-wide recovery recipient without prompting or sending to the SMTP sender', async () => {
         const screen = await renderScreen(<AppLockSettingsView />);
-        await act(async () => {
-            screen.changeTextByTestId('app-lock-settings-email', ' recipient@example.com ');
-        });
         await screen.pressByTestIdAsync('app-lock-mail-test');
         expect(boundary.prompt).not.toHaveBeenCalled();
         expect(boundary.serverFetch).toHaveBeenCalledWith(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest,
-            expect.objectContaining({ body: JSON.stringify({ to: 'recipient@example.com' }) }), {});
+            expect.objectContaining({ body: JSON.stringify({}) }), {});
     });
 
-    it('keeps the test button visible and disabled without a valid recipient', async () => {
+    it('keeps the test button visible and disabled without a saved valid recipient', async () => {
+        boundary.serverFetch.mockImplementation(async (path: string) => {
+            if (path === '/v1/features') return Response.json({ features: { appLock: { emailRecovery: { enabled: true } } } });
+            if (path === APP_LOCK_RECOVERY_ROUTES.mailSettings) return Response.json({ settings: { ...savedMail, recoveryEmail: null } });
+            throw new Error(`Unexpected request: ${path}`);
+        });
         const screen = await renderScreen(<AppLockSettingsView />);
         expect(screen.findByTestId('app-lock-mail-test')?.props.disabled).toBe(true);
-        await act(async () => {
-            screen.changeTextByTestId('app-lock-settings-email', 'not-an-email');
-        });
-        expect(screen.findByTestId('app-lock-mail-test')?.props.disabled).toBe(true);
+        expect(screen.findByTestId('app-lock-settings-email')).not.toBeNull();
     });
 
-    it('uses the saved recovery recipient after enabling the lock and follows later email changes', async () => {
-        const { activateAppLock, updateAppLockRecord } = await import('@/auth/appLock/appLockRuntime');
-        const record = {
-            v: 1 as const, lockId: 'test-lock', email: 'saved@example.com', serverUrl: 'https://relay.example.com',
-            wrapped: {
-                kdf: { alg: 'scrypt' as const, N: 16384, r: 8, p: 1, salt: 'test-salt' },
-                passwordWrappedKey: 'test-wrapped-password', recoveryWrappedKey: 'test-wrapped-recovery',
-            },
-            autoLockMinutes: 5, biometric: false,
-        };
-        await activateAppLock(record, new Uint8Array(32));
+    it('sends Test Email with no recipient body; the server uses its shared saved address', async () => {
         const screen = await renderScreen(<AppLockSettingsView />);
         await screen.pressByTestIdAsync('app-lock-mail-test');
-        expect(boundary.serverFetch).toHaveBeenLastCalledWith(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest,
-            expect.objectContaining({ body: JSON.stringify({ to: 'saved@example.com' }) }), {});
-
-        await act(async () => {
-            await updateAppLockRecord({ ...record, email: 'updated@example.com' });
-        });
-        await screen.pressByTestIdAsync('app-lock-mail-test');
-        expect(boundary.serverFetch).toHaveBeenLastCalledWith(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest,
-            expect.objectContaining({ body: JSON.stringify({ to: 'updated@example.com' }) }), {});
+        expect(boundary.serverFetch).toHaveBeenCalledWith(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest,
+            expect.objectContaining({ body: JSON.stringify({}) }), {});
         expect(boundary.prompt).not.toHaveBeenCalled();
+    });
+
+    it('saves the recovery address with the account-wide mail settings', async () => {
+        const screen = await renderScreen(<AppLockSettingsView />);
+        await act(async () => {
+            screen.changeTextByTestId('app-lock-settings-email', 'new-recipient@example.net');
+        });
+        await screen.pressByTestIdAsync('app-lock-mail-save');
+        expect(boundary.serverFetch).toHaveBeenCalledWith(APP_LOCK_RECOVERY_ROUTES.mailSettings,
+            expect.objectContaining({
+                method: 'PUT',
+                body: expect.stringContaining('"recoveryEmail":"new-recipient@example.net"'),
+            }), {});
     });
 
     it('keeps Test Email disabled until server settings have been saved, even with a valid recipient', async () => {
@@ -113,9 +109,6 @@ describe('App lock test email recipient', () => {
             throw new Error(`Unexpected request: ${path}`);
         });
         const screen = await renderScreen(<AppLockSettingsView />);
-        await act(async () => {
-            screen.changeTextByTestId('app-lock-settings-email', 'recipient@example.com');
-        });
         expect(screen.findByTestId('app-lock-mail-test')?.props.disabled).toBe(true);
     });
 });

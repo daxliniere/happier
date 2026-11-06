@@ -110,7 +110,6 @@ export function AppLockSettingsView() {
     const { status, record } = useAppLockSnapshot();
     const featureEnabled = useFeatureEnabled('appLock.emailRecovery');
     const [mail, setMail] = React.useState<MailState>({ status: 'loading', settings: null });
-    const [email, setEmail] = React.useState('');
 
     React.useEffect(() => {
         if (!featureEnabled) return;
@@ -137,17 +136,17 @@ export function AppLockSettingsView() {
     }
 
     const unlocked = status === 'unlocked' && record !== null;
-    const mailSection = (
-        <MailServerSection mail={mail} onSaved={onMailSaved} testRecipient={unlocked ? record.email : email} />
-    );
+    const mailSection = <MailServerSection mail={mail} onSaved={onMailSaved} />;
     return (
         <ItemList>
             {unlocked ? (
-                <ManageAppLock record={record} />
+                <ManageAppLock record={record} recoveryEmail={mail.settings?.recoveryEmail ?? record.email} onEmailChanged={(recoveryEmail) => {
+                    if (mail.settings) onMailSaved({ ...mail.settings, recoveryEmail });
+                }} />
             ) : (
                 <>
                     <IntroGroup subtitle={t('appLock.settingsSubtitleOff')} />
-                    <EnableAppLock mailReady={mail.settings !== null} email={email} onEmailChange={setEmail} />
+                    <EnableAppLock mailReady={mail.settings !== null} recoveryEmail={mail.settings?.recoveryEmail ?? null} />
                 </>
             )}
             {mailSection}
@@ -174,7 +173,6 @@ function IntroGroup(props: Readonly<{ subtitle: string }>) {
 function MailServerSection(props: Readonly<{
     mail: MailState;
     onSaved: (settings: AppLockMailSettings) => void;
-    testRecipient: string | null;
 }>) {
     const styles = stylesheet;
     const { theme } = useUnistyles();
@@ -185,6 +183,7 @@ function MailServerSection(props: Readonly<{
     const [username, setUsername] = React.useState('');
     const [password, setPassword] = React.useState('');
     const [fromAddress, setFromAddress] = React.useState('');
+    const [recoveryEmail, setRecoveryEmail] = React.useState('');
     const [error, setError] = React.useState<string | null>(null);
     const [busy, setBusy] = React.useState(false);
 
@@ -199,6 +198,7 @@ function MailServerSection(props: Readonly<{
         setSecurity(saved.security);
         setUsername(saved.username);
         setFromAddress(saved.fromAddress);
+        setRecoveryEmail(saved.recoveryEmail ?? '');
     }, [props.mail.status, saved]);
 
     // Follow the usual port for the chosen security unless the user typed a custom one.
@@ -211,13 +211,14 @@ function MailServerSection(props: Readonly<{
 
     const save = React.useCallback(async () => {
         const portNumber = Number(port || DEFAULT_PORT_BY_SECURITY[security]);
-        if (!host.trim() || !Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535 || fromAddress.trim().length < 3) {
+        if (!isPlausibleEmail(recoveryEmail) || !host.trim() || !Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535 || fromAddress.trim().length < 3) {
             setError(t('appLock.mailInvalid'));
             return;
         }
         setBusy(true);
         setError(null);
         const input = {
+            recoveryEmail: recoveryEmail.trim(),
             host: host.trim(),
             port: portNumber,
             security,
@@ -234,6 +235,7 @@ function MailServerSection(props: Readonly<{
         setPassword('');
         setPort(String(portNumber));
         props.onSaved({
+            recoveryEmail: input.recoveryEmail,
             host: input.host,
             port: input.port,
             security: input.security,
@@ -242,16 +244,16 @@ function MailServerSection(props: Readonly<{
             hasPassword: password ? true : (saved?.hasPassword ?? false),
         });
         Modal.alert(t('appLock.mailTitle'), t('appLock.mailSaved'));
-    }, [fromAddress, host, password, port, props, saved?.hasPassword, security, username]);
+    }, [fromAddress, host, password, port, props, recoveryEmail, saved?.hasPassword, security, username]);
 
     const sendTest = React.useCallback(async () => {
-        const to = props.testRecipient?.trim() ?? '';
+        const to = saved?.recoveryEmail ?? '';
         if (!saved || !isPlausibleEmail(to)) return;
-        const result = await apiAppLockMailSettingsSendTest(to);
+        const result = await apiAppLockMailSettingsSendTest();
         Modal.alert(result.ok ? t('appLock.mailTitle') : t('common.error'), result.ok
             ? t('appLock.mailTestSent', { email: to })
             : describeAppLockRecoveryFailure(result));
-    }, [props.testRecipient, saved]);
+    }, [saved]);
 
     return (
         <>
@@ -282,6 +284,11 @@ function MailServerSection(props: Readonly<{
                 })}
             </ItemGroup>
             <View style={styles.form}>
+                <FieldItem label={t('appLock.emailLabel')} supportingText={t('appLock.emailHint')}>
+                    <TextInput testID="app-lock-settings-email" style={styles.input} value={recoveryEmail} onChangeText={setRecoveryEmail}
+                        accessibilityLabel={t('appLock.emailLabel')} keyboardType="email-address"
+                        autoCapitalize="none" autoCorrect={false} autoComplete="email" />
+                </FieldItem>
                 <FieldItem label={t('appLock.mailHost')}>
                     <TextInput testID="app-lock-mail-host" style={styles.input} value={host} onChangeText={setHost}
                         accessibilityLabel={t('appLock.mailHost')}
@@ -311,20 +318,15 @@ function MailServerSection(props: Readonly<{
                 <View style={styles.actionsRow}>
                     <RoundButton testID="app-lock-mail-test" size="small" display="inverted"
                         title={t('appLock.mailTest')} onPress={sendTest}
-                        disabled={!saved || busy || !isPlausibleEmail(props.testRecipient ?? '')} />
+                        disabled={!saved || busy || !isPlausibleEmail(saved.recoveryEmail ?? '')} />
                 </View>
             </View>
         </>
     );
 }
 
-function EnableAppLock(props: Readonly<{
-    mailReady: boolean;
-    email: string;
-    onEmailChange: (email: string) => void;
-}>) {
+function EnableAppLock(props: Readonly<{ mailReady: boolean; recoveryEmail: string | null }>) {
     const styles = stylesheet;
-    const { email, onEmailChange } = props;
     const [password, setPassword] = React.useState('');
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [error, setError] = React.useState<string | null>(null);
@@ -332,6 +334,7 @@ function EnableAppLock(props: Readonly<{
     const strengthTip = appLockPasswordStrengthTip(password);
 
     const turnOn = React.useCallback(async () => {
+        const email = props.recoveryEmail ?? '';
         if (!isPlausibleEmail(email)) {
             setError(t('appLock.invalidEmail'));
             return;
@@ -352,16 +355,11 @@ function EnableAppLock(props: Readonly<{
         setPassword('');
         setConfirmPassword('');
         Modal.alert(t('appLock.settingsTitle'), t('appLock.turnedOn'));
-    }, [confirmPassword, email, password]);
+    }, [confirmPassword, password, props.recoveryEmail]);
 
     return (
         <ItemGroup title={t('appLock.turnOnTitle')}>
             <View style={styles.form}>
-                <FieldItem label={t('appLock.emailLabel')} supportingText={t('appLock.emailHint')}>
-                    <TextInput testID="app-lock-settings-email" style={styles.input} value={email} onChangeText={onEmailChange}
-                        accessibilityLabel={t('appLock.emailLabel')} keyboardType="email-address"
-                        autoCapitalize="none" autoCorrect={false} autoComplete="email" />
-                </FieldItem>
                 <FieldItem label={t('appLock.newPasswordLabel')} supportingText={strengthTip ?? t('appLock.passwordRules')}>
                     <TextInput testID="app-lock-settings-password" style={styles.input} value={password} onChangeText={setPassword}
                         accessibilityLabel={t('appLock.newPasswordLabel')} secureTextEntry maxLength={APP_LOCK_MAX_PASSWORD_LENGTH}
@@ -380,14 +378,14 @@ function EnableAppLock(props: Readonly<{
                     title={t('appLock.turnOn')}
                     onPress={turnOn}
                     loading={busy}
-                    disabled={!props.mailReady || !email || !password || !confirmPassword}
+                    disabled={!props.mailReady || !isPlausibleEmail(props.recoveryEmail ?? '') || !password || !confirmPassword}
                 />
             </View>
         </ItemGroup>
     );
 }
 
-function ManageAppLock(props: Readonly<{ record: AppLockRecord }>) {
+function ManageAppLock(props: Readonly<{ record: AppLockRecord; recoveryEmail: string; onEmailChanged: (email: string) => void }>) {
     const { theme } = useUnistyles();
     const { record } = props;
     const biometricsAvailable = canUseAppLockBiometrics();
@@ -421,7 +419,7 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord }>) {
         }
         const email = await Modal.prompt(t('appLock.changeEmail'), t('appLock.newEmailPrompt'), {
             inputType: 'email-address',
-            defaultValue: record.email,
+            defaultValue: props.recoveryEmail,
             confirmText: t('common.save'),
         });
         if (!email) return;
@@ -430,10 +428,11 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord }>) {
             return;
         }
         const result = await changeAppLockEmail(email);
+        if (result.ok) props.onEmailChanged(email.trim());
         Modal.alert(result.ok ? t('appLock.settingsTitle') : t('common.error'), result.ok
             ? t('appLock.emailChanged')
             : describeAppLockRecoveryFailure(result));
-    }, [record.email]);
+    }, [props]);
 
     const turnOff = React.useCallback(async () => {
         const current = await promptPassword(t('appLock.turnOff'), t('appLock.turnOffPrompt'));
@@ -460,7 +459,7 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord }>) {
                 />
                 <Item
                     title={t('appLock.changeEmail')}
-                    subtitle={record.email}
+                    subtitle={props.recoveryEmail}
                     icon={<Icon name="envelope" size={29} color={theme.colors.accent.indigo} />}
                     onPress={changeEmail}
                 />

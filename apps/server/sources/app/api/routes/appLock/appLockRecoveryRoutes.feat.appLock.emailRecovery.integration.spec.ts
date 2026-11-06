@@ -17,8 +17,10 @@ vi.mock("@/modules/mail/sendMail", () => ({
 }));
 
 const LOCK_ID = "lock_0123456789abcdefghijkl";
+const SECOND_LOCK_ID = "lock_1123456789abcdefghijkl";
 const RECOVERY_KEY = `${"A".repeat(43)}=`;
 const MAIL_SETTINGS = {
+    recoveryEmail: "recovery@example.com",
     host: "smtp.example.com",
     port: 587,
     security: "starttls",
@@ -69,17 +71,17 @@ describe("app lock recovery routes (integration)", () => {
         return await app.inject({ method: "PUT", url: "/v1/app-lock/mail-settings", headers: { "x-test-user-id": userId }, payload: body });
     }
 
-    async function register(app: any, userId: string, email = "owner@example.com") {
+    async function register(app: any, userId: string, email = "owner@example.com", lockId = LOCK_ID) {
         return await app.inject({
             method: "POST",
             url: "/v1/app-lock/recovery",
             headers: { "x-test-user-id": userId },
-            payload: { lockId: LOCK_ID, email, recoveryKey: RECOVERY_KEY },
+            payload: { lockId, email, recoveryKey: RECOVERY_KEY },
         });
     }
 
-    async function requestResetCode(app: any) {
-        return await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId: LOCK_ID } });
+    async function requestResetCode(app: any, lockId = LOCK_ID) {
+        return await app.inject({ method: "POST", url: "/v1/app-lock/recovery/reset-code", payload: { lockId } });
     }
 
     async function redeem(app: any, code: string) {
@@ -98,6 +100,7 @@ describe("app lock recovery routes (integration)", () => {
             expect(read.json()).toEqual({
                 settings: {
                     host: "smtp.example.com",
+                    recoveryEmail: "recovery@example.com",
                     port: 587,
                     security: "starttls",
                     username: "owner@example.com",
@@ -116,18 +119,27 @@ describe("app lock recovery routes (integration)", () => {
             expect((await register(app, userId)).statusCode).toBe(200);
             expect((await requestResetCode(app)).statusCode).toBe(200);
             expect(sentMail.at(-1)).toMatchObject({
-                to: "owner@example.com",
+                to: "recovery@example.com",
                 settings: { host: "smtp.example.com", port: 465, security: "tls", password: "smtp-secret-password" },
             });
+
+            expect((await register(app, userId, "recovery@example.com", SECOND_LOCK_ID)).statusCode).toBe(200);
+            expect((await requestResetCode(app, SECOND_LOCK_ID)).statusCode).toBe(200);
+            expect(sentMail.at(-1)?.to).toBe("recovery@example.com");
+
+            // Updating the account-level recipient affects recovery on every enrolled device.
+            expect((await saveMailSettings(app, userId, { ...MAIL_SETTINGS, recoveryEmail: "shared@example.net" })).statusCode).toBe(200);
+            await db.appLockRecovery.update({ where: { id: LOCK_ID }, data: { codeSentAt: null } });
+            expect((await requestResetCode(app, LOCK_ID)).statusCode).toBe(200);
+            expect(sentMail.at(-1)?.to).toBe("shared@example.net");
 
             const test = await app.inject({
                 method: "POST",
                 url: "/v1/app-lock/mail-settings/test",
                 headers: { "x-test-user-id": userId },
-                payload: { to: "someone@example.com" },
             });
             expect(test.statusCode).toBe(200);
-            expect(sentMail.at(-1)?.to).toBe("someone@example.com");
+            expect(sentMail.at(-1)?.to).toBe("shared@example.net");
         });
     });
 

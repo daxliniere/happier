@@ -64,6 +64,8 @@ export const AppLockMailSecuritySchema = z.enum(['tls', 'starttls', 'none']);
 export type AppLockMailSecurity = z.infer<typeof AppLockMailSecuritySchema>;
 
 export const AppLockMailSettingsInputSchema = z.object({
+    /** Account-wide recovery recipient shared by every device lock. */
+    recoveryEmail: AppLockRecoveryEmailSchema.optional(),
     host: z.string().trim().min(1).max(253),
     port: z.number().int().min(1).max(65535),
     /** `tls`: TLS from the start (usually port 465). `starttls`: upgrade after connecting (usually 587). */
@@ -77,6 +79,8 @@ export const AppLockMailSettingsInputSchema = z.object({
 export type AppLockMailSettingsInput = z.infer<typeof AppLockMailSettingsInputSchema>;
 
 export const AppLockMailSettingsSchema = z.object({
+    /** The one account-wide recipient used for every device's reset code and test email. */
+    recoveryEmail: AppLockRecoveryEmailSchema.nullable(),
     host: z.string(),
     port: z.number().int(),
     security: AppLockMailSecuritySchema,
@@ -90,11 +94,6 @@ export const AppLockMailSettingsResponseSchema = z.object({
     settings: AppLockMailSettingsSchema.nullable(),
 });
 export type AppLockMailSettingsResponse = z.infer<typeof AppLockMailSettingsResponseSchema>;
-
-export const AppLockMailTestRequestSchema = z.object({
-    to: AppLockRecoveryEmailSchema,
-});
-export type AppLockMailTestRequest = z.infer<typeof AppLockMailTestRequestSchema>;
 
 export const APP_LOCK_RECOVERY_ERROR_CODES = [
     'mail_not_configured',

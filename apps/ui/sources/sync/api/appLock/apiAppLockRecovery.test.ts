@@ -28,7 +28,8 @@ describe('app lock mail settings responses', () => {
 
     it('preserves a specific email delivery failure', async () => {
         serverFetch.mockResolvedValue(new Response(JSON.stringify({ error: 'email_failed' }), { status: 502 }));
-        await expect(apiAppLockMailSettingsSendTest('owner@example.com')).resolves.toEqual({ ok: false, error: 'email_failed' });
+        await expect(apiAppLockMailSettingsSendTest()).resolves.toEqual({ ok: false, error: 'email_failed' });
+        expect(serverFetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ body: '{}' }), {});
     });
 
     it('reserves the connection error for transport failures', async () => {

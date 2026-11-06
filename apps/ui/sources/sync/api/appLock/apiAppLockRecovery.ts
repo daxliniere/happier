@@ -106,9 +106,9 @@ export async function apiAppLockMailSettingsSave(settings: AppLockMailSettingsIn
     return response.ok ? { ok: true } : await readFailure(response);
 }
 
-/** Authenticated (active server): send a test email with the saved SMTP settings. */
-export async function apiAppLockMailSettingsSendTest(to: string): Promise<AppLockRecoveryResult> {
-    const response = await post(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest, { to }, {});
+/** Authenticated (active server): send a test email to the saved account-wide recovery address. */
+export async function apiAppLockMailSettingsSendTest(): Promise<AppLockRecoveryResult> {
+    const response = await post(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest, {}, {});
     if (!response) return { ok: false, error: 'network' };
     return response.ok ? { ok: true } : await readFailure(response);
 }

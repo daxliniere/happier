@@ -31,11 +31,18 @@ export async function loadAppLockSmtpSettings(accountId: string): Promise<SmtpSe
     };
 }
 
+/** The account-wide recipient shared by every device's app-lock recovery flow. */
+export async function loadAppLockRecoveryEmail(accountId: string): Promise<string | null> {
+    const row = await db.appLockMailSettings.findUnique({ where: { accountId }, select: { recoveryEmail: true } });
+    return row?.recoveryEmail ?? null;
+}
+
 /** The account's SMTP settings as shown to clients: never includes the password. */
 export async function loadAppLockMailSettingsForClient(accountId: string): Promise<AppLockMailSettings | null> {
     const row = await db.appLockMailSettings.findUnique({ where: { accountId } });
     if (!row) return null;
     return {
+        recoveryEmail: row.recoveryEmail,
         host: row.host,
         port: row.port,
         security: toSecurity(row.security),

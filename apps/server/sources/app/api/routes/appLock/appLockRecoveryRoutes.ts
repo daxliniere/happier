@@ -8,7 +8,6 @@ import {
     AppLockRecoveryRegisterRequestSchema,
     AppLockMailSettingsInputSchema,
     AppLockMailSettingsResponseSchema,
-    AppLockMailTestRequestSchema,
     type AppLockRecoveryErrorCode,
 } from "@happier-dev/protocol";
 import { type Fastify } from "../../types";
@@ -108,11 +107,10 @@ export function appLockRecoveryRoutes(fastify: Fastify) {
         preHandler: fastify.authenticate,
         config: { rateLimit: manageRateLimit },
         schema: {
-            body: AppLockMailTestRequestSchema,
             response: { 200: AppLockRecoveryOkResponseSchema, ...errorResponses },
         },
     }, async (request, reply) => {
-        const result = await appLockMailSettingsSendTest({ uid: request.userId }, request.body);
+        const result = await appLockMailSettingsSendTest({ uid: request.userId });
         return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
     });
 

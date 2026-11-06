@@ -11,6 +11,7 @@ export async function appLockMailSettingsSave(ctx: { readonly uid: string }, inp
         ? {}
         : { passwordEncrypted: input.password ? encryptAppLockSmtpPassword(ctx.uid, input.password) : null };
     const fields = {
+        ...(input.recoveryEmail !== undefined ? { recoveryEmail: input.recoveryEmail } : {}),
         host: input.host,
         port: input.port,
         security: input.security,
@@ -19,7 +20,7 @@ export async function appLockMailSettingsSave(ctx: { readonly uid: string }, inp
     };
     await db.appLockMailSettings.upsert({
         where: { accountId: ctx.uid },
-        create: { accountId: ctx.uid, ...fields, passwordEncrypted: null, ...passwordData },
+        create: { accountId: ctx.uid, recoveryEmail: input.recoveryEmail ?? null, ...fields, passwordEncrypted: null, ...passwordData },
         update: { ...fields, ...passwordData },
     });
 }
