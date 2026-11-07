@@ -135,6 +135,7 @@ export const SidebarNavigator = React.memo(() => {
     const [, setSidebarWidthPx] = useLocalSettingMutable('sidebarWidthPx');
     const [, setSidebarWidthBasisPx] = useLocalSettingMutable('sidebarWidthBasisPx');
     const [dragSidebarWidthPx, setDragSidebarWidthPx] = React.useState<number | null>(null);
+    const [sidebarResizeHandleActive, setSidebarResizeHandleActive] = React.useState(false);
     const collapseTriggeredDuringDragRef = React.useRef(false);
     const forceCompactSidebarForViewport =
         Platform.OS === 'web'
@@ -258,6 +259,7 @@ export const SidebarNavigator = React.memo(() => {
             minWidthPx={foldAlignedSidebarWidthPx ?? SIDEBAR_DOCK_MIN_WIDTH_PX}
             maxWidthPx={foldAlignedSidebarWidthPx ?? sidebarMaxWidthPx}
             resizeEdge="right"
+            onResizeHandleActiveChange={setSidebarResizeHandleActive}
             onDragWidthPx={handleSidebarWidthDrag}
             onCommitWidthPx={handleSidebarWidthCommit}
         >
@@ -294,6 +296,8 @@ export const SidebarNavigator = React.memo(() => {
                         marginLeft: insetSplit.sidebar.margin,
                         paddingLeft: insetSplit.sidebar.padding,
                         flexShrink: 0,
+                        position: 'relative',
+                        zIndex: sidebarResizeHandleActive ? 3 : undefined,
                         backgroundColor: insetSplit.sidebar.padding > 0 ? theme.colors.background.canvas : undefined,
                     }}
                 >

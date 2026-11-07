@@ -13,6 +13,7 @@ export type ResizableDockedPaneProps = Readonly<{
     onCommitWidthPx: (widthPx: number, meta?: ResizableDockedPaneCommitMeta) => void;
     onDragWidthPx?: (widthPx: number | null, meta?: ResizableDockedPaneCommitMeta | null) => void;
     resizeEdge?: 'left' | 'right';
+    onResizeHandleActiveChange?: (active: boolean) => void;
     children: React.ReactNode;
     testID?: string;
 }>;
@@ -57,13 +58,23 @@ export const ResizableDockedPane = React.memo((props: ResizableDockedPaneProps) 
                     accessibilityLabel={t('ui.resizableDockedPane.resizeA11y')}
                     accessibilityHint={t('ui.resizableDockedPane.resizeHint')}
                     {...(Platform.OS === 'web' ? webHandleProps as any : panHandlers as any)}
-                    onHoverIn={() => setResizeHandleHovered(true)}
-                    onHoverOut={() => setResizeHandleHovered(false)}
+                    onHoverIn={() => {
+                        setResizeHandleHovered(true);
+                        props.onResizeHandleActiveChange?.(true);
+                    }}
+                    onHoverOut={() => {
+                        setResizeHandleHovered(false);
+                        props.onResizeHandleActiveChange?.(resizeHandleHeld);
+                    }}
                     onPressIn={(event) => {
                         setResizeHandleHeld(true);
+                        props.onResizeHandleActiveChange?.(true);
                         (webHandleProps.onPressIn as ((event: unknown) => void) | undefined)?.(event);
                     }}
-                    onPressOut={() => setResizeHandleHeld(false)}
+                    onPressOut={() => {
+                        setResizeHandleHeld(false);
+                        props.onResizeHandleActiveChange?.(resizeHandleHovered);
+                    }}
                     style={{
                         position: 'absolute',
                         ...(resizeEdge === 'left'
