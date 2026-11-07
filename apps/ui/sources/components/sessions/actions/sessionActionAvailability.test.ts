@@ -49,20 +49,10 @@ describe('session action availability', () => {
         expect(target.canDelete).toBe(false);
         expect(target.canStopAndDelete).toBe(true);
         for (const surface of ['sessionInfo', 'sessionHeader', 'rowMenu', 'nativeContextMenu'] as const) {
-            expect(listVisibleSessionActionIds({ target, surface, directDeleteEnabled: true })).toContain(SESSION_ACTION_DELETE_ID);
-            expect(listVisibleSessionActionIds({ target: { ...target, canStopAndDelete: false }, surface, directDeleteEnabled: true })).not.toContain(SESSION_ACTION_DELETE_ID);
+            expect(listVisibleSessionActionIds({ target, surface })).toContain(SESSION_ACTION_DELETE_ID);
+            expect(listVisibleSessionActionIds({ target: { ...target, canStopAndDelete: false }, surface })).not.toContain(SESSION_ACTION_DELETE_ID);
         }
-        expect(listVisibleSessionActionIds({ target, surface: 'selectionActionBar', directDeleteEnabled: true })).not.toContain(SESSION_ACTION_DELETE_ID);
-    });
-
-    it('offers Delete in row menus only when the session setting enables it', () => {
-        const owned = createSessionActionTarget({ session: createOwnedRawSession({ active: true }), currentUserId: 'current_user', isConnected: true });
-        const shared = createSessionActionTarget({ session: createOwnedRawSession({ owner: 'other_user', accessLevel: 'admin' }), currentUserId: 'current_user' });
-        for (const surface of ['rowMenu', 'nativeContextMenu'] as const) {
-            expect(listVisibleSessionActionIds({ target: owned, surface })).not.toContain(SESSION_ACTION_DELETE_ID);
-            expect(listVisibleSessionActionIds({ target: owned, surface, directDeleteEnabled: true })).toContain(SESSION_ACTION_DELETE_ID);
-            expect(listVisibleSessionActionIds({ target: shared, surface, directDeleteEnabled: true })).not.toContain(SESSION_ACTION_DELETE_ID);
-        }
+        expect(listVisibleSessionActionIds({ target, surface: 'selectionActionBar' })).not.toContain(SESSION_ACTION_DELETE_ID);
     });
     it.each(['rowMenu', 'nativeContextMenu'] as const)('offers folder assignment for direct sessions on %s', (surface) => {
         const session: SessionListRenderableSession = {
@@ -138,7 +128,7 @@ describe('session action availability', () => {
             overrides: { owner: 'other_user', accessLevel: 'view' },
         });
 
-        expect(listVisibleSessionActionIds({ target: setStandingTarget, surface: 'rowMenu', directDeleteEnabled: true })
+        expect(listVisibleSessionActionIds({ target: setStandingTarget, surface: 'rowMenu' })
             .filter((id) => id !== SESSION_ACTION_MOVE_TO_FOLDER_ID)).toEqual([
             SESSION_ACTION_MARK_UNREAD_ID,
             SESSION_ACTION_SET_ATTENTION_STANDING_ID,
@@ -214,7 +204,6 @@ describe('session action availability', () => {
         const rowLifecycleActionIds = listVisibleSessionActionIds({
             target,
             surface: 'rowMenu',
-            directDeleteEnabled: true,
         }).filter((id) => id !== SESSION_ACTION_MOVE_TO_FOLDER_ID);
         const infoActionIds = listVisibleSessionActionIds({
             target,

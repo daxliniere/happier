@@ -8213,8 +8213,6 @@ settingsSession: {
         freshSubtitle: '每次选择“新会话”时都打开一个新草稿。',
     },
 	    sessionList: {
-              directDeleteTitle: '在会话菜单中显示删除',
-              directDeleteSubtitle: '在会话菜单中显示删除。始终需要确认。',
 	        title: '会话列表',
 	        footer: '自定义会话列表每行显示的内容。',
 	        tagsTitle: '会话标签',

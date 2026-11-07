@@ -112,6 +112,21 @@ describe('delete eligibility at execution', () => {
         expect(storage.getState().sessions[session.id]).toBe(session);
     });
 
+    it('names the session in the delete confirmation', async () => {
+        const serverId = getActiveServerSnapshot().serverId;
+        const session = createSessionFixture({ id: 'named-delete', serverId,
+            metadata: { path: '/tmp/project', host: 'local', name: 'Release prep' } as never });
+        storage.setState({ sessions: { [session.id]: session }, sessionListRenderables: {} });
+        vi.mocked(Modal.confirm).mockResolvedValueOnce(false);
+        await executeSessionAction({ actionId: SESSION_ACTION_DELETE_ID,
+            target: createSessionActionTarget({ session, serverId, isConnected: true }) });
+        expect(Modal.confirm).toHaveBeenCalledWith(
+            t('sessionInfo.deleteSession'),
+            expect.stringContaining('Release prep'),
+            expect.objectContaining({ destructive: true }),
+        );
+    });
+
     it('preserves the session when stopping fails', async () => {
         const serverId = upsertServerProfile({ serverUrl: 'https://stop-delete-failure.example' }).id;
         setActiveServerId(serverId);

@@ -8014,8 +8014,6 @@ settingsSession: {
         freshSubtitle: 'Öffne bei jeder Auswahl von „Neue Sitzung“ einen neuen Entwurf.',
     },
 	          sessionList: {
-              directDeleteTitle: 'Löschen im Sitzungsmenü',
-              directDeleteSubtitle: 'Löschen im Sitzungsmenü anzeigen. Eine Bestätigung ist immer erforderlich.',
 	              title: 'Session-Liste',
 	              footer: 'Aussehen und Verhalten der Session-Liste in der Seitenleiste.',
 	              tagsTitle: 'Session-Tags',

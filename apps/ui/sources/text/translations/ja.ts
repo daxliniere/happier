@@ -8719,8 +8719,6 @@ settingsSession: {
         freshSubtitle: '「新しいセッション」を選ぶたびに新しい下書きを開きます。',
     },
 	    sessionList: {
-              directDeleteTitle: 'セッションメニューに削除を表示',
-              directDeleteSubtitle: 'セッションメニューに削除を表示します。必ず確認が必要です。',
 	        title: 'セッション一覧',
 	        footer: '各セッション行に表示する内容をカスタマイズします。',
 	        tagsTitle: 'セッションタグ',

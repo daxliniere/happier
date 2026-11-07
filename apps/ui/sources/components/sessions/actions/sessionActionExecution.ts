@@ -49,7 +49,7 @@ import { resolveSessionArchiveServerId } from '@/sync/domains/session/listing/se
 import { resolveSessionListCacheServerId } from '@/sync/domains/session/listing/sessionListPresentation';
 import { areServerProfileIdentifiersEquivalent } from '@/sync/domains/server/serverProfiles';
 import { getActiveServerSnapshot } from '@/sync/domains/server/serverRuntime';
-import { getSessionStatus } from '@/utils/sessions/sessionUtils';
+import { getSessionName, getSessionStatus } from '@/utils/sessions/sessionUtils';
 import { nowServerMs } from '@/sync/runtime/time';
 import { createSessionActionTarget } from './sessionActionContext';
 
@@ -83,7 +83,8 @@ async function executeDeleteAction(target: SessionActionTarget, context?: Sessio
     if (!target.canDelete && !target.canStopAndDelete) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
     const confirmed = await Modal.confirm(
         t('sessionInfo.deleteSession'),
-        t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSessionWarning' : 'sessionInfo.deleteSessionWarning'),
+        // Name the session so the person can see which one they are about to delete.
+        `${getSessionName(target.session)}\n\n${t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSessionWarning' : 'sessionInfo.deleteSessionWarning')}`,
         { cancelText: t('common.cancel'), confirmText: t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSession' : 'sessionInfo.deleteSession'), destructive: true },
     );
     if (!confirmed) return false;

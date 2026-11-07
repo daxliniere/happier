@@ -79,7 +79,6 @@ type ArchiveSpyResult = Readonly<{
 const archiveSpy = vi.fn(async (): Promise<ArchiveSpyResult> => ({ success: true, archivedAt: 1 }));
 const modalConfirmSpy = vi.fn(async () => true);
 let hideInactiveSessions = false;
-let directDeleteEnabled = false;
 
 vi.mock('@/sync/ops', () => ({
     sessionStopWithServerScope: stopSpy,
@@ -133,7 +132,6 @@ installSessionShellCommonModuleMocks({
                 useSession: () => null,
                 useSetting: (key: string) => {
                     if (key === 'hideInactiveSessions') return hideInactiveSessions;
-                    if (key === 'sessionListDirectDeleteEnabled') return directDeleteEnabled;
                     return false;
                 },
             },
@@ -164,11 +162,9 @@ describe('SessionItem server-scoped mutations', () => {
     afterEach(() => {
         standardCleanup();
         hideInactiveSessions = false;
-        directDeleteEnabled = false;
     });
 
     it('asks for confirmation from the session menu before deleting', async () => {
-        directDeleteEnabled = true;
         modalConfirmSpy.mockClear();
         modalConfirmSpy.mockResolvedValueOnce(false);
         const session = createSessionFixture({ id: 'direct-delete-menu', active: true });

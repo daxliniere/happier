@@ -8011,8 +8011,6 @@ settingsSession: {
         freshSubtitle: 'Obre un esborrany nou cada vegada que triïs Sessió nova.',
     },
 	            sessionList: {
-              directDeleteTitle: 'Suprimeix al menú de sessió',
-              directDeleteSubtitle: 'Mostra Suprimeix al menú de sessió. Sempre cal confirmar.',
 	                title: 'Llista de sessions',
 	                footer: 'Personalitza què apareix a cada fila de sessió.',
 	                tagsTitle: 'Etiquetes de sessió',

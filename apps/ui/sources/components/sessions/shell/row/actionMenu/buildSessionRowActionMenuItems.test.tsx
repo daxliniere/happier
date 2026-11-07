@@ -60,7 +60,6 @@ describe('buildSessionRowMoreMenuItems', () => {
         });
 
         const items = buildSessionRowMoreMenuItems({
-            directDeleteEnabled: true,
             target,
             iconColor: '#999',
             canMoveToFolder: true,
@@ -106,7 +105,6 @@ describe('buildSessionRowMoreMenuItems', () => {
         });
 
         const items = buildSessionRowMoreMenuItems({
-            directDeleteEnabled: true,
             target,
             iconColor: '#999',
             canMoveToFolder: false,
@@ -154,7 +152,6 @@ describe('buildSessionRowMoreMenuItems', () => {
         });
 
         const items = buildSessionRowMoreMenuItems({
-            directDeleteEnabled: true,
             target,
             iconColor: '#999',
             canMoveToFolder: false,

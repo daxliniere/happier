@@ -8449,8 +8449,6 @@ settingsSession: {
         freshSubtitle: 'Abre un borrador nuevo cada vez que elijas Nueva sesión.',
     },
 	      sessionList: {
-              directDeleteTitle: 'Eliminar en el menú de sesión',
-              directDeleteSubtitle: 'Mostrar Eliminar en el menú de sesión. Siempre se requiere confirmación.',
 	          title: 'Lista de sesiones',
 	          footer: 'Personaliza lo que aparece en cada fila de sesión.',
 	          tagsTitle: 'Etiquetas de sesión',
