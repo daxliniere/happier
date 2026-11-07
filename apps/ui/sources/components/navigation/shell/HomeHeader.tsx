@@ -14,6 +14,7 @@ import { useConnectionHealth } from '@/components/navigation/connectionStatus/us
 import { UpdatesPopoverButton } from '@/components/updates/UpdatesPopoverButton';
 import { useSharedUpdatesSummary } from '@/updates/useUpdatesSummary';
 import { Icon } from '@/components/ui/icons/Icon';
+import { AppLockHeaderButton } from '@/components/appLock/AppLockHeaderButton';
 import {
     shouldForceFreshNewSessionEntryFromPressEvent,
     useResolveNewSessionOrdinaryEntryRoute,
@@ -170,6 +171,7 @@ function HeaderLeft(props: { showAutomations: boolean }) {
             {updates.visible ? (
                 <UpdatesPopoverButton summary={updates} variant="header" testID="home-header-updates-pill" />
             ) : logo}
+            <AppLockHeaderButton testID="home-header-app-lock" style={styles.headerButton} />
             {props.showAutomations ? (
                 <Pressable
                     onPress={() => router.push('/automations')}

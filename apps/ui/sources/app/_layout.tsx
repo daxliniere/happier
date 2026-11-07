@@ -79,6 +79,10 @@ import { loadExpoNotifications, type ExpoNotificationsModule } from '@/utils/pla
 import { installWebFontFaces } from '@/platform/installWebFontFaces';
 import { ActionOperationRuntime } from '@/sync/domains/actionOperations/actionOperationRuntime';
 import { configureNotificationCategories } from '@/activity/notifications/runtime/configureNotificationCategories';
+import { loadAppLock, useAppLockSnapshot } from '@/auth/appLock/appLockRuntime';
+import { useAppLockAutoLock } from '@/auth/appLock/appLockAutoLock';
+import { AppLockSurface } from '@/components/appLock/AppLockSurface';
+import { Modal } from '@/modal';
 
 initializeSentryOnce();
 installTauriMcpBridgeOnce();
@@ -605,15 +609,21 @@ function RootLayout() {
                 <AppBoot
                     desktopWindowBackgroundColor={background}
                     navigationTheme={navigationTheme}
+                    onRestart={onRestart}
                 />
             </AppCrashRecoveryBoundary>
         </WebCryptoStartupGate>
     );
 }
 
+function ignoreSignedOutBeforeBoot() {
+    // Signing out from the lock screen before boot turns the lock off; boot then continues signed out.
+}
+
 function AppBoot(props: {
     desktopWindowBackgroundColor: string;
     navigationTheme: any;
+    onRestart: () => void;
 }) {
     //
     // Init sequence
@@ -632,12 +642,28 @@ function AppBoot(props: {
     const [bootError, setBootError] = React.useState<Error | null>(null);
     const restartBugReportCheckedRef = React.useRef(false);
 
+    // App lock: nothing boots (credentials stay sealed) until this device's lock is off or unlocked.
+    const appLock = useAppLockSnapshot();
+    const isAppLocked = appLock.status === 'locked';
+    const bootAllowed = appLock.status === 'disabled' || appLock.status === 'unlocked';
+    const bootStartedRef = React.useRef(false);
+    const unmountedRef = React.useRef(false);
+    React.useEffect(() => {
+        unmountedRef.current = false;
+        void loadAppLock();
+        return () => {
+            unmountedRef.current = true;
+        };
+    }, []);
+    useAppLockAutoLock(!isDesktopPetOverlayWindow && (appLock.status === 'locked' || appLock.status === 'unlocked'));
+
     React.useEffect(() => {
         clearActiveViewingSessionsForNonSessionRoute(pathname);
     }, [pathname]);
 
     React.useEffect(() => {
-        let cancelled = false;
+        if (!bootAllowed || bootStartedRef.current) return;
+        bootStartedRef.current = true;
         void runAppBootSequence({
             loadFonts,
             sodiumReady: sodium.ready,
@@ -646,18 +672,38 @@ function AppBoot(props: {
             prepareSessionDrafts: prepareSessionDraftPersistenceStorage,
             restoreSync: syncRestore,
             onReady: (ready) => {
-                if (cancelled) return;
+                if (unmountedRef.current) return;
                 setInitState(ready);
             },
         }).catch((error: unknown) => {
-            if (cancelled) return;
+            if (unmountedRef.current) return;
             setBootError(error instanceof Error ? error : new Error('Failed to initialize app storage', { cause: error }));
             void SplashScreen.hideAsync().catch(() => {});
         });
+    }, [bootAllowed, isDesktopPetOverlayWindow]);
+
+    // Before boot, the lock screen replaces the splash once the app fonts are ready.
+    const [lockScreenFontsReady, setLockScreenFontsReady] = React.useState(false);
+    React.useEffect(() => {
+        if (!isAppLocked || initState || lockScreenFontsReady) return;
+        let active = true;
+        void loadFonts()
+            .catch((error: unknown) => console.error('[appLock] Font loading failed before the lock screen:', error))
+            .finally(() => {
+                if (active) setLockScreenFontsReady(true);
+            });
         return () => {
-            cancelled = true;
+            active = false;
         };
-    }, [isDesktopPetOverlayWindow]);
+    }, [initState, isAppLocked, lockScreenFontsReady]);
+    React.useEffect(() => {
+        if (isAppLocked && !initState && lockScreenFontsReady) void SplashScreen.hideAsync().catch(() => {});
+    }, [initState, isAppLocked, lockScreenFontsReady]);
+
+    // Re-locking a running app closes open dialogs so nothing renders above the lock screen.
+    React.useEffect(() => {
+        if (isAppLocked && initState) Modal.hideAll();
+    }, [initState, isAppLocked]);
 
     React.useEffect(() => {
         if (!initState) return;
@@ -699,6 +745,13 @@ function AppBoot(props: {
 
     if (bootError) throw bootError;
     if (!initState) {
+        if (isAppLocked && lockScreenFontsReady && !isDesktopPetOverlayWindow) {
+            return (
+                <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+                    <AppLockSurface onSignedOut={ignoreSignedOutBeforeBoot} />
+                </SafeAreaProvider>
+            );
+        }
         return null;
     }
 
@@ -727,9 +780,11 @@ function AppBoot(props: {
                                             <ThemePreferenceTransitionHost>
                                                 <HorizontalSafeAreaRoot>
                                                     <RootAppShell
+                                                        isAppLocked={isAppLocked}
                                                         isDesktopPetOverlayWindow={isDesktopPetOverlayWindow}
                                                         isTablet={isTablet}
                                                         isTerminalConnectRoute={isTerminalConnectRoute}
+                                                        onSignedOutWhileLocked={props.onRestart}
                                                         safeArea={safeArea}
                                                     />
                                                 </HorizontalSafeAreaRoot>
@@ -762,9 +817,11 @@ function AppBoot(props: {
 }
 
 function RootAppShell(props: Readonly<{
+    isAppLocked: boolean;
     isDesktopPetOverlayWindow: boolean;
     isTablet: boolean;
     isTerminalConnectRoute: boolean;
+    onSignedOutWhileLocked: () => void;
     safeArea: Readonly<{ top: number; right: number; left: number }>;
 }>) {
     const auth = useAuth();
@@ -808,18 +865,28 @@ function RootAppShell(props: Readonly<{
               */}
             {tauriDesktop && auth.isAuthenticated && !props.isDesktopPetOverlayWindow ? <DesktopLocalSetupRuntime /> : null}
             {!props.isDesktopPetOverlayWindow ? <OnboardingShowcaseAutoShowMount /> : null}
-            {appShellChromeHost === 'narrow-desktop-fallback' || appShellChromeHost === 'unauth-shell' ? (
-                <DesktopFallbackShellChrome safeArea={props.safeArea} />
-            ) : null}
-            <View style={{ flex: 1 }}>
-                <SidebarNavigator />
-            </View>
+            {/*
+              * App lock: the background runtimes above stay mounted while locked; only the visible
+              * app is replaced. The pet overlay window shows nothing while locked.
+              */}
+            {props.isAppLocked ? (
+                props.isDesktopPetOverlayWindow ? null : <AppLockSurface onSignedOut={props.onSignedOutWhileLocked} />
+            ) : (
+                <>
+                    {appShellChromeHost === 'narrow-desktop-fallback' || appShellChromeHost === 'unauth-shell' ? (
+                        <DesktopFallbackShellChrome safeArea={props.safeArea} />
+                    ) : null}
+                    <View style={{ flex: 1 }}>
+                        <SidebarNavigator />
+                    </View>
+                </>
+            )}
         </View>
     );
 
     return (
         <DesktopMainContentDragSurface
-            enabled={shouldUseRootDesktopDragSurface && Platform.OS === 'web' && tauriDesktop}
+            enabled={shouldUseRootDesktopDragSurface && !props.isAppLocked && Platform.OS === 'web' && tauriDesktop}
             leftOffsetPx={0}
             style={{ flex: 1 }}
         >

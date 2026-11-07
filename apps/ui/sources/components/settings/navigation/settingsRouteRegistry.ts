@@ -26,6 +26,7 @@ const SETTINGS_ROUTE_CHROME_DEFINITIONS: readonly SettingsRouteChromeDefinition[
     { name: 'actions', titleKey: 'common.actions' },
     { name: 'actions/[actionId]', titleKey: 'common.actions' },
     { name: 'add-phone', titleKey: 'settings.addYourPhone' },
+    { name: 'app-lock', titleKey: 'appLock.settingsTitle' },
     { name: 'appearance', titleKey: 'settings.appearance' },
     { name: 'appearance/themes', titleKey: 'settingsAppearance.themeProfiles.title' },
     { name: 'appearance/themes/[profileId]', titleKey: 'settingsAppearance.themeProfiles.editorTitle' },
