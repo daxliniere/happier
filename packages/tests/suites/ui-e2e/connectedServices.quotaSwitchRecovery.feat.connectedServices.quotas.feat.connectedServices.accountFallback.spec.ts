@@ -550,6 +550,7 @@ async function publishProviderUsageRuntimeIssue(params: Readonly<{
     groupExhausted?: boolean;
     occurredAtMs?: number;
     recoverability?: 'wait' | 'switch_account';
+    usageLimitPatch?: Partial<NonNullable<SessionRuntimeIssueV1['usageLimit']>>;
 }>): Promise<void> {
     const occurredAt = params.occurredAtMs ?? Date.now();
     const turnId = `turn-${randomUUID()}`;
@@ -590,6 +591,7 @@ async function publishProviderUsageRuntimeIssue(params: Readonly<{
                 groupId,
                 groupExhausted: params.groupExhausted ?? false,
             },
+            ...params.usageLimitPatch,
         },
     };
 
@@ -621,7 +623,7 @@ async function publishProviderUsageRuntimeIssue(params: Readonly<{
 
     await waitFor(async () => {
         const updated = await fetchSessionV2(params.baseUrl, params.token, params.sessionId);
-        return updated.lastRuntimeIssue?.usageLimit?.effectiveRemainingPct === 12;
+        return updated.lastRuntimeIssue?.usageLimit?.effectiveRemainingPct === issue.usageLimit?.effectiveRemainingPct;
     }, {
         timeoutMs: 20_000,
         context: 'provider usage runtime issue is visible through v2 session',
@@ -694,6 +696,49 @@ test.describe('ui e2e: connected-service quota switch and recovery surfaces', ()
         await expect(popover).toBeVisible({ timeout: 60_000 });
         await expect(popover.getByTestId('agent-input-provider-usage-meter:weekly')).toContainText(/12%/);
         await expect(popover.getByTestId('agent-input-provider-usage-meter:daily')).toContainText(/44%/);
+    });
+
+    test('keeps exhausted provider meters visible alongside the recovery banner with selected windows', async ({ page }) => {
+        test.setTimeout(180_000);
+        if (!server || !uiBaseUrl) throw new Error('missing ui e2e fixtures');
+        const diagnostics = collectBrowserDiagnostics({ page });
+        try {
+            await page.setViewportSize({ width: 1440, height: 900 });
+            await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0`, 180_000);
+            await waitForInitialAppUi({ page, timeoutMs: 180_000 });
+            await createAccountIfNeeded(page);
+            await enableConnectedServiceQuotaUi({ page, baseUrl: uiBaseUrl });
+            const auth = await readLegacyAuthCredentialsFromBrowserStorage(page);
+            await upsertEncryptedAccountSettingsV2({
+                baseUrl: server.baseUrl, token: auth.token, secret: auth.secret,
+                settings: { ...await readUiE2eScopedAccountSettings({ page }),
+                    sessionProviderUsageGaugeWindowModes: ['session', 'weekly'] },
+            });
+            const sessionId = await createPlainSession({ baseUrl: server.baseUrl, token: auth.token });
+            await publishProviderUsageRuntimeIssue({ baseUrl: server.baseUrl, token: auth.token, sessionId });
+            await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/session/${sessionId}?happier_hmr=0`, 180_000);
+            await expect(page.getByTestId('agent-input-provider-usage-value')).toHaveText('12');
+
+            // The provider reports exhaustion before publishing a full named-window quota snapshot.
+            await publishProviderUsageRuntimeIssue({ baseUrl: server.baseUrl, token: auth.token, sessionId,
+                recoverability: 'wait', usageLimitPatch: {
+                    effectiveMeterId: undefined, effectiveRemainingPct: undefined, allWindows: undefined,
+                } });
+            await expect(page.getByTestId('session-usageLimit-recovery')).toBeVisible();
+            await expect(page.getByTestId('agent-input-provider-usage-value')).toHaveText('0');
+            await expect(page.getByTestId('sessions-provider-usage-item:codex')).toBeVisible();
+            await page.getByTestId('sessions-provider-usage-strip').click();
+            const section = page.getByTestId('sessions-provider-usage-section:codex');
+            await expect(section).toBeVisible();
+            await expect(section).toContainText('0%');
+            await page.getByTestId('sessions-provider-usage-strip').click();
+
+            // Reopening either surface must keep the hard zero without requiring a manual quota fetch.
+            await page.getByTestId('agent-input-provider-usage-badge').click();
+            await expect(page.getByTestId('agent-input-provider-usage-popover')).toContainText('0%');
+        } catch (error) {
+            throw appendBrowserDiagnostics(error, diagnostics());
+        }
     });
 
     test('keeps ready recovery actionable when automatic resume prompts are off', async ({ page }) => {

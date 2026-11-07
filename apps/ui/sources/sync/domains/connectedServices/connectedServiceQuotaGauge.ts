@@ -467,6 +467,13 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
             selectedMeters.push({ meter, remainingPct: row.remainingPct });
         }
     }
+    // Window preferences cannot hide confirmed exhaustion. A runtime failure may name only the
+    // account limit, without the selected session/weekly aliases. Show that known zero until a
+    // fuller observation arrives, without inventing readings for the missing windows.
+    if (selectedMeters.length === 0 && params.snapshot.evidence?.kind === 'runtime_usage_limit') {
+        const exhaustedMeter = rankableMeters.find((meter) => deriveQuotaMeterValues(meter).remainingPct === 0);
+        if (exhaustedMeter) selectedMeters.push({ meter: exhaustedMeter, remainingPct: 0 });
+    }
     const effectiveMeter = selectedMeters[0]?.meter;
     const effectiveRemainingPct = selectedMeters[0]?.remainingPct;
     if (!effectiveMeter || effectiveRemainingPct === undefined) return null;
@@ -774,7 +781,13 @@ function shouldPreferRuntimeIssueQuotaSnapshot(params: Readonly<{
         || (params.runtimeSnapshot.serviceId === params.connectedSnapshot.serviceId
             && params.runtimeSnapshot.profileId === RUNTIME_ISSUE_NATIVE_PROFILE_ID
             && NATIVE_QUOTA_PROFILE_ID_PATTERN.test(params.connectedSnapshot.profileId));
-    if (sameProfile) return runtimeFetchedAtMs >= connectedFetchedAtMs;
+    if (sameProfile) {
+        // A later fetch with no readable usage is not evidence that this exhausted allowance recovered.
+        // Keep its known zero until a usable observation arrives or its reset expires.
+        if (params.runtimeSnapshot.meters.some((meter) => deriveQuotaMeterValues(meter).remainingPct === 0)
+            && selectComparableConnectedServiceQuotaMeters(params.connectedSnapshot.meters).length === 0) return true;
+        return runtimeFetchedAtMs >= connectedFetchedAtMs;
+    }
     const runtimeStaleAtMs = runtimeFetchedAtMs + params.runtimeSnapshot.staleAfterMs;
     return runtimeFetchedAtMs >= connectedFetchedAtMs || runtimeStaleAtMs >= connectedFetchedAtMs;
 }

@@ -2,7 +2,6 @@ import * as React from 'react';
 
 import {
     ConnectedServiceIdSchema,
-    isConnectedServiceCredentialHealthStatusUsable,
     type ConnectedServiceQuotaRecoveryCreditsV1,
     type SessionRuntimeIssueV1,
 } from '@happier-dev/protocol';
@@ -29,7 +28,6 @@ import {
     connectedServiceProfileKey,
     resolveConnectedServiceProfileLabel,
 } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
-import { resolveConnectedServiceCredentialHealthStatus } from '@/sync/domains/connectedServices/resolveConnectedServiceCredentialHealthStatus';
 import { resolveConnectedServiceProjectionSignature } from '@/sync/domains/connectedServices/resolveConnectedServiceProjectionSignature';
 import { useProfile, useSetting } from '@/sync/domains/state/storage';
 import { nowServerMs } from '@/sync/runtime/time';
@@ -113,12 +111,6 @@ export function useProviderUsageGauge(params: Readonly<{
         return group ? group.policy.quotaLimitSelection : null;
     }, [authGroups.groups, profileRef?.groupId]);
 
-    const credentialUsable = React.useMemo(() => {
-        if (profileRef?.credentialHealthStatus === undefined) return true;
-        return isConnectedServiceCredentialHealthStatusUsable(
-            resolveConnectedServiceCredentialHealthStatus(profileRef.credentialHealthStatus),
-        );
-    }, [profileRef?.credentialHealthStatus]);
     const quotaSnapshots = useConnectedServiceQuotaSnapshots(profileRef ? [profileRef] : []);
     const profileKey = profileRef ? connectedServiceProfileKey(profileRef) : null;
     const quotaDisplaySnapshot = profileKey ? quotaSnapshots.snapshotsByKey[profileKey] ?? null : null;
@@ -142,7 +134,8 @@ export function useProviderUsageGauge(params: Readonly<{
     ), [accountUsageSnapshotsByRecordId, metadataRecordIds, params.providerId, profileRef, quotaDisplaySnapshot]);
     const gaugeSource = React.useMemo(() => {
         if (!connectedServiceQuotasEnabled || gaugeMode === 'hidden') return null;
-        if (!credentialUsable) return null;
+        // The display-snapshot selector gates credential-backed data. Session limit evidence is
+        // still authoritative during reconnect, just as it is for the recovery banner.
         return selectConnectedServiceSessionProviderUsageGaugeSource({
             providerId: params.providerId,
             connectedServiceSnapshot: displaySnapshotSource?.snapshot ?? null,
@@ -154,7 +147,6 @@ export function useProviderUsageGauge(params: Readonly<{
         });
     }, [
         connectedServiceQuotasEnabled,
-        credentialUsable,
         displaySnapshotSource,
         gaugeMode,
         params.providerId,

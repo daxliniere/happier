@@ -12,6 +12,7 @@ import { useProviderAccountUsageSnapshots } from '@/hooks/server/connectedServic
 import { selectProviderUsageDisplaySnapshot } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
+    deriveConnectedServiceQuotaSnapshotFromRuntimeIssue,
     selectConnectedServiceSessionProviderUsageGaugeSource,
     type ConnectedServiceQuotaGaugeViewModel,
     type ConnectedServiceQuotaGaugeWindowMode,
@@ -105,13 +106,17 @@ export function useProviderUsageGauges(params: Readonly<{
                 connectedServiceProfileRef: ref ? { ...ref, provenance: 'published_quota_ref' } : null,
                 connectedServiceQuotaView: ref ? quotaSnapshots.snapshotsByKey[connectedServiceProfileKey(ref)] ?? null : null,
             });
-            // A native CLI may publish a limit-hit issue before it has an account snapshot.
-            // Explicit connected profiles must never borrow a different login's runtime evidence.
+            // A limit-hit report remains useful while the quota endpoint has no snapshot. For a
+            // configured profile, accept only evidence explicitly bound to that same login.
+            const issue = latestRuntimeIssuesByAgent.get(agentId);
+            const runtimeSnapshot = ref ? deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(issue) : null;
+            const runtimeIssue = !ref || (runtimeSnapshot
+                && connectedServiceProfileKey(runtimeSnapshot) === connectedServiceProfileKey(ref)) ? issue : null;
             const gaugeSource = selectConnectedServiceSessionProviderUsageGaugeSource({
                 providerId: agentId,
                 connectedServiceSnapshot: source?.snapshot ?? null,
                 connectedServiceRefProvenance: source?.connectedServiceRefProvenance,
-                runtimeIssue: ref ? null : latestRuntimeIssuesByAgent.get(agentId),
+                runtimeIssue,
                 nowMs,
             });
             if (!gaugeSource) continue;

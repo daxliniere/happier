@@ -4018,7 +4018,7 @@ function SessionViewLoaded({
         profileRef: connectedServiceQuotaProfileRef,
         modelId: modelMode,
         metadataRecordIds: providerAccountUsageRecordIds,
-        runtimeIssue: session.lastRuntimeIssue ?? null,
+        runtimeIssue: sessionRuntimeStatusSource.lastRuntimeIssue ?? null,
         sessionCheckNowSupported: usageLimitRecoveryCheckNowSupported,
         recoveryCredits: usageLimitRecoveryCredits,
     });

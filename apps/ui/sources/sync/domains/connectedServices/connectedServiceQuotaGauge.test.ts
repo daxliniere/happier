@@ -1147,6 +1147,37 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(native?.snapshot.meters[0]?.remainingPct).toBe(90);
     });
 
+    it.each([false, true])('retains known exhaustion when a newer quota response has no readable usage (placeholder: %s)', (placeholder) => {
+        const issue = {
+            v: 1 as const, scope: 'primary_session' as const, status: 'failed' as const,
+            code: 'usage_limit' as const, source: 'usage_limit' as const, occurredAt: 1_000, provider: 'codex',
+            usageLimit: { v: 1 as const, resetAtMs: 100_000, retryAfterMs: null, quotaScope: 'account' as const,
+                recoverability: 'wait' as const,
+                quotaSnapshotRef: { serviceId: 'openai-codex' as const, profileId: 'work', fetchedAtMs: 1_000 } },
+        };
+        const unreadable = { ...snapshot(placeholder ? [meter({ meterId: 'weekly', label: 'Weekly', status: 'unavailable' })] : []), fetchedAt: 2_000 };
+        const select = (connectedServiceSnapshot: ConnectedServiceQuotaSnapshotV1) => selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot, connectedServiceRefProvenance: 'connected_binding_profile',
+            runtimeIssue: issue, nowMs: 2_000,
+        });
+        const gauge = (source: ReturnType<typeof select>) => source && computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: source.snapshot, windowMode: 'most_constrained', windowModes: ['session', 'weekly'], nowMs: 2_000, formatter,
+        });
+        expect(gauge(select(unreadable))?.remainingPct).toBe(0);
+        expect(gauge(select(unreadable))?.tone).toBe('critical');
+        const recovered = { ...snapshot([meter({ meterId: 'weekly', label: 'Weekly', used: 25, limit: 100 })]), fetchedAt: 3_000 };
+        expect(gauge(select(recovered))?.remainingPct).toBe(75);
+        const anotherLogin = { ...unreadable, profileId: 'another-login', fetchedAt: 32_000 };
+        expect(selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot: anotherLogin, connectedServiceRefProvenance: 'connected_binding_profile',
+            runtimeIssue: issue, nowMs: 32_000,
+        })?.snapshot).toBe(anotherLogin);
+        expect(selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'codex', connectedServiceSnapshot: null, connectedServiceRefProvenance: null,
+            runtimeIssue: issue, nowMs: 100_000,
+        })).toBeNull();
+    });
+
     it('classifies session gauge sources from ref provenance through the gauge-source matrix', () => {
         const polledSnapshot = snapshot([
             meter({ meterId: 'weekly', label: 'Weekly', used: 10, limit: 100 }),
