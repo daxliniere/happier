@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ConnectedServiceQuotaReadMetadata } from '@/sync/api/account/connectedServiceQuotaReadMetadata';
 import { flushHookEffects } from '@/dev/testkit';
 import { collectAutomaticProviderUsageRefreshTargets, runProviderUsageRefresh } from './useProviderUsageRefresh';
 import { __resetConnectedServiceQuotaSnapshotStore, buildQuotaSnapshotScopeKey, ensureQuotaSnapshotLoaded } from '@/sync/domains/connectedServices/connectedServiceQuotaSnapshotStore';
@@ -10,7 +11,7 @@ import { buildProviderAccountUsageRecordId, ConnectedServiceQuotaSnapshotV1Schem
 const api = vi.hoisted(() => {
     const refuse = () => vi.fn<(credentials: unknown, params: unknown) => Promise<boolean>>(async () => false);
     return { quotaPlain: refuse(), quotaSealed: refuse(), accountPlain: refuse(), accountSealed: refuse(),
-        getQuota: vi.fn<() => Promise<ConnectedServiceQuotaSnapshotV1 | null>>(async () => null) };
+        getQuota: vi.fn<() => Promise<Readonly<{ snapshot: ConnectedServiceQuotaSnapshotV1; metadata: ConnectedServiceQuotaReadMetadata }> | null>>(async () => null) };
 });
 vi.mock('@/sync/api/account/apiConnectedServicesQuotasV3', () => ({ requestConnectedServiceQuotaSnapshotRefreshV3: api.quotaPlain, getConnectedServiceQuotaSnapshotPlain: api.getQuota }));
 vi.mock('@/sync/api/account/apiConnectedServicesQuotasV2', () => ({ requestConnectedServiceQuotaSnapshotRefresh: api.quotaSealed }));
@@ -79,11 +80,15 @@ describe('provider ring refresh', () => {
             credentials: { token: 'test-token', secret: 'test-secret' }, credentialScope: 'test-scope',
             resolveAccountMode: async () => 'plain' as const, automaticTargets: [active], configuredTargets: [active],
         };
-        api.getQuota.mockResolvedValueOnce(ConnectedServiceQuotaSnapshotV1Schema.parse({
-            v: 1, serviceId: 'openai-codex', profileId: 'active', fetchedAt: 1_000, staleAfterMs: 60_000,
-            planLabel: null, accountLabel: null,
-            meters: [{ meterId: 'weekly', label: 'Weekly', used: 100, limit: 100, unit: 'count', utilizationPct: null, resetsAt: null, status: 'ok' }],
-        }));
+        // The read adapter returns the snapshot with its server lifecycle metadata.
+        api.getQuota.mockResolvedValueOnce({
+            snapshot: ConnectedServiceQuotaSnapshotV1Schema.parse({
+                v: 1, serviceId: 'openai-codex', profileId: 'active', fetchedAt: 1_000, staleAfterMs: 60_000,
+                planLabel: null, accountLabel: null,
+                meters: [{ meterId: 'weekly', label: 'Weekly', used: 100, limit: 100, unit: 'count', utilizationPct: null, resetsAt: null, status: 'ok' }],
+            }),
+            metadata: { fetchedAt: 1_000, staleAfterMs: 60_000, status: 'ok' },
+        });
         ensureQuotaSnapshotLoaded(buildQuotaSnapshotScopeKey(context.credentialScope, 'openai-codex', 'active'), {
             ...context, serviceId: 'openai-codex', profileId: 'active',
         });
