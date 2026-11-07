@@ -12,6 +12,8 @@ import {
 } from '@happier-dev/protocol';
 import { z } from 'zod';
 
+import { ConnectedServiceQuotaReadMetadataSchema, type ConnectedServiceQuotaReadMetadata } from './connectedServiceQuotaReadMetadata';
+
 function extractErrorCode(json: unknown): string | null {
   if (!json || typeof json !== 'object') return null;
   const obj = json as Record<string, unknown>;
@@ -20,12 +22,8 @@ function extractErrorCode(json: unknown): string | null {
 
 const ProviderAccountUsageV2ResponseSchema = z.object({
   sealed: SealedProviderAccountUsageSnapshotV1Schema,
-  metadata: z.object({
-    fetchedAt: z.number().int().nonnegative(),
-    staleAfterMs: z.number().int().nonnegative(),
-    status: z.enum(['ok', 'unavailable', 'estimated', 'error']),
-    refreshRequestedAt: z.number().int().nonnegative().optional(),
-  }),
+  // The same refresh lifecycle facts the connected-service quota reads expose.
+  metadata: ConnectedServiceQuotaReadMetadataSchema,
 });
 
 export async function getProviderAccountUsageSnapshotSealed(
@@ -34,12 +32,7 @@ export async function getProviderAccountUsageSnapshotSealed(
   opts?: Readonly<{ signal?: AbortSignal }>,
 ): Promise<Readonly<{
   sealed: SealedProviderAccountUsageSnapshotV1;
-  metadata: {
-    fetchedAt: number;
-    staleAfterMs: number;
-    status: 'ok' | 'unavailable' | 'estimated' | 'error';
-    refreshRequestedAt?: number;
-  };
+  metadata: ConnectedServiceQuotaReadMetadata;
 } | null>> {
   const recordId = ProviderAccountUsageRecordIdSchema.parse(params.recordId);
   return await backoff(async () => {

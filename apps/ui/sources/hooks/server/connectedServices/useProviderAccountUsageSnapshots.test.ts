@@ -103,6 +103,11 @@ function makeUsageSnapshotWith(params: Readonly<{
   });
 }
 
+/** The plain read returns the snapshot with its server refresh lifecycle markers. */
+function plainRead<T extends Readonly<{ fetchedAtMs: number; staleAfterMs: number }>>(snapshot: T) {
+  return { snapshot, metadata: { fetchedAt: snapshot.fetchedAtMs, staleAfterMs: snapshot.staleAfterMs, status: 'ok' as const } };
+}
+
 describe('useProviderAccountUsageSnapshots', () => {
   beforeEach(async () => {
     currentCredentials = stableCredentials;
@@ -121,7 +126,7 @@ describe('useProviderAccountUsageSnapshots', () => {
 
   it('fetches plain provider account usage snapshots by record id and caches them by credential scope', async () => {
     const snapshot = makeUsageSnapshot();
-    getProviderAccountUsageSnapshotPlainSpy.mockResolvedValue(snapshot);
+    getProviderAccountUsageSnapshotPlainSpy.mockResolvedValue(plainRead(snapshot));
 
     const { useProviderAccountUsageSnapshots } = await import('./useProviderAccountUsageSnapshots');
     const hook = await renderHook(() => useProviderAccountUsageSnapshots([snapshot.recordId]));
@@ -161,7 +166,7 @@ describe('useProviderAccountUsageSnapshots', () => {
   it('prefers newer shared-cache provider account usage over a mounted local entry', async () => {
     const first = makeUsageSnapshotWith({ accountSubjectId: 'provider-account-1', fetchedAtMs: Date.now() });
     const newer = makeUsageSnapshotWith({ accountSubjectId: 'provider-account-1', fetchedAtMs: Date.now() + 10_000 });
-    getProviderAccountUsageSnapshotPlainSpy.mockResolvedValue(first);
+    getProviderAccountUsageSnapshotPlainSpy.mockResolvedValue(plainRead(first));
 
     const { useProviderAccountUsageSnapshots } = await import('./useProviderAccountUsageSnapshots');
     const hook = await renderHook(() => useProviderAccountUsageSnapshots([first.recordId]));
@@ -188,7 +193,7 @@ describe('useProviderAccountUsageSnapshots', () => {
     const credentialScope = resolveAuthCredentialsScopeKey(stableCredentials);
     const { writeProviderAccountUsageSnapshotToCache } = await import('@/sync/domains/connectedServices/accountUsage/cache');
     writeProviderAccountUsageSnapshotToCache({ credentialScope, snapshot: stale });
-    getProviderAccountUsageSnapshotPlainSpy.mockResolvedValue(fresh);
+    getProviderAccountUsageSnapshotPlainSpy.mockResolvedValue(plainRead(fresh));
 
     const { useProviderAccountUsageSnapshots } = await import('./useProviderAccountUsageSnapshots');
     const hook = await renderHook(() => useProviderAccountUsageSnapshots([stale.recordId]));

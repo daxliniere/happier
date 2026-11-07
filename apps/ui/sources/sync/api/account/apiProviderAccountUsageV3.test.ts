@@ -33,7 +33,10 @@ describe('provider account usage plaintext transport', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { getProviderAccountUsageSnapshotPlain } = await import('./apiProviderAccountUsageV3');
     const result = await getProviderAccountUsageSnapshotPlain({ token: 'token', secret: 'secret' }, { recordId: snapshot.recordId });
-    expect(result).toEqual({ ...snapshot, subscription, recoveryCreditDetails });
+    expect(result).toEqual({
+      snapshot: { ...snapshot, subscription, recoveryCreditDetails },
+      metadata: { fetchedAt: 1_000, staleAfterMs: 60_000, status: 'ok' },
+    });
     const usageRequest = fetchMock.mock.calls.find(([url]) => String(url).includes('/provider-account-usage/'));
     expect(new Headers(usageRequest?.[1]?.headers).get('Accept')).toBe(PROVIDER_ACCOUNT_SUBSCRIPTION_ACCEPT);
   });

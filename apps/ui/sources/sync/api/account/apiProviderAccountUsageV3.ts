@@ -13,6 +13,8 @@ import {
 } from '@happier-dev/protocol';
 import { z } from 'zod';
 
+import { ConnectedServiceQuotaReadMetadataSchema, type ConnectedServiceQuotaReadMetadata } from './connectedServiceQuotaReadMetadata';
+
 function extractErrorCode(json: unknown): string | null {
   if (!json || typeof json !== 'object') return null;
   const obj = json as Record<string, unknown>;
@@ -23,19 +25,15 @@ const ProviderAccountUsageV3ResponseSchema = z.object({
   content: StoredJsonContentEnvelopeSchema,
   subscription: z.unknown().optional(),
   recoveryCreditDetails: z.unknown().optional(),
-  metadata: z.object({
-    fetchedAt: z.number().int().nonnegative(),
-    staleAfterMs: z.number().int().nonnegative(),
-    status: z.enum(['ok', 'unavailable', 'estimated', 'error']),
-    refreshRequestedAt: z.number().int().nonnegative().optional(),
-  }),
+  // The same refresh lifecycle facts the connected-service quota reads expose.
+  metadata: ConnectedServiceQuotaReadMetadataSchema,
 });
 
 export async function getProviderAccountUsageSnapshotPlain(
   credentials: AuthCredentials,
   params: Readonly<{ recordId: ProviderAccountUsageRecordId | string }>,
   opts?: Readonly<{ signal?: AbortSignal }>,
-): Promise<ProviderAccountUsageSnapshotV1 | null> {
+): Promise<Readonly<{ snapshot: ProviderAccountUsageSnapshotV1; metadata: ConnectedServiceQuotaReadMetadata }> | null> {
   const recordId = ProviderAccountUsageRecordIdSchema.parse(params.recordId);
   return await backoff(async () => {
     const response = await serverFetch(
@@ -87,7 +85,7 @@ export async function getProviderAccountUsageSnapshotPlain(
     if (!snapshot.success || snapshot.data.recordId !== recordId) {
       throw new Error('Invalid provider account usage response');
     }
-    return snapshot.data;
+    return { snapshot: snapshot.data, metadata: parsed.data.metadata };
   });
 }
 

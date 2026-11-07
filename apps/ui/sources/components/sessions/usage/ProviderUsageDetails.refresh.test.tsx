@@ -39,7 +39,10 @@ afterEach(() => vi.useRealTimers());
 describe('usage refresh indicator', () => {
     it('appears only for the queried native account and disappears when fresh usage arrives', async () => {
         api.request.mockResolvedValue(true);
-        api.get.mockResolvedValue({ recordId, fetchedAtMs: Date.now(), providerId: 'codex' });
+        api.get.mockResolvedValue({
+            snapshot: { recordId, fetchedAtMs: Date.now(), providerId: 'codex' },
+            metadata: { fetchedAt: Date.now(), staleAfterMs: 60_000, status: 'ok' },
+        });
         const screen = await renderScreen(<>
             <ProviderUsageDetails viewModel={gauge(`acct:${recordId}`)} />
             <ProviderUsageDetails viewModel={gauge('acct:paug_v1_ijklmnop')} />

@@ -9,25 +9,35 @@ import {
     getProviderAccountUsageSnapshotPlain,
     requestProviderAccountUsageRefreshPlain,
 } from '@/sync/api/account/apiProviderAccountUsageV3';
+import type { ConnectedServiceQuotaReadMetadata } from '@/sync/api/account/connectedServiceQuotaReadMetadata';
 import type { CredentialScopedAccountMode } from '@/sync/domains/connectedServices/connectedServiceQuotaSnapshotStore';
 
 import { readProviderAccountUsageSnapshotFromCache, writeProviderAccountUsageSnapshotToCache } from './cache';
 import { openProviderAccountUsageSnapshot } from './openProviderAccountUsageSnapshot';
 
-/** The one place a stored provider account usage snapshot is fetched and opened. */
-export async function fetchProviderAccountUsageSnapshot(params: Readonly<{
+type ProviderAccountUsageReadParams = Readonly<{
     credentials: AuthCredentials;
     recordId: string;
     mode: CredentialScopedAccountMode;
     signal?: AbortSignal;
-}>): Promise<ProviderAccountUsageSnapshotV1 | null> {
+}>;
+
+/** The one place a stored provider account usage record is fetched and opened, with its refresh lifecycle. */
+async function readProviderAccountUsage(params: ProviderAccountUsageReadParams): Promise<Readonly<{
+    snapshot: ProviderAccountUsageSnapshotV1 | null;
+    metadata: ConnectedServiceQuotaReadMetadata;
+}> | null> {
     const opts = { signal: params.signal };
     if (params.mode === 'plain') {
         const plain = await getProviderAccountUsageSnapshotPlain(params.credentials, { recordId: params.recordId }, opts);
         if (plain) return plain;
     }
     const sealed = await getProviderAccountUsageSnapshotSealed(params.credentials, { recordId: params.recordId }, opts);
-    return sealed ? openProviderAccountUsageSnapshot(params.credentials, sealed.sealed) : null;
+    return sealed ? { snapshot: await openProviderAccountUsageSnapshot(params.credentials, sealed.sealed), metadata: sealed.metadata } : null;
+}
+
+export async function fetchProviderAccountUsageSnapshot(params: ProviderAccountUsageReadParams): Promise<ProviderAccountUsageSnapshotV1 | null> {
+    return (await readProviderAccountUsage(params))?.snapshot ?? null;
 }
 
 const REFRESH_POLL_INTERVAL_MS = 3_000;
@@ -78,8 +88,9 @@ export function refreshProviderAccountUsage(params: RefreshParams): Promise<bool
 
 /**
  * Asks the server to have the owning daemon re-query the provider for this record, then
- * waits for the newer snapshot and publishes it to the shared cache. Resolves false when
- * the request was refused or no newer snapshot arrived within one poll period.
+ * publishes any newer snapshot to the shared cache. The refresh is finished once the server
+ * clears its refresh request, as for connected-service quotas. Resolves false when the request
+ * was refused, the server records the refresh as failed, or it does not settle within one poll period.
  */
 async function performProviderAccountUsageRefresh(params: RefreshParams): Promise<boolean> {
     const previousFetchedAtMs = readProviderAccountUsageSnapshotFromCache({
@@ -95,15 +106,18 @@ async function performProviderAccountUsageRefresh(params: RefreshParams): Promis
     const deadlineMs = Date.now() + REFRESH_WAIT_MS;
     while (Date.now() < deadlineMs) {
         await new Promise((resolve) => setTimeout(resolve, REFRESH_POLL_INTERVAL_MS));
-        const snapshot = await fetchProviderAccountUsageSnapshot({
+        const read = await readProviderAccountUsage({
             credentials: params.credentials,
             recordId: params.recordId,
             mode: params.mode,
         });
+        const snapshot = read?.snapshot ?? null;
         if (snapshot && snapshot.fetchedAtMs > previousFetchedAtMs) {
             writeProviderAccountUsageSnapshotToCache({ credentialScope: params.credentialScope, snapshot });
-            return true;
+            return read?.metadata.status !== 'error';
         }
+        // The daemon clears the request when it finishes, including when the provider query failed.
+        if (read && read.metadata.refreshRequestedAt === undefined) return read.metadata.status !== 'error';
     }
     return false;
 }
