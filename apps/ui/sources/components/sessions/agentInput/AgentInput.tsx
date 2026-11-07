@@ -2391,11 +2391,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 <AgentInputProviderUsageMark
                     option={option}
                     gaugesByOptionId={usageGaugesByOptionId}
-                    onRefresh={props.onProviderUsageRefresh}
                 />
             ),
         }));
-    }, [unmarkedAgentPickerOptions, usageGaugesByOptionId, props.onProviderUsageRefresh]);
+    }, [unmarkedAgentPickerOptions, usageGaugesByOptionId]);
 
     const effectiveAgentPickerSelectedOptionId = React.useMemo(() => {
         if (typeof props.agentPickerSelectedOptionId === 'string' && props.agentPickerSelectedOptionId.length > 0) {

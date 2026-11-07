@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { act } from 'react-test-renderer';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderScreen } from '@/dev/testkit';
 import { computeConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { AgentInputProviderUsageMark } from './AgentInputProviderUsageMark';
+import { AgentInputChipPickerOptionSelector } from './AgentInputChipPickerOptionSelector';
 
 // Only the native SVG boundary is replaced; picker mark and usage geometry remain real.
 vi.mock('react-native-svg', () => ({
@@ -43,17 +43,27 @@ describe('provider picker usage mark', () => {
         />);
         expect(screen.getTextContent()).toBe('');
     });
-    it('refreshes on press without forwarding the press to the provider row', async () => {
-        const refresh = vi.fn();
-        const screen = await renderScreen(<AgentInputProviderUsageMark
-            option={{ id: 'claude', label: 'Claude', disabled: true, muted: true }}
-            gaugesByOptionId={new Map([['claude', exhaustedGauge()]])} onRefresh={refresh}
+    it.each(['rail', 'stacked'] as const)('keeps the usage ring inside one provider selection target (%s)', async (variant) => {
+        const selectProvider = vi.fn();
+        const option = { id: 'claude', label: 'Claude' };
+        const screen = await renderScreen(<AgentInputChipPickerOptionSelector
+            variant={variant}
+            sections={[{ id: 'providers', options: [{ ...option, leadingMark: (
+                <AgentInputProviderUsageMark option={option} gaugesByOptionId={new Map([['claude', exhaustedGauge()]])} />
+            ) }] }]}
+            focusedOptionId={null}
+            selectedOptionId={null}
+            onFocusOption={selectProvider}
         />);
-        let stopped = false;
-        const button = screen.findByTestId('agent-input-chip-picker.usage-refresh:claude');
-        expect(button).toBeTruthy();
-        act(() => { button?.props.onPress({ stopPropagation: () => { stopped = true; } }); });
-        expect(refresh).toHaveBeenCalledTimes(1);
-        expect(stopped).toBe(true);
+        const targetId = variant === 'stacked'
+            ? 'agent-input-chip-picker.top-selector-option:claude'
+            : 'agent-input-chip-picker.option:claude';
+        const target = screen.findByTestId(targetId);
+        expect(target).toBeTruthy();
+        expect(target?.findAll((node) => typeof node.type === 'string'
+            && node.props.accessibilityRole === 'button')).toHaveLength(1);
+        expect(screen.getTextContent()).toContain('0');
+        await screen.pressByTestIdAsync(targetId);
+        expect(selectProvider).toHaveBeenCalledExactlyOnceWith('claude');
     });
 });
