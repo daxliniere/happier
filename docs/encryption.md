@@ -342,6 +342,41 @@ invalid envelope or payload. It may skip only the unavailable Session record whi
 materialize other Account drafts; malformed or mode-incompatible content fails the snapshot so it
 cannot be silently classified as a local key-loading condition.
 
+## Device app lock (local credential sealing)
+
+The lock state and password wrapping remain local to each device. The recovery email
+and SMTP settings are stored by the relay server and shared across devices. The local record
+(`app_lock_v1`, SecureStore on native, localStorage on web/desktop) holds only wrapped keys and
+preferences:
+
+- a random 32-byte **data key** seals every stored credential value at the `TokenStorage` read/write
+  boundary as `happier-app-lock:v1:<base64 secretbox>`. The prefix is deliberately not JSON, so a build
+  without app lock reads it as "no credentials" and the device appears signed out;
+- the data key is wrapped (NaCl secretbox) under `scrypt(password)` (N=2^15, r=8, p=1, random salt)
+  and, separately, under a random **recovery key**;
+- the recovery key is escrowed with the relay (`AppLockRecovery` table, routes in
+  `packages/protocol/src/appLock/recovery.ts`). A six-digit code sent to the account-wide recovery address
+  (hashed, 15-minute expiry, five attempts), emailed through the account's own SMTP settings
+  (`AppLockMailSettings`, SMTP password encrypted with the server key tree and never returned),
+  releases it to the locked device, which then re-wraps the same data key under a new password. The
+  relay never sees the app lock password or the credentials;
+- on Android, fingerprint unlock keeps a copy of the data key in SecureStore with
+  `requireAuthentication`.
+
+Turning the lock on or off re-stores every credential through `TokenStorage.transitionCredentialStorage`.
+Before the first unlock the data key is not in memory, so credentials cannot be read or written and the
+app does not boot. Re-locking a running app retains the data key for background sync, while the
+notification execution owner refuses new permission/question actions and cancels pending preparation.
+Cached sync data and other local persistence are not sealed.
+
+Email recovery is disabled unless the operator enables
+`HAPPIER_FEATURE_APP_LOCK__EMAIL_RECOVERY__ENABLED=1`. This explicitly admits user-configured outbound
+SMTP, including private self-hosted mail servers; deployment egress policy remains the operator's
+responsibility. Recovery keys are server escrow, so this is not recovery that resists a compromised
+relay with access to the device's wrapped data. Local app notifications redact session content while
+the lock is enabled. Remote push previews retain account/OS notification policy and are not redacted
+by this device-local lock.
+
 ## On-wire formats (encrypted fields)
 
 ```mermaid
