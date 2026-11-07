@@ -14,7 +14,7 @@ describe('connected devices', () => {
             [`${CONNECTED_DEVICE_KEY_PREFIX}expired`]: { ...phone, lastSeen: now - CONNECTED_DEVICE_WINDOW_MS - 1 },
             [`${CONNECTED_DEVICE_KEY_PREFIX}invalid`]: { ...desktop, lastSeen: 'yesterday' },
             machines: [{ host: 'old-host', happyCliVersion: '0.2.17' }],
-        }, now)).toEqual([desktop, phone]);
+        }, now)).toEqual([{ ...desktop, id: 'desktop' }, { ...phone, id: 'phone' }]);
     });
 
     it('retains other devices when applying an independent device update', () => {
@@ -22,6 +22,6 @@ describe('connected devices', () => {
         const updated = { name: 'Laptop', platform: 'desktop', appVersion: '0.2.19-fork.23', lastSeen: 200 };
         const settings = settingsParse({ [`${CONNECTED_DEVICE_KEY_PREFIX}phone`]: existing });
         const merged = settingsParse(applySettings(settings, { [`${CONNECTED_DEVICE_KEY_PREFIX}laptop`]: updated }));
-        expect(listConnectedDevices(merged, 200)).toEqual([updated, existing]);
+        expect(listConnectedDevices(merged, 200)).toEqual([{ ...updated, id: 'laptop' }, { ...existing, id: 'phone' }]);
     });
 });
