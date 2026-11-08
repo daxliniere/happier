@@ -339,6 +339,8 @@ export type TranscriptJumpHost = Readonly<{
         target: TranscriptJumpTarget,
         options?: Readonly<{ align?: TranscriptViewportJumpAlignment; preferTargetWindow?: boolean }>,
     ): Promise<TranscriptJumpResult>;
+    /** Centers a loaded message (transcript Find), rendering its window first when it is not mounted. */
+    revealTranscriptMessage(target: TranscriptJumpTarget): Promise<TranscriptJumpResult>;
     preemptExplicitJumpForUserTakeover(): void;
     observeWebTranscriptNavigationVisibilityForSession(
         input?: Readonly<{ genuineUserMovement?: boolean }>,
@@ -1440,6 +1442,18 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
         sessionId,
     ]);
 
+    const revealTranscriptMessage = React.useCallback((target: TranscriptJumpTarget): Promise<TranscriptJumpResult> => {
+        const result = jumpToTranscriptTarget(target, {
+            align: { kind: 'center' },
+            preferTargetWindow: !isTranscriptNavigationTargetInRenderedWindow(target),
+        });
+        fireAndForget(result, { tag: 'ChatList.revealTranscriptMessage' });
+        return result;
+    }, [
+        isTranscriptNavigationTargetInRenderedWindow,
+        jumpToTranscriptTarget,
+    ]);
+
     const handleTranscriptNavigationPaneEntryPress = React.useCallback((entry: TranscriptNavigationEntry): Promise<TranscriptJumpResult> | undefined => {
         const request = resolveTranscriptNavigationPaneJumpRequest(entry, sessionId);
         return request ? handleTranscriptNavigationRailJump(entry, request) : undefined;
@@ -1567,6 +1581,7 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
         onScrollToIndexFailed,
         preemptExplicitJumpForUserTakeover,
         promotePendingJumpSeqViewportSnapshot,
+        revealTranscriptMessage,
         shouldSuppressGenericViewportStateForProtectedJumpSeq,
     }), [
         commitJumpToBottomDistanceForVisibility,
@@ -1584,6 +1599,7 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
         onScrollToIndexFailed,
         preemptExplicitJumpForUserTakeover,
         promotePendingJumpSeqViewportSnapshot,
+        revealTranscriptMessage,
         shouldSuppressGenericViewportStateForProtectedJumpSeq,
     ]);
 }

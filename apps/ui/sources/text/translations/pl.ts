@@ -664,6 +664,7 @@ export const pl: TranslationStructure = {
             transcriptScrollPageDown: 'Przewiń transkrypcję stronę w dół',
             transcriptScrollPageUp: 'Przewiń transkrypcję stronę w górę',
             transcriptScrollTop: 'Przewiń transkrypcję na górę',
+            findOpen: 'Szukaj w transkrypcji',
         },
     },
 
@@ -753,6 +754,15 @@ export const pl: TranslationStructure = {
 
       catchingUp: 'Nadrabianie zaległości…',
 
+    },
+    find: {
+      placeholder: 'Szukaj w rozmowie',
+      inputA11y: 'Szukaj w rozmowie',
+      count: ({ current, total }: { current: number; total: number }) => `${current} z ${total}`,
+      noResults: 'Brak wyników',
+      olderA11y: 'Poprzednie dopasowanie (starsze)',
+      newerA11y: 'Następne dopasowanie (nowsze)',
+      closeA11y: 'Zamknij wyszukiwanie',
     },
 
     unsupportedContent: {

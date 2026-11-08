@@ -636,6 +636,7 @@ export const ja: TranslationStructure = {
             transcriptScrollPageDown: 'トランスクリプトを1ページ下へ',
             transcriptScrollPageUp: 'トランスクリプトを1ページ上へ',
             transcriptScrollTop: 'トランスクリプトの先頭へ移動',
+            findOpen: 'トランスクリプト内を検索',
         },
     },
 
@@ -725,6 +726,15 @@ export const ja: TranslationStructure = {
 
       catchingUp: '追いついています…',
 
+    },
+    find: {
+      placeholder: '会話内を検索',
+      inputA11y: '会話内を検索',
+      count: ({ current, total }: { current: number; total: number }) => `${current} / ${total}`,
+      noResults: '一致なし',
+      olderA11y: '前の一致（古い）',
+      newerA11y: '次の一致（新しい）',
+      closeA11y: '検索を閉じる',
     },
 
     unsupportedContent: {

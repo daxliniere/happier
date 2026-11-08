@@ -181,8 +181,11 @@ function WebCommandPaletteProvider({ children }: { children: React.ReactNode }) 
             router.push('/settings' as any);
         },
     }), [commandPaletteEnabled, openNewSession, router, showCommandPalette]);
+    // Find answers Mod+F like a browser does, so it works without opting into the shortcut registry.
     const keyboardEnabledWhenDisabledCommandIds = useMemo(
-        () => commandPaletteEnabled ? ['commandPalette.open'] as const : [],
+        () => commandPaletteEnabled
+            ? ['commandPalette.open', 'find.open'] as const
+            : ['find.open'] as const,
         [commandPaletteEnabled],
     );
 

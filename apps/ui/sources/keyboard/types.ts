@@ -28,6 +28,7 @@ export type KeyboardCommandId =
     | 'session.visible.next'
     | 'session.visible.previous'
     | 'settings.open'
+    | 'find.open'
     | 'transcript.message.next'
     | 'transcript.message.previous'
     | 'transcript.selection.cancel'
