@@ -42,6 +42,7 @@ const SETTINGS_ROUTE_CHROME_DEFINITIONS: readonly SettingsRouteChromeDefinition[
     { name: 'connected-services/provider-state-sharing', titleKey: 'connectedServices.providerStateSharing.title' },
     { name: 'diagnosis', titleKey: 'diagnosis.title' },
     { name: 'features', titleKey: 'settings.features' },
+    { name: 'file-opening', titleKey: 'settingsDesktop.pathMappingsTitle' },
     { name: 'keyboard', titleKey: 'settingsKeyboard.title' },
     { name: 'language', titleKey: 'settingsLanguage.currentLanguage' },
     { name: 'machines', titleKey: 'settings.machines' },

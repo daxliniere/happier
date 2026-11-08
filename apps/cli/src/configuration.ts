@@ -224,6 +224,7 @@ class Configuration {
   public readonly filesTransferChunkBytes: number
   public readonly filesTransferSessionTtlMs: number
   public readonly filesUploadMaxFileBytes: number
+  public readonly filesImageReadMaxBytes: number
   public readonly filesDownloadMaxFileBytes: number
   public readonly filesZipMaxTotalBytes: number
   public readonly filesZipMaxEntryCount: number
@@ -501,6 +502,12 @@ class Configuration {
 
     // Default: 50MB. Defensive minimum: 1 byte.
     this.filesUploadMaxFileBytes = resolveIntEnvWithBounds('HAPPIER_FILES_UPLOAD_MAX_FILE_BYTES', {
+      min: 1, default: 50 * 1024 * 1024,
+    });
+
+    // Whole-file in-memory reads of uploaded images (hash verification, prompt projection).
+    // This bounds RAM, so it is deliberately independent of the upload cap. Default: 50MB.
+    this.filesImageReadMaxBytes = resolveIntEnvWithBounds('HAPPIER_FILES_IMAGE_READ_MAX_BYTES', {
       min: 1, default: 50 * 1024 * 1024,
     });
 

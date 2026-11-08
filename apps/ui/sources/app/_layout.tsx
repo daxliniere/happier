@@ -31,6 +31,7 @@ import {
 } from '@/sync/domains/session/activeViewingSession';
 import { NotificationsSettingsV1Schema } from '@happier-dev/protocol';
 import { useTrackScreens } from '@/track/useTrackScreens';
+import { ShareIntakeRuntime } from '@/components/sessions/new/shareIntake/ShareIntakeRuntime';
 import { RealtimeProvider } from '@/realtime/RealtimeProvider';
 import { FaviconPermissionIndicator } from '@/components/web/FaviconPermissionIndicator';
 import { CommandPaletteProvider } from '@/components/appShell/commandPalette/CommandPaletteProvider';
@@ -62,6 +63,7 @@ import { DesktopShellWindowControlsHost } from '@/components/navigation/shell/de
 import { useResolvedDesktopWindowControls } from '@/components/navigation/shell/desktopChrome/useResolvedDesktopWindowControls';
 import { resolveAppShellChromeHost } from '@/components/appShell/resolveAppShellChromeHost';
 import { isDesktopPetOverlayWindowContext } from '@/components/pets/desktop/runtime/isDesktopPetOverlayWindowContext';
+import { isSessionFileWindowContext } from '@/components/sessions/files/window/sessionFileWindowRoute';
 import { isTauriDesktop } from '@/utils/platform/tauri';
 import { installTauriExternalLinkClicks } from '@/utils/url/installTauriExternalLinkClicks';
 import { useIsTablet } from '@/utils/platform/responsive';
@@ -623,9 +625,10 @@ function AppBoot(props: {
     const safeArea = useSafeAreaInsets();
     const isTablet = useIsTablet();
     const isDesktopPetOverlayWindow = isDesktopPetOverlayWindowContext();
+    const isSessionFileWindow = isSessionFileWindowContext();
     useTauriMainWindowBackgroundColor(
         props.desktopWindowBackgroundColor,
-        !isDesktopPetOverlayWindow,
+        !isDesktopPetOverlayWindow && !isSessionFileWindow,
     );
     const isTerminalConnectRoute = isTerminalConnectWebPathname(pathname);
     const [initState, setInitState] = React.useState<AppBootReadyState | null>(null);
@@ -728,6 +731,7 @@ function AppBoot(props: {
                                                 <HorizontalSafeAreaRoot>
                                                     <RootAppShell
                                                         isDesktopPetOverlayWindow={isDesktopPetOverlayWindow}
+                                                        isSessionFileWindow={isSessionFileWindow}
                                                         isTablet={isTablet}
                                                         isTerminalConnectRoute={isTerminalConnectRoute}
                                                         safeArea={safeArea}
@@ -763,15 +767,18 @@ function AppBoot(props: {
 
 function RootAppShell(props: Readonly<{
     isDesktopPetOverlayWindow: boolean;
+    isSessionFileWindow: boolean;
     isTablet: boolean;
     isTerminalConnectRoute: boolean;
     safeArea: Readonly<{ top: number; right: number; left: number }>;
 }>) {
     const auth = useAuth();
     const tauriDesktop = isTauriDesktop();
+    const isAuxiliaryWindow = props.isDesktopPetOverlayWindow || props.isSessionFileWindow;
     const appShellChromeHost = resolveAppShellChromeHost({
         isAuthenticated: auth.isAuthenticated,
         isDesktopPetOverlayWindow: props.isDesktopPetOverlayWindow,
+        isSessionFileWindow: props.isSessionFileWindow,
         isTauriDesktop: tauriDesktop,
         isTablet: props.isTablet,
         isTerminalConnectRoute: props.isTerminalConnectRoute,
@@ -782,15 +789,16 @@ function RootAppShell(props: Readonly<{
 
     const shellContent = (
         <View style={{ flex: 1, position: 'relative' }}>
-            <ActionOperationRuntime enabled={auth.isAuthenticated && !props.isDesktopPetOverlayWindow} />
-            <UpdateFactsBackgroundRuntime enabled={auth.isAuthenticated && !props.isDesktopPetOverlayWindow} />
+            <ActionOperationRuntime enabled={auth.isAuthenticated && !isAuxiliaryWindow} />
+            <UpdateFactsBackgroundRuntime enabled={auth.isAuthenticated && !isAuxiliaryWindow} />
+            {Platform.OS === 'android' && auth.isAuthenticated ? <ShareIntakeRuntime /> : null}
             {/*
               * R5/INV4 — deliberately NOT behind `auth.isAuthenticated`. This is the app's one
               * pre-auth mount: the moment the desktop window opens it starts acquiring the
               * managed CLI and reading local readiness, so signing in lands on work already done.
               * The pet overlay is a second webview of the same app and must not read a second time.
               */}
-            <DesktopLocalSetupWarmup enabled={tauriDesktop && !props.isDesktopPetOverlayWindow} />
+            <DesktopLocalSetupWarmup enabled={tauriDesktop && !isAuxiliaryWindow} />
             {/*
               * The quit handoff. Mounted beside the warm-up and on the same one-webview condition:
               * the native side hands the decision to a single webview, and the pet overlay is a
@@ -798,7 +806,7 @@ function RootAppShell(props: Readonly<{
               * background service should stop when the app closes is one whose app may be closed
               * from anywhere in the app, signed in or not.
               */}
-            <DesktopBackgroundServiceCloseGuard enabled={tauriDesktop && !props.isDesktopPetOverlayWindow} />
+            <DesktopBackgroundServiceCloseGuard enabled={tauriDesktop && !isAuxiliaryWindow} />
             {/*
               * R11 — the one setup lifecycle (inspection, quiet start, reconciliation, executor,
               * readiness proof), mounted once at the authenticated desktop shell so a cold deep
@@ -806,8 +814,8 @@ function RootAppShell(props: Readonly<{
               * the Home presents it (`DesktopLocalSetupPanel`). Sign-out unmounts it, so the next
               * sign-in starts a fresh first run.
               */}
-            {tauriDesktop && auth.isAuthenticated && !props.isDesktopPetOverlayWindow ? <DesktopLocalSetupRuntime /> : null}
-            {!props.isDesktopPetOverlayWindow ? <OnboardingShowcaseAutoShowMount /> : null}
+            {tauriDesktop && auth.isAuthenticated && !isAuxiliaryWindow ? <DesktopLocalSetupRuntime /> : null}
+            {!isAuxiliaryWindow ? <OnboardingShowcaseAutoShowMount /> : null}
             {appShellChromeHost === 'narrow-desktop-fallback' || appShellChromeHost === 'unauth-shell' ? (
                 <DesktopFallbackShellChrome safeArea={props.safeArea} />
             ) : null}
