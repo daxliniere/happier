@@ -7,6 +7,9 @@ import { installNavigationShellCommonModuleMocks } from './navigationShellTestHe
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
+// The authenticated header contains usage; no remote account is needed for these controls.
+vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+
 const routerPushSpy = vi.hoisted(() => vi.fn());
 
 const automationsSupportState = vi.hoisted(() => ({

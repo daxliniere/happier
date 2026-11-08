@@ -23,6 +23,7 @@ import { FABWide } from '@/components/ui/buttons/FABWide';
 import { InboxView } from '@/components/navigation/shell/InboxView';
 import { FriendsView } from '@/components/navigation/shell/FriendsView';
 import { SessionsListWrapper } from '@/components/sessions/shell/SessionsListWrapper';
+import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 import { useScreenSafeAreaBackdrop } from '@/components/navigation/safeArea/HorizontalSafeArea';
 import { Header } from '@/components/navigation/Header';
 import { HeaderLogo } from '@/components/ui/navigation/HeaderLogo';
@@ -129,9 +130,11 @@ const styles = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     titleContainer: {
-        flex: 1,
+        flexShrink: 1,
+        minWidth: 0,
         alignItems: 'flex-start',
         marginLeft: -4,
+        marginRight: 8,
     },
     titleText: {
         fontSize: 16,
@@ -462,7 +465,12 @@ const PhoneTabbedMainViewContent = React.memo(function PhoneTabbedMainViewConten
         <View style={styles.phoneContainer}>
             <View style={{ backgroundColor: theme.colors.background.canvas }}>
                 <Header
-                    title={<HeaderTitle activeTab={headerTab} />}
+                    title={(
+                        <>
+                            <HeaderTitle activeTab={headerTab} />
+                            {headerTab === 'sessions' ? <ProviderUsageStrip /> : null}
+                        </>
+                    )}
                     headerRight={() => <HeaderRight activeTab={headerTab} />}
                     headerLeft={() => <HeaderLogo />}
                     headerContentStyle={styles.phoneHeaderContent}
