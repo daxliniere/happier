@@ -2090,6 +2090,7 @@ type SessionTranscriptContentProps = Readonly<{
     onViewportChange: ChatListProps['onViewportChange'];
     onEditPendingMessage: ChatListProps['onEditPendingMessage'];
     routeHydrationPending: ChatListProps['routeHydrationPending'];
+    surfaceFocused: boolean;
 }>;
 
 const SessionTranscriptContent = React.memo(function SessionTranscriptContent({
@@ -2111,6 +2112,7 @@ const SessionTranscriptContent = React.memo(function SessionTranscriptContent({
     onViewportChange,
     onEditPendingMessage,
     routeHydrationPending,
+    surfaceFocused,
 }: SessionTranscriptContentProps) {
     const openToTranscriptTelemetryRef = React.useRef<{
         recorded: boolean;
@@ -2231,6 +2233,7 @@ const SessionTranscriptContent = React.memo(function SessionTranscriptContent({
                     onViewportChange={onViewportChange}
                     onEditPendingMessage={onEditPendingMessage}
                     routeHydrationPending={routeHydrationPending}
+                    surfaceFocused={surfaceFocused}
                 />
             ) : null}
         </Deferred>
@@ -5047,6 +5050,7 @@ function SessionViewLoaded({
             onViewportChange={handleTranscriptViewportChange}
             onEditPendingMessage={handleEditPendingMessage}
             routeHydrationPending={routeHydrationPending}
+            surfaceFocused={surfaceFocused}
         />
     );
     const placeholder = (

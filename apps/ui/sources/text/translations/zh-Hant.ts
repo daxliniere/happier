@@ -943,6 +943,10 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         olderA11y: '上一個符合項（較早）',
         newerA11y: '下一個符合項（較新）',
         closeA11y: '關閉尋找',
+        menuTitle: '在對話中尋找',
+        expandSearch: '擴大搜尋範圍？',
+        expandingSearch: '正在搜尋較早的訊息…',
+        expandingSearchHint: '再按一次可停止',
       },
 
       unsupportedContent: {

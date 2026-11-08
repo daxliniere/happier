@@ -529,6 +529,10 @@ export const de: TranslationStructure = {
             olderA11y: 'Vorheriger Treffer (älter)',
             newerA11y: 'Nächster Treffer (neuer)',
             closeA11y: 'Suche schließen',
+            menuTitle: 'In Unterhaltung suchen',
+            expandSearch: 'Suche erweitern?',
+            expandingSearch: 'Ältere Nachrichten werden durchsucht…',
+            expandingSearchHint: 'Erneut drücken zum Stoppen',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Nicht geparste Nutzernachricht',

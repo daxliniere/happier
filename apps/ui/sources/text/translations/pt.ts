@@ -801,6 +801,10 @@ export const pt: TranslationStructure = {
       olderA11y: 'Correspondência anterior (mais antiga)',
       newerA11y: 'Próxima correspondência (mais recente)',
       closeA11y: 'Fechar pesquisa',
+      menuTitle: 'Procurar na conversa',
+      expandSearch: 'Alargar a pesquisa?',
+      expandingSearch: 'A procurar mensagens anteriores…',
+      expandingSearchHint: 'Prima novamente para parar',
     },
 
     unsupportedContent: {

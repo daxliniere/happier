@@ -691,6 +691,28 @@ describe('SessionHeaderActionMenu handoff', () => {
     }
   });
 
+  it('lists Find first and opens it through the shared find command', async () => {
+    const openFind = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
+    // The provider listens for web keydowns on window; this node test environment has none.
+    vi.stubGlobal('window', { addEventListener: () => undefined, removeEventListener: () => undefined });
+    try {
+      const { KeyboardShortcutProvider } = await import('@/keyboard/KeyboardShortcutProvider');
+      const session = createSessionFixture({ id: 'header-find' });
+      const screen = await renderScreen(
+        <KeyboardShortcutProvider handlers={{ 'find.open': openFind }}>
+          <SessionHeaderActionMenu sessionId={session.id} session={session} />
+        </KeyboardShortcutProvider>,
+      );
+      const dropdown = screen.findByType('DropdownMenu' as React.ElementType);
+      expect(dropdown.props.items[0]?.id).toBe('header.find');
+      await act(async () => { dropdown.props.onSelect('header.find'); });
+      expect(openFind).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('copies session information from the header with developer mode disabled', async () => {
     const session = createSessionFixture({
       id: 'header-copy',

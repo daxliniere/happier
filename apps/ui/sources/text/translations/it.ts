@@ -750,6 +750,10 @@ export const it: TranslationStructure = {
       olderA11y: 'Risultato precedente (più vecchio)',
       newerA11y: 'Risultato successivo (più recente)',
       closeA11y: 'Chiudi ricerca',
+      menuTitle: 'Cerca nella conversazione',
+      expandSearch: 'Estendere la ricerca?',
+      expandingSearch: 'Ricerca nei messaggi precedenti…',
+      expandingSearchHint: 'Premi di nuovo per interrompere',
     },
 
     unsupportedContent: {

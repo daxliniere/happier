@@ -74,6 +74,8 @@ export type ChatListProps = Readonly<{
     onEditPendingMessage?: (request: PendingMessageEditRequest) => void | Promise<void>;
     isWarmKeepAliveInstance?: boolean;
     routeHydrationPending?: boolean;
+    /** The session surface the reader is on; only it answers transcript Find. Defaults to true. */
+    surfaceFocused?: boolean;
 }>;
 
 export type ChatListInternalProps = Readonly<{
@@ -111,4 +113,5 @@ export type ChatListInternalProps = Readonly<{
     onEditPendingMessage?: (request: PendingMessageEditRequest) => void | Promise<void>;
     isWarmKeepAliveInstance?: boolean;
     routeHydrationPending?: boolean;
+    surfaceFocused: boolean;
 } & TranscriptSessionCommonProps>;

@@ -527,6 +527,10 @@ export const en = {
             olderA11y: 'Previous match (older)',
             newerA11y: 'Next match (newer)',
             closeA11y: 'Close find',
+            menuTitle: 'Find in conversation',
+            expandSearch: 'Expand search?',
+            expandingSearch: 'Searching older messages…',
+            expandingSearchHint: 'Press again to stop',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Unparsed user message',

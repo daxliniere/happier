@@ -184,6 +184,7 @@ export function useChatListRootState(props: ChatListProps) {
             onEditPendingMessage: props.onEditPendingMessage,
             isWarmKeepAliveInstance: props.isWarmKeepAliveInstance === true,
             routeHydrationPending: props.routeHydrationPending === true,
+            surfaceFocused: props.surfaceFocused !== false,
             forkCommon: transcriptSessionCommon.fork,
             messageDisplayCommon: transcriptSessionCommon.messageDisplay,
             toolChromeCommon: transcriptSessionCommon.toolChrome,
