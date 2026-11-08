@@ -331,6 +331,29 @@ describe('MainView sidebar actions', () => {
         expect(tree!.findAllByType('TabBar')).toHaveLength(0);
     });
 
+    it('opens provider-session browsing from a folder icon immediately left of phone Automations', async () => {
+        platformState.isTablet = false;
+        directSessionsFeatureState.enabled = true;
+        const screen = await renderScreen(<MainView variant="phone" />);
+        const header = screen.tree.findByType('Header');
+        const actions = await renderScreen(header.props.headerRight());
+        const buttons = actions.findAll((node) => typeof node.type === 'string' && typeof node.props.onPress === 'function');
+        const browseIndex = buttons.findIndex((node) => node.props.testID === 'main-header-direct-sessions-browse');
+
+        expect(browseIndex).toBeGreaterThanOrEqual(0);
+        expect(buttons[browseIndex + 1]!.findAllByProps({ name: 'timer' }).length).toBeGreaterThan(0);
+        await actions.pressByTestIdAsync('main-header-direct-sessions-browse');
+        expect(routerPushSpy).toHaveBeenCalledWith('/direct/browse');
+    });
+
+    it('hides the phone browse icon when provider-session browsing is disabled', async () => {
+        platformState.isTablet = false;
+        const screen = await renderScreen(<MainView variant="phone" />);
+        const actions = await renderScreen(screen.tree.findByType('Header').props.headerRight());
+
+        expect(actions.findHostByTestId('main-header-direct-sessions-browse')).toBeNull();
+    });
+
     it('does not subscribe to sidebar session-list derivations in phone mode', async () => {
         platformState.isTablet = false;
         sessionListState.data = [{
@@ -486,24 +509,25 @@ describe('MainView sidebar actions', () => {
         expect(() => renderedHeaderRight.findByProps({ testID: 'main-header-start-new-session' })).not.toThrow();
     });
 
-    it('renders direct session storage tabs in the sidebar empty state when direct sessions are enabled', async () => {
+    it('does not separate the sidebar into Happier and Direct tabs', async () => {
         directSessionsFeatureState.enabled = true;
         localSettingsState.sessionsListStorageTab = 'direct';
 
         let tree: renderer.ReactTestRenderer | null = null;
         tree = (await renderScreen(<MainView variant="sidebar" />)).tree;
 
-        expect(() => tree!.findByProps({ testID: 'sessions-list-storage-tab:direct' })).not.toThrow();
+        expect(tree!.root.findAllByProps({ testID: 'sessions-list-storage-tab:direct' })).toHaveLength(0);
+        expect(tree!.root.findAllByProps({ testID: 'sessions-list-storage-tab:persisted' })).toHaveLength(0);
     });
 
-    it('renders the browse direct sessions action in the sidebar empty state when the direct tab is active', async () => {
+    it('leaves provider-session browsing to the sidebar header icon instead of a block above the list', async () => {
         directSessionsFeatureState.enabled = true;
-        localSettingsState.sessionsListStorageTab = 'direct';
+        localSettingsState.sessionsListStorageTab = 'persisted';
 
         let tree: renderer.ReactTestRenderer | null = null;
         tree = (await renderScreen(<MainView variant="sidebar" />)).tree;
 
-        expect(() => tree!.findByProps({ testID: 'direct-sessions-browse-button' })).not.toThrow();
+        expect(tree!.root.findAllByProps({ testID: 'direct-sessions-browse-button' })).toHaveLength(0);
     });
 
     it('shows the hidden inactive sessions notice when hide inactive sessions empties the sidebar', async () => {

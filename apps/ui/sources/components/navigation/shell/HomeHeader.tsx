@@ -40,7 +40,9 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         tintColor: theme.colors.chrome.header.foreground,
     },
     titleContainer: {
-        flex: 1,
+        flexShrink: 1,
+        minWidth: 0,
+        marginRight: 8,
         alignItems: 'center',
     },
     titleText: {
@@ -82,7 +84,11 @@ export const HomeHeader = React.memo(() => {
     return (
         <View style={{ backgroundColor: theme.colors.background.canvas }}>
             <Header
-                title={<HeaderTitleWithSubtitle />}
+                title={(
+                    <>
+                        <HeaderTitleWithSubtitle />
+                    </>
+                )}
                 headerRight={() => <HeaderRight />}
                 headerLeft={() => <HeaderLeft showAutomations={showAutomations} />}
                 headerShadowVisible={false}

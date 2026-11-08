@@ -54,6 +54,11 @@ export type PressableSurfaceProps = Readonly<{
     tooltipContent?: React.ReactNode;
     tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
     testID?: string;
+    /** Lets a control that is visually hidden (e.g. a trigger replaced by its open menu) leave the hit and focus order. */
+    pointerEvents?: PressableProps['pointerEvents'];
+    focusable?: boolean;
+    accessibilityElementsHidden?: boolean;
+    importantForAccessibility?: PressableProps['importantForAccessibility'];
 }>;
 
 export const PressableSurface = React.memo((props: PressableSurfaceProps) => {
@@ -143,6 +148,10 @@ export const PressableSurface = React.memo((props: PressableSurfaceProps) => {
             onHoverIn={props.webTooltip ? handleHoverIn : undefined}
             onHoverOut={props.webTooltip ? handleHoverOut : undefined}
             hitSlop={props.hitSlop}
+            pointerEvents={props.pointerEvents}
+            focusable={props.focusable}
+            accessibilityElementsHidden={props.accessibilityElementsHidden}
+            importantForAccessibility={props.importantForAccessibility}
             disabled={disabled}
             accessibilityRole={props.accessibilityRole ?? 'button'}
             accessibilityLabel={props.accessibilityLabel}
