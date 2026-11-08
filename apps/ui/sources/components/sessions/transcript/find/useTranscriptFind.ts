@@ -10,6 +10,8 @@ export type TranscriptFindState = Readonly<{
     activeIndex: number | null;
     goOlder: () => void;
     goNewer: () => void;
+    /** Re-lands on the first match, e.g. once older history has loaded into the search. */
+    restart: () => void;
 }>;
 
 type Selection = Readonly<{ query: string; routeMessageId: string }>;
@@ -76,5 +78,11 @@ export function useTranscriptFind(params: Readonly<{
     const goOlder = React.useCallback(() => step(-1), [step]);
     const goNewer = React.useCallback(() => step(1), [step]);
 
-    return { total: matches.length, activeIndex, goOlder, goNewer };
+    const firstMatch = matches[0] ?? null;
+    const restart = React.useCallback(() => {
+        setSelection(null);
+        if (firstMatch) jump(firstMatch);
+    }, [firstMatch, jump]);
+
+    return { total: matches.length, activeIndex, goOlder, goNewer, restart };
 }

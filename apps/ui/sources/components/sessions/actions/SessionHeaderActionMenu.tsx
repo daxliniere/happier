@@ -82,11 +82,14 @@ import { nowServerMs } from '@/sync/runtime/time';
 import { safeRouterBack } from '@/utils/navigation/safeRouterBack';
 import { resolveSessionHeaderActionTargetPx, SESSION_HEADER_ICON_SIZE_PX } from '@/components/sessions/actions/sessionHeaderIconMetrics';
 import { Icon } from '@/components/ui/icons/Icon';
+import { useKeyboardCommand } from '@/keyboard/KeyboardShortcutProvider';
 import { emitSessionResumeRequest } from '@/components/sessions/model/sessionResumeRequests';
 import { buildSessionDebugInformationForSession } from '@/components/sessions/debug/sessionDebugInformation';
 import { copySessionDebugInformationToClipboard, isSessionCopyActionId } from '@/components/sessions/debug/sessionDebugClipboard';
 import { createSessionCopyMenuItem, SESSION_COPY_MENU_ITEM_ID } from '@/components/sessions/debug/sessionDebugMenuItem';
 import { resolveBugReportAccountIdForServer } from '@/components/settings/bugReports/bugReportSessionTarget';
+
+const SESSION_HEADER_FIND_ITEM_ID = 'header.find';
 
 type SessionHeaderActionMenuProps = Readonly<{
   sessionId: string;
@@ -203,6 +206,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
   const sessionHandoffEnabled = useFeatureEnabled('sessions.handoff');
   const executionRunsEnabled = useFeatureEnabled('execution.runs');
   const sessionServerId = usePreferredServerIdForSession(props.sessionId);
+  const executeKeyboardCommand = useKeyboardCommand();
   const navigateAfterDelete = useSessionActionNavigation({
     sessionId: props.sessionId,
     serverId: sessionServerId ?? null,
@@ -317,7 +321,12 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
         subtitle: spec.description,
       }));
 
-    const out: DropdownMenuItem[] = [];
+    // Find leads the menu: it is the menu's only way into transcript Find on touch devices.
+    const out: DropdownMenuItem[] = [{
+      id: SESSION_HEADER_FIND_ITEM_ID,
+      title: t('transcript.find.menuTitle'),
+      icon: <Icon name="magnifying-glass" size={16} color={theme.colors.chrome.header.foreground} />,
+    }];
 
     if (Array.isArray(props.extraItems) && props.extraItems.length > 0) {
       out.push(...props.extraItems);
@@ -424,6 +433,11 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
           return;
         }
         setOpen(false);
+        if (actionId === SESSION_HEADER_FIND_ITEM_ID) {
+          // Open after the menu has closed, so its focus return does not take focus from the find field.
+          requestAnimationFrame(() => { executeKeyboardCommand('find.open'); });
+          return;
+        }
         if (props.onSelectExtraItem?.(actionId) === true) return;
         if (actionId === 'header.reportIssue') {
           fireAndForget((async () => {
@@ -691,6 +705,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
     />
   );
 }
+
 
 export const SessionHeaderActionMenu = React.memo(
   SessionHeaderActionMenuInner,

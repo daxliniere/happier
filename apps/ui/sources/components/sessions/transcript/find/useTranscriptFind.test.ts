@@ -72,4 +72,19 @@ describe('useTranscriptFind', () => {
         expect(hook.getCurrent()).toMatchObject({ total: 4, activeIndex: 1 });
         expect(jumped).toEqual(['m1', 'm3']);
     });
+
+    it('restarts on the first match once older history has loaded', async () => {
+        const recent = MESSAGES.slice(2);
+        const { hook, jumped } = await renderFind({ messages: recent, query: 'deploy' });
+        await act(async () => { hook.getCurrent().goNewer(); });
+        expect(jumped).toEqual(['m3', 'm4']);
+
+        await hook.rerender({ messages: MESSAGES, query: 'deploy' });
+        expect(hook.getCurrent()).toMatchObject({ total: 3, activeIndex: 2 });
+
+        await act(async () => { hook.getCurrent().restart(); });
+
+        expect(hook.getCurrent().activeIndex).toBe(0);
+        expect(jumped).toEqual(['m3', 'm4', 'm1']);
+    });
 });

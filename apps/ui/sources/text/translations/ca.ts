@@ -703,6 +703,10 @@ export const ca: TranslationStructure = {
             olderA11y: 'Coincidència anterior (més antiga)',
             newerA11y: 'Coincidència següent (més recent)',
             closeA11y: 'Tanca la cerca',
+            menuTitle: 'Cerca a la conversa',
+            expandSearch: 'Ampliar la cerca?',
+            expandingSearch: 'Cercant missatges anteriors…',
+            expandingSearchHint: 'Torna a prémer per aturar',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Missatge d\'usuari no analitzat',

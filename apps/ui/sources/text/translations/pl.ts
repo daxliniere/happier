@@ -763,6 +763,10 @@ export const pl: TranslationStructure = {
       olderA11y: 'Poprzednie dopasowanie (starsze)',
       newerA11y: 'Następne dopasowanie (nowsze)',
       closeA11y: 'Zamknij wyszukiwanie',
+      menuTitle: 'Szukaj w rozmowie',
+      expandSearch: 'Rozszerzyć wyszukiwanie?',
+      expandingSearch: 'Przeszukiwanie starszych wiadomości…',
+      expandingSearchHint: 'Naciśnij ponownie, aby zatrzymać',
     },
 
     unsupportedContent: {

@@ -335,6 +335,8 @@ export type TranscriptJumpHost = Readonly<{
     jumpToTop(): Promise<void>;
     jumpToTopAffordance: ReturnType<typeof resolveJumpToTopAffordanceState>;
     jumpToTopLoading: boolean;
+    /** Loads every older page (shared with Jump to top; calling again while loading cancels). */
+    loadEntireTranscript(land?: () => Promise<unknown>): Promise<boolean>;
     jumpToTranscriptTarget(
         target: TranscriptJumpTarget,
         options?: Readonly<{ align?: TranscriptViewportJumpAlignment; preferTargetWindow?: boolean }>,
@@ -1353,12 +1355,16 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
         promotedJumpSeqViewportProtectionRef,
     ]);
 
-    const jumpToTop = React.useCallback(async (): Promise<void> => {
+    // One owner for "load every older page": Jump to top and transcript Find's expand share it, so
+    // pressing either again while the load runs cancels it, and both drive the same busy state.
+    // Resolves true once the whole history is loaded and committed, after `land` (if any) ran.
+    const loadEntireTranscript = React.useCallback(async (
+        land?: () => Promise<unknown>,
+    ): Promise<boolean> => {
         const active = jumpToTopOperationRef.current;
         if (active) {
-            // Pressing again while older history is loading cancels the load.
             active.cancelled = true;
-            return;
+            return false;
         }
         const operation = { cancelled: false };
         jumpToTopOperationRef.current = operation;
@@ -1368,10 +1374,10 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
             // Older history pages in lazily: walk every page first so the landing is the true
             // first row, not just the oldest row loaded so far.
             for (;;) {
-                if (isCancelled()) return;
+                if (isCancelled()) return false;
                 const result = await loadOlder({ showLoadingIndicator: false });
-                if (isCancelled()) return;
-                if (!result || result.status === 'not_ready') return;
+                if (isCancelled()) return false;
+                if (!result || result.status === 'not_ready') return false;
                 if (result.status === 'in_flight') {
                     await waitForNextVisualUpdate();
                     continue;
@@ -1380,7 +1386,24 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
             }
             // The last prepended page must be committed before the oldest row is read.
             await waitForNextVisualUpdate();
-            if (isCancelled()) return;
+            if (isCancelled()) return false;
+            await land?.();
+            return true;
+        } finally {
+            if (jumpToTopOperationRef.current === operation) {
+                jumpToTopOperationRef.current = null;
+                setJumpToTopLoading(false);
+            }
+        }
+    }, [
+        currentSessionIdRef,
+        loadOlder,
+        sessionId,
+        waitForNextVisualUpdate,
+    ]);
+
+    const jumpToTop = React.useCallback(async (): Promise<void> => {
+        await loadEntireTranscript(async () => {
             let oldestSeq: number | null = null;
             for (const item of itemsRef.current) {
                 const seq = resolveTargetWindowItemSeq(item);
@@ -1391,20 +1414,12 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
                 { kind: 'seq', seq: oldestSeq },
                 { align: { kind: 'top-with-item-offset', itemOffsetPx: 0 } },
             );
-        } finally {
-            if (jumpToTopOperationRef.current === operation) {
-                jumpToTopOperationRef.current = null;
-                setJumpToTopLoading(false);
-            }
-        }
+        });
     }, [
-        currentSessionIdRef,
         itemsRef,
         jumpToTranscriptTarget,
-        loadOlder,
+        loadEntireTranscript,
         resolveTargetWindowItemSeq,
-        sessionId,
-        waitForNextVisualUpdate,
     ]);
 
     const isTranscriptNavigationTargetInRenderedWindow = React.useCallback((target: TranscriptJumpTarget): boolean => {
@@ -1576,6 +1591,7 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
         jumpToTopAffordance,
         jumpToTopLoading,
         jumpToTranscriptTarget,
+        loadEntireTranscript,
         observeWebGenuineScrollMovement,
         observeWebTranscriptNavigationVisibilityForSession,
         onScrollToIndexFailed,
@@ -1594,6 +1610,7 @@ export function useTranscriptJumpHost(deps: TranscriptJumpHostDeps): TranscriptJ
         jumpToTopAffordance,
         jumpToTopLoading,
         jumpToTranscriptTarget,
+        loadEntireTranscript,
         observeWebGenuineScrollMovement,
         observeWebTranscriptNavigationVisibilityForSession,
         onScrollToIndexFailed,

@@ -767,6 +767,10 @@ export const ru: TranslationStructure = {
       olderA11y: 'Предыдущее совпадение (старше)',
       newerA11y: 'Следующее совпадение (новее)',
       closeA11y: 'Закрыть поиск',
+      menuTitle: 'Поиск в разговоре',
+      expandSearch: 'Расширить поиск?',
+      expandingSearch: 'Поиск в более ранних сообщениях…',
+      expandingSearchHint: 'Нажмите ещё раз, чтобы остановить',
     },
 
     unsupportedContent: {

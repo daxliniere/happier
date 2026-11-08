@@ -19,7 +19,8 @@ function areChatListNonSessionPropsEqual(left: ChatListProps, right: ChatListPro
         && left.onViewportChange === right.onViewportChange
         && left.onEditPendingMessage === right.onEditPendingMessage
         && left.isWarmKeepAliveInstance === right.isWarmKeepAliveInstance
-        && left.routeHydrationPending === right.routeHydrationPending;
+        && left.routeHydrationPending === right.routeHydrationPending
+        && left.surfaceFocused === right.surfaceFocused;
 }
 
 export function areChatListPropsEqual(left: ChatListProps, right: ChatListProps): boolean {

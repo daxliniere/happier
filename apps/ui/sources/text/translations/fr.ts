@@ -529,6 +529,10 @@ export const fr: TranslationStructure = {
             olderA11y: 'Résultat précédent (plus ancien)',
             newerA11y: 'Résultat suivant (plus récent)',
             closeA11y: 'Fermer la recherche',
+            menuTitle: 'Rechercher dans la conversation',
+            expandSearch: 'Étendre la recherche ?',
+            expandingSearch: 'Recherche dans les messages plus anciens…',
+            expandingSearchHint: 'Appuyez à nouveau pour arrêter',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Message utilisateur non analysé',

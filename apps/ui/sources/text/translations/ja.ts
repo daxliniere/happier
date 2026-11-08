@@ -735,6 +735,10 @@ export const ja: TranslationStructure = {
       olderA11y: '前の一致（古い）',
       newerA11y: '次の一致（新しい）',
       closeA11y: '検索を閉じる',
+      menuTitle: '会話内を検索',
+      expandSearch: '検索範囲を広げますか？',
+      expandingSearch: '古いメッセージを検索中…',
+      expandingSearchHint: 'もう一度押すと停止します',
     },
 
     unsupportedContent: {

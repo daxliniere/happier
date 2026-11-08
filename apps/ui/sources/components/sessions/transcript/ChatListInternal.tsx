@@ -2284,6 +2284,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         jumpToTopAffordance,
         jumpToTopLoading,
         jumpToTranscriptTarget,
+        loadEntireTranscript,
         observeWebGenuineScrollMovement,
         observeWebTranscriptNavigationVisibilityForSession,
         onScrollToIndexFailed,
@@ -2614,8 +2615,11 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                 <TranscriptFind
                     key={props.sessionId}
                     sessionId={props.sessionId}
-                    enabled={props.isWarmKeepAliveInstance !== true}
+                    enabled={props.surfaceFocused && props.isWarmKeepAliveInstance !== true}
                     revealMessage={revealTranscriptMessage}
+                    hasMoreOlder={olderPagination.hasMore}
+                    loadingOlder={jumpToTopLoading}
+                    loadEntireTranscript={loadEntireTranscript}
                 />
                 {showFirstPaintPlaceholder ? (
                     <TranscriptFirstPaintPlaceholder reducedMotion={reducedMotionPreferred} />

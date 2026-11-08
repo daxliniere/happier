@@ -750,6 +750,10 @@ export const zhHans: TranslationStructure = {
       olderA11y: '上一个匹配（较早）',
       newerA11y: '下一个匹配（较新）',
       closeA11y: '关闭查找',
+      menuTitle: '在对话中查找',
+      expandSearch: '扩大搜索范围？',
+      expandingSearch: '正在搜索较早的消息…',
+      expandingSearchHint: '再按一次可停止',
     },
 
     unsupportedContent: {

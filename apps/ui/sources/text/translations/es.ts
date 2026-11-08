@@ -752,6 +752,10 @@ export const es: TranslationStructure = {
       olderA11y: 'Coincidencia anterior (más antigua)',
       newerA11y: 'Coincidencia siguiente (más reciente)',
       closeA11y: 'Cerrar búsqueda',
+      menuTitle: 'Buscar en la conversación',
+      expandSearch: '¿Ampliar la búsqueda?',
+      expandingSearch: 'Buscando mensajes anteriores…',
+      expandingSearchHint: 'Pulsa de nuevo para detener',
     },
 
     unsupportedContent: {
