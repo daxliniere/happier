@@ -21,6 +21,8 @@ let scopeState: any = {
 installSessionDetailsPanelCommonModuleMocks({
     storage: async () => ({
         useLocalSetting: (key: string) => {
+            // Mirrors the setting's registered default (dismissed background-task reports).
+            if (key === 'backgroundTaskAcknowledgedReports') return {};
             if (key === 'embeddedTerminalDockLocation') return embeddedTerminalDockLocation;
             return null;
         },

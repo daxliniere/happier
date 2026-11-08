@@ -23,6 +23,8 @@ installSessionDetailsPanelCommonModuleMocks({
         const { createStorageModuleStub } = await import('@/dev/testkit/mocks/storage');
         return createStorageModuleStub({
             useLocalSetting: (key: string) => {
+                // Mirrors the setting's registered default (dismissed background-task reports).
+                if (key === 'backgroundTaskAcknowledgedReports') return {};
                 if (key === 'detailsPaneTabsBehavior') return 'preview';
                 if (key === 'uiMultiPanePanelsEnabled') return true;
                 return undefined;

@@ -117,6 +117,8 @@ installSessionShellCommonModuleMocks({
       useSessionReviewCommentsDrafts: () => [],
       useSessionUsage: () => null,
       useLocalSetting: (key: string) => {
+          // Mirrors the setting's registered default (dismissed background-task reports).
+          if (key === 'backgroundTaskAcknowledgedReports') return {};
         if (key === 'acknowledgedCliVersions') return {};
         if (key === 'uiMultiPanePanelsEnabled') return true;
         if (key === 'detailsPaneTabsBehavior') return 'preview';

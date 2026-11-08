@@ -275,6 +275,7 @@ installSessionShellCommonModuleMocks({
         };
         const localSettingsFixture: Partial<LocalSettings> = {
             acknowledgedCliVersions: {},
+            backgroundTaskAcknowledgedReports: {},
             uiMultiPanePanelsEnabled: false,
             detailsPaneTabsBehavior: 'preview',
             rightPaneWidthPx: 360,

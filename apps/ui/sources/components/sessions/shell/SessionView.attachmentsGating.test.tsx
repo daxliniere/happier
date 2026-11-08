@@ -126,6 +126,8 @@ installSessionShellCommonModuleMocks({
       useSessionSubagentSourceMessages: () => [],
       useSessionTranscriptIds: () => ({ ids: [], isLoaded: true }),
       useLocalSetting: (key: string) => {
+          // Mirrors the setting's registered default (dismissed background-task reports).
+          if (key === 'backgroundTaskAcknowledgedReports') return {};
         if (key === 'uiMultiPanePanelsEnabled') return false;
         if (key === 'acknowledgedCliVersions') return [];
         return null;
