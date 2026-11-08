@@ -131,6 +131,23 @@ describe('MessageView structured references', () => {
         expect(routerPushSpy).toHaveBeenCalledWith('/session/sess_42');
     });
 
+    it.each(['user-text', 'agent-text'] as const)('opens an explicit named session link from %s without opening a file', async (kind) => {
+        const screen = await renderMessage({
+            kind,
+            id: 'session-link',
+            localId: 'local-session-link',
+            createdAt: 2,
+            text: '[Release prep](/session/sess_42)',
+        });
+
+        const markdown = screen.findByType('MarkdownView');
+        expect(markdown.props.onLinkPress('/session/sess_42')).toBe(true);
+        // This suite renders the web branch, where session navigation pushes the session route.
+        expect(routerPushSpy).toHaveBeenCalledTimes(1);
+        expect(routerPushSpy).toHaveBeenCalledWith('/session/sess_42');
+        expect(routerNavigateSpy).not.toHaveBeenCalled();
+    });
+
     it('renders the SAME text as plain text when no envelope entry backs it, in BOTH branches (INV-5)', async () => {
         const userScreen = await renderMessage({
             kind: 'user-text',

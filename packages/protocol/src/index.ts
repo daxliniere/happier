@@ -2014,6 +2014,13 @@ export {
   createProviderSessionInfoV1Schema,
 } from './sessionMetadata/providerSessionInfoV1.js';
 
+export {
+  NativeSessionAliasAssignmentV1Schema,
+  NativeSessionAliasesV1Schema,
+  type NativeSessionAliasAssignmentV1,
+  type NativeSessionAliasesV1,
+} from './sessionMetadata/nativeSessionAliasesV1.js';
+
 export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
 
 export {
