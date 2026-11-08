@@ -142,8 +142,8 @@ describe('MessageView structured references', () => {
 
         const markdown = screen.findByType('MarkdownView');
         expect(markdown.props.onLinkPress('/session/sess_42')).toBe(true);
-        expect(routerNavigateSpy).toHaveBeenCalledWith('/session/sess_42', expect.any(Object));
-        expect(routerPushSpy).not.toHaveBeenCalled();
+        // Session opens use a history push on web; the link must open only the session, never a file.
+        expect(routerPushSpy.mock.calls).toEqual([['/session/sess_42']]);
     });
 
     it('renders the SAME text as plain text when no envelope entry backs it, in BOTH branches (INV-5)', async () => {
