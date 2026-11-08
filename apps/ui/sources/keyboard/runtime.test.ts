@@ -28,6 +28,24 @@ function keyEvent(event: Partial<NormalizedKeyboardEvent>): NormalizedKeyboardEv
 }
 
 describe('createKeyboardShortcutDispatcher', () => {
+    it('opens transcript find with Mod+F, even from a text field, when it is enabled outside the registry', () => {
+        const openFind = vi.fn();
+        const dispatcher = createKeyboardShortcutDispatcher({
+            enabled: false,
+            enabledWhenDisabledCommandIds: ['find.open'],
+            platform: 'windows',
+            surface: 'web',
+            singleKeyShortcutsEnabled: false,
+            disabledCommandIds: [],
+            overrides: {},
+            handlers: { 'find.open': openFind },
+            getContext: () => ({ isEditableTarget: true, isComposing: false }),
+        });
+
+        expect(dispatcher(keyEvent({ key: 'f', code: 'KeyF', ctrlKey: true }))).toBe(true);
+        expect(openFind).toHaveBeenCalledTimes(1);
+    });
+
     it('does not dispatch registry commands when the kill switch is disabled', () => {
         const open = vi.fn();
         const dispatcher = createKeyboardShortcutDispatcher({

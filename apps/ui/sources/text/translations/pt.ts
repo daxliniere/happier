@@ -701,6 +701,7 @@ export const pt: TranslationStructure = {
             transcriptScrollPageDown: 'Descer uma página na transcrição',
             transcriptScrollPageUp: 'Subir uma página na transcrição',
             transcriptScrollTop: 'Ir para o início da transcrição',
+            findOpen: 'Procurar na transcrição',
         },
     },
 
@@ -790,6 +791,15 @@ export const pt: TranslationStructure = {
 
       catchingUp: 'Pondo em dia…',
 
+    },
+    find: {
+      placeholder: 'Procurar na conversa',
+      inputA11y: 'Procurar na conversa',
+      count: ({ current, total }: { current: number; total: number }) => `${current} de ${total}`,
+      noResults: 'Sem resultados',
+      olderA11y: 'Correspondência anterior (mais antiga)',
+      newerA11y: 'Próxima correspondência (mais recente)',
+      closeA11y: 'Fechar pesquisa',
     },
 
     unsupportedContent: {

@@ -642,6 +642,7 @@ export const ca: TranslationStructure = {
             transcriptScrollPageDown: 'Baixa una pàgina de la transcripció',
             transcriptScrollPageUp: 'Puja una pàgina de la transcripció',
             transcriptScrollTop: 'Ves a l’inici de la transcripció',
+            findOpen: 'Cerca a la transcripció',
         },
     },
 
@@ -692,6 +693,15 @@ export const ca: TranslationStructure = {
         },
         progress: {
             catchingUp: 'Posant-se al dia…',
+        },
+        find: {
+            placeholder: 'Cerca a la conversa',
+            inputA11y: 'Cerca a la conversa',
+            count: ({ current, total }: { current: number; total: number }) => `${current} de ${total}`,
+            noResults: 'Cap resultat',
+            olderA11y: 'Coincidència anterior (més antiga)',
+            newerA11y: 'Coincidència següent (més recent)',
+            closeA11y: 'Tanca la cerca',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Missatge d\'usuari no analitzat',

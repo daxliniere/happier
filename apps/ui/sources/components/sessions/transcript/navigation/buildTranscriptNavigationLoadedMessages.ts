@@ -11,7 +11,7 @@ import type {
     TranscriptNavigationRole,
 } from './transcriptNavigationTypes';
 
-function roleForMessage(message: Message): TranscriptNavigationRole {
+export function resolveTranscriptMessageRole(message: Message): TranscriptNavigationRole {
     if (message.kind === 'user-text') return 'user';
     if (message.kind === 'agent-text') return 'assistant';
     if (message.kind === 'tool-call') return 'tool';
@@ -19,7 +19,8 @@ function roleForMessage(message: Message): TranscriptNavigationRole {
     return 'unknown';
 }
 
-function textForMessage(message: Message): string | null {
+/** The readable text of one transcript message, shared by navigation previews and transcript Find. */
+export function resolveTranscriptMessageText(message: Message): string | null {
     if (message.kind === 'user-text') {
         return message.displayText ?? message.text;
     }
@@ -49,8 +50,8 @@ function buildLoadedMessageRow(sessionId: string, message: Message): TranscriptN
         routeMessageId: normalizeTranscriptNavigationTextPreview(buildMessageRouteId(message)),
         seq: normalizeFiniteInteger(message.seq),
         transcriptBlockIndex: normalizeFiniteInteger(message.transcriptBlockIndex),
-        role: roleForMessage(message),
-        text: normalizeTranscriptNavigationTextPreview(textForMessage(message)),
+        role: resolveTranscriptMessageRole(message),
+        text: normalizeTranscriptNavigationTextPreview(resolveTranscriptMessageText(message)),
         createdAtMs: normalizeFiniteInteger(message.createdAt),
         loaded: true,
         preNormalized: true,

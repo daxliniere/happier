@@ -678,6 +678,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
           transcriptScrollPageDown: '轉錄向下翻頁',
           transcriptScrollPageUp: '轉錄向上翻頁',
           transcriptScrollTop: '捲動到轉錄頂部',
+          findOpen: '在轉錄中尋找',
       },
   },
 
@@ -932,6 +933,15 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
 
         catchingUp: '正在追趕…',
 
+      },
+      find: {
+        placeholder: '在對話中尋找',
+        inputA11y: '在對話中尋找',
+        count: ({ current, total }: { current: number; total: number }) => `${current} / ${total}`,
+        noResults: '無結果',
+        olderA11y: '上一個符合項（較早）',
+        newerA11y: '下一個符合項（較新）',
+        closeA11y: '關閉尋找',
       },
 
       unsupportedContent: {

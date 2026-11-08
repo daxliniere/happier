@@ -466,6 +466,7 @@ export const en = {
             transcriptScrollPageDown: 'Scroll transcript page down',
             transcriptScrollPageUp: 'Scroll transcript page up',
             transcriptScrollTop: 'Scroll transcript to top',
+            findOpen: 'Find in transcript',
         },
     },
 
@@ -516,6 +517,15 @@ export const en = {
         },
         progress: {
             catchingUp: 'Catching up…',
+        },
+        find: {
+            placeholder: 'Find in conversation',
+            inputA11y: 'Find in conversation',
+            count: ({ current, total }: { current: number; total: number }) => `${current} of ${total}`,
+            noResults: 'No results',
+            olderA11y: 'Previous match (older)',
+            newerA11y: 'Next match (newer)',
+            closeA11y: 'Close find',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Unparsed user message',

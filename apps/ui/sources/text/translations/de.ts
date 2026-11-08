@@ -468,6 +468,7 @@ export const de: TranslationStructure = {
             transcriptScrollPageDown: 'Transkript eine Seite nach unten',
             transcriptScrollPageUp: 'Transkript eine Seite nach oben',
             transcriptScrollTop: 'Transkript nach oben scrollen',
+            findOpen: 'Im Transkript suchen',
         },
     },
 
@@ -518,6 +519,15 @@ export const de: TranslationStructure = {
         },
         progress: {
             catchingUp: 'Wird nachgeladen…',
+        },
+        find: {
+            placeholder: 'In Unterhaltung suchen',
+            inputA11y: 'In Unterhaltung suchen',
+            count: ({ current, total }: { current: number; total: number }) => `${current} von ${total}`,
+            noResults: 'Keine Treffer',
+            olderA11y: 'Vorheriger Treffer (älter)',
+            newerA11y: 'Nächster Treffer (neuer)',
+            closeA11y: 'Suche schließen',
         },
         unsupportedContent: {
             unparsedUserMessage: 'Nicht geparste Nutzernachricht',

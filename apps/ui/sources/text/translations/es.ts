@@ -652,6 +652,7 @@ export const es: TranslationStructure = {
             transcriptScrollPageDown: 'Bajar una página de la transcripción',
             transcriptScrollPageUp: 'Subir una página de la transcripción',
             transcriptScrollTop: 'Ir al inicio de la transcripción',
+            findOpen: 'Buscar en la transcripción',
         },
     },
 
@@ -741,6 +742,15 @@ export const es: TranslationStructure = {
 
       catchingUp: 'Poniéndose al día…',
 
+    },
+    find: {
+      placeholder: 'Buscar en la conversación',
+      inputA11y: 'Buscar en la conversación',
+      count: ({ current, total }: { current: number; total: number }) => `${current} de ${total}`,
+      noResults: 'Sin resultados',
+      olderA11y: 'Coincidencia anterior (más antigua)',
+      newerA11y: 'Coincidencia siguiente (más reciente)',
+      closeA11y: 'Cerrar búsqueda',
     },
 
     unsupportedContent: {

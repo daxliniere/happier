@@ -173,6 +173,7 @@ import { TranscriptFirstPaintPlaceholder } from '@/components/sessions/transcrip
 import { JumpToBottomButton } from '@/components/sessions/transcript/scroll/JumpToBottomButton';
 import { ComposerKeyboardFloatingInset } from '@/components/sessions/keyboardAvoidance';
 import { TranscriptNavigationRail } from '@/components/sessions/transcript/navigation/TranscriptNavigationRail';
+import { TranscriptFind } from '@/components/sessions/transcript/find/TranscriptFind';
 import {
     TranscriptListShell,
     type TranscriptListShellRef,
@@ -2271,6 +2272,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
         observeWebTranscriptNavigationVisibilityForSession,
         onScrollToIndexFailed,
         promotePendingJumpSeqViewportSnapshot,
+        revealTranscriptMessage,
         shouldSuppressGenericViewportStateForProtectedJumpSeq,
     } = jumpHost;
     useCommittedTranscriptRef(
@@ -2592,6 +2594,12 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                     sessionId={props.sessionId}
                     transcriptContentWidthPx={Math.min(listLayoutWidthPx, transcriptContentMaxWidth)}
                     transcriptMaxWidthPx={transcriptContentMaxWidth}
+                />
+                <TranscriptFind
+                    key={props.sessionId}
+                    sessionId={props.sessionId}
+                    enabled={props.isWarmKeepAliveInstance !== true}
+                    revealMessage={revealTranscriptMessage}
                 />
                 {showFirstPaintPlaceholder ? (
                     <TranscriptFirstPaintPlaceholder reducedMotion={reducedMotionPreferred} />

@@ -650,6 +650,7 @@ export const zhHans: TranslationStructure = {
             transcriptScrollPageDown: '转录向下翻页',
             transcriptScrollPageUp: '转录向上翻页',
             transcriptScrollTop: '滚动到转录顶部',
+            findOpen: '在转录中查找',
         },
     },
 
@@ -739,6 +740,15 @@ export const zhHans: TranslationStructure = {
 
       catchingUp: '正在追赶…',
 
+    },
+    find: {
+      placeholder: '在对话中查找',
+      inputA11y: '在对话中查找',
+      count: ({ current, total }: { current: number; total: number }) => `${current} / ${total}`,
+      noResults: '无结果',
+      olderA11y: '上一个匹配（较早）',
+      newerA11y: '下一个匹配（较新）',
+      closeA11y: '关闭查找',
     },
 
     unsupportedContent: {
