@@ -467,6 +467,8 @@ export function buildSessionListRowModel(input: BuildSessionListRowModelInput): 
         identityDisplay: settings.identityDisplay,
         activeColorMode: settings.activeColorMode,
         workingIndicatorMode: settings.workingIndicatorMode,
+        updatedSessionAnimation: settings.updatedSessionAnimation ?? 'none',
+        directDeleteEnabled: settings.directDeleteEnabled === true,
         hideInactiveSessions: settings.hideInactiveSessions,
     };
 }

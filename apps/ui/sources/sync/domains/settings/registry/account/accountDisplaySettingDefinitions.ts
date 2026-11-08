@@ -1,3 +1,4 @@
+import { ThemeProfileLibrarySchema } from '@/theme/profiles/themeProfilePersistence';
 import {
     buildSettingArtifacts,
     defineSettingDefinitions,
@@ -5,7 +6,6 @@ import {
     HappierReplayWritableMaxSeedCharsSchema,
 } from '@happier-dev/protocol';
 import { z } from 'zod';
-import { ThemeProfileLibrarySchema } from '@/theme/profiles/themeProfilePersistence';
 
 function bucketCount(value: number, smallMax: number, mediumMax: number): 'small' | 'medium' | 'large' {
     if (value <= smallMax) return 'small';
@@ -178,7 +178,7 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
     },
     attachmentsUploadsMaxFileBytes: {
         schema: z.number(),
-        default: 25 * 1024 * 1024,
+        default: 1024 * 1024 * 1024,
         description: 'Maximum allowed attachment size (bytes)',
         storageScope: 'account',
         analytics: {
@@ -204,6 +204,13 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
     },
+    sessionListDirectDeleteEnabled: {
+        schema: z.boolean(),
+        default: false,
+        description: 'Show delete in session row menus',
+        storageScope: 'account',
+        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
+    },
     sessionListWorkingStatusAnimatedTextEnabled: {
         schema: z.boolean(),
         default: true,
@@ -222,6 +229,13 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
         schema: z.enum(['spinner', 'pulse']),
         default: 'spinner',
         description: 'Working indicator style for narrow session list rows',
+        storageScope: 'account',
+        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'enum', privacy: 'safe', identityScope: 'person' },
+    },
+    sessionListUpdatedSessionAnimation: {
+        schema: z.enum(['none', 'fade', 'glow', 'sweep']),
+        default: 'none',
+        description: 'How a session-list row that needs the person (permission, action required, failed) animates to get noticed',
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'enum', privacy: 'safe', identityScope: 'person' },
     },
