@@ -187,6 +187,8 @@ export interface NewSessionWizardFooterProps {
 export interface NewSessionWizardProps {
     composerTopContent?: React.ReactNode;
     statusBadges?: React.ComponentProps<typeof AgentInput>['statusBadges'];
+    newSessionAfterSendMode?: React.ComponentProps<typeof AgentInput>['newSessionAfterSendMode'];
+    focusOnMount?: boolean;
     statusTrailingActions?: React.ReactNode;
     popoverBoundaryRef: React.RefObject<RNView>;
     layout: NewSessionWizardLayoutProps;
@@ -577,6 +579,8 @@ export const NewSessionWizard = React.memo(function NewSessionWizard(props: NewS
                                         value={sessionPrompt}
                                         onChangeText={setSessionPrompt}
                                         onSend={handleSend}
+                                        newSessionAfterSendMode={props.newSessionAfterSendMode}
+                                        focusOnMount={props.focusOnMount}
                                         isSendDisabled={!canCreate}
                                         isSending={isCreating}
                                         disabled={isCreating}

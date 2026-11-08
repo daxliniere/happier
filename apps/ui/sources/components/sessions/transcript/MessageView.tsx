@@ -114,14 +114,13 @@ function pushSessionFileDeepLink(
 }
 
 function useTranscriptMarkdownLinkPress(params: Readonly<{
-  sessionId: string;
   canOpenFiles: boolean;
+  sessionId: string;
   workspacePath: string | null | undefined;
+  router: SessionFileDeepLinkRouter;
 }>) {
-  const router = useRouter();
   const navigateToSession = useNavigateToSession();
-  const { sessionId, canOpenFiles, workspacePath } = params;
-
+  const { canOpenFiles, sessionId, workspacePath, router } = params;
   return React.useCallback((url: string) => {
     // Explicit session routes are navigation, even when the viewer cannot open workspace files.
     // Native peer names are display aliases and must never be guessed into session identities.
@@ -134,11 +133,10 @@ function useTranscriptMarkdownLinkPress(params: Readonly<{
     if (!canOpenFiles) return false;
     const resolved = resolveTranscriptMarkdownFileLink({ url, workspacePath });
     if (!resolved) return false;
-    const anchor = resolved.anchor ?? null;
     pushSessionFileDeepLink(router, {
       sessionId,
       filePath: resolved.filePath,
-      ...(anchor ? { source: 'file' as const, anchor } : {}),
+      ...(resolved.anchor ? { source: 'file' as const, anchor: resolved.anchor } : {}),
     });
     return true;
   }, [canOpenFiles, navigateToSession, router, sessionId, workspacePath]);
@@ -585,6 +583,7 @@ function UserTextBlock(props: {
     sessionId: props.sessionId,
     canOpenFiles: props.canOpenFiles,
     workspacePath: props.messageDisplayCommon.workspacePath,
+    router,
   });
   const provenance = readSessionMessageProvenanceV1(props.message.meta);
   const quoteMarkdownProps = useTranscriptQuoteMarkdownProps(props.sessionId, !isDiscarded && props.historical !== true);
@@ -1034,6 +1033,7 @@ function AgentTextBlock(props: {
     sessionId: props.sessionId,
     canOpenFiles: props.canOpenFiles,
     workspacePath: props.messageDisplayCommon.workspacePath,
+    router,
   });
   const handleJumpToAnchor = useStructuredMessageJumpHandler(props.sessionId, props.canOpenFiles);
   const isVoiceAgentTurn = React.useMemo(() => {

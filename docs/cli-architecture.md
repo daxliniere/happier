@@ -59,11 +59,26 @@ replay uses the original origin and never the approving session's identity.
 
 `resolveProviderPromptForDispatch` renders the origin once as
 `<happier_input_context>` alongside the existing session-reference block, for both
-new turns and in-flight steering. Replay context reserves space for both blocks;
-native commands retain their first-line syntax. The context identifies the source
-session and action/MCP transport and explains ordinary final-answer delivery through
-the existing send wait. It does not introduce the 0.3 reply action or returned-answer
-state machine. Attribution is descriptive and grants no additional authority.
+new turns and in-flight steering. For ordinary agent messages,
+`<happier_session_message>` groups this context and the exact JSON-string body;
+replay and restored conversation history stay outside it. Provider-native slash
+commands retain their first-line syntax with the source context appended. Claude's
+local clear/checkpoint/rewind commands retain their raw grammar without model-only
+context or replay seeds. Terminal compaction acceptance uses the shared special
+command parser, including when attribution follows the command on a new line.
+Replay context reserves the framing overhead through the existing total budget.
+The short guidance allows agent requests within the user's authorized scope and
+existing permissions, without treating an agent message as user approval. Replying
+normally completes an existing send wait; a separate message can use
+`session.message.send` with the source session ID. This guidance is included only
+with attributed input, without startup instructions or a persistent received flag.
+Claude, Gemini, Codex and shared ACP preserve input metadata through the shared mode queue; entries
+carrying metadata stay separate so batching cannot attribute a neighbor's text to
+another sender. Their adapters use the same finalizer. Queued metadata has one
+carrier rather than competing mode fields or typed-message fields. Rejected
+Codex steering returns raw input to queue custody for fresh dispatch, avoiding
+nested attribution or repeated reference resolution. This does not introduce the
+0.3 reply action or returned-answer state machine.
 Delivery's existing `source`, `sentFrom`, permissions, and notice behavior retain
 their separate meanings. The UI reads the same protocol shape and displays the
 sender's cached title, exact ID, and transport without fetching another transcript.
@@ -82,6 +97,29 @@ accepts additive metadata through its passthrough schema. Older receiving runtim
 and UIs retain message delivery but do not render this new attribution; displaying
 it requires updated consumers. This section describes development source, not a
 released-channel guarantee.
+
+## Repository grouping evidence (development)
+
+The shared local session-metadata preparation path records optional
+`sessionRepositoryV1` evidence for automatic project headings. Its protocol-owned
+reader requires the observing `machineId`, the main repository `rootPath`, and the
+observed checkout `worktreePath`. Git's ordered worktree registrations establish
+the main repository; a separate Git administrative directory is not assumed to be
+a working checkout. Independent clones therefore retain separate local identities.
+
+The UI uses valid evidence only for the same machine and a session path inside
+the observed checkout. This changes heading identity, while execution paths and
+saved folder scopes remain checkout-specific. Handoffs and machine reassignment
+discard source-host evidence; the target can publish a fresh local observation.
+Container paths without a proven host mapping, unsupported repository layouts,
+and sessions without evidence retain directory grouping. Existing historical
+sessions are not scanned speculatively.
+
+The field is additive: released older UI metadata readers accept unknown fields,
+and updated readers fall back to directory grouping when evidence is absent or
+invalid. The machine binding also rejects evidence retained by an older handoff
+writer after reassignment. This describes development source, not a released
+channel guarantee.
 
 ## Claude unified questions and approvals (development)
 
@@ -831,7 +869,7 @@ login start the mode exists to remove — at the deliberate cost of no crash rel
 on-demand.
 
 In current development source (not yet released), the same shared planner gives current-user
-tasks (daemon, relay host and stack self-host) a native action instead of `powershell.exe`: Task
+tasks (daemon, relay host, stack self-host and its auto-updater) a native action instead of `powershell.exe`: Task
 Scheduler starts `services/<label>/launcher-<build>-<sha256 prefix>/happier-service-launcher.exe
 --wrapper "<services/<label>.ps1>" --diagnostic-log "<services/<label>.launcher.log>"`. It is a
 GUI-subsystem program, so no console window is created for the task; it starts the unchanged
@@ -855,8 +893,11 @@ PowerShell action, and refuses any other registered action. A task still registe
 action keeps working for start, stop and restart, and service status reports it as a launcher
 upgrade (`windowsLauncherUpgradeNeeded`), which doctor and background-service repair treat as needing
 a reinstall. Only `install` rewrites the action and verifies it afterwards; start/restart drift
-refresh rewrites the wrapper but never the task action. SYSTEM tasks and the self-host auto-update task
-still use the PowerShell action.
+refresh rewrites the wrapper but never the task action. CLI self-update repairs a discovered legacy
+user task through that installer before its version-proven restart. It preserves the definition's
+autostart and Desktop ownership, and preserves an external CLI command. A custom command prefix
+that the installer cannot represent is left unchanged with a warning. SYSTEM tasks still use the
+PowerShell action.
 
 ### Desktop control of the background service
 
@@ -1697,7 +1738,6 @@ deadlines and cancellation remain available. A guarded refusal to signal never
 authorizes an unsafe kill: Stop rechecks positive runner exit before deciding
 that termination is incomplete. Transport timeout or disconnect still does not
 prove physical termination.
-
 In current 0.2 development source, Stop actions retain the original tool caller
 through approval replay and carry optional diagnostic source fields to the daemon.
 The authenticated HTTP and machine-RPC receivers record their own transport;
@@ -1917,6 +1957,23 @@ override recorded foreign-home or foreign-scope facts. The child-environment
 builder publishes the resolved home even when the daemon inherited no home override.
 
 ### Connected-service quota refresh outcomes (development)
+
+Quota automation starts only after account settings are ready and Provider Account
+Usage has hydrated from the current connected-service inventory. Startup activation
+runs as background daemon server work, sharing its budget, connectivity gate,
+transient-error classification and sampled warning logs. Transient settings,
+network, timeout, inventory-conflict and server failures retry until activation or
+shutdown. Delays use the existing quota failure-backoff bounds and jitter through
+the daemon's backoff calculator; activation does not hold machine connection open.
+Authentication and invalid-content failures leave the policy disabled and emit a
+warning. Shutdown cancels retry waits and prevents late coordinator creation.
+
+Late activation assigns the same coordinator, schedules current-source refresh and
+starts the same quota loop as successful startup. Connectivity pause/resume reads
+the current loop handle, so a loop created after machine connection still follows
+connectivity changes. Session credential hot-apply warnings include the Session,
+service, available profile/group/generation, mapped failure code and sanitized
+underlying error summary.
 
 An explicit quota refresh records a request, then the daemon quota coordinator
 publishes its outcome through the existing Provider Account Usage owner.

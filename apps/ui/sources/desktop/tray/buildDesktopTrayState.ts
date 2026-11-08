@@ -46,6 +46,7 @@ export type DesktopTrayLabels = Readonly<{
     stopConfirmAction: string;
     cancel: string;
     actionFailedTitle: string;
+    quitWaitForSystemTasks: string;
     loginItemFailed: string;
     /** R16 (c) — "Sessions: {count}", `{count}` filled natively on the app relay's row. */
     sessions: string;
@@ -130,6 +131,7 @@ export function buildDesktopTrayLabels(t: Translate): DesktopTrayLabels {
         stopConfirmAction: t('settingsDesktop.trayStopConfirmAction'),
         cancel: t('common.cancel'),
         actionFailedTitle: t('settingsDesktop.trayActionFailedTitle'),
+        quitWaitForSystemTasks: t('settingsDesktop.trayQuitWaitForSystemTasks'),
         loginItemFailed: t('settingsDesktop.trayLoginItemFailed'),
         sessions: t('settingsDesktop.traySessions', { count: COUNT_PLACEHOLDER }),
     };

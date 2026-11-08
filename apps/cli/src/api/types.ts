@@ -27,6 +27,7 @@ import type {
   SessionTranscriptObservationAckV1,
   SessionTranscriptObservationCapabilityAckV1,
   SessionWorkspaceLocationV1,
+  SessionRepositoryV1,
 } from '@happier-dev/protocol'
 import {
   ContentPublicKeyFingerprintSchema,
@@ -373,6 +374,8 @@ export const DaemonStateSchema = lazySchema(() => z.object({
   startedAt: z.number().optional(),
   startedWithCliVersion: z.string().optional(),
   daemonPendingSessionActivationSupported: z.boolean().optional(),
+  providerSettingsV1: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+  providerSettingsSourceV1: z.object({ pid: z.number().int().positive(), cliVersion: z.string(), startedAt: z.number() }).optional(),
   shutdownRequestedAt: z.number().optional(),
   shutdownSource:
     z.union([
@@ -551,6 +554,7 @@ export type Metadata = {
   },
   machineId?: string,
   sessionWorkspaceLocationV1?: SessionWorkspaceLocationV1,
+  sessionRepositoryV1?: SessionRepositoryV1,
   claudeSessionId?: string, // Claude Code session ID
   nativeSessionAliasesV1?: NativeSessionAliasesV1,
   claudeTranscriptPath?: string | null, // Claude Code transcript path (hooks)

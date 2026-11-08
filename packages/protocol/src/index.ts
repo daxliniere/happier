@@ -1,4 +1,10 @@
 export const HAPPY_PROTOCOL_PACKAGE = '@happier-dev/protocol';
+export {
+  createSessionRepositoryV1Schema,
+  SessionRepositoryV1Schema,
+  readSessionRepositoryV1FromMetadata,
+  type SessionRepositoryV1,
+} from './sessionMetadata/sessionRepositoryV1.js';
 export { lazySchema } from './lazySchema.js';
 export {
   SessionPermissionResponseSchema,
@@ -3750,3 +3756,9 @@ export { assertAccountKeyProvisioningAllowed, AccountKeyProvisioningUnavailableE
 export { PushNotificationTestRequestSchema, PushNotificationTestResultSchema, type PushNotificationTestResult } from './push/pushNotificationTest.js';
 
 export { projectNotificationQuestion, readNotificationQuestionAnswer, isNotificationQuestionAnswerAction, NotificationQuestionAnswerV1Schema, NOTIFICATION_QUESTION_MAX_CHOICES, type NotificationQuestionAnswerV1 } from './push/notificationQuestionActions.js';
+export {
+  ClaudeSessionRetentionPolicyV1Schema,
+  ClaudeSessionRetentionReportV1Schema,
+  type ClaudeSessionRetentionPolicyV1,
+  type ClaudeSessionRetentionReportV1,
+} from './providers/claude/sessionRetention.js';

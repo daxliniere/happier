@@ -9,6 +9,7 @@ import { readSessionProjectAssignmentFromDisplay } from '@/sync/domains/session/
 
 export type SessionAppearanceSelectorState = Readonly<{
     machines?: Readonly<Record<string, Machine>>;
+    settings?: Readonly<{ sessionListGroupGitWorktreesV1?: boolean }>;
     getProjectForSession?: (sessionId: string) => { key?: { machineId?: string; path?: string } } | null;
     sessionOrganizationAppearancesBySessionKey?: Readonly<Record<string, SessionOrganizationSessionAppearance>>;
     sessionOrganizationLabelsByLabelKey?: Readonly<Record<string, SessionOrganizationLabel>>;
@@ -52,9 +53,12 @@ export function selectEffectiveSessionAppearanceColor(state: SessionAppearanceSe
     const assignedProject = readSessionProjectAssignmentFromDisplay(
         state.sessionOrganizationAppearancesBySessionKey?.[buildSessionOrganizationServerKey(params.serverId, params.sessionId)]?.display,
     );
-    const workspace = resolveSessionWorkspacePresentation({ metadata: params.metadata,
+    const workspace = resolveSessionWorkspacePresentation({
+        metadata: params.metadata,
         target: assignedProject ? { machineId: assignedProject.machineId, basePath: assignedProject.rootPath } : target,
-        machines: state.machines ?? EMPTY_MACHINES });
+        machines: state.machines ?? EMPTY_MACHINES,
+        groupGitWorktreesByRepository: state.settings?.sessionListGroupGitWorktreesV1 !== false,
+    });
     const display = resolveServerWorkspaceDisplay(state.sessionOrganizationLabelsByLabelKey, params.serverId, workspace.workspaceKey);
     return resolveEffectiveSessionAppearanceColor({
         sessionColor: selectSessionAppearanceColor(state, params),

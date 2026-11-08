@@ -34,6 +34,9 @@ mod startup;
 #[cfg(desktop)]
 mod shutdown;
 
+#[cfg(any(target_os = "windows", test))]
+mod single_instance;
+
 #[cfg(target_os = "linux")]
 mod linux_webkit_env;
 
@@ -64,8 +67,35 @@ fn desktop_client_identity() -> DesktopClientIdentity {
 // Embed the product Info.plist only in the product entrypoint, not in that test executable.
 #[cfg(not(test))]
 pub fn run() {
+    let context = tauri::generate_context!();
     #[cfg(target_os = "linux")]
     linux_webkit_env::apply_before_gtk_init();
+
+    #[cfg(desktop)]
+    if std::env::args_os().skip(1).any(|arg| arg == "--uninstall-desktop-components") {
+        #[cfg(target_os = "windows")]
+        if let Err(error) = single_instance::ensure_no_running_desktop(&context.config().identifier) {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+        // No single-instance forwarding, webviews, tray, or setup acquisition.
+        // Windows installers wait for this process before removing its bundled helper.
+        let result = tauri::Builder::default()
+            // Register the existing login-item adapter so cleanup can remove this app's
+            // registration. Registering the adapter never enables a login item.
+            .setup(|app| {
+                autostart::register(app)?;
+                Ok(())
+            })
+            .build(context)
+            .map_err(|error| format!("Unable to initialize desktop cleanup: {error}"))
+            .and_then(|app| system_tasks::uninstall_desktop_components(app.handle()));
+        if let Err(error) = result {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+        std::process::exit(0);
+    }
 
     let mut builder = tauri::Builder::default();
 
@@ -133,6 +163,7 @@ pub fn run() {
                 system_tasks::get_system_task_snapshot,
                 system_tasks::system_tasks_open_log_path,
                 system_tasks::respond_system_task_prompt,
+                system_tasks::desktop_uninstall_components,
                 window_chrome::desktop_get_window_chrome_policy,
                 window_chrome::desktop_set_native_title_bar,
                 window_chrome::desktop_get_window_state,
@@ -161,7 +192,7 @@ pub fn run() {
                         window_chrome::request_show_main_window(&handle);
                     });
                 }
-                system_tasks::set_desktop_bundle_id(&app.config().identifier);
+                system_tasks::set_desktop_context(app.handle())?;
                 autostart::register(app)?;
                 menu_bar::prepare_launch(app.handle());
                 // The main window first (unless this is a login start in menu-bar mode), so the
@@ -186,7 +217,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             #[cfg(desktop)]
