@@ -1,3 +1,4 @@
+import { useApplyThemeSelection } from '@/components/settings/appearance/useApplyThemeSelection';
 import { useThemeProfilesMutable } from '@/sync/domains/state/storage';
 import React from 'react';
 import { Platform, View } from 'react-native';
@@ -11,6 +12,7 @@ import { useUnistyles } from 'react-native-unistyles';
 import { Switch } from '@/components/ui/forms/Switch';
 import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/forms/dropdown/DropdownMenu';
 import { ThemeSelectionDropdown, type ThemeSelectionOption } from '@/components/settings/appearance/themeProfiles/ThemeSelectionDropdown';
+import { normalizeUpdatedSessionAnimation } from '@/components/sessions/shell/row/updatedSessionAnimation';
 import { t, getLanguageNativeName, SUPPORTED_LANGUAGES } from '@/text';
 import { useDeviceType } from '@/utils/platform/responsive';
 import { useWindowFoldMetrics } from '@/utils/platform/useWindowFoldMetrics';
@@ -22,7 +24,6 @@ import {
 import { getGeneratedAvatarComponentForStyle } from '@/components/ui/avatar/avatarComponentRegistry';
 import type { AvatarStyleId } from '@/sync/domains/settings/registry/account/avatarStyleSetting';
 import { useReducedMotionPreference } from '@/hooks/ui/useReducedMotionPreference';
-import { useApplyThemeSelection } from '@/components/settings/appearance/useApplyThemeSelection';
 import {
     DEFAULT_THEME_PROFILES_LOCAL_STATE,
     findActiveThemeProfileForMode,
@@ -110,6 +111,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const [uiMultiPanePanelsEnabled, setUiMultiPanePanelsEnabled] = useLocalSettingMutable('uiMultiPanePanelsEnabled');
     const [uiBackdropBlurEnabled, setUiBackdropBlurEnabled] = useLocalSettingMutable('uiBackdropBlurEnabled');
     const [hapticsEnabled, setHapticsEnabled] = useLocalSettingMutable('hapticsEnabled');
+    const [sessionListUpdatedSessionAnimation, setSessionListUpdatedSessionAnimation] = useSettingMutable('sessionListUpdatedSessionAnimation');
     const [detailsPaneTabsBehavior, setDetailsPaneTabsBehavior] = useLocalSettingMutable('detailsPaneTabsBehavior');
     const [tabBarGitBadgeMode, setTabBarGitBadgeMode] = useSettingMutable('tabBarGitBadgeMode');
     const [tabBarFriendsBadgeEnabled, setTabBarFriendsBadgeEnabled] = useSettingMutable('tabBarFriendsBadgeEnabled');
@@ -125,6 +127,7 @@ export default React.memo(function AppearanceSettingsScreen() {
     const [openLightThemeMenu, setOpenLightThemeMenu] = React.useState(false);
     const [openDarkThemeMenu, setOpenDarkThemeMenu] = React.useState(false);
     const [openItemDensityMenu, setOpenItemDensityMenu] = React.useState(false);
+    const [openUpdatedSessionAnimationMenu, setOpenUpdatedSessionAnimationMenu] = React.useState(false);
     const [openContentWidthMenu, setOpenContentWidthMenu] = React.useState(false);
     const [openDetailsTabsMenu, setOpenDetailsTabsMenu] = React.useState(false);
     const [openAvatarStyleMenu, setOpenAvatarStyleMenu] = React.useState(false);
@@ -215,6 +218,13 @@ export default React.memo(function AppearanceSettingsScreen() {
             { id: 'strong', title: t('settingsAppearance.glass.intensityStrong') },
         ];
     }, []);
+
+    const updatedSessionAnimationMenuItems = React.useMemo(() => [
+        { id: 'none', title: t('settingsAppearance.updatedSessionAnimationNone') },
+        { id: 'fade', title: t('settingsAppearance.updatedSessionAnimationFade') },
+        { id: 'glow', title: t('settingsAppearance.updatedSessionAnimationGlow') },
+        { id: 'sweep', title: t('settingsAppearance.updatedSessionAnimationSweep') },
+    ], []);
 
     const itemDensityMenuItems = React.useMemo(() => {
         return [
@@ -496,6 +506,25 @@ export default React.memo(function AppearanceSettingsScreen() {
                         />
                     }
                     showChevron={false}
+                />
+                <DropdownMenu
+                    open={openUpdatedSessionAnimationMenu}
+                    onOpenChange={setOpenUpdatedSessionAnimationMenu}
+                    variant="selectable"
+                    search={false}
+                    selectedId={normalizeUpdatedSessionAnimation(sessionListUpdatedSessionAnimation)}
+                    showCategoryTitles={false}
+                    matchTriggerWidth={true}
+                    connectToTrigger={true}
+                    rowKind="item"
+                    itemTrigger={{
+                        title: t('settingsAppearance.updatedSessionAnimation'),
+                        subtitle: t('settingsAppearance.updatedSessionAnimationDescription'),
+                        icon: <Icon name="warning-circle" size={29} color={theme.colors.state.warning.foreground} />,
+                        showSelectedSubtitle: false,
+                    }}
+                    items={updatedSessionAnimationMenuItems}
+                    onSelect={(itemId) => setSessionListUpdatedSessionAnimation(normalizeUpdatedSessionAnimation(itemId))}
                 />
                 <DropdownMenu
                     open={openDetailsTabsMenu}
