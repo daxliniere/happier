@@ -159,6 +159,11 @@ export const defaultKeyboardCommands: readonly KeyboardCommand[] = [
         settingsTitleKey: 'settingsKeyboard.commands.settingsOpen',
     },
     {
+        id: 'find.open',
+        defaultBinding: { binding: 'Mod+F', allowInEditable: true },
+        settingsTitleKey: 'settingsKeyboard.commands.findOpen',
+    },
+    {
         id: 'transcript.message.next',
     },
     {

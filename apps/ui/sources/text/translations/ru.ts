@@ -668,6 +668,7 @@ export const ru: TranslationStructure = {
             transcriptScrollPageDown: 'Прокрутить стенограмму на страницу вниз',
             transcriptScrollPageUp: 'Прокрутить стенограмму на страницу вверх',
             transcriptScrollTop: 'К началу стенограммы',
+            findOpen: 'Поиск в стенограмме',
         },
     },
 
@@ -757,6 +758,15 @@ export const ru: TranslationStructure = {
 
       catchingUp: 'Догружаем…',
 
+    },
+    find: {
+      placeholder: 'Поиск в разговоре',
+      inputA11y: 'Поиск в разговоре',
+      count: ({ current, total }: { current: number; total: number }) => `${current} из ${total}`,
+      noResults: 'Нет совпадений',
+      olderA11y: 'Предыдущее совпадение (старше)',
+      newerA11y: 'Следующее совпадение (новее)',
+      closeA11y: 'Закрыть поиск',
     },
 
     unsupportedContent: {
