@@ -49,6 +49,14 @@ import {
 } from '../domains/session/organization';
 import type { ReviewCommentDraft } from '../domains/input/reviewComments/reviewCommentTypes';
 import type { SessionActionDraft } from '../domains/sessionActions/sessionActionDraftTypes';
+import type { AgentId } from '@happier-dev/agents';
+import { resolveAgentIdFromFlavor, resolveAgentIdFromSessionMetadata } from '@happier-dev/agents';
+import type { SessionRuntimeIssueV1 } from '@happier-dev/protocol';
+import {
+  parseLatestProviderUsageRecordIds,
+  selectLatestProviderUsageRecordIdsByAgent,
+  serializeLatestProviderUsageRecordIds,
+} from '../domains/connectedServices/accountUsage/providerUsageRefreshTargets';
 import { buildSessionMessageRouteId, resolveSessionMessageRouteId } from '../domains/messages/messageRouteIds';
 import {
   buildMessageLegacySignature,
@@ -1781,6 +1789,38 @@ export function useAllSessions(): Session[] {
       return sortValuesByUpdatedAtDescending(state.sessions);
     })
   );
+}
+
+/**
+ * The latest native usage record ids per provider. Subscribes by a primitive signature, so a streaming
+ * session update that leaves these ids unchanged does not re-render the caller.
+ */
+export function useLatestProviderUsageRecordIdsByAgent(): ReadonlyMap<AgentId, readonly string[]> {
+  const signature = getStorage()((state) => (
+    state.isDataReady
+      ? serializeLatestProviderUsageRecordIds(
+        selectLatestProviderUsageRecordIdsByAgent(sortValuesByUpdatedAtDescending(state.sessions)),
+      )
+      : ''
+  ));
+  return React.useMemo(() => parseLatestProviderUsageRecordIds(signature), [signature]);
+}
+
+/** Latest limit evidence per provider; unrelated or unmetered sessions cannot erase account facts. */
+export function useLatestProviderUsageRuntimeIssuesByAgent(): ReadonlyMap<AgentId, SessionRuntimeIssueV1> {
+  return getStorage()(useShallow((state) => {
+    const issues = new Map<AgentId, SessionRuntimeIssueV1>();
+    if (!state.isDataReady) return issues;
+    for (const session of sortValuesByUpdatedAtDescending(state.sessions)) {
+      const issue = session.lastRuntimeIssue;
+      if (!issue?.usageLimit) continue;
+      // Session metadata follows provider switches; the failure's provider stays authoritative.
+      const agentId = resolveAgentIdFromFlavor(issue.provider);
+      if (!agentId || (issues.get(agentId)?.occurredAt ?? -1) >= issue.occurredAt) continue;
+      issues.set(agentId, issue);
+    }
+    return issues;
+  }));
 }
 
 export function useAllSessionsForAttention(): Session[] {
