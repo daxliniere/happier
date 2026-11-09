@@ -313,7 +313,11 @@ describe('SettingsView', () => {
         expect(lines.filter((line) => line.isLocalDevice).map((line) => line.text)).toEqual([expect.stringContaining('LAPTOP-ZBP | desktop')]);
         await act(async () => { await screen.pressRowByTitle('common.version'); });
         expect(shared.copySpy).toHaveBeenCalledWith(subtitleText);
-        expect(screen.findByTestId('settings-version-copied-toast')?.props.accessibilityLabel).toBe('Copied!');
+        // Item is a prop passthrough here, so read the toast from the row's accessory prop.
+        const toast = (screen.findRowByTitle('common.version')?.props.subtitleAccessory as React.ReactElement<{
+            children: React.ReactElement<{ testID: string; label: string }>;
+        }> | null)?.props.children;
+        expect(toast?.props).toMatchObject({ testID: 'settings-version-copied-toast', label: 'common.copied!' });
     });
 
     it('includes a first-class Relays entry that routes to /server', async () => {
