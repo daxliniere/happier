@@ -45,7 +45,7 @@ for tool in git node yarn sha256sum flock find tar gzip realpath sort xargs; do 
 [[ "$(git -C "$repo" rev-parse --show-toplevel)" == "$repo" ]] || die "--repo must be a checkout root"
 version=$(cat "$repo/fork/VERSION")
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$repo/dist/fork-cache}"
-[[ "$version" =~ ^0\.2\.19-fork\.[0-9]+$ ]] || die "Invalid fork/VERSION: $version"
+[[ "$version" =~ ^0\.2\.[0-9]+-fork\.[0-9]+$ ]] || die "Invalid fork/VERSION: $version"
 node --input-type=module - "$repo/fork/build-version.json" "$version" <<'JS'
 import { readFileSync } from 'node:fs';
 const metadata = JSON.parse(readFileSync(process.argv[2], 'utf8'));

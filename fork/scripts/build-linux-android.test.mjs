@@ -18,8 +18,8 @@ function fixture(t) {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, contents, { mode: executable ? 0o755 : 0o644 });
   };
-  put(join(repo, 'fork/VERSION'), '0.2.19-fork.32\n');
-  put(join(repo, 'fork/build-version.json'), '{"version":"0.2.19-fork.32","release":"rc4"}');
+  put(join(repo, 'fork/VERSION'), '0.2.20-fork.32\n');
+  put(join(repo, 'fork/build-version.json'), '{"version":"0.2.20-fork.32","release":"rc4"}');
   put(join(repo, 'package.json'), '{}');
   put(join(repo, '.gitignore'), 'dist/\nnode_modules/\n');
   mkdirSync(join(repo, 'node_modules'), { recursive: true });
@@ -99,7 +99,7 @@ test('old archives cannot satisfy a successful compiler that produced nothing', 
 
 test('version mismatch refuses before any compiler starts', t => {
   const f = fixture(t);
-  f.put(join(f.repo, 'fork/build-version.json'), '{"version":"0.2.19-fork.31","release":"rc4"}');
+  f.put(join(f.repo, 'fork/build-version.json'), '{"version":"0.2.20-fork.31","release":"rc4"}');
   const result = f.run();
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /must agree/);
