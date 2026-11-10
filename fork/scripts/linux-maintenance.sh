@@ -7,7 +7,8 @@ project=${1:?Expected project directory}; action=${2:?Expected action}; shift 2
 project=$(cd "$project" && pwd -P)
 usage() {
   cat <<'EOF'
-!backup.sh [--foreground]                  Full Happier + Codex + Claude backup
+!backup.sh [--foreground]                  Full Happier + Codex + Claude backup; once
+                                           verified, it deletes the previous full backups
 !delete-old-backups.sh [--dry-run] [--yes] Keep newest verified full backup
 !install-linux.sh BUILD_DIR [VERSION]     Install server + CLI from a build
 !rollback-linux.sh [BACKUP_DIR]           Restore relay/database + CLI link
@@ -134,7 +135,15 @@ case "$action" in
     done
     [[ -n "$newest" && "$newest" != "$before" ]] || die 'Backup command produced no new completed backup'
     verify "$newest"
-    printf 'BACKUP VERIFIED: %s\n' "$newest";;
+    printf 'BACKUP VERIFIED: %s\n' "$newest"
+    # The verified new backup replaces every earlier completed one (owner decision 2026-11-10).
+    # Incomplete or symlinked directories were never in full_backups and are left alone.
+    for path in "${full_backups[@]}"; do
+      [[ "$path" == "$newest" ]] && continue
+      [[ "$(dirname "$path")" == "$BACKUP_ROOT" && ! -L "$path" ]] || die 'Backup path changed; refusing deletion'
+      rm -rf -- "$path"
+      printf 'DELETED PREVIOUS BACKUP: %s\n' "$path"
+    done;;
   prune)
     keep=$(latest)
     verify "$keep"

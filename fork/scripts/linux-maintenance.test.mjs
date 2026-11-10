@@ -97,6 +97,29 @@ test('backup checksums a newly completed backup and rejects a no-op backup comma
   assert.match(result.stdout, /BACKUP VERIFIED: .*full-20261105-120000/);
 });
 
+test('a verified backup replaces the earlier full backups but leaves incomplete directories', t => {
+  const f = setup(t);
+  const older = f.complete('full-20261101-120000');
+  const previous = f.complete('full-20261102-120000');
+  const incomplete = join(f.backups, 'full-20261103-120000');
+  mkdirSync(incomplete);
+  writeFileSync(join(f.root, 'full-backup.sh'), `#!/bin/sh\ncp -a '${previous}' "$BACKUP_ROOT/full-20261105-120000"\n`);
+  const result = f.run('backup');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(existsSync(join(f.backups, 'full-20261105-120000')));
+  assert.ok(!existsSync(older)); assert.ok(!existsSync(previous));
+  assert.ok(existsSync(incomplete));
+});
+
+test('a new backup that fails verification deletes no earlier backup', t => {
+  const f = setup(t);
+  const previous = f.complete('full-20261102-120000');
+  writeFileSync(join(f.root, 'full-backup.sh'),
+    `#!/bin/sh\ncp -a '${previous}' "$BACKUP_ROOT/full-20261105-120000" && echo corrupt > "$BACKUP_ROOT/full-20261105-120000/${members[0]}"\n`);
+  assert.notEqual(f.run('backup').status, 0);
+  assert.ok(existsSync(previous));
+});
+
 test('default backup launches a detached job with a durable log and explicit action', t => {
   const f = setup(t);
   const bin = join(f.root, 'tools');
