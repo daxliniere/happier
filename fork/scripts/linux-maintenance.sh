@@ -13,7 +13,7 @@ usage() {
 !rollback-linux.sh [BACKUP_DIR]           Restore relay/database + CLI link
 
 Install reads VERSION from the build runner's RESULT.txt, or requires an explicit
-0.2.19-fork.N for legacy release-assets folders. It requires a verified full backup.
+0.2.N-fork.M for legacy release-assets folders. It requires a verified full backup.
 Rollback defaults to the newest completed full backup. Provider histories are
 backed up but are not overwritten by this Linux-component rollback.
 
@@ -55,7 +55,7 @@ if [[ "$action" == install ]]; then
     [[ -z "$version" || "$version" == "$recorded" ]] || die 'Version differs from the build result'
     version=$recorded
   fi
-  [[ "$version" =~ ^0\.2\.19-fork\.[0-9]+$ ]] || die 'Supply VERSION for a legacy release-assets folder'
+  [[ "$version" =~ ^0\.2\.[0-9]+-fork\.[0-9]+$ ]] || die 'Supply VERSION for a legacy release-assets folder'
   [[ -d "$release/server" && -d "$release/cli" ]] || die 'Build folder needs server/ and cli/'
   confirm "Install $version from $release? The relay and daemon will restart."
 elif [[ "$action" == rollback ]]; then

@@ -62,10 +62,10 @@ test('install reads build-runner version and supplies an exact verified rollback
   const output = join(f.root, 'built release');
   mkdirSync(join(output, 'server'), { recursive: true });
   mkdirSync(join(output, 'cli'));
-  writeFileSync(join(output, 'RESULT.txt'), 'Version: 0.2.19-fork.32\nSUCCESS\n');
+  writeFileSync(join(output, 'RESULT.txt'), 'Version: 0.2.20-fork.32\nSUCCESS\n');
   const result = f.run('install', [output]);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.equal(readFileSync(f.calls, 'utf8').trim(), `update|${backup}|${output}|0.2.19-fork.32`);
+  assert.equal(readFileSync(f.calls, 'utf8').trim(), `update|${backup}|${output}|0.2.20-fork.32`);
 });
 
 test('rollback rejects a corrupt backup before invoking deployment or services', t => {
