@@ -26,6 +26,9 @@ mod file_window;
 mod system_tasks;
 
 #[cfg(desktop)]
+mod desktop_notification;
+
+#[cfg(desktop)]
 mod window_chrome;
 
 #[cfg(desktop)]
@@ -170,6 +173,7 @@ pub fn run() {
                 window_chrome::desktop_minimize_window,
                 window_chrome::desktop_toggle_window_maximize,
                 window_chrome::desktop_close_window,
+                desktop_notification::desktop_show_clickable_notification,
                 window_chrome::desktop_show_main_window,
                 window_chrome::desktop_start_window_dragging,
                 shutdown::desktop_finish_shutdown,
