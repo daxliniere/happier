@@ -205,7 +205,7 @@ pub fn register(app: &mut App) -> tauri::Result<()> {
     #[cfg(target_os = "linux")]
     let icon = tray_icon_for(TrayThemeSignal::FreedesktopColorScheme(None));
 
-    // Every platform opens the menu on click (Linux can only ever do that). The pointer reaching
+    // Every platform can open the menu on click (Linux can only ever do that). The pointer reaching
     // or pressing the icon is the closest macOS and Windows come to "the menu is opening", so in
     // menu-bar mode it refreshes the services (throttled); with a main webview it forwards demand
     // to that inspection owner. AppIndicator reports neither.
@@ -214,7 +214,10 @@ pub fn register(app: &mut App) -> tauri::Result<()> {
         .icon_as_template(true)
         .tooltip(TRAY_TOOLTIP)
         .menu(&build_native_menu(app.handle(), &initial_model)?)
-        .show_menu_on_left_click(true)
+        // Win32's native left-click popup consumes the second click of a double-click.
+        // Handle left-click ourselves there: reveal a closed window, otherwise show the menu.
+        // Right-click keeps the native tray popup, including when no main window exists.
+        .show_menu_on_left_click(!cfg!(target_os = "windows"))
         .on_tray_icon_event(|tray, event| {
             let pointer = matches!(event, TrayIconEvent::Enter { .. })
                 || matches!(
@@ -227,6 +230,20 @@ pub fn register(app: &mut App) -> tauri::Result<()> {
             if pointer {
                 crate::menu_bar::on_tray_pointer(tray.app_handle());
             }
+            if cfg!(target_os = "windows")
+                && matches!(
+                    event,
+                    TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    }
+                )
+            {
+                if let Err(error) = on_left_click(tray.app_handle()) {
+                    log::warn!("failed to handle the tray left-click: {error}");
+                }
+            }
         })
         .build(app)?;
 
@@ -235,6 +252,31 @@ pub fn register(app: &mut App) -> tauri::Result<()> {
     #[cfg(target_os = "linux")]
     follow_tray_theme(app);
 
+    Ok(())
+}
+
+#[cfg(desktop)]
+fn on_left_click(app: &AppHandle) -> tauri::Result<()> {
+    let window = app.get_webview_window("main");
+    let visible = window
+        .as_ref()
+        .map(|window| window.is_visible())
+        .transpose()?
+        .unwrap_or(false);
+    if model::left_click_opens_main_window(MenuPlatform::current(), visible) {
+        crate::window_chrome::request_show_main_window(app);
+    } else if let Some(window) = window {
+        // Use the same current model and builder as the native right-click menu. Release the
+        // model lock before entering the native popup's event loop.
+        let model = app
+            .state::<TrayState>()
+            .0
+            .lock()
+            .map_err(|_| std::io::Error::other("tray model lock poisoned"))?
+            .model
+            .clone();
+        window.popup_menu(&build_native_menu(app, &model)?)?;
+    }
     Ok(())
 }
 

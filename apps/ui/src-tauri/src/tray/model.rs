@@ -340,6 +340,31 @@ pub enum MenuPlatform {
     Linux,
 }
 
+/// Whether a left tray click reveals the main window instead of opening its menu.
+pub fn left_click_opens_main_window(platform: MenuPlatform, main_window_visible: bool) -> bool {
+    platform == MenuPlatform::Windows && !main_window_visible
+}
+
+#[cfg(test)]
+mod click_tests {
+    use super::*;
+
+    #[test]
+    fn windows_left_click_opens_a_closed_window_and_keeps_the_menu_when_open() {
+        // Covers both a hidden webview (close button) and an absent one (menu-bar mode).
+        assert!(left_click_opens_main_window(MenuPlatform::Windows, false));
+        assert!(!left_click_opens_main_window(MenuPlatform::Windows, true));
+    }
+
+    #[test]
+    fn other_platforms_keep_their_native_left_click_menu() {
+        for platform in [MenuPlatform::MacOs, MenuPlatform::Linux] {
+            assert!(!left_click_opens_main_window(platform, false));
+            assert!(!left_click_opens_main_window(platform, true));
+        }
+    }
+}
+
 impl MenuPlatform {
     pub fn current() -> Self {
         if cfg!(target_os = "macos") {
