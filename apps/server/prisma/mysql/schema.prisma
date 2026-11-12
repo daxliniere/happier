@@ -592,7 +592,7 @@ model AppLockRecovery {
 /// encrypted with the server key tree and never returned to clients.
 model AppLockMailSettings {
     accountId         String   @id
-    recoveryEmail     String?  @db.VarChar(191)
+    recoveryEmail     String?
     host              String
     port              Int
     security          String

@@ -106,6 +106,17 @@ test('version mismatch refuses before any compiler starts', t => {
   assert.ok(!existsSync(f.calls));
 });
 
+test('beta build labels are accepted by the release prerequisite check', t => {
+  const f = fixture(t);
+  f.put(join(f.repo, 'fork/VERSION'), '0.2.20-beta1.4\n');
+  f.put(join(f.repo, 'fork/build-version.json'), '{"version":"0.2.20-beta1.4","release":"0.2.20-beta1.4"}');
+  spawnSync('git', ['-C', f.repo, 'add', '.']);
+  spawnSync('git', ['-C', f.repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'beta label']);
+  const result = f.run({}, ['--check']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(!existsSync(f.calls));
+});
+
 test('detached launch preserves the selected checkout and output as separate arguments', t => {
   const f = fixture(t);
   f.put(join(f.bin, 'systemd-run'), '#!/bin/sh\nprintf "%s\\n" "$@" > "$CALLS"\n', true);
