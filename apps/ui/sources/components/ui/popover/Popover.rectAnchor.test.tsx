@@ -85,6 +85,46 @@ describe('Popover (rect anchor)', () => {
         expect(observed?.maxHeight).toBe(expected.maxHeight);
     });
 
+    it('keeps a submenu readable when a phone has no room beside its parent row', async () => {
+        const { Popover } = await import('./Popover');
+        const { OverlayPortalProvider, OverlayPortalHost } = await import('./OverlayPortal');
+        const { PopoverPortalTargetContextProvider } = await import('./PopoverPortalTarget');
+        const portalTarget = {
+            rootRef: { current: {
+                measureInWindow: (cb: (...args: number[]) => void) => cb(0, 0, 410, 800),
+                measure: (cb: (...args: number[]) => void) => cb(0, 0, 410, 800, 0, 0),
+            } },
+            layout: { width: 410, height: 800 },
+        };
+        let observed: { placement: string; maxWidth: number } | undefined;
+        await renderScreen(
+            <PopoverPortalTargetContextProvider value={portalTarget}>
+                <OverlayPortalProvider>
+                    <Popover
+                        open
+                        anchor={{ kind: 'rect', rect: { left: 100, top: 650, width: 280, height: 36 } }}
+                        portal={{ native: true }}
+                        placement="auto-horizontal"
+                        gap={4}
+                        maxWidthCap={320}
+                        onRequestClose={() => {}}
+                    >
+                        {(layout) => {
+                            observed = layout;
+                            return React.createElement('PopoverChild');
+                        }}
+                    </Popover>
+                    <OverlayPortalHost />
+                </OverlayPortalProvider>
+            </PopoverPortalTargetContextProvider>,
+        );
+        await act(async () => {
+            await flushHookEffects({ cycles: 1, turns: 6 });
+        });
+        expect(observed?.placement).toBe('top');
+        expect(observed?.maxWidth).toBe(320);
+    });
+
     it('positions the popup below the supplied rect anchor using placement + gap', async () => {
         const { Popover } = await import('./Popover');
         const { OverlayPortalProvider, OverlayPortalHost } = await import('./OverlayPortal');
