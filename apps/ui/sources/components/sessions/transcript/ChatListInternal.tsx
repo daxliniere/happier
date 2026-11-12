@@ -2637,7 +2637,7 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                     Platform.OS === 'web' ? (
                         <ComposerKeyboardFloatingInset
                             testID="transcript-jump-to-top-keyboard-offset"
-                            baseBottom={jumpToBottomAffordance.isVisible ? 64 : 12}
+                            baseBottom={jumpControlBaseBottom + (jumpToBottomAffordance.isVisible ? 52 : 0)}
                             style={{ position: 'absolute', right: 12 }}
                         >
                             {jumpToTopButton}
