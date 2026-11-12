@@ -162,8 +162,10 @@ export async function unlockAppLockWithPassword(password: string): Promise<boole
 /** Verifies the password of an unlocked device (for changing settings) without changing state. */
 export async function verifyAppLockPassword(password: string): Promise<boolean> {
     const record = snapshot.record;
-    if (!record) return false;
-    return (await unwrapAppLockKeyWithPassword(record.wrapped, password)) !== null;
+    if (snapshot.status !== 'unlocked' || !record) return false;
+    const verified = (await unwrapAppLockKeyWithPassword(record.wrapped, password)) !== null;
+    // A prompt or derivation may outlive a re-lock or replacement of this device's record.
+    return verified && snapshot.status === 'unlocked' && snapshot.record === record;
 }
 
 export async function unwrapAppLockDataKeyWithRecoveryKey(recoveryKey: string): Promise<Uint8Array | null> {

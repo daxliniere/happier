@@ -8,7 +8,7 @@ import { installSettingsViewCommonModuleMocks } from '../settingsViewTestHelpers
 
 const boundary = vi.hoisted(() => ({
     serverFetch: vi.fn(),
-    prompt: vi.fn(async () => null),
+    prompt: vi.fn<(...args: unknown[]) => Promise<string | null>>(async () => null),
     alert: vi.fn(),
 }));
 
@@ -101,6 +101,64 @@ describe('App lock test email recipient', () => {
                 method: 'PUT',
                 body: expect.stringContaining('"recoveryEmail":"new-recipient@example.net"'),
             }), {});
+    });
+
+    it('requires the current device password before changing recovery settings', async () => {
+        const { createAppLockKeys } = await import('@/auth/appLock/appLockCrypto');
+        const { activateAppLock } = await import('@/auth/appLock/appLockRuntime');
+        const keys = await createAppLockKeys('current-password', { N: 1024, r: 8, p: 1 });
+        await activateAppLock({
+            v: 1, lockId: 'lock_0123456789abcdefghijkl', email: savedMail.recoveryEmail,
+            serverUrl: 'https://relay.example.test', wrapped: keys.wrapped, autoLockMinutes: 5, biometric: false,
+        }, keys.dataKey);
+        const screen = await renderScreen(<AppLockSettingsView />);
+        await act(async () => { screen.changeTextByTestId('app-lock-settings-email', 'new-recipient@example.net'); });
+        boundary.prompt.mockResolvedValueOnce('wrong-password');
+        await screen.pressByTestIdAsync('app-lock-mail-save');
+        expect(boundary.prompt).toHaveBeenCalled();
+        expect(boundary.serverFetch.mock.calls.filter(([, init]) => init?.method === 'PUT')).toHaveLength(0);
+
+        boundary.prompt.mockResolvedValueOnce('current-password');
+        await screen.pressByTestIdAsync('app-lock-mail-save');
+        expect(boundary.serverFetch.mock.calls.filter(([, init]) => init?.method === 'PUT')).toHaveLength(1);
+
+        // A password proof begun while unlocked cannot survive a re-lock during derivation.
+        const runtime = await import('@/auth/appLock/appLockRuntime');
+        boundary.prompt.mockImplementationOnce(async () => {
+            const checking = runtime.verifyAppLockPassword('current-password');
+            runtime.lockAppLock();
+            expect(await checking).toBe(false);
+            return 'current-password';
+        });
+        await screen.pressByTestIdAsync('app-lock-mail-save');
+        expect(boundary.serverFetch.mock.calls.filter(([, init]) => init?.method === 'PUT')).toHaveLength(1);
+    });
+
+    it('keeps the shared mail editor current after the guarded recovery-email change', async () => {
+        const { createAppLockKeys } = await import('@/auth/appLock/appLockCrypto');
+        const { activateAppLock } = await import('@/auth/appLock/appLockRuntime');
+        const keys = await createAppLockKeys('current-password', { N: 1024, r: 8, p: 1 });
+        await activateAppLock({
+            v: 1, lockId: 'lock_0123456789abcdefghijkl', email: savedMail.recoveryEmail,
+            serverUrl: 'https://relay.example.test', wrapped: keys.wrapped, autoLockMinutes: 5, biometric: false,
+        }, keys.dataKey);
+        boundary.serverFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+            if (path === '/v1/features') return Response.json({ features: {
+                appLock: { emailRecovery: { enabled: true } },
+            } });
+            if (path === APP_LOCK_RECOVERY_ROUTES.mailSettings && init?.method === 'GET') {
+                return Response.json({ settings: savedMail });
+            }
+            return Response.json({ ok: true });
+        });
+        const screen = await renderScreen(<AppLockSettingsView />);
+        boundary.prompt.mockResolvedValueOnce('current-password').mockResolvedValueOnce('updated@example.net');
+        await screen.pressByTestIdAsync('app-lock-change-email');
+        expect(screen.findByTestId('app-lock-settings-email')?.props.value).toBe('updated@example.net');
+        boundary.prompt.mockResolvedValueOnce('current-password');
+        await screen.pressByTestIdAsync('app-lock-mail-save');
+        expect(boundary.serverFetch.mock.calls.filter(([, init]) => init?.method === 'PUT').at(-1)?.[1]?.body)
+            .toContain('"recoveryEmail":"updated@example.net"');
     });
 
     it('keeps Test Email disabled until server settings have been saved, even with a valid recipient', async () => {

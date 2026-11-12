@@ -5,7 +5,7 @@ import type { AppLockMailSecurity, AppLockMailSettings } from '@happier-dev/prot
 
 import { canUseAppLockBiometrics } from '@/auth/appLock/appLockBiometrics';
 import { APP_LOCK_AUTO_LOCK_CHOICES, type AppLockRecord } from '@/auth/appLock/appLockRecord';
-import { lockAppLock, useAppLockSnapshot, verifyAppLockPassword } from '@/auth/appLock/appLockRuntime';
+import { getAppLockSnapshot, lockAppLock, useAppLockSnapshot, verifyAppLockPassword } from '@/auth/appLock/appLockRuntime';
 import {
     changeAppLockEmail,
     changeAppLockPassword,
@@ -100,6 +100,15 @@ function describeMailSecurity(security: AppLockMailSecurity): string {
 async function promptPassword(title: string, message: string): Promise<string | null> {
     const value = await Modal.prompt(title, message, { inputType: 'secure-text', confirmText: t('common.continue') });
     return value ? value : null;
+}
+
+async function confirmRecoverySettingsChange(title: string): Promise<boolean> {
+    if (getAppLockSnapshot().status === 'disabled') return true;
+    const current = await promptPassword(title, t('appLock.currentPasswordPrompt'));
+    if (!current) return false;
+    if (await verifyAppLockPassword(current)) return true;
+    Modal.alert(t('common.error'), t('appLock.wrongPassword'));
+    return false;
 }
 
 /**
@@ -201,6 +210,11 @@ function MailServerSection(props: Readonly<{
         setRecoveryEmail(saved.recoveryEmail ?? '');
     }, [props.mail.status, saved]);
 
+    // The guarded Change email action updates this same account-wide recipient.
+    React.useEffect(() => {
+        setRecoveryEmail(saved?.recoveryEmail ?? '');
+    }, [saved?.recoveryEmail]);
+
     // Follow the usual port for the chosen security unless the user typed a custom one.
     const chooseSecurity = React.useCallback((next: AppLockMailSecurity) => {
         setPort((currentPort) => (!currentPort || currentPort === String(DEFAULT_PORT_BY_SECURITY[security])
@@ -215,6 +229,7 @@ function MailServerSection(props: Readonly<{
             setError(t('appLock.mailInvalid'));
             return;
         }
+        if (!(await confirmRecoverySettingsChange(t('appLock.mailSave')))) return;
         setBusy(true);
         setError(null);
         const input = {
@@ -411,12 +426,7 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord; recoveryEmail: s
     }, []);
 
     const changeEmail = React.useCallback(async () => {
-        const current = await promptPassword(t('appLock.changeEmail'), t('appLock.currentPasswordPrompt'));
-        if (!current) return;
-        if (!(await verifyAppLockPassword(current))) {
-            Modal.alert(t('common.error'), t('appLock.wrongPassword'));
-            return;
-        }
+        if (!(await confirmRecoverySettingsChange(t('appLock.changeEmail')))) return;
         const email = await Modal.prompt(t('appLock.changeEmail'), t('appLock.newEmailPrompt'), {
             inputType: 'email-address',
             defaultValue: props.recoveryEmail,
@@ -458,6 +468,7 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord; recoveryEmail: s
                     showChevron={false}
                 />
                 <Item
+                    testID="app-lock-change-email"
                     title={t('appLock.changeEmail')}
                     subtitle={props.recoveryEmail}
                     icon={<Icon name="envelope" size={29} color={theme.colors.accent.indigo} />}
