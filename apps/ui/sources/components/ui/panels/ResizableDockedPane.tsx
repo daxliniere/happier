@@ -69,7 +69,9 @@ export const ResizableDockedPane = React.memo((props: ResizableDockedPaneProps) 
                     onPressIn={(event) => {
                         setResizeHandleHeld(true);
                         props.onResizeHandleActiveChange?.(true);
-                        (webHandleProps.onPressIn as ((event: unknown) => void) | undefined)?.(event);
+                        if (Platform.OS === 'web') {
+                            (webHandleProps.onPressIn as ((event: unknown) => void) | undefined)?.(event);
+                        }
                     }}
                     onPressOut={() => {
                         setResizeHandleHeld(false);
