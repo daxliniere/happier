@@ -14,7 +14,8 @@ export function resolvePlacement(params: {
         const preferredMinAvailable = Math.max(0, params.preferredMinAvailable ?? 0);
         if (params.available.right >= preferredMinAvailable) return 'right';
         if (params.available.left >= preferredMinAvailable) return 'left';
-        return params.available.right >= params.available.left ? 'right' : 'left';
+        // A narrow viewport may have no room beside the anchor; preserve readable width vertically.
+        return params.available.top > params.available.bottom ? 'top' : 'bottom';
     }
     if (params.placement !== 'auto') return params.placement;
     const entries = Object.entries(params.available) as Array<[ResolvedPopoverPlacement, number]>;

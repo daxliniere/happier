@@ -54,4 +54,15 @@ describe('resolvePlacement', () => {
             },
         })).toBe('left');
     });
+
+    it.each([
+        { top: 650, bottom: 110, placement: 'top' },
+        { top: 100, bottom: 660, placement: 'bottom' },
+    ])('opens a submenu $placement when neither horizontal side fits', ({ top, bottom, placement }) => {
+        expect(resolvePlacement({
+            placement: 'auto-horizontal',
+            preferredMinAvailable: 320,
+            available: { top, bottom, left: 96, right: 26 },
+        })).toBe(placement);
+    });
 });
