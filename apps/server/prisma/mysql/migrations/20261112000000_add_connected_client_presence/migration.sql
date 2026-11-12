@@ -9,4 +9,3 @@ CREATE TABLE `ConnectedClientPresence` (
 
 -- AddForeignKey
 ALTER TABLE `ConnectedClientPresence` ADD CONSTRAINT `ConnectedClientPresence_accountId_fkey` FOREIGN KEY (`accountId`) REFERENCES `Account`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
