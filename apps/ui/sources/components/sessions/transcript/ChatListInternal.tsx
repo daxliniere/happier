@@ -2558,6 +2558,15 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
     ]);
     // Native message action rows sit under the bottom-right corner; lift the pill clear of them.
     const jumpControlBaseBottom = Platform.OS === 'web' ? 12 : 24;
+    const jumpToTopButton = (
+        <JumpToBottomButton
+            testID="transcript-jump-to-top"
+            count={0}
+            busy={jumpToTopLoading}
+            direction="top"
+            onPress={() => { fireAndForget(jumpToTop(), { tag: 'ChatListInternal.jumpToTop' }); }}
+        />
+    );
     return (
         <SessionTranscriptAgentAttributionProvider value={agentAttributionIndex}>
         <TranscriptMotionProvider sessionKey={props.sessionId} config={motionConfig}>
@@ -2625,19 +2634,22 @@ export const ChatListInternal = React.memo((props: ChatListInternalProps) => {
                     <TranscriptFirstPaintPlaceholder reducedMotion={reducedMotionPreferred} />
                 ) : null}
                 {jumpToTopAffordance.isVisible ? (
-                    <ComposerKeyboardFloatingInset
-                        testID="transcript-jump-to-top-keyboard-offset"
-                        baseBottom={jumpControlBaseBottom + (jumpToBottomAffordance.isVisible ? 52 : 0)}
-                        style={{ position: 'absolute', right: 12 }}
-                    >
-                        <JumpToBottomButton
-                            testID="transcript-jump-to-top"
-                            count={0}
-                            busy={jumpToTopLoading}
-                            direction="top"
-                            onPress={() => { fireAndForget(jumpToTop(), { tag: 'ChatListInternal.jumpToTop' }); }}
-                        />
-                    </ComposerKeyboardFloatingInset>
+                    Platform.OS === 'web' ? (
+                        <ComposerKeyboardFloatingInset
+                            testID="transcript-jump-to-top-keyboard-offset"
+                            baseBottom={jumpToBottomAffordance.isVisible ? 64 : 12}
+                            style={{ position: 'absolute', right: 12 }}
+                        >
+                            {jumpToTopButton}
+                        </ComposerKeyboardFloatingInset>
+                    ) : (
+                        <View
+                            testID="transcript-jump-to-top-keyboard-offset"
+                            style={{ position: 'absolute', top: 12, right: 12 }}
+                        >
+                            {jumpToTopButton}
+                        </View>
+                    )
                 ) : null}
                 {jumpToBottomAffordance.isVisible ? (
                     <ComposerKeyboardFloatingInset
