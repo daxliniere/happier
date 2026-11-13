@@ -63,7 +63,7 @@ pub enum QuitIntent {
     /// "Quit Happier": follows the login-start setting.
     #[default]
     Quit,
-    /// "Quit Happier (stop background services)".
+    /// "Quit Happier (close background services)".
     StopServices,
 }
 
