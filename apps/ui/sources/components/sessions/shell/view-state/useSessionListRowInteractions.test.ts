@@ -74,6 +74,17 @@ describe('session list drag commit outcomes', () => {
         await hook.unmount();
     });
 
+    it('keeps a shrunken earlier row from letting the source slot mask a later target', async () => {
+        const { hook, positions, heights, refs, pointer } = await geometryHarness('b');
+        heights[0] = 10;
+        positions[2] = 50;
+        await act(async () => { hook.getCurrent().registerTreeRowBounds('session:server-a:a', refs[0]!); });
+        expect(hook.getCurrent().resolveDropResult(pointer(78)).result.instruction).toMatchObject({
+            kind: 'reorder-after', targetId: 'session:server-a:c',
+        });
+        await hook.unmount();
+    });
+
     it('refreshes the line under a stationary pointer on scroll and stops after cancellation', async () => {
         const { hook, pointer, setScroll, refs } = await geometryHarness();
         expect(hook.getCurrent().resolveDropResult(pointer(85)).geometry).toMatchObject({ kind: 'line', geometry: { top: 79 } });
