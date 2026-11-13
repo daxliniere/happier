@@ -97,6 +97,7 @@ export function useDirectSessionRuntime(params: UseDirectSessionRuntimeParams): 
     const [status, setStatus] = React.useState<DirectSessionRuntimeStatus | null>(null);
     const statusRef = React.useRef<DirectSessionRuntimeStatus | null>(null);
     const inFlightRefreshRef = React.useRef<Promise<DirectSessionRuntimeStatus | null> | null>(null);
+    const messagesRefreshInFlightRef = React.useRef(false);
     const generationRef = React.useRef(0);
     const previousServerIdRef = React.useRef<string | undefined>(undefined);
     const activeServerId = normalizeServerId(activeServerSnapshot.serverId);
@@ -158,7 +159,15 @@ export function useDirectSessionRuntime(params: UseDirectSessionRuntimeParams): 
                 .then((response) => ({ ok: true as const, response }))
                 .catch((error: unknown) => ({ ok: false as const, error }));
 
-            await sync.refreshSessionMessages(params.sessionId).catch(() => {});
+            // The messages sync retries until the transcript loads. Status (and the take-over actions
+            // it enables) must not wait for it: an unreadable transcript is exactly when the user
+            // needs to take the session over. Keep one transcript refresh in flight per hook.
+            if (!messagesRefreshInFlightRef.current) {
+                messagesRefreshInFlightRef.current = true;
+                void sync.refreshSessionMessages(params.sessionId)
+                    .catch(() => {})
+                    .finally(() => { messagesRefreshInFlightRef.current = false; });
+            }
 
             const statusResult = await statusPromise;
             if (!statusResult.ok) {

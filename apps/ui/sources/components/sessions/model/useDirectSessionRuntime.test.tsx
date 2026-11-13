@@ -120,9 +120,29 @@ describe('useDirectSessionRuntime', () => {
     }
   });
 
+  it('publishes take-over status while the transcript refresh is still failing and retrying', async () => {
+    // An unreadable transcript keeps the messages sync retrying; take-over must not wait for it.
+    const neverSettles = new Promise<void>(() => {});
+    refreshSessionMessagesSpy.mockReturnValue(neverSettles);
+    const status = {
+      ok: true, machineOnline: true, runnerActive: false, activity: 'idle',
+      canTakeOverDirect: true, canTakeOverPersist: true, canForceStop: false, trustedPid: null,
+    };
+    machineDirectSessionStatusGetSpy.mockResolvedValue(status);
+
+    const harness = await renderHarness();
+    await act(async () => {
+      await expect(harness.getCurrent().refreshNow()).resolves.toEqual(status);
+    });
+
+    expect(harness.getCurrent().status).toEqual(status);
+    expect(refreshSessionMessagesSpy).toHaveBeenCalledTimes(1);
+    await harness.unmount();
+  });
+
   it('returns the current status instead of rejecting when status refresh fails', async () => {
     const refreshMessages = createDeferred<void>();
-    machineDirectSessionStatusGetSpy.mockRejectedValueOnce(Object.assign(new Error('RPC method not available'), {
+    machineDirectSessionStatusGetSpy.mockRejectedValue(Object.assign(new Error('RPC method not available'), {
       rpcErrorCode: 'RPC_METHOD_NOT_AVAILABLE',
     }));
     refreshSessionMessagesSpy.mockReturnValueOnce(refreshMessages.promise);
