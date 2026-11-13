@@ -497,12 +497,16 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
 
     const localDeviceId = getPersistenceStorage().getString(CONNECTED_DEVICE_CLIENT_ID_KEY) ?? null;
     const versionLines: Array<Readonly<{ text: string; isLocalDevice?: boolean }>> = [
+        // The app, native, build and runtime lines always describe this running instance, so they are highlighted
+        // even when this device has not (yet) appeared in the connected-devices list below.
         ...[
         `${t('systemStatus.application.appVersion')}: ${runtime.appVersion ?? appVersion}`,
         ...(desktopVersion ? [`${t('systemStatus.application.nativeVersion')}: ${desktopVersion}`] : []),
         ...(runtime.nativeApplicationVersion ? [`${t('systemStatus.application.nativeVersion')}: ${runtime.nativeApplicationVersion}`] : []),
         ...(runtime.nativeBuildVersion ? [`${t('systemStatus.application.buildNumber')}: ${runtime.nativeBuildVersion}`] : []),
         ...(runtime.runtimeVersion ? [`${t('systemStatus.application.runtimeVersion')}: ${runtime.runtimeVersion}`] : []),
+        ].map((text) => ({ text, isLocalDevice: true })),
+        ...[
         `${t('settings.servers')}: ${serverVersion ?? t('status.unknown')}`,
         ...machines.filter((machine) => machine.metadata?.happyCliVersion).map((machine) =>
             `${t('settings.machines')} (${machine.metadata?.displayName || machine.metadata?.host || machine.id}): ${machine.metadata?.happyCliVersion}${machine.metadata?.happyForkVersion ? ` (${machine.metadata.happyForkVersion})` : ''}`),

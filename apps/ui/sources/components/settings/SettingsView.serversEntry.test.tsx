@@ -310,7 +310,13 @@ describe('SettingsView', () => {
         expect(subtitleText).toContain('Phone | android | 0.2.19-fork.22 (rc2)');
         expect(subtitleText).toContain('web | 0.2.19-fork.25 (rc3)');
         expect(subtitleText).not.toContain('Expired device');
-        expect(lines.filter((line) => line.isLocalDevice).map((line) => line.text)).toEqual([expect.stringContaining('LAPTOP-ZBP | desktop')]);
+        expect(lines.filter((line) => line.isLocalDevice).map((line) => line.text)).toEqual([
+            expect.stringContaining('0.2.19-fork.14'),
+            expect.stringContaining('1.2.3'),
+            expect.stringContaining('42'),
+            expect.stringContaining('runtime-1'),
+            expect.stringContaining('LAPTOP-ZBP | desktop'),
+        ]);
         await act(async () => { await screen.pressRowByTitle('common.version'); });
         expect(shared.copySpy).toHaveBeenCalledWith(subtitleText);
         // Item is a prop passthrough here, so read the toast from the row's accessory prop.
