@@ -408,6 +408,48 @@ describe('SessionListRowModelBoundary', () => {
         await screen.unmount();
     });
 
+    it.each([false, true])('keeps recycled row colour before viewability catches up (previous subscription: %s)', async (previousSubscriptionEnabled) => {
+        const { resolveSessionWorkspacePresentation } = await import('@/sync/domains/session/listing/sessionWorkspacePresentation');
+        const workspaceKey = resolveSessionWorkspacePresentation({ metadata: baseSession.metadata, machines: {} }).workspaceKey;
+        reactiveStorageHarness.setState({
+            ...reactiveStorageHarness.getState(),
+            sessionOrganizationLabelsByLabelKey: {
+                [`server_a:workspace:${workspaceKey}`]: { labelKind: 'workspace', scopeKey: workspaceKey, display: { t: 'plain', v: { color: { kind: 'accent', key: 'green' } } }, archivedAt: null, createdAt: 1, updatedAt: 1 },
+            },
+        } as TestStorageState);
+        const { SessionListRowModelBoundary } = await import('./SessionListRowModelBoundary');
+        const props = { ...createBoundaryProps(), rowStoreSubscriptionEnabled: false };
+        const screen = await renderScreen(<SessionListRowModelBoundary {...props} rowStoreSubscriptionEnabled={previousSubscriptionEnabled} />);
+        expect(rowRenderProps.at(-1)?.rowModel.appearanceColor).toEqual({ kind: 'accent', key: 'green' });
+        await screen.update(<SessionListRowModelBoundary {...props} item={{ ...baseItem, session: { ...baseSession, id: 'sess_b' } }} />);
+        expect(rowRenderProps.at(-1)?.rowModel.session.id).toBe('sess_b');
+        expect(rowRenderProps.at(-1)?.rowModel.appearanceColor).toEqual({ kind: 'accent', key: 'green' });
+        expect(reactiveStorageHarness.listenerCount()).toBe(0);
+        await screen.update(<SessionListRowModelBoundary {...props} />);
+        expect(rowRenderProps.at(-1)?.rowModel.session.id).toBe('sess_a');
+        expect(rowRenderProps.at(-1)?.rowModel.appearanceColor).toEqual({ kind: 'accent', key: 'green' });
+        await screen.unmount();
+    });
+
+    it('shows already-hydrated identity when a cell is recycled onto a skeletal list entry', async () => {
+        reactiveStorageHarness.setState({
+            ...reactiveStorageHarness.getState(),
+            sessionListRenderables: { sess_b: { ...baseSession, id: 'sess_b' } },
+        });
+        const { SessionListRowModelBoundary } = await import('./SessionListRowModelBoundary');
+        const props = { ...createBoundaryProps(), rowStoreSubscriptionEnabled: false };
+        const screen = await renderScreen(<SessionListRowModelBoundary {...props} />);
+        await screen.update(<SessionListRowModelBoundary {...props} item={{
+            ...baseItem,
+            session: { ...baseSession, id: 'sess_b', metadata: null },
+        }} />);
+        expect(rowRenderProps.at(-1)?.rowModel.session.id).toBe('sess_b');
+        expect(rowRenderProps.at(-1)?.rowModel.isIdentityLoading).toBe(false);
+        expect(rowRenderProps.at(-1)?.rowModel.session.metadata).toEqual(baseSession.metadata);
+        expect(reactiveStorageHarness.listenerCount()).toBe(0);
+        await screen.unmount();
+    });
+
     it('shows real row content when the row first mounts while the surface is inactive', async () => {
         const { SessionListRowModelBoundary } = await import('./SessionListRowModelBoundary');
         await act(async () => {

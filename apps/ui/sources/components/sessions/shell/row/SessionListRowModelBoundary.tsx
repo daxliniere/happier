@@ -200,6 +200,20 @@ export const SessionListRowModelBoundary = React.memo(function SessionListRowMod
     // and the list is blank; wait first and it is populated but scrolled to the top.
     const frozenRowStoreStateRef = React.useRef<SessionListRowStoreState | null>(null);
     const frozenDraftProjectionRef = React.useRef<ExistingSessionDraftProjection | null>(null);
+    const rowIdentity = JSON.stringify([
+        props.activeServerId ?? null,
+        draftScope?.serverId ?? props.item.serverId ?? null,
+        draftScope?.accountId ?? null,
+        props.item.session.id,
+    ]);
+    const frozenRowIdentityRef = React.useRef<string | null>(null);
+    // A recycled cell is a new row even before viewability enables its subscription.
+    // Retain snapshots only for the same session and server/account scope.
+    if (frozenRowIdentityRef.current !== rowIdentity) {
+        frozenRowIdentityRef.current = rowIdentity;
+        frozenRowStoreStateRef.current = null;
+        frozenDraftProjectionRef.current = null;
+    }
     // A newly inserted row may precede the list's viewability/subscription update.
     // It needs the same initial read as an inactive first mount, without a listener.
     const hasLiveRowState = props.dataActive && props.rowStoreSubscriptionEnabled;
