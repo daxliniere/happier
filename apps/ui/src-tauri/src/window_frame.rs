@@ -9,7 +9,7 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        mpsc::{self, Sender},
+        mpsc,
         Arc, Mutex,
     },
     time::Duration,
