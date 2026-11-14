@@ -1816,6 +1816,15 @@ export function useLatestProviderUsageRecordIdsByAgent(): ReadonlyMap<AgentId, r
   return React.useMemo(() => parseLatestProviderUsageRecordIds(signature), [signature]);
 }
 
+/** A composer subscribes only to its native provider's usage refs, when it has no explicit account. */
+export function useLatestProviderUsageRecordIdsForAgent(agentId: AgentId | null): readonly string[] {
+  return getStorage()(useShallow((state) => (
+    state.isDataReady && agentId
+      ? selectLatestProviderUsageRecordIdsByAgent(sortValuesByUpdatedAtDescending(state.sessions)).get(agentId) ?? []
+      : []
+  )));
+}
+
 /** Latest limit evidence per provider; unrelated or unmetered sessions cannot erase account facts. */
 export function useLatestProviderUsageRuntimeIssuesByAgent(): ReadonlyMap<AgentId, SessionRuntimeIssueV1> {
   return getStorage()(useShallow((state) => {
