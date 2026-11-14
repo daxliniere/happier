@@ -198,6 +198,8 @@ pub fn run() {
                         api.prevent_exit();
                     }
                 }
+                #[cfg(not(target_os = "macos"))]
+                tauri::RunEvent::Exit => window_chrome::flush_main_window_frame(app_handle),
                 tauri::RunEvent::Ready => {
                     startup::emit_ready(app_handle);
                     window_chrome::present_main_window_for_lifecycle_event(

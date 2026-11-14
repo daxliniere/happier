@@ -367,6 +367,15 @@ pub(crate) fn present_main_window_for_lifecycle_event(
     }
 }
 
+/// Writes a pending window frame to disk; the app exit path calls this so a move or resize made
+/// just before quitting is kept.
+#[cfg(all(desktop, not(target_os = "macos")))]
+pub(crate) fn flush_main_window_frame(app: &tauri::AppHandle) {
+    if let Some(tracker) = app.try_state::<window_frame::FrameTracker>() {
+        tracker.flush();
+    }
+}
+
 /// The main window, built from its `tauri.conf.json` entry (`"create": false`: the app creates it
 /// here, so a login start in menu-bar mode never loads a web UI).
 #[cfg(desktop)]
@@ -388,8 +397,10 @@ pub(crate) fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<Webvie
     #[cfg(not(target_os = "macos"))]
     if let Ok(dir) = app.path().app_config_dir() {
         let frame_path = dir.join("window-state/main-window-frame.json");
-        window_frame::restore(&window, &frame_path);
-        window_frame::track(&window, frame_path);
+        let restored = window_frame::restore(&window, &frame_path);
+        let tracker = window_frame::track(&window, frame_path, restored);
+        // A recreated main window (tray Open) replaces the previous tracker's state.
+        app.manage(tracker);
     }
     configure_main_window(app, &window);
     Ok(window)
