@@ -4069,7 +4069,7 @@ export const it: TranslationStructure = {
     trayOpenInHappier: 'Apri in Happier',
     traySettings: 'Impostazioni…',
     trayStartAtLogin: 'Avvia all’accesso',
-    trayStopAndQuit: 'Arresta i servizi in background ed esci',
+    trayStopAndQuit: 'Esci da Happier (arresta i servizi in background)',
     trayStart: 'Avvia',
     trayRestart: 'Riavvia',
     trayStop: 'Arresta',
