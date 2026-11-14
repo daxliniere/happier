@@ -30,6 +30,8 @@ import {
 } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceProjectionSignature } from '@/sync/domains/connectedServices/resolveConnectedServiceProjectionSignature';
 import { useProfile, useSetting } from '@/sync/domains/state/storage';
+import { useLatestProviderUsageRecordIdsForAgent } from '@/sync/store/hooks';
+import { isAgentId } from '@/agents/catalog/catalog';
 import { nowServerMs } from '@/sync/runtime/time';
 import { t } from '@/text';
 
@@ -48,8 +50,6 @@ export type ProviderUsageGaugeResult = Readonly<{
     profileKey: string | null;
     windowMode: ConnectedServiceQuotaGaugeWindowMode;
 }>;
-
-const EMPTY_RECORD_IDS: readonly string[] = [];
 
 function resolveConnectedServiceProviderDisplayName(serviceId: string): string | null {
     const parsed = ConnectedServiceIdSchema.safeParse(serviceId);
@@ -73,7 +73,14 @@ export function useProviderUsageGauge(params: Readonly<{
     recoveryCredits?: ConnectedServiceQuotaRecoveryCreditsV1 | null;
 }>): ProviderUsageGaugeResult {
     const profileRef = params.profileRef;
-    const metadataRecordIds = params.metadataRecordIds ?? EMPTY_RECORD_IDS;
+    const nativeRecordIds = useLatestProviderUsageRecordIdsForAgent(
+        !profileRef && !params.metadataRecordIds?.length && params.providerId && isAgentId(params.providerId)
+            ? params.providerId : null,
+    );
+    // Direct sessions can be browsed before takeover publishes their own usage refs. Reuse the
+    // native provider's known account, as New Session does, without replacing an explicit binding.
+    const metadataRecordIds = params.metadataRecordIds?.length ? params.metadataRecordIds
+        : nativeRecordIds;
     const accountProfile = useProfile();
     const connectedServiceQuotasEnabled = useFeatureEnabled('connectedServices.quotas');
     const windowModesSetting = useSetting('sessionProviderUsageGaugeWindowModes');
