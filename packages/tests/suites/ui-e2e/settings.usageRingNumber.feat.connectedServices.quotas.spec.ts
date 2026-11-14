@@ -51,7 +51,7 @@ test.describe('usage ring center-number preference', () => {
             await gotoDomContentLoadedWithRetries(page, `${baseUrl}/settings/usage?happier_hmr=0`, 180_000);
             const windows = page.getByTestId('settings-session-providerUsageGauge-window-trigger');
             await expect(windows).toBeVisible();
-            const before = await windows.innerText();
+            const before = await windows.textContent() ?? '';
             const number = page.getByTestId('settings-session-providerUsageGauge-number-trigger');
             await number.click();
             await page.getByTestId('settings-session-providerUsageGauge-number:weekly').click();
