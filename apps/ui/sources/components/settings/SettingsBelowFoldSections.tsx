@@ -420,14 +420,18 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
     const settings = useSettings();
     const [serverVersion, setServerVersion] = React.useState<string | null>(null);
     const [desktopVersion, setDesktopVersion] = React.useState<string | null>(null);
-    const [connectedClientsLastSeen, setConnectedClientsLastSeen] = React.useState(NO_CONNECTED_CLIENT_PRESENCE);
+    // Empty while loading, null once the relay's presence is known to be unavailable.
+    const [connectedClientsLastSeen, setConnectedClientsLastSeen] = React.useState<Readonly<Record<string, number>> | null>(NO_CONNECTED_CLIENT_PRESENCE);
     React.useEffect(() => {
         let active = true;
         apiListConnectedClientsLastSeen()
             .then((lastSeen) => {
                 if (active) setConnectedClientsLastSeen(lastSeen);
             })
-            .catch((error: unknown) => console.error('[settings] Could not load connected-client presence:', error));
+            .catch((error: unknown) => {
+                console.error('[settings] Could not load connected-client presence:', error);
+                if (active) setConnectedClientsLastSeen(null);
+            });
         return () => {
             active = false;
         };
@@ -513,7 +517,7 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
         `${t('settings.connectedDevicesLast14Days')}:`,
         ].map((text) => ({ text })),
         ...listConnectedDevices(settings, connectedClientsLastSeen, Date.now(), localDeviceId).map((device) => ({
-            text: `${device.name ?? t('status.unknown')} | ${device.platform} | ${device.appVersion ?? t('status.unknown')} | ${new Date(device.lastSeen).toISOString()}`,
+            text: `${device.name ?? t('status.unknown')} | ${device.platform} | ${device.appVersion ?? t('status.unknown')} | ${device.lastSeen === null ? t('status.unknown') : new Date(device.lastSeen).toISOString()}`,
             isLocalDevice: device.id === localDeviceId,
         })),
     ];
