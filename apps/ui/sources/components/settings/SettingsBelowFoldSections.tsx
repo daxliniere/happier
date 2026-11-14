@@ -512,7 +512,7 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
             `${t('settings.machines')} (${machine.metadata?.displayName || machine.metadata?.host || machine.id}): ${machine.metadata?.happyCliVersion}${machine.metadata?.happyForkVersion ? ` (${machine.metadata.happyForkVersion})` : ''}`),
         `${t('settings.connectedDevicesLast14Days')}:`,
         ].map((text) => ({ text })),
-        ...listConnectedDevices(settings, connectedClientsLastSeen, Date.now()).map((device) => ({
+        ...listConnectedDevices(settings, connectedClientsLastSeen, Date.now(), localDeviceId).map((device) => ({
             text: `${device.name ?? t('status.unknown')} | ${device.platform} | ${device.appVersion ?? t('status.unknown')} | ${new Date(device.lastSeen).toISOString()}`,
             isLocalDevice: device.id === localDeviceId,
         })),
