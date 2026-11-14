@@ -465,20 +465,13 @@ export async function publishCodexAppServerSessionControlsMetadata(params: Reado
     currentReasoningEffort?: string | null;
     currentServiceTier?: string | null;
     shouldPublish?: () => boolean;
-}>): Promise<void> {
+}>): Promise<CodexAppServerSessionControlsSnapshot | null> {
     const provider = normalizeString(params.provider) ?? 'codex';
     const updatedAt = typeof params.updatedAt === 'number' && Number.isFinite(params.updatedAt)
         ? Math.trunc(params.updatedAt)
         : Date.now();
 
-    const {
-        availableModes,
-        currentModeId,
-        availableModels,
-        modelsObserved,
-        currentModelId,
-        configOptions,
-    } = await readCodexAppServerSessionControls({
+    const snapshot = await readCodexAppServerSessionControls({
         client: params.client,
         authMethod: params.authMethod,
         currentModeId: params.currentModeId,
@@ -487,7 +480,16 @@ export async function publishCodexAppServerSessionControlsMetadata(params: Reado
         currentServiceTier: params.currentServiceTier,
     });
 
-    if (params.shouldPublish?.() === false) return;
+    const {
+        availableModes,
+        currentModeId,
+        availableModels,
+        modelsObserved,
+        currentModelId,
+        configOptions,
+    } = snapshot;
+
+    if (params.shouldPublish?.() === false) return null;
     if (!modelsObserved) {
         logger.infoFile('[CodexAppServer] Model discovery failed; retaining the previous model catalog');
     }
@@ -549,6 +551,7 @@ export async function publishCodexAppServerSessionControlsMetadata(params: Reado
             };
         })(),
     })));
+    return snapshot;
 }
 
 export async function publishCodexAppServerRuntimeModelContextWindowMetadata(params: Readonly<{

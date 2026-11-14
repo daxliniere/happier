@@ -1205,6 +1205,8 @@ export function createCodexAppServerRuntime(params: Readonly<{
     let currentModeId: string | null = null;
     let currentCollaborationMode: NonNullable<ReturnType<typeof resolveCodexAppServerCollaborationModeSelection>>['payload'] | null = null;
     let currentModelId: string | null = null;
+    // Attach-time controls publication; the next turn waits for it so turn/start uses an offered model.
+    let attachSessionControlsPublication: Promise<void> | null = null;
     let currentReasoningEffort: string | null = null;
     let currentServiceTier: string | null = null;
     let hasServiceTierOverride = false;
@@ -1834,7 +1836,8 @@ export function createCodexAppServerRuntime(params: Readonly<{
         shouldPublish?: () => boolean,
     ): Promise<void> => {
         const environmentAuth = readCodexEnvironmentAuthState(runtimeEnv);
-        await publishCodexAppServerSessionControlsMetadata({
+        const requestedModelId = currentModelId;
+        const snapshot = await publishCodexAppServerSessionControlsMetadata({
             client,
             session: params.session,
             provider: 'codex',
@@ -1844,7 +1847,27 @@ export function createCodexAppServerRuntime(params: Readonly<{
             currentReasoningEffort,
             currentServiceTier,
             shouldPublish,
-        }).catch(() => undefined);
+        }).catch(() => null);
+        // A resumed thread keeps the model recorded in its Codex thread row, which Codex may have
+        // retired (turns then fail with model_not_found). The published controls already resolve an
+        // unoffered model to the offered default; adopt that same resolution for turn/start so the
+        // picker and the runtime cannot disagree. Skip when the model changed meanwhile.
+        if (
+            !snapshot?.modelsObserved
+            || !requestedModelId
+            || currentModelId !== requestedModelId
+            || !snapshot.currentModelId
+            || snapshot.availableModels.some((model) => model.id === requestedModelId)
+        ) return;
+        currentModelId = snapshot.currentModelId;
+        logger.warnFile('[codex-app-server] Recorded thread model is not offered; using the offered default', {
+            recordedModelId: requestedModelId,
+            modelId: currentModelId,
+        });
+        params.session.sendSessionEvent?.({
+            type: 'message',
+            message: `Codex no longer offers the model ${requestedModelId} recorded for this chat, so Happier is using ${currentModelId} instead. You can choose another model in the model picker.`,
+        });
     };
 
     const publishRuntimeContextWindow = async (contextWindowTokens: number | null): Promise<void> => {
@@ -4378,7 +4401,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
                 error,
             });
         });
-        void publishSessionControls(client, shouldPublishControlsProjection);
+        attachSessionControlsPublication = publishSessionControls(client, shouldPublishControlsProjection);
     };
 
     const startOrLoad = async (options: CodexAppServerStartOrLoadOptions = {}): Promise<void> => {
@@ -4909,6 +4932,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
             currentModeId = null;
             currentCollaborationMode = null;
             currentModelId = null;
+            attachSessionControlsPublication = null;
             currentReasoningEffort = null;
             currentServiceTier = null;
             permissionSupport = 'unknown';
@@ -5097,6 +5121,11 @@ export function createCodexAppServerRuntime(params: Readonly<{
                 }
                 assertConnectedServiceAuthGroupAvailable();
                 const client = await ensureClient();
+                if (attachSessionControlsPublication) {
+                    const publication = attachSessionControlsPublication;
+                    attachSessionControlsPublication = null;
+                    await publication;
+                }
                 const pendingProviderPrompt = trackPendingProviderPrompt(promptForAttempt, optionsForAttempt);
                 const clientUserMessageId = pendingProviderPrompt.localIds?.length === 1
                     ? pendingProviderPrompt.localIds[0]

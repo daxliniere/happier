@@ -13,6 +13,7 @@ export type CodexProjectedRolloutEvent =
     | { type: 'tool-call'; callId: string; name: string; input: unknown; sidechainId: string | null }
     | { type: 'tool-result'; callId: string; output: unknown; sidechainId: string | null; isError?: boolean }
     | { type: 'subagent-spawn'; threadId: string }
+    | { type: 'turn-failed'; providerTurnId: string | null; error: Record<string, unknown> }
     | { type: 'debug'; message: string; value?: unknown };
 
 export function projectCodexRolloutActions(
@@ -23,6 +24,12 @@ export function projectCodexRolloutActions(
 
     for (const action of actions) {
         if (action.type === 'turn-lifecycle') {
+            continue;
+        }
+
+        if (action.type === 'turn-failed') {
+            // Only the root thread's failure belongs in the main transcript.
+            if (params.sidechainId === null) projected.push(action);
             continue;
         }
 

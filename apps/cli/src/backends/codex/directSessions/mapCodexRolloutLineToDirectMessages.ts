@@ -1,6 +1,7 @@
 import type { DirectTranscriptRawMessageV1 } from '@happier-dev/protocol';
 
 import type { CodexRolloutAction } from '../localControl/rolloutMapper';
+import { classifyCodexRolloutTurnFailure } from '../rollout/classifyCodexRolloutTurnFailure';
 import { projectCodexRolloutActions, type CodexProjectedRolloutEvent } from '../rollout/projectCodexRolloutActions';
 
 function shouldFilterHarnessBlob(text: string): boolean {
@@ -158,6 +159,31 @@ export function mapCodexProjectedEventsToDirectMessages(params: Readonly<{
               input: action.input,
               id: stableId,
               ...(action.sidechainId ? { sidechainId: action.sidechainId } : {}),
+            },
+          },
+        },
+      });
+      continue;
+    }
+
+    if (action.type === 'turn-failed') {
+      // Same terminal marker the runner records, so clients render the ordinary session notice row.
+      out.push({
+        id: stableId,
+        localId: stableId,
+        createdAtMs,
+        raw: {
+          role: 'agent',
+          content: {
+            type: 'codex',
+            data: {
+              type: 'turn_failed',
+              id: action.providerTurnId ?? stableId,
+              issue: classifyCodexRolloutTurnFailure({
+                error: action.error,
+                providerTurnId: action.providerTurnId,
+                occurredAt: createdAtMs,
+              }),
             },
           },
         },

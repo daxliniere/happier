@@ -195,6 +195,14 @@ function buildSafeModelNotFoundPreview(error: unknown): string | null {
   return `Model not found: ${modelRef}`;
 }
 
+/** A plan failure scoped to one model (for example a retired model) names that model instead of a generic error. */
+function buildModelUnavailablePreview(usageLimit: SessionRuntimeUsageLimitDetailsV1 | null): string | null {
+  if (usageLimit?.quotaScope !== 'model' || usageLimit.limitCategory !== 'plan_invalid') return null;
+  const model = usageLimit.providerLimitId ?? '';
+  if (!model || model.length > 180 || !/^[a-z0-9_.:@/+~-]+$/iu.test(model)) return null;
+  return `Model not available for this account: ${model}`;
+}
+
 function buildSafePiTerminalDiagnosticPreview(params: Readonly<{
   provider: string | null;
   error: unknown;
@@ -466,6 +474,7 @@ export function classifyPrimarySessionRuntimeIssue(
         ?? piBrokerReadinessFailure?.sanitizedPreview
         ?? piProviderFailure?.sanitizedPreview
         ?? buildSafeModelNotFoundPreview(input.error)
+        ?? buildModelUnavailablePreview(usageLimit)
         ?? buildSafePiTerminalDiagnosticPreview({ provider, error: input.error })
         ?? buildSafeProviderRejectionPreview(input.error)
         ?? sanitizedPreviewBySource[source]

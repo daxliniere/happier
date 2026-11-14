@@ -157,6 +157,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
     emitHistoricalNotificationOnResume?: boolean;
     resumeResponseDelayMs?: number;
     resumeResponseThreadId?: string;
+    resumeThreadModel?: string;
     threadReadResponseDelayMs?: number;
     emitIdleMcpRequestAfterThreadStart?: boolean;
     rejectPermissionsProfileAsStringShape?: boolean;
@@ -324,7 +325,7 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            continue;',
         '        }',
         `        const oversizedPayload = ${JSON.stringify(params.oversizedResumePayloadChars ?? 0)} > 0 ? "x".repeat(${JSON.stringify(params.oversizedResumePayloadChars ?? 0)}) : undefined;`,
-        '        const resumeResponse = JSON.stringify({ id: msg.id, result: { threadId: resumedThreadId, model: msg.params?.model ?? (adoptsOverrideThread ? "gpt-5.4-mini" : "gpt-5.4"), serviceTier: Object.prototype.hasOwnProperty.call(msg.params ?? {}, "serviceTier") ? msg.params.serviceTier : null, activePermissionProfile: typeof msg.params?.permissions === "string" ? { id: msg.params.permissions } : null, ...(oversizedPayload ? { oversizedPayload } : {}) } }) + "\\n";',
+        `        const resumeResponse = JSON.stringify({ id: msg.id, result: { threadId: resumedThreadId, model: msg.params?.model ?? (adoptsOverrideThread ? "gpt-5.4-mini" : ${JSON.stringify(params.resumeThreadModel ?? 'gpt-5.4')}), serviceTier: Object.prototype.hasOwnProperty.call(msg.params ?? {}, "serviceTier") ? msg.params.serviceTier : null, activePermissionProfile: typeof msg.params?.permissions === "string" ? { id: msg.params.permissions } : null, ...(oversizedPayload ? { oversizedPayload } : {}) } }) + "\\n";`,
         `        if (${JSON.stringify(params.resumeResponseDelayMs ?? 0)} > 0) {`,
         `            setTimeout(() => { process.stdout.write(resumeResponse); }, ${JSON.stringify(params.resumeResponseDelayMs ?? 0)});`,
         '        } else {',
@@ -1776,6 +1777,7 @@ describe('createCodexAppServerRuntime', () => {
             emitHistoricalNotificationOnResume?: boolean;
             resumeResponseDelayMs?: number;
             resumeResponseThreadId?: string;
+            resumeThreadModel?: string;
             threadReadResponseDelayMs?: number;
             emitIdleMcpRequestAfterThreadStart?: boolean;
             rejectPermissionsProfileAsStringShape?: boolean;
@@ -1848,6 +1850,7 @@ describe('createCodexAppServerRuntime', () => {
             emitHistoricalNotificationOnResume: options.emitHistoricalNotificationOnResume,
             resumeResponseDelayMs: options.resumeResponseDelayMs,
             resumeResponseThreadId: options.resumeResponseThreadId,
+            resumeThreadModel: options.resumeThreadModel,
             threadReadResponseDelayMs: options.threadReadResponseDelayMs,
             emitIdleMcpRequestAfterThreadStart: options.emitIdleMcpRequestAfterThreadStart,
             rejectPermissionsProfileAsStringShape: options.rejectPermissionsProfileAsStringShape,
@@ -2490,6 +2493,47 @@ describe('createCodexAppServerRuntime', () => {
                 }),
             ]),
         );
+    });
+
+    it('falls back to the offered default model when a resumed thread records a model Codex no longer offers', async () => {
+        // Imported chats keep the model recorded in their Codex thread row; Codex rejects retired models
+        // with HTTP 400 model_not_found, so the first resumed turn must use a model `model/list` offers.
+        const { root, requestLogPath } = await createRuntimeFixture('happier-codex-app-server-runtime-retired-model-', {
+            resumeThreadModel: 'gpt-retired',
+        });
+        const sendSessionEvent = vi.fn();
+        const session = createMutableApiSessionClientFixture({
+            metadata: createRuntimeMetadata(root),
+            overrides: { sendSessionEvent } as any,
+        });
+        const runtime = createCodexAppServerRuntime({
+            directory: root,
+            onThinkingChange: vi.fn(),
+            session,
+            permissionMode: 'read-only',
+        });
+
+        await runtime.startOrLoad({ resumeId: 'imported-thread', importHistory: false });
+        await runtime.sendPrompt('hello-world');
+
+        const requestLog = await readRequestLog(requestLogPath);
+        const turnStarts = requestLog.filter((entry) => entry.method === 'turn/start');
+        expect(turnStarts).toHaveLength(1);
+        expect(turnStarts[0]?.params).toMatchObject({ model: 'gpt-5.4' });
+        expect(sendSessionEvent).toHaveBeenCalledWith({
+            type: 'message',
+            message: expect.stringContaining('gpt-retired'),
+        });
+        expect(session.getMetadataSnapshot()).toMatchObject({
+            sessionModelsV1: { currentModelId: 'gpt-5.4' },
+        });
+
+        // The user can still choose any offered model afterwards.
+        await runtime.setSessionModel('gpt-5.4-mini');
+        await runtime.sendPrompt('second');
+        const secondTurn = (await readRequestLog(requestLogPath)).filter((entry) => entry.method === 'turn/start')[1];
+        expect(secondTurn?.params).toMatchObject({ model: 'gpt-5.4-mini' });
+        expect(sendSessionEvent).toHaveBeenCalledTimes(1);
     });
 
     it('rejects an explicitly different resumed thread before publishing either identity', async () => {

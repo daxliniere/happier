@@ -9,6 +9,8 @@ import {
   writeFakeCodexAppServerScript,
   writeFakeCodexAppServerThreadListScript,
 } from '@/backends/codex/appServer/testkit/fakeCodexAppServer';
+import { SessionRuntimeIssueV1Schema } from '@happier-dev/protocol';
+
 import { decodeCodexDirectForwardCursor } from './codexDirectForwardCursor';
 import { readAfterCodexTranscript } from './readAfterCodexTranscript';
 
@@ -79,6 +81,68 @@ describe('readAfterCodexTranscript', () => {
     );
     expect(next.truncated).toBe(false);
     expect(next.nextCursor).toBeTruthy();
+  });
+
+  it('surfaces a failed provider turn as a visible turn_failed notice, but not a clean completion', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'happier-codex-direct-turn-failed-'));
+    const codexHome = join(root, 'codex-home');
+    const sessionsDir = join(codexHome, 'sessions');
+    await mkdir(sessionsDir, { recursive: true });
+
+    const sessionId = '33333333-3333-3333-3333-333333333333';
+    const filePath = join(sessionsDir, `rollout-2026-01-02T00-00-00-${sessionId}.jsonl`);
+    await writeFile(
+      filePath,
+      sessionMetaLine({ id: sessionId, timestamp: '2026-01-02T00:00:00.000Z', cwd: '/repo/three' }),
+      'utf8',
+    );
+    const read = (cursor: string) => readAfterCodexTranscript({
+      source: { kind: 'codexHome', home: 'user' },
+      env: { CODEX_HOME: codexHome } as NodeJS.ProcessEnv,
+      activeServerDir: join(root, 'servers', 'cloud'),
+      remoteSessionId: sessionId,
+      cursor,
+      maxBytes: 1024 * 1024,
+      maxItems: 100,
+    });
+    const init = await read('tail');
+
+    // Shape copied from a real Codex rollout whose resumed turn used a retired model.
+    const providerError = JSON.stringify({
+      type: 'error',
+      status: 400,
+      error: {
+        type: 'invalid_request_error',
+        message: "The 'gpt-5.4' model is not supported when using Codex with a ChatGPT account.",
+        code: 'model_not_found',
+      },
+    });
+    await appendFile(
+      filePath,
+      `${JSON.stringify({ timestamp: '2026-01-02T00:00:02.000Z', type: 'event_msg', payload: {
+        type: 'task_complete', turn_id: 'turn-ok', last_agent_message: 'done',
+      } })}\n`
+        + `${JSON.stringify({ timestamp: '2026-01-02T00:00:03.000Z', type: 'event_msg', payload: {
+          type: 'task_complete', turn_id: 'turn-failed', last_agent_message: null,
+          error: { message: providerError, codex_error_info: 'other' },
+        } })}\n`,
+      'utf8',
+    );
+
+    const next = await read(init.nextCursor!);
+
+    expect(next.items).toHaveLength(1);
+    const data = (next.items[0]!.raw as { role: string; content: { type: string; data: Record<string, unknown> } });
+    expect(data.role).toBe('agent');
+    expect(data.content.type).toBe('codex');
+    expect(data.content.data).toMatchObject({ type: 'turn_failed', id: 'turn-failed' });
+    const issue = SessionRuntimeIssueV1Schema.parse(data.content.data.issue);
+    expect(issue).toMatchObject({
+      status: 'failed',
+      provider: 'codex',
+      providerTurnId: 'turn-failed',
+      sanitizedPreview: 'Model not available for this account: gpt-5.4',
+    });
   });
 
   it('keeps the tail cursor at end-of-file when no new lines were appended', async () => {

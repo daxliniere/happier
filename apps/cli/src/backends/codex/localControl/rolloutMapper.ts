@@ -9,6 +9,8 @@ import type { LocalTurnLifecycleEvent } from '@/agent/localControl/turnLifecycle
 export type CodexRolloutAction =
     | { type: 'codex-session-id'; id: string }
     | { type: 'turn-lifecycle'; event: LocalTurnLifecycleEvent }
+    /** The provider ended the turn with an error (Codex records it on `task_complete.error`). */
+    | { type: 'turn-failed'; providerTurnId: string | null; error: Record<string, unknown> }
     | { type: 'context-compaction'; phase: 'completed'; lifecycleId: string; source: 'provider-event' | 'transcript-inference'; providerEventId?: string }
     | { type: 'user-text'; text: string }
     | { type: 'assistant-text'; text: string }
@@ -181,17 +183,19 @@ export function mapCodexRolloutEventToActions(event: unknown, opts: { debug: boo
         }
 
         if (payloadType === 'task_complete' || payloadType === 'turn_complete') {
+            const providerTurnId = readProviderTurnId(payload);
+            const error = asRecord(payload.error);
             return [{
                 type: 'turn-lifecycle',
                 event: {
                     type: 'turn_terminal',
-                    providerTurnId: readProviderTurnId(payload),
+                    providerTurnId,
                     reason: 'completed',
                     source: payloadType === 'task_complete'
                         ? 'codex_rollout_task_complete'
                         : 'codex_rollout_turn_complete',
                 },
-            }];
+            }, ...(error ? [{ type: 'turn-failed' as const, providerTurnId, error }] : [])];
         }
 
         if (payloadType === 'turn_aborted') {

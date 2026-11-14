@@ -301,6 +301,32 @@ describe('classifyPrimarySessionRuntimeIssue', () => {
     }
   });
 
+  it('names the unavailable model in the preview of a model-scoped plan failure', () => {
+    const error = Object.assign(new Error('provider rejected the model'), {
+      runtimeAuthClassification: {
+        kind: 'plan',
+        limitCategory: 'plan_invalid',
+        quotaScope: 'model',
+        providerLimitId: 'gpt-5.4',
+        serviceId: 'openai-codex',
+        profileId: null,
+        groupId: null,
+        source: 'structured_provider_error',
+      },
+    });
+
+    expect(classifyPrimarySessionRuntimeIssue({
+      provider: 'codex',
+      cause: 'status_error',
+      error,
+      occurredAt: 1_000,
+    })).toMatchObject({
+      source: 'provider_status_error',
+      sanitizedPreview: 'Model not available for this account: gpt-5.4',
+      usageLimit: { quotaScope: 'model', limitCategory: 'plan_invalid', providerLimitId: 'gpt-5.4' },
+    });
+  });
+
   it('maps connected-service dependency failures to dependency runtime issues', () => {
     const error = new Error('context compaction dependency failed') as Error & {
       runtimeAuthClassification: {
