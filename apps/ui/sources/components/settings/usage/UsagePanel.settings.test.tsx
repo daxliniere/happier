@@ -6,6 +6,20 @@ import { flattenTestStyle, flushHookEffects, renderScreen, standardCleanup } fro
 import { withPopoverWebGlobals } from '@/dev/testkit/harness/popoverHarness';
 import { getStorage } from '@/sync/domains/state/storageStore';
 import { setPreferredLanguageFromSettings } from '@/text/i18n';
+import { applySettingsLocalDelta } from '@/sync/engine/settings/syncSettings';
+import type { Settings } from '@/sync/domains/settings/settings';
+
+// Keep the real settings writer/store; the full sync singleton starts native SDKs
+// outside this screen's host runtime. Only its transport scheduling is omitted.
+vi.mock('@/sync/runtime/getSyncSingleton', () => ({
+    getSyncSingleton: () => ({
+        applySettings: (delta: Partial<Settings>) => applySettingsLocalDelta({
+            delta, settingsSecretsKey: null,
+            getPendingSettings: () => ({}), setPendingSettings: () => {},
+            schedulePendingSettingsFlush: () => {},
+        }),
+    }),
+}));
 
 let restorePopoverGlobals: (() => void) | null = null;
 
@@ -161,6 +175,30 @@ describe('UsagePanel settings behavior', () => {
         expect(checked('most_constrained')).toBe(true);
         expect(checked('session')).toBe(false);
         expect(checked('weekly')).toBe(false);
+    });
+
+    it('persists the center-number choice without changing the selected rings', async () => {
+        const { createRootLayoutFeaturesResponse } = await import('@/dev/testkit/fixtures/featureFixtures');
+        const { getServerFeaturesSnapshot, resetServerFeaturesClientForTests } = await import('@/sync/api/capabilities/serverFeaturesClient');
+        resetServerFeaturesClientForTests();
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(createRootLayoutFeaturesResponse()), {
+            status: 200, headers: { 'content-type': 'application/json' },
+        })));
+        expect((await getServerFeaturesSnapshot({ force: true })).status).toBe('ready');
+        getStorage().setState(state => ({ settings: {
+            ...state.settings, experiments: true, featureToggles: { connectedServices: true, 'connectedServices.quotas': true },
+            sessionProviderUsageGaugeWindowModes: ['session', 'weekly'],
+        } }));
+        const { default: UsageSettingsScreen } = await import('@/app/(app)/settings/usage');
+        vi.useFakeTimers();
+        restorePopoverGlobals = withPopoverWebGlobals();
+        const screen = await renderScreen(<UsageSettingsScreen />);
+        act(() => screen.pressByTestId('settings-session-providerUsageGauge-number-trigger'));
+        await flushHookEffects({ runOnlyPendingTimers: true });
+        act(() => screen.pressByTestId('settings-session-providerUsageGauge-number:weekly'));
+        await flushHookEffects({ runOnlyPendingTimers: true });
+        expect(getStorage().getState().settings.sessionProviderUsageGaugeNumberWindowMode).toBe('weekly');
+        expect(getStorage().getState().settings.sessionProviderUsageGaugeWindowModes).toEqual(['session', 'weekly']);
     });
 
     it('shows a translated unauthenticated error', async () => {

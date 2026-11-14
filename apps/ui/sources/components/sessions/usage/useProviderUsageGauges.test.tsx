@@ -19,6 +19,46 @@ function services(status: 'connected' | 'refreshing' | 'needs_reauth' | 'refresh
 }
 
 describe('provider usage configuration visibility', () => {
+    it('updates composer and header center numbers from the same setting without changing their rings', async () => {
+        const previous = storage.getState();
+        const issue: SessionRuntimeIssueV1 = {
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'codex', occurredAt: Date.now(),
+            usageLimit: { v: 1, resetAtMs: Date.now() + 3_600_000, retryAfterMs: null,
+                quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'openai-codex', profileId: 'work', fetchedAtMs: Date.now() },
+                allWindows: [
+                    { meterId: 'five_hour', scope: 'session', remainingPct: 0, status: 'ok' },
+                    { meterId: 'weekly', scope: 'weekly', remainingPct: 70, status: 'ok' },
+                ] },
+        };
+        storage.setState({ isDataReady: true, sessions: { limited: createSessionFixture({
+            id: 'limited', metadata: { flavor: 'codex', path: '/repo', host: 'test' }, lastRuntimeIssue: issue,
+        }) }, settings: { ...previous.settings, sessionProviderUsageGaugeWindowModes: ['session', 'weekly'],
+            sessionProviderUsageGaugeNumberWindowMode: 'session' } });
+        try {
+            const hook = await renderHook(() => ({
+                header: useProviderUsageGauges({ agentIds: ['codex'], accountProfileConnectedServicesV2: services('connected'),
+                    windowMode: 'most_constrained', fetchEnabled: false }),
+                composer: useProviderUsageGauge({ providerId: 'codex', modelId: null,
+                    profileRef: { serviceId: 'openai-codex', profileId: 'work', provenance: 'connected_binding_profile' },
+                    runtimeIssue: issue }),
+            }));
+            try {
+                const rings = hook.getCurrent().composer.gauge?.usageRings;
+                expect(rings).toHaveLength(2);
+                expect(hook.getCurrent().composer.gauge?.ringValueLabel).toBe('0');
+                expect(hook.getCurrent().header.gauges.get('codex')?.ringValueLabel).toBe('0');
+                await act(async () => storage.setState(state => ({ settings: {
+                    ...state.settings, sessionProviderUsageGaugeNumberWindowMode: 'weekly',
+                } })));
+                expect(hook.getCurrent().composer.gauge?.ringValueLabel).toBe('70');
+                expect(hook.getCurrent().header.gauges.get('codex')?.ringValueLabel).toBe('70');
+                expect(hook.getCurrent().composer.gauge?.usageRings).toEqual(rings);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
     it.each([undefined, 'needs_reauth'] as const)('keeps header and composer at zero without selected window names or fetched quota (health: %s)', async (credentialHealthStatus) => {
         const previous = storage.getState();
         const issue: SessionRuntimeIssueV1 = {
