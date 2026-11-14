@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
+import { openSqliteDatabaseSync } from '@/utils/sqlite/sqliteSync';
+
 import { loadDirectSessionTranscriptItems } from '@/api/directSessions/import/loadDirectSessionTranscriptItems';
 import { DirectSessionsProviderUnavailableError } from '@/backends/directSessions/providerOps';
 import { createCodexAppServerProcessEnv, writeFakeCodexAppServerThreadListScript } from '../appServer/testkit/fakeCodexAppServer';
@@ -48,6 +50,44 @@ async function fixture(items: readonly unknown[] | null) {
 }
 
 describe('Codex native paginated direct history (0.162.1 contract)', () => {
+  it('recovers original imported message dates from the configured native index when lifecycle times are null', async () => {
+    const entries = [message('u1', 'original question', 'user'), message('a1', 'original answer', 'agent')]
+      .map(entry => ({ ...entry, startedAtMs: null, completedAtMs: null }));
+    const f = await fixture(entries);
+    const sqliteHome = join(f.root, 'sqlite');
+    await mkdir(sqliteHome);
+    f.params.env.CODEX_SQLITE_HOME = sqliteHome;
+    const database = openSqliteDatabaseSync(join(sqliteHome, 'thread_history_1.sqlite'));
+    database.exec('CREATE TABLE thread_items (thread_id TEXT, turn_id TEXT, item_id TEXT, created_at_ms INTEGER, PRIMARY KEY(thread_id, turn_id, item_id))');
+    const dates = [1782474730890, 1782474745123];
+    try {
+      entries.forEach((entry, index) => database.prepare('INSERT INTO thread_items VALUES (?, ?, ?, ?)')
+        .run('thread-native', entry.turnId, entry.item.id, dates[index]));
+    } finally { database.close(); }
+    const before = await readFile(join(sqliteHome, 'thread_history_1.sqlite'));
+    const items = await loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({
+      ...f.params, maxItems: 1, direction: 'older', cursor,
+    }) });
+    expect(items.map(item => item.createdAtMs)).toEqual(dates);
+    expect(await readFile(join(sqliteHome, 'thread_history_1.sqlite'))).toEqual(before);
+    const page = await pageCodexTranscript({ ...f.params, direction: 'older' });
+    expect((await readAfterCodexTranscript({ ...f.params, cursor: page.tailCursor! })).items).toEqual([]);
+    expect(items.map(item => item.id)).toEqual(page.items.map(item => item.id));
+  });
+
+  it('reports unavailable dates instead of inventing epoch dates or creating a native index', async () => {
+    const f = await fixture([{ ...message('u1', 'question', 'user'), startedAtMs: null, completedAtMs: null }]);
+    await expect(pageCodexTranscript({ ...f.params, direction: 'older' })).rejects.toBeInstanceOf(DirectSessionsProviderUnavailableError);
+    await expect(readFile(join(f.codexHome, 'thread_history_1.sqlite'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('does not require an index for filtered harness rows with no lifecycle times', async () => {
+    const f = await fixture([{ ...message('hidden', '# AGENTS.md instructions', 'user'), startedAtMs: null, completedAtMs: null },
+      message('a1', 'answer', 'agent')]);
+    const page = await pageCodexTranscript({ ...f.params, direction: 'older' });
+    expect(page.items.map(item => item.createdAtMs)).toEqual([1000]);
+  });
+
   it('imports native reasoning as thinking between the user and answer, without exposing encrypted content', async () => {
     const f = await fixture([message('u1', 'question', 'user'),
       { turnId: 'turn-a1', startedAtMs: 1_000, completedAtMs: 2_000,
