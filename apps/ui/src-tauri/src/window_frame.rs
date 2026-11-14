@@ -9,7 +9,7 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        atomic::{AtomicU64, Ordering},
+        mpsc::{self, Sender},
         Arc, Mutex,
     },
     time::Duration,
@@ -21,6 +21,10 @@ const SAVE_DEBOUNCE: Duration = Duration::from_millis(400);
 /// Part of the window (in pixels) that must lie on a monitor for the saved position to be used.
 const MIN_VISIBLE_PX: i64 = 64;
 const MIN_SIZE_PX: u32 = 200;
+/// Height of the top strip (title bar and window controls) that must stay on a monitor, so the
+/// user can always grab and close the window.
+const TITLE_BAR_PX: i64 = 40;
+const MIN_TITLE_BAR_VISIBLE_PX: i64 = 24;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -82,19 +86,18 @@ pub(crate) fn usable_frame(saved: SavedFrame, monitors: &[MonitorArea]) -> Optio
         ) >= MIN_VISIBLE_PX
             && overlap(
                 saved.y as i64,
-                saved.height as i64,
+                TITLE_BAR_PX,
                 monitor.y as i64,
                 monitor.height as i64,
-            ) >= MIN_VISIBLE_PX
+            ) >= MIN_TITLE_BAR_VISIBLE_PX
     });
     visible.then_some(saved)
 }
 
-/// Applies the saved frame to a window that has not been shown yet.
-pub(crate) fn restore(window: &WebviewWindow, path: &PathBuf) {
-    let Some(saved) = load(path) else {
-        return;
-    };
+/// Applies the saved frame to a window that has not been shown yet. Returns the frame that was
+/// applied, or `None` when there was nothing usable to restore.
+pub(crate) fn restore(window: &WebviewWindow, path: &PathBuf) -> Option<SavedFrame> {
+    let saved = load(path)?;
     let monitors: Vec<MonitorArea> = window
         .available_monitors()
         .unwrap_or_default()
@@ -106,9 +109,7 @@ pub(crate) fn restore(window: &WebviewWindow, path: &PathBuf) {
             height: monitor.size().height,
         })
         .collect();
-    let Some(frame) = usable_frame(saved, &monitors) else {
-        return;
-    };
+    let frame = usable_frame(saved, &monitors)?;
     if let Err(error) = window.set_size(PhysicalSize::new(frame.width, frame.height)) {
         log::warn!("failed to restore main-window size: {error}");
     }
@@ -120,13 +121,78 @@ pub(crate) fn restore(window: &WebviewWindow, path: &PathBuf) {
             log::warn!("failed to restore maximized main window: {error}");
         }
     }
+    Some(frame)
 }
 
-/// Keeps the saved frame current. While maximized, minimized or fullscreen the last normal
-/// size and position are kept, so un-maximizing after a restart returns to the previous frame.
-pub(crate) fn track(window: &WebviewWindow, path: PathBuf) {
-    let latest = Arc::new(Mutex::new(load(&path).unwrap_or_default()));
-    let generation = Arc::new(AtomicU64::new(0));
+struct Shared {
+    path: PathBuf,
+    /// The latest frame and whether it still has to be written.
+    state: Mutex<(SavedFrame, bool)>,
+}
+
+impl Shared {
+    fn flush(&self) {
+        let Ok(mut state) = self.state.lock() else {
+            return;
+        };
+        if state.1 {
+            save(&self.path, &state.0);
+            state.1 = false;
+        }
+    }
+}
+
+/// Keeps the saved frame current; managed as app state so the exit path can flush it.
+pub(crate) struct FrameTracker {
+    shared: Arc<Shared>,
+}
+
+impl FrameTracker {
+    /// Writes a pending frame now. Called when the app exits, which can happen inside the
+    /// debounce window.
+    pub(crate) fn flush(&self) {
+        self.shared.flush();
+    }
+}
+
+/// Starts tracking the window. `restored` is what `restore` applied; without it the window's
+/// current (default, not yet maximized) geometry is the known normal frame. While maximized,
+/// minimized or fullscreen the last normal size and position are kept, so un-maximizing after a
+/// restart returns to the previous frame.
+pub(crate) fn track(
+    window: &WebviewWindow,
+    path: PathBuf,
+    restored: Option<SavedFrame>,
+) -> FrameTracker {
+    let initial = restored.unwrap_or_else(|| {
+        match (window.outer_position(), window.inner_size()) {
+            (Ok(position), Ok(size)) => SavedFrame {
+                x: position.x,
+                y: position.y,
+                width: size.width,
+                height: size.height,
+                maximized: false,
+            },
+            _ => SavedFrame::default(),
+        }
+    });
+    let shared = Arc::new(Shared {
+        path,
+        state: Mutex::new((initial, false)),
+    });
+    // One worker debounces every burst of move/resize events into a single write.
+    let (wake, events) = mpsc::channel::<()>();
+    let worker = Arc::clone(&shared);
+    std::thread::spawn(move || {
+        while events.recv().is_ok() {
+            while events.recv_timeout(SAVE_DEBOUNCE).is_ok() {}
+            worker.flush();
+        }
+    });
+
+    let tracker = FrameTracker {
+        shared: Arc::clone(&shared),
+    };
     let window_for_events = window.clone();
     window.on_window_event(move |event| {
         if !matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) {
@@ -138,10 +204,16 @@ pub(crate) fn track(window: &WebviewWindow, path: PathBuf) {
         }
         let maximized = window.is_maximized().unwrap_or(false);
         let fullscreen = window.is_fullscreen().unwrap_or(false);
-        let snapshot = {
-            let Ok(mut frame) = latest.lock() else {
+        {
+            let Ok(mut state) = shared.state.lock() else {
                 return;
             };
+            let frame = &mut state.0;
+            // Record `maximized` only on top of a known normal frame; otherwise the file would
+            // hold zero geometry and be rejected on the next launch.
+            if maximized && (frame.width < MIN_SIZE_PX || frame.height < MIN_SIZE_PX) {
+                return;
+            }
             frame.maximized = maximized;
             if !maximized && !fullscreen {
                 if let (Ok(position), Ok(size)) = (window.outer_position(), window.inner_size()) {
@@ -151,18 +223,11 @@ pub(crate) fn track(window: &WebviewWindow, path: PathBuf) {
                     frame.height = size.height;
                 }
             }
-            *frame
-        };
-        let ticket = generation.fetch_add(1, Ordering::SeqCst) + 1;
-        let generation = Arc::clone(&generation);
-        let path = path.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(SAVE_DEBOUNCE);
-            if generation.load(Ordering::SeqCst) == ticket {
-                save(&path, &snapshot);
-            }
-        });
+            state.1 = true;
+        }
+        let _ = wake.send(());
     });
+    tracker
 }
 
 #[cfg(test)]
@@ -206,6 +271,13 @@ mod tests {
     fn frame_left_on_a_disconnected_monitor_is_dropped() {
         assert_eq!(usable_frame(frame(-1800, 50, 1000, 700), &[SCREEN]), None);
         assert_eq!(usable_frame(frame(5000, 0, 800, 600), &[SCREEN]), None);
+    }
+
+    #[test]
+    fn frame_whose_title_bar_is_off_screen_is_dropped() {
+        // Bottom edge still overlaps the monitor, but the controls are unreachable.
+        assert_eq!(usable_frame(frame(100, -700, 1000, 800), &[SCREEN]), None);
+        assert_eq!(usable_frame(frame(100, 1070, 1000, 800), &[SCREEN]), None);
     }
 
     #[test]
