@@ -38,11 +38,13 @@ describe('ProviderUsageRing', () => {
                         resetsAt: null, status: 'ok', details: { limitCategory: 'usage_limit' } },
                 ],
             },
-            windowModes: ['session', 'weekly'], windowMode: 'most_constrained', nowMs: 2_000,
+            windowModes: ['session', 'weekly'], windowMode: 'most_constrained', numberWindowMode: 'weekly', nowMs: 2_000,
             formatter: connectedServiceQuotaGaugeFormatter,
         });
         if (!gauge || gauge.usageRings.length !== 2) throw new Error('Expected two measured limits');
-        const screen = await renderScreen(<ProviderUsageRing gauge={gauge} testID="rail-usage" />);
+        // The number preference can differ from the effective badge meter and the outer ring.
+        const screen = await renderScreen(<ProviderUsageRing gauge={gauge} testID="rail-usage" valueTestID="center-value" />);
+        expect(screen.findByTestId('center-value')?.props.children).toBe('70');
         const arcs = screen.findAll((node) => String(node.type) === 'Circle' && typeof node.props.strokeDashoffset === 'number');
         expect(arcs).toHaveLength(2);
         expect(arcs[0].props.r).toBeGreaterThan(arcs[1].props.r);
@@ -60,7 +62,12 @@ describe('ProviderUsageRing', () => {
         expect(images).toHaveLength(1);
         expect(images[0].props.accessibilityLabel).toContain('5-hour');
         expect(images[0].props.accessibilityLabel).toContain('Weekly');
-        expect(screen.getTextContent()).toContain('0');
+        expect(screen.getTextContent()).toContain('70');
+        const single = await renderScreen(<ProviderUsageRing gauge={{
+            ...gauge, usageRings: gauge.usageRings.filter(ring => ring.meterId === 'five_hour'),
+        }} />);
+        const image = single.findAll(node => typeof node.type === 'string' && node.props.accessibilityRole === 'image')[0];
+        expect(image.props.accessibilityLabel).toContain('Weekly 70% left');
     });
     it('shows an empty number-less ring when the row has no usage gauge', () => {
         const tree = render(<ProviderUsageRing gauge={null} testID="rail-usage" />);

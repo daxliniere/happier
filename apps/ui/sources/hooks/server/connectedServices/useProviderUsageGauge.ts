@@ -77,6 +77,7 @@ export function useProviderUsageGauge(params: Readonly<{
     const accountProfile = useProfile();
     const connectedServiceQuotasEnabled = useFeatureEnabled('connectedServices.quotas');
     const windowModesSetting = useSetting('sessionProviderUsageGaugeWindowModes');
+    const numberWindowMode = useSetting('sessionProviderUsageGaugeNumberWindowMode');
     const pinnedQuotaMeterIdsByKey = useSetting('connectedServicesQuotaPinnedMeterIdsByKey');
     const gaugeMode = useSetting('sessionProviderUsageGaugeMode');
     const windowModeSetting = useSetting('sessionProviderUsageGaugeWindowMode');
@@ -161,6 +162,7 @@ export function useProviderUsageGauge(params: Readonly<{
             activeModelId: params.modelId,
             windowMode,
             windowModes: windowModesSetting,
+            numberWindowMode,
             additionalMeterIds: profileRef && gaugeSource.snapshot.serviceId === profileRef.serviceId
                 ? pinnedQuotaMeterIdsByKey[connectedServiceProfileKey(gaugeSource.snapshot)] ?? []
                 : [],
@@ -184,6 +186,7 @@ export function useProviderUsageGauge(params: Readonly<{
         quotaLimitSelection,
         windowMode,
         windowModesSetting,
+        numberWindowMode,
     ]);
 
     return React.useMemo(() => ({

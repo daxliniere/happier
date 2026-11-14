@@ -109,6 +109,7 @@ function areProviderUsageViewModelsEqual(
         && left.usedPct === right.usedPct
         && left.valueLabel === right.valueLabel
         && left.ringValueLabel === right.ringValueLabel
+        && left.ringValueAccessibilityLabel === right.ringValueAccessibilityLabel
         && left.badgeLabel === right.badgeLabel
         && left.scopePrefix === right.scopePrefix
         && left.primaryValueSemantics === right.primaryValueSemantics
@@ -152,7 +153,7 @@ export const AgentInputProviderUsageBadge = React.memo(function AgentInputProvid
         ? [props.viewModel.badgeLabel]
         : rings.map((ring) => `${ring.label} ${ring.valueLabel}`);
     const accessibilityLabel = t('agentInput.providerUsage.accessibilityLabel', {
-        value: ringAccessibilityValues.join(', '),
+        value: [props.viewModel.ringValueAccessibilityLabel, ...ringAccessibilityValues].filter(Boolean).join(', '),
     });
 
 

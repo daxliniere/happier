@@ -48,6 +48,7 @@ export function useProviderUsageGauges(params: Readonly<{
     refreshAgent: (agentId: AgentId) => void;
 }> {
     const windowModes = useSetting('sessionProviderUsageGaugeWindowModes');
+    const numberWindowMode = useSetting('sessionProviderUsageGaugeNumberWindowMode');
     const profileRefByAgentId = React.useMemo(() => {
         const refs = new Map<AgentId, { serviceId: string; profileId: string }>();
         for (const agentId of params.agentIds) {
@@ -124,6 +125,7 @@ export function useProviderUsageGauges(params: Readonly<{
                 snapshot: gaugeSource.snapshot,
                 windowMode: params.windowMode,
                 windowModes,
+                numberWindowMode,
                 nowMs,
                 formatter: connectedServiceQuotaGaugeFormatter,
                 providerDisplayName: t(getAgentCore(agentId).displayNameKey),
@@ -131,7 +133,7 @@ export function useProviderUsageGauges(params: Readonly<{
             if (gauge) gauges.set(agentId, gauge);
         }
         return gauges;
-    }, [accountUsageSnapshots, allRecordIds, params.agentIds, params.windowMode, windowModes, profileRefByAgentId, quotaSnapshots.snapshotsByKey, latestRuntimeIssuesByAgent]);
+    }, [accountUsageSnapshots, allRecordIds, params.agentIds, params.windowMode, windowModes, numberWindowMode, profileRefByAgentId, quotaSnapshots.snapshotsByKey, latestRuntimeIssuesByAgent]);
     const configuredAgentIds = React.useMemo(() => new Set(
         params.agentIds.filter((agentId) => (
             // Configuration and query eligibility are different facts. A refresh/reconnect status

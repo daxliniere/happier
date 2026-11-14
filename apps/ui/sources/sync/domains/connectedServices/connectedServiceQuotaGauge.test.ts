@@ -62,6 +62,32 @@ const formatter: ConnectedServiceQuotaGaugeLabelFormatter = {
 };
 
 describe('computeConnectedServiceQuotaGaugeViewModel', () => {
+    it('selects the center number independently of the drawn windows, retaining zero and a missing-window fallback', () => {
+        const input = {
+            snapshot: snapshot([
+                meter({ meterId: 'primary', label: '5-hour', remainingPct: 0, utilizationPct: 100, windowDurationMs: 18_000_000 }),
+                meter({ meterId: 'secondary', label: 'Weekly', remainingPct: 70, utilizationPct: 30, windowDurationMs: 604_800_000 }),
+            ]),
+            windowMode: 'most_constrained' as const,
+            windowModes: ['session', 'weekly'] as const,
+            nowMs: 2_000, formatter,
+        };
+        const short = computeConnectedServiceQuotaGaugeViewModel({ ...input, numberWindowMode: 'session' });
+        const weekly = computeConnectedServiceQuotaGaugeViewModel({ ...input, numberWindowMode: 'weekly' });
+        expect(short?.ringValueLabel).toBe('0');
+        expect(weekly?.ringValueLabel).toBe('70');
+        expect(weekly?.usageRings).toEqual(short?.usageRings);
+        expect(computeConnectedServiceQuotaGaugeViewModel({ ...input, numberWindowMode: 'primary' })?.ringValueLabel).toBe('0');
+        expect(computeConnectedServiceQuotaGaugeViewModel({ ...input, numberWindowMode: 'secondary' })?.ringValueLabel).toBe('70');
+        expect(computeConnectedServiceQuotaGaugeViewModel({ ...input, numberWindowMode: 'daily' })?.ringValueLabel).toBe('0');
+        expect(computeConnectedServiceQuotaGaugeViewModel({ ...input, numberWindowMode: 'most_constrained' })?.ringValueLabel).toBe('0');
+        const weeklyOnly = computeConnectedServiceQuotaGaugeViewModel({
+            ...input, windowModes: ['weekly'], numberWindowMode: 'session',
+        });
+        expect(weeklyOnly?.ringValueLabel).toBe('0');
+        expect(weeklyOnly?.usageRings.map(ring => ring.meterId)).toEqual(['secondary']);
+    });
+
     it.each([['five_hour', 'weekly'], ['primary', 'secondary']])(
         'shows both %s and %s by default while allowing a single-limit choice',
         (shortId, longId) => {

@@ -45,16 +45,16 @@ export function ProviderUsageRing(props: Readonly<{
         tone: ring.tone === 'critical' ? 'critical' : ring.tone === 'warning' ? 'warning' : 'neutral',
     } satisfies NonNullable<TokenUsageRingProps['rings']>[number]));
     const label = t('agentInput.providerUsage.accessibilityLabel', {
-        value: gauge.usageRings.length > 1
+        value: [gauge.ringValueAccessibilityLabel, gauge.usageRings.length > 1
             ? gauge.usageRings.map((ring) => `${ring.label} ${ring.valueLabel}`).join(', ')
-            : gauge.badgeLabel,
+            : gauge.badgeLabel].filter(Boolean).join(', '),
     });
     return (
         <TokenUsageRing
             {...rings[0]}
             rings={rings}
             label={label}
-            value={(limits.find((ring) => 'meterId' in ring && ring.meterId === gauge.effectiveMeter?.meterId) ?? limits[0]).ringValueLabel}
+            value={gauge.ringValueLabel}
             size={getProviderUsageRingSize(gauge, props.size)}
             testID={props.testID}
             ringTestID={props.ringTestID}
