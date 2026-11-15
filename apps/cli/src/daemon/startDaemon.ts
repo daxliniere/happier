@@ -343,6 +343,7 @@ import { hydrateProviderAccountUsageStoreFromConnectedServiceInventory } from '.
 import { activateConnectedServiceQuotaAutomationAfterProviderAccountUsageHydration } from './connectedServices/accountUsage/startupActivation';
 import { createProviderAccountUsagePersistenceScheduler } from './connectedServices/accountUsage/persistence';
 import { createProviderAccountUsageStore } from './connectedServices/accountUsage/store';
+import { createOpenCodeUsageLimitsPoller } from '@/backends/opencode/connectedServices/usageLimitsPoller';
 import { createDaemonConnectedServiceAuthGroupSwitchCoordinator } from './connectedServices/runtimeAuth/createDaemonConnectedServiceAuthGroupSwitchCoordinator';
 import { resolveConnectedServiceAuthGroupRequiredModelIds } from './connectedServices/runtimeAuth/resolveConnectedServiceAuthGroupRequiredModelIds';
 import { createExecutionRunRuntimeAuthFailureReportIntake } from './connectedServices/runtimeAuth/executionRunReportIntake';
@@ -1840,6 +1841,7 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
       const connectedServiceRuntimeRegistry = new ConnectedServiceRuntimeRegistry();
       const connectedServiceRuntimeQuotaSnapshots = new ConnectedServiceAuthGroupRuntimeQuotaSnapshotStore();
       const providerAccountUsageStore = createProviderAccountUsageStore();
+      let refreshOpenCodeUsageForCurrentSessions: () => Promise<void> = async () => {};
       const connectedServiceContinuationApplicationCorrelation =
         createConnectedServiceContinuationApplicationCorrelation<
           Readonly<{
@@ -2434,6 +2436,23 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
 
         // Helper functions
         const getCurrentChildren = () => Array.from(pidToTrackedSession.values());
+        refreshOpenCodeUsageForCurrentSessions = createOpenCodeUsageLimitsPoller({
+          getSessions: () => getCurrentChildren().flatMap((tracked) => {
+            const sessionId = tracked.happySessionId?.trim();
+            const directory = tracked.spawnOptions?.directory?.trim();
+            return sessionId && directory && resolveTrackedSessionCatalogAgentId(tracked) === 'opencode'
+              ? [{ sessionId, directory }]
+              : [];
+          }),
+          getChildren: getCurrentChildren,
+          store: providerAccountUsageStore,
+          persistence: providerAccountUsagePersistence,
+          publishRecordId: async ({ sessionId, recordId }) => await publishProviderAccountUsageRecordIdToSessionMetadata({
+            credentials,
+            sessionId,
+            recordId,
+          }),
+        });
         // Single switch-outcome surfacing choke point: every applied connected-service account
         // switch (pre-turn/preemptive, automatic group-apply, recovery, manual, quota-driven) routes
         // here so the transcript switch event and the user notification can never drift apart again.
@@ -2619,6 +2638,7 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
           for (const tracked of getCurrentChildren()) {
             registerConnectedServiceTrackedSessionTargets(tracked);
           }
+          void refreshOpenCodeUsageForCurrentSessions();
         };
         const connectedServiceContinuationProviderActivityTimeoutMs = resolvePositiveIntEnv(
           process.env.HAPPIER_CONNECTED_SERVICES_CONTINUATION_PROVIDER_ACTIVITY_TIMEOUT_MS,

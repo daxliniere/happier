@@ -6,6 +6,7 @@ import { createOpenCodeConnectedServicesMaterializer } from '@/backends/opencode
 import { materializeOpenCodeConnectedServiceRuntimeAuthSelection } from '@/backends/opencode/connectedServices/materializeOpenCodeConnectedServiceRuntimeAuthSelection';
 import { openCodeConnectedServiceStateSharingDescriptor } from '@/backends/opencode/connectedServices/openCodeConnectedServiceStateSharingDescriptor';
 import { openCodeUsageLimitRecoveryControlAdapter } from '@/backends/opencode/connectedServices/openCodeUsageLimitRecoveryControlAdapter';
+import { openCodeConsoleQuotaFetcherDescriptor } from '@/backends/opencode/connectedServices/usageLimits';
 import { resolveOpenCodeConnectedServiceSwitchContinuity } from '@/backends/opencode/connectedServices/resolveOpenCodeConnectedServiceSwitchContinuity';
 import { opencodeDaemonSpawnHooks } from '@/backends/opencode/daemon/spawnHooks';
 import { buildOpenCodeRuntimeLocalHandoffMetadata } from '@/backends/opencode/sessionHandoff/runtimeLocalMetadata';
@@ -55,6 +56,7 @@ export const agent = {
   verifyResumeReachable: async (input) =>
     await (await import('@/backends/opencode/connectedServices/verifyResumeReachableOpenCode')).verifyResumeReachableOpenCode(input),
   getSessionUsageLimitRecoveryControlAdapter: async () => openCodeUsageLimitRecoveryControlAdapter,
+  connectedServiceQuotaFetcherDescriptor: openCodeConsoleQuotaFetcherDescriptor,
   getDirectSessionProviderOps: async () => (await import('@/backends/opencode/directSessions/providerOps')).openCodeDirectSessionProviderOps,
   getProviderAttachOps: async () => (await import('@/backends/opencode/attach/providerAttachOps')).openCodeProviderAttachOps,
   vendorResumeSupport: AGENTS_CORE.opencode.resume.vendorResume,
