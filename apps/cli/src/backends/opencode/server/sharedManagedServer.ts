@@ -1549,7 +1549,11 @@ export async function withSharedManagedOpenCodeServerAccess<T>(
 }
 
 export async function ensureSharedManagedOpenCodeServerBaseUrl(params: Readonly<{
-  probeHealth: (baseUrl: string, apiGeneration?: 'auto' | 'v2') => Promise<boolean>;
+  probeHealth: (
+    baseUrl: string,
+    apiGeneration?: 'auto' | 'v2',
+    auth?: OpenCodeServerAuthCredential | null,
+  ) => Promise<boolean>;
   requireBrokerLoadNonce?: boolean;
 }>): Promise<string> {
   const statePath = resolveStatePathFromEnv();
