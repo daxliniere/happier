@@ -50,6 +50,9 @@ export function createSessionActionTarget(params: Readonly<{
     );
     const hasAdminAccess = isOwnedByCurrentUser || session.accessLevel === 'admin';
     const isActive = session.active === true;
+    // Optimistic resume presentation can report connected before a runner registers.
+    // Require Stop before Delete only for live presence, activity, or terminal-host evidence.
+    const hasConnectedRunner = session.presence === 'online';
     const isArchived = session.archivedAt != null;
     const terminalControlServiceability = 'terminalControlServiceabilityV1' in (session.metadata ?? {})
         ? (session.metadata as SessionListRenderableSession['metadata'])?.terminalControlServiceabilityV1
@@ -83,8 +86,8 @@ export function createSessionActionTarget(params: Readonly<{
         canArchive,
         canRename: hasAdminAccess,
         canResume,
-        canDelete: isOwnedByCurrentUser && !isActive && !hasPreservedTerminalHost && params.isConnected !== true,
-        canStopAndDelete: isOwnedByCurrentUser && (isActive || hasStoppableTerminalHost || params.isConnected === true),
+        canDelete: isOwnedByCurrentUser && !isActive && !hasPreservedTerminalHost && !hasConnectedRunner,
+        canStopAndDelete: isOwnedByCurrentUser && (isActive || hasStoppableTerminalHost || hasConnectedRunner),
         readStateAction: isArchived
             ? { kind: 'none', visible: false }
             : resolveSessionReadStateAction(session),

@@ -18,6 +18,8 @@ import { ensureAccountReadyForConnect } from '../../src/testkit/uiE2e/ensureAcco
 import { authenticateAndStartDaemon } from '../../src/testkit/uiE2e/authenticateAndStartDaemon';
 import { appendBrowserDiagnostics, collectBrowserDiagnostics } from '../../src/testkit/uiE2e/browserDiagnostics';
 import { attachRelayMachineRpcTap, RELAY_FORWARD_TIMEOUT_ACK } from '../../src/testkit/uiE2e/desktopSetup/relayMachineRpcTap';
+import { readCliAccessKey } from '../../src/testkit/cliAccessKey';
+import { fetchJson } from '../../src/testkit/http';
 
 const run = createRunDirs({ runLabel: 'ui-e2e' });
 
@@ -57,6 +59,7 @@ test.describe('ui e2e: session action rail', () => {
       extraEnv: {
         HAPPIER_BUILD_FEATURES_DENY: 'sharing.contentKeys',
         HAPPIER_FEATURE_AUTH_LOGIN__KEY_CHALLENGE_ENABLED: '1',
+        HAPPIER_FEATURE_ENCRYPTION__STORAGE_POLICY: 'optional',
         HAPPIER_FEATURE_TERMINAL_EMBEDDED_PTY__ENABLED: '1',
         HAPPIER_E2E_PROVIDER_USE_SERVER_SOURCE_ENTRYPOINT: '1',
       },
@@ -68,6 +71,7 @@ test.describe('ui e2e: session action rail', () => {
         ...process.env,
         EXPO_PUBLIC_DEBUG: '1',
         EXPO_PUBLIC_HAPPIER_SOCKET_FORCE_WEBSOCKET: '1',
+        EXPO_PUBLIC_HAPPIER_SERVER_URL: server.baseUrl,
         EXPO_PUBLIC_HAPPY_SERVER_URL: server.baseUrl,
         EXPO_PUBLIC_HAPPY_STORAGE_SCOPE: `e2e-${run.runId}`,
         // On cold caches, the initial Metro web bundle can take >2 minutes; avoid aborting the request
@@ -113,6 +117,8 @@ test.describe('ui e2e: session action rail', () => {
         serverUrl: server.baseUrl,
         uiBaseUrl,
         extraEnv: {
+          HAPPIER_PUBLIC_SERVER_URL: server.baseUrl,
+          HAPPIER_LOCAL_SERVER_URL: server.baseUrl,
           HOME: actionCliHome,
           HAPPIER_MACHINE_RPC_WORKING_DIRECTORY: testDir,
           HAPPIER_CLAUDE_PATH: fakeClaudeFixturePath(),
@@ -206,6 +212,34 @@ test.describe('ui e2e: session action rail', () => {
         `DELETE /v1/sessions/${sessionId}`,
         `POST /v2/sessions/${archiveSessionId}/archive`,
       ]);
+
+      // A persisted session can exist without ever registering a runner. Delete
+      // must work even though neither the daemon nor the session can stop it.
+      const credentials = await readCliAccessKey(actionCliHome);
+      if (!credentials) throw new Error('Missing fixture credentials');
+      const created = await fetchJson<{ session: { id: string } }>(`${server.baseUrl}/v1/sessions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${credentials.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tag: `unstarted-delete-${run.runId}`, encryptionMode: 'plain', dataEncryptionKey: null, agentState: null,
+          metadata: JSON.stringify({ v: 1, name: 'Unstarted session', path: repoDir, host: 'local', flavor: 'claude' }),
+        }),
+      });
+      expect(created.status).toBe(200);
+      const unstartedId = created.data.session.id;
+      await page.goto(`${uiBaseUrl}/session/${unstartedId}?happier_hmr=0`, { waitUntil: 'domcontentloaded' });
+      await expect(menu).toBeVisible({ timeout: 120_000 });
+      const stopsBeforeUnstartedDelete = stopCalls().length;
+      await menu.click();
+      await expect(page.getByTestId('dropdown-option-ui_session_stop')).toHaveCount(0);
+      await page.getByTestId('dropdown-option-ui_session_delete').click();
+      const unstartedDeleted = page.waitForResponse((response) => response.request().method() === 'DELETE'
+        && new URL(response.url()).pathname === `/v1/sessions/${unstartedId}`);
+      await page.getByTestId('web-modal-confirm').click();
+      expect((await unstartedDeleted).ok()).toBe(true);
+      await expect.poll(() => new URL(page.url()).pathname).toBe('/');
+      await expect(page.getByTestId(`session-list-item-${unstartedId}`)).toHaveCount(0);
+      expect(stopCalls()).toHaveLength(stopsBeforeUnstartedDelete);
       await testInfo.attach('browser-diagnostics', {
         body: JSON.stringify(browserDiagnostics()),
         contentType: 'application/json',
