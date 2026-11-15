@@ -9,11 +9,7 @@ import {
   parseOpenCodeBrokerSelections,
 } from '@/backends/opencode/brokerPlugin';
 
-import {
-  resolveOpenCodeServerAuthHeaders,
-  resolveOpenCodeServerAuthHeadersFromEnv,
-  type OpenCodeServerAuthCredential,
-} from './openCodeServerAuth';
+import { resolveOpenCodeServerAuthHeadersFromEnv } from './openCodeServerAuth';
 import { subscribeSseJson } from './openCodeSse';
 import type { OpenCodeGlobalEvent, OpenCodeModelRef, OpenCodeSession } from './types';
 import { waitForOpenCodeServerHealth } from './waitForOpenCodeServerHealth';
@@ -646,20 +642,15 @@ async function createOpenCodeServerRuntimeClientUnderLock(
   const probeHealth = async (
     candidateBaseUrl: string,
     apiGeneration: 'auto' | 'v2' = 'auto',
-    auth?: OpenCodeServerAuthCredential | null,
   ): Promise<boolean> => {
     try {
-      // The shared resolver passes the managed server's stored credential; without it an
-      // authenticated V2 server answers 401 and a healthy server shared by another session
-      // would be treated as dead and replaced.
-      const probeHeaders = auth ? { ...headers, ...resolveOpenCodeServerAuthHeaders(auth) } : headers;
       const probeTimeoutMs = httpTimeoutMs ? Math.min(2_000, httpTimeoutMs) : 900;
       const paths = apiGeneration === 'v2'
           ? OPEN_CODE_V2_READINESS_PATHS
           : OPEN_CODE_AUTO_READINESS_PATHS;
       for (const path of paths) {
         const body = await fetchJson<unknown>({
-          url: buildUrl(candidateBaseUrl, path), method: 'GET', headers: probeHeaders, timeoutMs: probeTimeoutMs,
+          url: buildUrl(candidateBaseUrl, path), method: 'GET', headers, timeoutMs: probeTimeoutMs,
         }).catch(() => null);
         if (isOpenCodeServerReadyResponse(path, body)) return true;
       }
