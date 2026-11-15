@@ -19,7 +19,7 @@ This repo provides `yarn ghops` as the canonical isolated transport for GitHub A
 - `yarn ghops ...` refuses to run if neither the environment override nor the macOS Keychain credential is available locally or through the active execution-host broker and `mac-host` target.
 - Runs non-interactively (`GH_PROMPT_DISABLED=1`).
 - Uses an isolated repo-local `GH_CONFIG_DIR` by default.
-- Never falls back to personal `gh`, `GH_TOKEN`, or `GITHUB_TOKEN` credentials.
+- `yarn ghops` never falls back to personal `gh`, `GH_TOKEN`, or `GITHUB_TOKEN` credentials. The project-level `AGENTS.md` separately permits the owner's authenticated `gh` account only for an already-authorized PR creation when the bot credential is missing; that exception does not apply to issue analysis or other GitHub operations.
 - Forces `GH_HOST=github.com` so an inherited host override cannot redirect the bot token.
 - `auth store` validates that the token belongs to `happier-bot` before persisting it.
 - Every ordinary invocation revalidates that the resolved token belongs to `happier-bot` before forwarding the requested command.
