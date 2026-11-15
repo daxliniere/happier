@@ -198,6 +198,63 @@ describe('createOpenCodeServerRuntimeClient managed generation authority', () =>
     expect(authorizations.at(-1)).toBe(expectedAuthorization);
   });
 
+  it('reuses a healthy authenticated V2 managed server shared with another session', async () => {
+    // A second concurrent session must authenticate its reuse probe with the retained credential.
+    // An unauthenticated probe receives 401, misreads the shared server as dead and tries to
+    // replace it while the first session still uses it.
+    const password = 'shared-managed-secret';
+    const expectedAuthorization = `Basic ${Buffer.from(`opencode:${password}`, 'utf8').toString('base64')}`;
+    const healthAuthorizations: Array<string | undefined> = [];
+    const server = await startServer((req, res) => {
+      const path = new URL(req.url ?? '/', 'http://localhost').pathname;
+      if (path === '/api/health' || path === '/api/info') healthAuthorizations.push(req.headers.authorization);
+      const authorized = req.headers.authorization === expectedAuthorization;
+      const body = path === '/api/health'
+        ? { healthy: true }
+        : path === '/api/session'
+          ? { data: [] }
+          : { error: 'not found' };
+      const available = path === '/api/health' || path === '/api/session';
+      res.writeHead(!authorized ? 401 : available ? 200 : 404, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(!authorized ? { error: 'unauthorized' } : body));
+    });
+    servers.add(server);
+
+    const dir = createTempDirSync('happier-opencode-managed-auth-reuse-');
+    tempDirs.add(dir);
+    const statePath = join(dir, 'managed-server.json');
+    envScope.patch({
+      HAPPIER_OPENCODE_SERVER_STATE_PATH: statePath,
+      HAPPIER_OPENCODE_CLI_GENERATION: 'v2',
+      HAPPIER_OPENCODE_SERVER_URL: undefined,
+      OPENCODE_PASSWORD: undefined,
+      OPENCODE_SERVER_PASSWORD: undefined,
+      OPENCODE_SERVER_USERNAME: undefined,
+    });
+    writeFileSync(statePath, JSON.stringify({
+      baseUrl: server.baseUrl,
+      pid: process.pid,
+      startedAtMs: Date.now(),
+      status: 'ready',
+      launchEnvFingerprint: resolveOpenCodeManagedServerLaunchFingerprint({
+        baseEnv: process.env,
+        xdgRootDir: null,
+        isolateConfig: false,
+      }),
+      apiGeneration: 'v2',
+      authPassword: password,
+    }));
+
+    const client = await createOpenCodeServerRuntimeClient({
+      directory: '/repo',
+      messageBuffer: new MessageBuffer(),
+    });
+    await expect(client.sessionList()).resolves.toEqual([]);
+    await client.dispose();
+
+    expect(healthAuthorizations[0]).toBe(expectedAuthorization);
+  });
+
   it('keeps an activated catalog read on its endpoint and credential during managed replacement', async () => {
     const authorization = (password: string) => `Basic ${Buffer.from(`opencode:${password}`, 'utf8').toString('base64')}`;
     const originalSkills = [{ id: 'original-skill', name: 'original' }];
