@@ -558,6 +558,11 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         }
         return memorySearch.memoryMatchedSessionKeys;
     }, [memorySearch.lastSuccessfulQuery, memorySearch.memoryMatchedSessionKeys, searchQuery]);
+    const activeMemoryExcludedSessionKeys = React.useMemo(() => (
+        memorySearch.lastSuccessfulQuery === searchQuery.trim()
+            ? memorySearch.memoryExcludedSessionKeys
+            : EMPTY_MEMORY_MATCHED_SESSION_KEYS
+    ), [memorySearch.lastSuccessfulQuery, memorySearch.memoryExcludedSessionKeys, searchQuery]);
     const searchableTextBySessionKey = useSessionListSearchTextByKey(
         data ?? EMPTY_SESSION_LIST_VIEW_ITEMS,
         searchQuery.trim().length > 0,
@@ -567,7 +572,8 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         selectedTags: selectedHeaderTags,
         searchableTextBySessionKey,
         memoryMatchedSessionKeys: activeMemoryMatchedSessionKeys,
-    }), [activeMemoryMatchedSessionKeys, searchQuery, searchableTextBySessionKey, selectedHeaderTags]);
+        memoryExcludedSessionKeys: activeMemoryExcludedSessionKeys,
+    }), [activeMemoryExcludedSessionKeys, activeMemoryMatchedSessionKeys, searchQuery, searchableTextBySessionKey, selectedHeaderTags]);
 
     const stopScrollEventPropagationOnWeb = React.useCallback((event: any) => {
         // Expo Router (Vaul/Radix) modals on web often install document-level scroll-lock listeners
