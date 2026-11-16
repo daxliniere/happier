@@ -120,6 +120,22 @@ function extractClaudeWrapperFlags(args: readonly string[]): {
 }
 
 /**
+ * Raw Claude args forwarded to the provider.
+ *
+ * A `--model` paired with `--model-updated-at` is Happier session control (the daemon spawn),
+ * already threaded through `modelId`/`modelUpdatedAt` into the session mode. Forwarding it as a
+ * raw Claude arg too would make it a launch override that outranks every later in-app model
+ * switch, pinning the session to its spawn model. A user-typed `--model` stays a raw arg.
+ */
+function resolveClaudeProviderArgs(parsed: ProviderSessionArgPartitionResult): string[] {
+  const args = [...parsed.providerArgs];
+  if (typeof parsed.modelUpdatedAt !== 'number' || !parsed.modelId) return args;
+  const index = args.findIndex((arg, i) => arg === '--model' && args[i + 1] === parsed.modelId);
+  if (index >= 0) args.splice(index, 2);
+  return args;
+}
+
+/**
  * Build the Claude runner StartOptions from the partitioned Happier session args.
  *
  * Every session-control flag the daemon passes (`buildHappySessionControlArgs`) must be threaded
@@ -130,7 +146,9 @@ export function buildClaudeStartOptionsFromParsedArgs(
   parsed: ProviderSessionArgPartitionResult,
   jsRuntime: StartOptions['jsRuntime'],
 ): StartOptions {
+  const claudeArgs = resolveClaudeProviderArgs(parsed);
   return {
+    ...(claudeArgs.length > 0 ? { claudeArgs } : {}),
     ...(parsed.permissionMode ? { permissionMode: parsed.permissionMode } : {}),
     ...(typeof parsed.permissionModeUpdatedAt === 'number' ? { permissionModeUpdatedAt: parsed.permissionModeUpdatedAt } : {}),
     ...(parsed.agentModeId ? { agentModeId: parsed.agentModeId } : {}),
@@ -182,9 +200,6 @@ export async function handleClaudeCliCommand(context: CommandContext): Promise<v
       process.exit(1);
     }
     options.startingMode = parsed.startingMode === HAPPY_STARTING_MODE_UNIFIED ? 'local' : parsed.startingMode;
-  }
-  if (parsed.providerArgs.length > 0) {
-    options.claudeArgs = [...parsed.providerArgs];
   }
 
   const showHelp = parsed.helpRequested;
