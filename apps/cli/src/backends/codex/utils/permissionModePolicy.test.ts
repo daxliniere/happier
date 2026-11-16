@@ -29,8 +29,9 @@ describe('resolveCodexAppServerPolicyForPermissionMode', () => {
     ['default', { approvalPolicy: { granular: { mcp_elicitations: true, request_permissions: true, rules: true, sandbox_approval: true, skill_approval: false } }, approvalsReviewer: 'user', sandbox: 'workspace-write', sandboxPolicy: { type: 'workspaceWrite', writableRoots: ['__DIR__'], readOnlyAccess: { type: 'fullAccess' }, networkAccess: true, excludeTmpdirEnvVar: false, excludeSlashTmp: false } }],
     ['read-only', { approvalPolicy: 'never', sandbox: 'read-only', sandboxPolicy: { type: 'readOnly', access: { type: 'fullAccess' }, networkAccess: false } }],
     ['safe-yolo', { approvalPolicy: { granular: { mcp_elicitations: true, request_permissions: true, rules: true, sandbox_approval: true, skill_approval: false } }, approvalsReviewer: 'auto_review', sandbox: 'workspace-write', sandboxPolicy: { type: 'workspaceWrite', writableRoots: ['__DIR__'], readOnlyAccess: { type: 'fullAccess' }, networkAccess: true, excludeTmpdirEnvVar: false, excludeSlashTmp: false } }],
-    ['yolo', { approvalPolicy: 'never', sandbox: 'danger-full-access', sandboxPolicy: { type: 'dangerFullAccess' } }],
-    ['bypassPermissions', { approvalPolicy: 'never', sandbox: 'danger-full-access', sandboxPolicy: { type: 'dangerFullAccess' } }],
+    // YOLO stays unsandboxed with no routine approvals, but Codex rules that say "prompt" still reach the user.
+    ['yolo', { approvalPolicy: { granular: { mcp_elicitations: true, request_permissions: false, rules: true, sandbox_approval: false, skill_approval: false } }, approvalsReviewer: 'user', sandbox: 'danger-full-access', sandboxPolicy: { type: 'dangerFullAccess' } }],
+    ['bypassPermissions', { approvalPolicy: { granular: { mcp_elicitations: true, request_permissions: false, rules: true, sandbox_approval: false, skill_approval: false } }, approvalsReviewer: 'user', sandbox: 'danger-full-access', sandboxPolicy: { type: 'dangerFullAccess' } }],
     ['acceptEdits', { approvalPolicy: { granular: { mcp_elicitations: true, request_permissions: true, rules: true, sandbox_approval: true, skill_approval: false } }, approvalsReviewer: 'auto_review', sandbox: 'workspace-write', sandboxPolicy: { type: 'workspaceWrite', writableRoots: ['__DIR__'], readOnlyAccess: { type: 'fullAccess' }, networkAccess: true, excludeTmpdirEnvVar: false, excludeSlashTmp: false } }],
     ['plan', { approvalPolicy: { granular: { mcp_elicitations: true, request_permissions: true, rules: true, sandbox_approval: true, skill_approval: false } }, approvalsReviewer: 'user', sandbox: 'workspace-write', sandboxPolicy: { type: 'workspaceWrite', writableRoots: ['__DIR__'], readOnlyAccess: { type: 'fullAccess' }, networkAccess: true, excludeTmpdirEnvVar: false, excludeSlashTmp: false } }],
   ] satisfies Array<[
@@ -38,6 +39,13 @@ describe('resolveCodexAppServerPolicyForPermissionMode', () => {
     { approvalPolicy: unknown; approvalsReviewer?: string; sandbox: string; sandboxPolicy: Record<string, unknown> }
   ]>)('maps %s to expected app-server policy', (permissionMode, expected) => {
     expect(resolveCodexAppServerPolicyForPermissionMode(permissionMode, { directory: '__DIR__' })).toEqual(expected);
+  });
+
+  it('keeps yolo on never when managed policy rejects granular approvals', () => {
+    expect(resolveCodexAppServerPolicyForPermissionMode('yolo', {
+      directory: '__DIR__',
+      managedScalarFallback: true,
+    })).toEqual({ approvalPolicy: 'never', sandbox: 'danger-full-access', sandboxPolicy: { type: 'dangerFullAccess' } });
   });
 
   it('falls safe-yolo back to user approvals when auto-review is unavailable', () => {

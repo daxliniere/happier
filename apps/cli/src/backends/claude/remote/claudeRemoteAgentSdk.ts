@@ -165,6 +165,7 @@ export async function claudeRemoteAgentSdk(opts: {
             suggestions?: unknown;
             blockedPath?: string | null;
             decisionReason?: string | null;
+            providerPermissionMode?: string | null;
         },
     ) => Promise<PermissionResult>;
     /** JavaScript runtime to use for spawning Claude Code (default: 'node') */
@@ -576,6 +577,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
             suggestions?: unknown;
             blockedPath?: string | null;
             decisionReason?: string | null;
+            providerPermissionMode?: string | null;
         },
     ): Promise<PermissionResult> => {
         if (!isSidechainSessionHook({ agentId: options.agentId })) opts.onProviderEvent?.();
@@ -632,6 +634,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                 suggestions: options.suggestions,
                 blockedPath: options.blockedPath ?? null,
                 decisionReason: options.decisionReason ?? null,
+                providerPermissionMode: options.providerPermissionMode ?? null,
             }),
     });
     const hooks = builtHooks.hooks as any;

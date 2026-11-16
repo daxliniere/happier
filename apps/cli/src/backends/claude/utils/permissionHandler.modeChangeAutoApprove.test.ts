@@ -98,4 +98,29 @@ describe('Claude PermissionHandler - mode change auto-approve', () => {
 
     expect(client.agentState.requests['toolu_mode_change_3']).toBeUndefined();
   });
+
+  // Claude in bypassPermissions only raises a permission request for its own escalations
+  // (permissions.ask rules, safety checks). YOLO must pass those to the user, not answer them.
+  it('surfaces a request Claude escalates while itself in bypassPermissions', async () => {
+    const { session, client } = createPermissionHandlerSessionStub('yolo-provider-bypass-escalation');
+    const { PermissionHandler } = await import('./permissionHandler');
+    const handler = new PermissionHandler(session);
+    handler.handleModeChange('yolo');
+
+    const pending = handler.handleToolCall(
+      'Bash',
+      { command: 'systemctl restart example' },
+      { permissionMode: 'yolo' } as EnhancedMode,
+      { signal: new AbortController().signal, toolUseId: 'toolu_yolo_escalation_1', providerPermissionMode: 'bypassPermissions' },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(Object.keys(client.agentState.requests)).toContain('toolu_yolo_escalation_1');
+
+    handler.handleModeChange('yolo');
+    expect(client.agentState.requests['toolu_yolo_escalation_1']).toBeDefined();
+
+    await client.rpcHandlerManager.getHandler('permission')?.({ id: 'toolu_yolo_escalation_1', approved: false } as any);
+    await expect(withTimeout(pending, 1_000)).resolves.toMatchObject({ behavior: 'deny' });
+  });
 });

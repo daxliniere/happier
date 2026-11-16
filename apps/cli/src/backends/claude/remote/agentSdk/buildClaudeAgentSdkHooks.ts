@@ -38,6 +38,7 @@ export function buildClaudeAgentSdkHooks(params: Readonly<{
       suggestions?: unknown;
       blockedPath?: string | null;
       decisionReason?: string | null;
+      providerPermissionMode?: string | null;
     },
   ) => Promise<PermissionResult>;
 }>): Readonly<{
@@ -66,6 +67,7 @@ export function buildClaudeAgentSdkHooks(params: Readonly<{
         suggestions: payload.permission_suggestions ?? payload.permissionSuggestions,
         blockedPath: readString(payload.blocked_path) ?? readString(payload.blockedPath),
         decisionReason: readString(payload.decision_reason) ?? readString(payload.decisionReason),
+        providerPermissionMode: readString(payload.permission_mode),
       });
       return buildClaudePermissionHookResponse({ hookEventName, toolInput, decision: result });
     };

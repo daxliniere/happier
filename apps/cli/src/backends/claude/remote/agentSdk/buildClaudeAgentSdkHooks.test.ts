@@ -103,6 +103,7 @@ describe('buildClaudeAgentSdkHooks', () => {
       blocked_path: '/tmp/blocked.txt',
       decision_reason: 'requires approval',
       agent_id: 'agent_456',
+      permission_mode: 'bypassPermissions',
     }, 'toolu_123', { signal });
 
     expect(canCallTool).toHaveBeenCalledWith(
@@ -116,6 +117,7 @@ describe('buildClaudeAgentSdkHooks', () => {
         suggestions,
         blockedPath: '/tmp/blocked.txt',
         decisionReason: 'requires approval',
+        providerPermissionMode: 'bypassPermissions',
       }),
     );
     expect(output).toEqual({
