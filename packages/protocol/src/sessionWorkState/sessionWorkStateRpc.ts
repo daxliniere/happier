@@ -349,7 +349,7 @@ export const SessionUsageLimitCheckNowRequestV1Schema = lazySchema(() => z
   .object({
     sessionId: SessionIdRequestFieldSchema,
     provider: z.string().trim().min(1).optional(),
-    operation: z.enum(['check_now', 'switch_account_now']).optional(),
+    operation: z.enum(['check_now', 'switch_account_now', 'consume_reset_credit']).optional(),
     resumePromptMode: SessionUsageLimitRecoveryResumePromptModeV1Schema.optional(),
   })
   .passthrough());

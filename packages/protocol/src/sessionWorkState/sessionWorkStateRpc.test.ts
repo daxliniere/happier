@@ -479,11 +479,15 @@ describe('session work-state RPC contracts', () => {
             operation: 'switch_account_now',
             resumePromptMode: 'off',
         });
-        expect(() => SessionUsageLimitCheckNowRequestV1Schema.parse({
+        expect(SessionUsageLimitCheckNowRequestV1Schema.parse({
             sessionId: 's1',
-            provider: ' codex ',
+            provider: ' claude ',
             operation: 'consume_reset_credit',
-        })).toThrow();
+        })).toEqual({
+            sessionId: 's1',
+            provider: 'claude',
+            operation: 'consume_reset_credit',
+        });
         expect(() => SessionUsageLimitCheckNowRequestV1Schema.parse({
             sessionId: 's1',
             resumePromptMode: 'sometimes',

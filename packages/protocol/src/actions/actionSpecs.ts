@@ -2840,7 +2840,10 @@ export const ACTION_SPECS: readonly ActionSpec[] = Object.freeze([
         },
       ],
     },
-    inputSchema: SessionUsageLimitCheckNowRequestV1Schema,
+    // The RPC also carries reset-credit spending; that requires its own danger-class action.
+    inputSchema: lazySchema(() => SessionUsageLimitCheckNowRequestV1Schema.extend({
+      operation: z.enum(['check_now', 'switch_account_now']).optional(),
+    })),
   },
   {
     id: 'session.usageLimit.consumeResetCredit',

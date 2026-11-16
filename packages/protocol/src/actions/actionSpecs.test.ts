@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { ExecutionRunIntentSchema } from '../executionRuns.js';
 import {
   SessionUsageLimitConsumeResetCreditRequestV1Schema,
-  SessionUsageLimitCheckNowRequestV1Schema,
   SessionUsageLimitWaitResumeCancelRequestV1Schema,
   SessionUsageLimitWaitResumeEnableRequestV1Schema,
 } from '../sessionWorkState/sessionWorkStateRpc.js';
@@ -351,7 +350,6 @@ describe('Action Spec Registry', () => {
       expect.objectContaining({ path: 'runtimeAuthRecoveryAttemptId' }),
     ]));
     expect(cancel.examples?.mcp?.argsExample).toContain('armedAtMs');
-    expect(checkNow.inputSchema).toBe(SessionUsageLimitCheckNowRequestV1Schema);
     expect(consumeResetCredit.inputSchema).toBe(SessionUsageLimitConsumeResetCreditRequestV1Schema);
     expect(checkNow.inputSchema.safeParse({
       sessionId: 's1',
