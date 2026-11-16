@@ -171,10 +171,11 @@ describe('OpenCode client/runtime lifecycle composition', () => {
     { storage: 'plain' as const, legacyGap: false, baselineFailure: false },
     { storage: 'e2ee' as const, legacyGap: false, baselineFailure: false },
     { storage: 'plain' as const, legacyGap: true, baselineFailure: false },
+    { storage: 'plain' as const, legacyGap: true, baselineFailure: false, resumeWithoutIdentity: true },
     { storage: 'plain' as const, legacyGap: false, baselineFailure: true },
     { storage: 'plain' as const, legacyGap: false, baselineFailure: 'malformed-page' as const },
     { storage: 'plain' as const, legacyGap: false, baselineFailure: false, malformedNative: true },
-  ])('reconciles exact committed identities on cold resume ($storage, legacyGap=$legacyGap, baselineFailure=$baselineFailure, malformedNative=$malformedNative)', async ({ storage, legacyGap, baselineFailure, malformedNative }) => {
+  ])('reconciles exact committed identities on cold resume ($storage, legacyGap=$legacyGap, baselineFailure=$baselineFailure, malformedNative=$malformedNative, resumeWithoutIdentity=$resumeWithoutIdentity)', async ({ storage, legacyGap, baselineFailure, malformedNative, resumeWithoutIdentity }) => {
     const directory = '/tmp/opencode-cold-resume';
     const nativeSessionId = 'ses_cold:opaque';
     const happySessionId = 'happy_cold_resume';
@@ -243,8 +244,8 @@ describe('OpenCode client/runtime lifecycle composition', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await withConfiguredDaemonTestHome({ prefix: 'opencode-cold-resume-',
-      env: { HAPPIER_SERVER_URL: baseUrl, HAPPIER_SERVER_URL_LOCAL: baseUrl, HAPPIER_PUBLIC_SERVER_URL: baseUrl } }, async () => {
-      let metadata = createTestMetadata({ flavor: 'opencode', opencodeSessionId: nativeSessionId });
+      env: { HAPPIER_SERVER_URL: baseUrl, HAPPIER_LOCAL_SERVER_URL: baseUrl, HAPPIER_PUBLIC_SERVER_URL: baseUrl } }, async () => {
+      let metadata = createTestMetadata({ flavor: 'opencode', ...(resumeWithoutIdentity ? {} : { opencodeSessionId: nativeSessionId }) });
       const metadataWithProviderCorrelation = {
         ...metadata,
         opencodeUserMessageIdMapV1: { v: 1, byLocalId: { 'ui-local': 'msg_ui_user' } },
@@ -275,7 +276,7 @@ describe('OpenCode client/runtime lifecycle composition', () => {
       let runtime = makeRuntime();
       const imported = () => committed.filter((body) => String(body.localId).startsWith('opencode:import:'));
       try {
-        await runtime.startOrLoad({ resumeId: nativeSessionId });
+        await runtime.startOrLoad({ resumeId: nativeSessionId, ...(resumeWithoutIdentity ? { importHistory: false } : {}) });
         await expect.poll(() => connections).toBe(1);
         if (malformedNative) {
           await expect.poll(() => reads).toBeGreaterThan(0);

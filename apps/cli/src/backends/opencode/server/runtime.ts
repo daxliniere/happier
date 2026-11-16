@@ -4270,7 +4270,7 @@ export function createOpenCodeServerRuntime(params: {
       };
     },
 
-    async startOrLoad(opts: { resumeId?: string | null } = {}): Promise<string> {
+    async startOrLoad(opts: { resumeId?: string | null; importHistory?: boolean } = {}): Promise<string> {
       invalidateMcpServersForCurrentDirectory();
       const c = await ensureClient();
       const assertCurrentClient = (): void => {
@@ -4310,6 +4310,9 @@ export function createOpenCodeServerRuntime(params: {
         const existingVendorSessionId = readOpenCodeSessionRuntimeHandleFromMetadata(snapshot).vendorSessionId ?? '';
         const marker = snapshot && typeof snapshot === 'object' ? (snapshot as any).opencodeResumeHistoryImportV1 : null;
         const shouldSkipHistoryImport =
+          // Normal resume already has a canonical Happier transcript. Honor the
+          // prompt loop's policy even when old runtime identity hints are absent.
+          opts.importHistory === false ||
           (existingVendorSessionId && existingVendorSessionId === resumeId) ||
           Boolean(marker && typeof marker === 'object' && (marker as any).v === 1 && String((marker as any).remoteSessionId ?? '') === resumeId);
         if (shouldSkipHistoryImport) {

@@ -10130,6 +10130,47 @@ describe('createOpenCodeServerRuntime', () => {
     expect(session.sendUserTextMessageCommitted).not.toHaveBeenCalled();
   });
 
+  it('reconciles a normal resume before importing native history when metadata has no saved OpenCode identity', async () => {
+    const client = createFakeClient();
+    client.sessionMessagesList.mockResolvedValue([
+      { info: { role: 'user', id: 'msg_prior_user', time: { created: 1 }, sessionID: 'ses_remote' },
+        parts: [{ type: 'text', text: 'provider instructions plus the original prompt' }] },
+      { info: { role: 'assistant', id: 'msg_prior_answer', time: { created: 2, completed: 3 }, finish: 'stop', sessionID: 'ses_remote' },
+        parts: [{ type: 'text', text: 'prior answer' }] },
+    ]);
+    const session = createFakeSession();
+    session.fetchCommittedTranscriptIdentitySnapshot.mockResolvedValue({ complete: true, rows: [
+      { localId: 'original-ui-prompt', role: 'user', meta: { source: 'ui' } },
+      { localId: 'original-answer', role: 'agent', provider: 'opencode',
+        meta: { opencodeMessageId: 'msg_prior_answer', opencodeRemoteSessionId: 'ses_remote' } },
+    ] });
+    const runtime = createOpenCodeServerRuntime({
+      directory: '/tmp', session, messageBuffer: new MessageBuffer(), mcpServers: {},
+      permissionHandler: new ProviderEnforcedPermissionHandler(session, { logPrefix: '[test]' }), onThinkingChange: vi.fn(),
+    }, { createClient: async () => client });
+    try {
+      // The prompt loop explicitly disables replay import on an ordinary resume.
+      // A returning Agent can lack the old correlation metadata; its transcript
+      // still owns these messages, including the prompt before provider wrapping.
+      await runtime.startOrLoad({ resumeId: 'ses_remote', importHistory: false });
+      await vi.waitFor(() => expect(client.sessionMessagesList).toHaveBeenCalled());
+      expect(session.sendUserTextMessageCommitted).not.toHaveBeenCalled();
+      expect(session.sendAgentMessageCommitted).not.toHaveBeenCalled();
+      expect(session.fetchCommittedTranscriptIdentitySnapshot).toHaveBeenCalled();
+
+      client.sessionMessagesList.mockResolvedValue([
+        { info: { role: 'user', id: 'msg_new_native', time: { created: 4 }, sessionID: 'ses_remote' },
+          parts: [{ type: 'text', text: 'new prompt from the native terminal' }] },
+      ]);
+      await client.__emit({ directory: '/tmp', payload: { type: 'session.idle', properties: { sessionID: 'ses_remote' } } });
+      await vi.waitFor(() => expect(session.sendUserTextMessageCommitted).toHaveBeenCalledWith(
+        'new prompt from the native terminal', expect.objectContaining({ meta: expect.objectContaining({ importedFrom: 'acp-history' }) }),
+      ));
+    } finally {
+      await runtime.reset();
+    }
+  });
+
   it('drains accepted pending queue rows through the input consumer after resuming a server session', async () => {
     const client = createFakeClient();
     const session = createFakeSession();
