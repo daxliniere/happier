@@ -1107,6 +1107,60 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(selected?.snapshot.meters[0]?.remainingPct).toBe(18);
     });
 
+    it('keeps other known periods when a newer runtime issue reports only the exhausted period', () => {
+        const priorSnapshot: ConnectedServiceQuotaSnapshotV1 = {
+            ...snapshot([
+                meter({ meterId: 'five_hour', label: '5-hour', remainingPct: 43, resetsAt: 9_000 }),
+                meter({ meterId: 'seven_day', label: 'Weekly', remainingPct: 76, resetsAt: 20_000 }),
+                meter({ meterId: 'daily', label: 'Daily', remainingPct: 92, resetsAt: 1_500 }),
+            ]),
+            serviceId: 'claude-subscription',
+            fetchedAt: 1_000,
+        };
+        const selected = selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'claude',
+            connectedServiceSnapshot: priorSnapshot,
+            connectedServiceRefProvenance: 'connected_binding_profile',
+            runtimeIssue: {
+                v: 1,
+                scope: 'primary_session',
+                status: 'failed',
+                code: 'usage_limit',
+                source: 'usage_limit',
+                occurredAt: 2_000,
+                provider: 'claude',
+                usageLimit: {
+                    v: 1,
+                    resetAtMs: 9_000,
+                    retryAfterMs: null,
+                    quotaScope: 'account',
+                    recoverability: 'wait',
+                    limitCategory: 'usage_limit',
+                    quotaSnapshotRef: { serviceId: 'claude-subscription', profileId: 'work', fetchedAtMs: 2_000 },
+                    effectiveMeterId: 'five_hour',
+                    effectiveRemainingPct: 0,
+                },
+            },
+            nowMs: 2_000,
+        });
+
+        expect(selected?.sourceKind).toBe('native_runtime_evidence');
+        expect(selected?.snapshot.meters.map((item) => [item.meterId, item.remainingPct])).toEqual([
+            ['five_hour', 0],
+            ['seven_day', 76],
+        ]);
+        const gauge = selected && computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: selected.snapshot,
+            windowMode: 'most_constrained',
+            nowMs: 2_000,
+            formatter,
+        });
+        expect(gauge?.allMeterRows.map((row) => [row.meterId, row.remainingPct])).toEqual([
+            ['five_hour', 0],
+            ['seven_day', 76],
+        ]);
+    });
+
     it('keeps fresher connected account usage ahead of stale runtime quota evidence', () => {
         const freshProfileSnapshot: ConnectedServiceQuotaSnapshotV1 = {
             ...snapshot([
