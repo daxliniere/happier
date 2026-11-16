@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { getAgentCore, type AgentId } from '@/agents/catalog/catalog';
@@ -52,6 +52,7 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
     onRefresh: (agentId: AgentId) => void;
 }>) {
     const styles = stylesheet;
+    const { height: windowHeight } = useWindowDimensions();
     const anchorRef = React.useRef<React.ElementRef<typeof View>>(null);
     const [open, setOpen] = React.useState(false);
     const firstAgentId = agentIds[0];
@@ -91,6 +92,7 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
                 anchorRef={anchorRef}
                 placement="bottom"
                 onRequestClose={() => setOpen(false)}
+                maxHeightCap={windowHeight}
                 maxWidthCap={420}
                 outsidePointerEventsMode="full"
                 testID="sessions-provider-usage-popover"
