@@ -54,6 +54,8 @@ type PendingPermissionRequest = {
     hookEventName: ClaudePermissionHookEventName;
     sidechainAgentId: string | null;
     createdAt: number;
+    /** Claude asked while itself in bypassPermissions; YOLO mode changes must not answer it. */
+    providerEscalation: boolean;
     /**
      * Wall-clock time after which the provider hook forwarder is assumed dead (Claude killed it once its
      * command `timeout` elapsed). A late UI answer past this point cannot reach Claude, so it is reported
@@ -257,7 +259,11 @@ export class ClaudeLocalPermissionBridge {
             return this.buildAllowHookResponse({ hookEventName, toolInput });
         }
 
-        const policyDecision = this.computePolicyDecision(toolName);
+        // In bypassPermissions Claude only asks for its own escalations (permissions.ask rules,
+        // safety checks). YOLO skips routine approvals, so these go to the user.
+        const providerEscalation = existing?.providerEscalation
+            ?? (data.permission_mode ?? data.permissionMode) === 'bypassPermissions';
+        const policyDecision = this.computePolicyDecision(toolName, providerEscalation);
         if (
             !this.isInteractiveTool(toolName)
             && isSafeFirstPartyHappierActionToolCall({ toolName, input: toolInput })
@@ -311,6 +317,7 @@ export class ClaudeLocalPermissionBridge {
                 sidechainAgentId: readSessionHookSidechainAgentId(data),
                 createdAt,
                 expiresAt: this.computeProviderHookExpiry(createdAt),
+                providerEscalation,
             });
         }
 
@@ -450,10 +457,10 @@ export class ClaudeLocalPermissionBridge {
         });
     }
 
-    private computePolicyDecision(toolName: string): 'prompt' | 'allow' | 'deny' {
+    private computePolicyDecision(toolName: string, providerEscalation: boolean): 'prompt' | 'allow' | 'deny' {
         if (isChangeTitleToolLikeName(toolName)) return 'allow';
         const mode = this.permissionMode;
-        if (mode === 'yolo') return 'allow';
+        if (mode === 'yolo') return providerEscalation ? 'prompt' : 'allow';
         if (mode === 'safe-yolo') {
             // Claude's Auto classifier owns this decision. PermissionRequest hooks only arrive
             // after Claude leaves a tool unresolved, so reclassifying it here would bypass Auto.
@@ -610,7 +617,7 @@ export class ClaudeLocalPermissionBridge {
         for (const [id, pending] of this.pendingRequests.entries()) {
             if (id === excludeRequestId) continue;
             if (this.isInteractiveTool(pending.toolName)) continue;
-            const decision = this.computePolicyDecision(pending.toolName);
+            const decision = this.computePolicyDecision(pending.toolName, pending.providerEscalation);
             if (decision === 'allow') idsToApprove.push(id);
             if (decision === 'deny') idsToDeny.push(id);
         }

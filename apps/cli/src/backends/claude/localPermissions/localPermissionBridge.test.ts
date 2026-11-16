@@ -993,6 +993,33 @@ describe('ClaudeLocalPermissionBridge', () => {
     expect(client.agentState.completedRequests.toolu_yolo_pending_1).toMatchObject({ status: 'approved' });
   });
 
+  it('surfaces a hook Claude raises while itself in bypassPermissions under yolo', async () => {
+    const { session, client } = createPermissionHandlerSessionStub('session-yolo-provider-escalation');
+    client.updateMetadata((m) => ({ ...m, permissionMode: 'yolo', permissionModeUpdatedAt: 123 }));
+    const bridge = new ClaudeLocalPermissionBridge(session, { responseTimeoutMs: 5_000 });
+    bridge.activate();
+
+    const pending = bridge.handlePermissionHook({
+      hook_event_name: 'PermissionRequest',
+      permission_mode: 'bypassPermissions',
+      tool_name: 'Bash',
+      tool_input: { command: 'systemctl restart example' },
+      tool_use_id: 'toolu_yolo_escalation_1',
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.agentState.requests.toolu_yolo_escalation_1).toBeDefined();
+
+    client.updateMetadata((m) => ({ ...m, permissionMode: 'yolo', permissionModeUpdatedAt: 456 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.agentState.requests.toolu_yolo_escalation_1).toBeDefined();
+
+    await client.rpcHandlerManager.getHandler('permission')?.({ id: 'toolu_yolo_escalation_1', approved: false } as any);
+    await expect(pending).resolves.toMatchObject({
+      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny' } },
+    });
+  });
+
   it('hard-denies new write-like permission hooks immediately when permissionMode=read-only in metadata', async () => {
     const { session, client } = createPermissionHandlerSessionStub('session-read-only-immediate-deny');
     client.updateMetadata((m) => ({ ...m, permissionMode: 'read-only', permissionModeUpdatedAt: 123 }));

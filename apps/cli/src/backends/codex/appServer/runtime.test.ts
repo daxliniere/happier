@@ -7321,12 +7321,14 @@ describe('createCodexAppServerRuntime', () => {
             'cmd_approval',
             'CodexBash',
             { command: 'rm -rf /tmp/demo', cwd: '/repo' },
+            { providerEscalation: true },
         );
         expect(permissionHandler.handleToolCall).toHaveBeenNthCalledWith(
             2,
             'patch_approval',
             'CodexPatch',
             { changes: { 'src/file.ts': { hunks: 1 } } },
+            { providerEscalation: true },
         );
         expect(permissionHandler.handleToolCall).toHaveBeenNthCalledWith(
             3,
@@ -7455,6 +7457,7 @@ describe('createCodexAppServerRuntime', () => {
             'cmd_external',
             'CodexBash',
             { command: 'git fetch origin', cwd: '/repo' },
+            { providerEscalation: true },
         );
         expect(permissionHandler.cancelPendingRequest).toHaveBeenCalledWith(
             'cmd_external',

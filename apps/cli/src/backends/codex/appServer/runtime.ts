@@ -476,7 +476,12 @@ export type CodexAppServerReviewStartRequest = Readonly<{
 }>;
 
 type PermissionHandlerSubset = Readonly<{
-    handleToolCall: (toolCallId: string, toolName: string, input: unknown) => Promise<PermissionResult>;
+    handleToolCall: (
+        toolCallId: string,
+        toolName: string,
+        input: unknown,
+        context?: Readonly<{ providerEscalation?: boolean }>,
+    ) => Promise<PermissionResult>;
     cancelPendingRequest?: (requestId: string, reason: string) => boolean;
 }>;
 
@@ -1684,10 +1689,11 @@ export function createCodexAppServerRuntime(params: Readonly<{
         onRequestIssued?: () => void,
     ): Promise<unknown> => {
         const approvalPolicy = requestParams.approvalPolicy;
-        if (normalizePermissionModeToIntent(getCurrentPermissionMode()) !== 'safe-yolo'
+        const permissionIntent = normalizePermissionModeToIntent(getCurrentPermissionMode());
+        if ((permissionIntent !== 'safe-yolo' && permissionIntent !== 'yolo')
             || !approvalPolicy || typeof approvalPolicy !== 'object' || Array.isArray(approvalPolicy)
             || !Object.prototype.hasOwnProperty.call(approvalPolicy, 'granular')
-            || requestParams.approvalsReviewer !== 'auto_review') {
+            || (permissionIntent === 'safe-yolo' && requestParams.approvalsReviewer !== 'auto_review')) {
             onRequestIssued?.();
             return client.request(method, requestParams, options);
         }
@@ -1695,7 +1701,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
         return client.request(method, requestParams, options).catch(async (error: unknown) => {
             if (!isCodexAppServerManagedGranularApprovalRejection(error, method)) throw error;
             managedScalarFallback = true;
-            logger.warn('[codex-app-server] Managed policy rejected Auto granular approvals; using on-request with user review for this session');
+            logger.warn(permissionIntent === 'yolo'
+                ? '[codex-app-server] Managed policy rejected YOLO rule approvals; using never for this session, so prompt rules are rejected without asking'
+                : '[codex-app-server] Managed policy rejected Auto granular approvals; using on-request with user review for this session');
             onRequestIssued?.();
             return await client.request(method, {
                 ...requestParams,
@@ -2961,8 +2969,10 @@ export function createCodexAppServerRuntime(params: Readonly<{
             if (update.type === 'approval-request') {
                 associatePendingProviderRequest(options?.providerRequestKey, update.callId);
                 return async () => {
+                    // Codex asked even though YOLO disables sandbox approvals, so this is its own
+                    // escalation (a "prompt" rule); the handler must not auto-approve it.
                     const result = params.permissionHandler
-                        ? await params.permissionHandler.handleToolCall(update.callId, update.toolName, update.input)
+                        ? await params.permissionHandler.handleToolCall(update.callId, update.toolName, update.input, { providerEscalation: true })
                         : { decision: 'denied' as const };
                     return mapApprovalDecision(update.requestKind, result);
                 };

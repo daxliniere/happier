@@ -69,6 +69,8 @@ type PendingPermissionMetadata = {
     toolName: string;
     input: unknown;
     sourceLocalId: string | null;
+    /** Claude asked while itself in bypassPermissions; YOLO mode changes must not answer it. */
+    providerEscalation: boolean;
 };
 
 function isRequestOwnedOutsideRemotePermissionHandler(request: unknown): boolean {
@@ -537,6 +539,7 @@ export class PermissionHandler {
             }
             if (context.status !== 'live') continue;
             if (isInteractiveTool(pending.toolName)) continue;
+            if (pending.providerEscalation) continue;
             if (effectiveMode === 'bypassPermissions') {
                 idsToApprove.push(id);
                 continue;
@@ -626,15 +629,21 @@ export class PermissionHandler {
             suggestions?: unknown;
             blockedPath?: string | null;
             decisionReason?: string | null;
+            /** Claude's own permission mode when it raised this request (hook `permission_mode`). */
+            providerPermissionMode?: string | null;
         },
     ): Promise<PermissionResult> => {
         const rewrittenInput = this.rewriteToolInput(toolName, input);
+        // In bypassPermissions Claude only asks for its own escalations (permissions.ask rules,
+        // safety checks). YOLO skips routine approvals, so these go to the user.
+        const providerEscalation = options.providerPermissionMode === 'bypassPermissions';
         const providedToolUseId = readNonBlankOpaqueIdentifier(options?.toolUseId) ?? '';
         const claimedToolUseId = providedToolUseId || this.findUnusedToolCallId(toolName, input);
         if (claimedToolUseId && this.agentStateRequestStore.isOutstandingRequestClaimed(claimedToolUseId)) {
             return this.handlePermissionRequest(claimedToolUseId, toolName, rewrittenInput, options.signal, {
                 suggestions: options.suggestions,
                 sourceLocalId: mode?.localId ?? null,
+                providerEscalation,
             });
         }
 
@@ -665,7 +674,7 @@ export class PermissionHandler {
             agentModeId,
         });
 
-        if (effectiveMode === 'bypassPermissions' && !isInteractiveTool(toolName)) {
+        if (effectiveMode === 'bypassPermissions' && !isInteractiveTool(toolName) && !providerEscalation) {
             return { behavior: 'allow', updatedInput: rewrittenInput as Record<string, unknown> };
         }
 
@@ -695,6 +704,7 @@ export class PermissionHandler {
         return this.handlePermissionRequest(toolCallId, toolName, rewrittenInput, options.signal, {
             suggestions: options.suggestions,
             sourceLocalId: mode?.localId ?? null,
+            providerEscalation,
         });
     }
 
@@ -758,7 +768,7 @@ export class PermissionHandler {
         toolName: string,
         input: unknown,
         signal: AbortSignal,
-        opts?: { suggestions?: unknown; sourceLocalId?: string | null }
+        opts?: { suggestions?: unknown; sourceLocalId?: string | null; providerEscalation?: boolean }
     ): Promise<PermissionResult> {
         const publicationInput = normalizeClaudeAskUserQuestionInputForPublication(toolName, input);
         if (signal.aborted) {
@@ -781,6 +791,7 @@ export class PermissionHandler {
                 toolName,
                 input,
                 sourceLocalId: typeof opts?.sourceLocalId === 'string' ? opts.sourceLocalId : null,
+                providerEscalation: opts?.providerEscalation === true,
             });
         }
 

@@ -134,7 +134,7 @@ export async function claudeRemote(opts: {
         toolName: string,
         input: unknown,
         mode: EnhancedMode,
-        options: { signal: AbortSignal; toolUseId?: string | null; agentId?: string | null },
+        options: { signal: AbortSignal; toolUseId?: string | null; agentId?: string | null; providerPermissionMode?: string | null },
     ) => Promise<PermissionResult>,
     /** Path to temporary settings file with SessionStart hook (required for session tracking) */
     hookSettingsPath: string,
@@ -297,7 +297,11 @@ export async function claudeRemote(opts: {
         ...(opts.hookPluginDir ? {} : {
             canCallTool: (toolName: string, input: unknown, options: { signal: AbortSignal; toolUseId?: string | null; agentId?: string | null }) => {
                 if (!isSidechainSessionHook({ agentId: options.agentId })) opts.onProviderEvent?.();
-                return opts.canCallTool(toolName, input, mode, options);
+                // This runner never changes Claude's permission mode after launch.
+                return opts.canCallTool(toolName, input, mode, {
+                    ...options,
+                    providerPermissionMode: resolveClaudeSdkPermissionModeFromEnhancedMode(initial.mode),
+                });
             },
         }),
         executable: runtimeExecutable,

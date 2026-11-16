@@ -106,13 +106,27 @@ export function resolveCodexAppServerPolicyForPermissionMode(
     },
   };
 
+  // YOLO runs unsandboxed and skips routine approvals, but a Codex rule whose decision is
+  // "prompt" (for example a destructive or service-control command) must still reach the user.
+  // Under `never` Codex silently rejects those commands instead of asking.
+  const useYoloRuleApprovals = canonicalMode === 'yolo' && !params.managedScalarFallback;
+  const yoloRuleApprovalPolicy: CodexAppServerApprovalPolicy = {
+    granular: {
+      mcp_elicitations: true,
+      request_permissions: false,
+      rules: true,
+      sandbox_approval: false,
+      skill_approval: false,
+    },
+  };
+
   return {
     approvalPolicy: useWorkspaceApprovalRequests
       ? params.managedScalarFallback && canonicalMode === 'safe-yolo' ? 'on-request' : granularApprovalPolicy
-      : 'never',
+      : useYoloRuleApprovals ? yoloRuleApprovalPolicy : 'never',
     ...(useWorkspaceApprovalRequests
       ? { approvalsReviewer: canonicalMode === 'safe-yolo' && autoReviewAvailable && !params.managedScalarFallback ? 'auto_review' : 'user' }
-      : {}),
+      : useYoloRuleApprovals ? { approvalsReviewer: 'user' as const } : {}),
     sandbox:
       policy.sandbox === 'workspace-write'
         ? 'workspace-write'

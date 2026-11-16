@@ -119,6 +119,7 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     toolName: string,
     input: unknown,
     permissionMode: PermissionMode,
+    providerEscalation = false,
   ): PermissionResult | null {
     if (this.isPermissionRequestClaimed(toolCallId)) {
       return null;
@@ -144,7 +145,7 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
       return { decision: 'approved_for_session' };
     }
 
-    if (this.shouldAutoApprove(toolName, input, permissionMode)) {
+    if (this.shouldAutoApprove(toolName, input, permissionMode, providerEscalation)) {
       const decision: PermissionResult['decision'] =
         this.isFullAutoApproveMode(permissionMode) ? 'approved_for_session' : 'approved';
       logger.debug(`${this.getLogPrefix()} Auto-approving tool ${toolName} (${toolCallId}) in ${permissionMode} mode`);
@@ -197,9 +198,20 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     return permissionMode === 'yolo' || permissionMode === 'bypassPermissions';
   }
 
-  private shouldAutoApprove(toolName: string, input: unknown, permissionMode: PermissionMode): boolean {
+  /**
+   * `providerEscalation` marks a request the provider raised even though the full-auto mode told it
+   * not to ask (for example a Codex "prompt" rule). Full-auto modes skip routine approvals only;
+   * the user decides these.
+   */
+  private shouldAutoApprove(
+    toolName: string,
+    input: unknown,
+    permissionMode: PermissionMode,
+    providerEscalation = false,
+  ): boolean {
     if (this.isAlwaysAutoApproveTool(toolName, input)) return true;
     if (this.isHappierToolsShellBridgeToolCall(toolName, input)) return true;
+    if (providerEscalation && this.isFullAutoApproveMode(permissionMode)) return false;
 
     switch (permissionMode) {
       case 'yolo':
@@ -227,15 +239,18 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     toolCallId: string,
     toolName: string,
     input: unknown,
-    context?: Readonly<{ permissionMode?: PermissionMode }>,
+    context?: Readonly<{ permissionMode?: PermissionMode; providerEscalation?: boolean }>,
   ): Promise<PermissionResult> {
     // Metadata updates can arrive mid-turn (e.g. UI toggles "read-only" while a tool request is in flight).
     // Sync on each tool call so the decision reflects the latest persisted intent without requiring a user message.
     if (!context?.permissionMode) this.syncPermissionModeFromMetadataSnapshotIfNewer();
     const permissionMode = context?.permissionMode ?? this.currentPermissionMode;
+    const providerEscalation = context?.providerEscalation === true;
     const resolveAdmittedDecision = context?.permissionMode
-      ? () => this.resolveDecisionForToolCall(toolCallId, toolName, input, permissionMode)
-      : undefined;
+      ? () => this.resolveDecisionForToolCall(toolCallId, toolName, input, permissionMode, providerEscalation)
+      : providerEscalation
+        ? () => this.resolveDecisionForToolCall(toolCallId, toolName, input, this.currentPermissionMode, true)
+        : undefined;
     if (this.isPermissionRequestClaimed(toolCallId)) {
       return await this.requestPermissionDecision(
         toolCallId,
@@ -279,7 +294,7 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
       return { decision: 'approved_for_session' };
     }
 
-    if (this.shouldAutoApprove(toolName, input, permissionMode)) {
+    if (this.shouldAutoApprove(toolName, input, permissionMode, providerEscalation)) {
       const decision: PermissionResult['decision'] =
         this.isFullAutoApproveMode(permissionMode) ? 'approved_for_session' : 'approved';
       logger.debug(`${this.getLogPrefix()} Auto-approving tool ${toolName} (${toolCallId}) in ${permissionMode} mode`);

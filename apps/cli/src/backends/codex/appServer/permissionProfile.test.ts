@@ -28,15 +28,16 @@ describe('permissionProfile', () => {
         });
     });
 
-    it('maps bypass modes to the Codex full-access profile', () => {
-        expect(buildCodexAppServerPermissionsParams({ permissionMode: 'yolo', directory: '/repo', target: 'turn' })).toEqual({
+    it('maps bypass modes to the Codex full-access profile with rule approvals only', () => {
+        const expected = {
             permissions: ':danger-full-access',
-            approvalPolicy: 'never',
-        });
-        expect(buildCodexAppServerPermissionsParams({ permissionMode: 'bypassPermissions', directory: '/repo', target: 'turn' })).toEqual({
-            permissions: ':danger-full-access',
-            approvalPolicy: 'never',
-        });
+            approvalPolicy: {
+                granular: { mcp_elicitations: true, request_permissions: false, rules: true, sandbox_approval: false, skill_approval: false },
+            },
+            approvalsReviewer: 'user',
+        };
+        expect(buildCodexAppServerPermissionsParams({ permissionMode: 'yolo', directory: '/repo', target: 'turn' })).toEqual(expected);
+        expect(buildCodexAppServerPermissionsParams({ permissionMode: 'bypassPermissions', directory: '/repo', target: 'turn' })).toEqual(expected);
     });
 
     it('omits native permission profile params for default mode', () => {

@@ -503,6 +503,26 @@ describe('CodexLikePermissionHandler', () => {
     expect(result.decision).toBe('approved_for_session');
   });
 
+  it('asks the user about a provider escalation in yolo mode, even after a repeated yolo mode update', async () => {
+    const session = new FakeSession();
+    const handler = new CodexLikePermissionHandler({ session: session as any, logPrefix: '[Test]' });
+    handler.setPermissionMode('yolo');
+
+    const promise = handler.handleToolCall(
+      'escalation-1',
+      'CodexBash',
+      { command: ['systemctl', 'restart', 'example'] },
+      { providerEscalation: true },
+    );
+
+    expect(session.agentState.requests['escalation-1']).toEqual(expect.objectContaining({ tool: 'CodexBash' }));
+    handler.setPermissionMode('yolo');
+    expect(await settledState(promise)).toBe('pending');
+
+    await session.rpcHandlerManager.handlers.get('permission')!({ id: 'escalation-1', approved: false, decision: 'denied' });
+    expect((await promise).decision).toBe('denied');
+  });
+
   it('refuses claimed request IDs before yolo or legacy-allowlist auto decisions', async () => {
     const session = new FakeSession();
     const input = { path: '/tmp/x', content: 'hi' };

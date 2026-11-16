@@ -21,7 +21,7 @@ These are the modes you may see in the CLI and/or the app:
 - **Read-only** (`read_only`): requests a read-only posture and denies write-like actions when Happier is the approver.
 - **Default** (`default`): uses the provider’s normal behavior.
 - **Auto** (`auto`): requests automatic tool use according to the provider's closest supported policy.
-- **YOLO** (`yolo`): skips approvals as much as the provider allows (full speed, least safe).
+- **YOLO** (`yolo`): skips approvals as much as the provider allows (full speed, least safe). Approval rules you configure in the provider still ask you: Claude `permissions.ask` rules and Codex rules with `decision = "prompt"` show an approval prompt instead of being skipped.
 
 Not every provider realizes each intent the same way. Auto does **not** universally mean that writes are confined to the workspace; consult the provider notes below for the behavior of the runtime you use.
 
