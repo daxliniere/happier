@@ -231,8 +231,11 @@ export function createClaudeSessionTranscriptProjector(params: Readonly<{
       publishWorkStateSnapshot(taskSnapshot);
     }
   };
-  const surfaceRateLimit = (details: NormalizedProviderUsageLimitDetailsV1): void => {
-    void surfaceClaudeRateLimitRuntimeIssue(params.session, details, params.logPrefix).catch((error) => {
+  const surfaceRateLimit = (
+    details: NormalizedProviderUsageLimitDetailsV1,
+    observedWindows?: readonly NormalizedProviderUsageLimitDetailsV1[],
+  ): void => {
+    void surfaceClaudeRateLimitRuntimeIssue(params.session, details, params.logPrefix, { observedWindows }).catch((error) => {
       logger.debug(`${params.logPrefix}: failed to surface Claude rate-limit runtime issue`, error);
     });
   };
@@ -314,7 +317,7 @@ export function createClaudeSessionTranscriptProjector(params: Readonly<{
           });
         }
         const rateLimitDetails = mapClaudeProviderFailureToUsageDetails(message);
-        if (rateLimitDetails) surfaceRateLimit(rateLimitDetails);
+        if (rateLimitDetails) surfaceRateLimit(rateLimitDetails, quotaEvidence);
       }
       if (isClaudeInternalTranscriptMessage(message)) {
         return;

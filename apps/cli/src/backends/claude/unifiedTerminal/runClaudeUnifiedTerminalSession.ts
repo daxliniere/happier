@@ -305,7 +305,10 @@ export type ClaudeUnifiedTerminalSessionOptions<Mode extends EnhancedMode = Enha
   dialogTurnEndScreenProbeDelaysMs?: readonly number[] | undefined;
   onThinkingChange?: ((thinking: boolean) => void) | undefined;
   onReady?: (() => void | Promise<void>) | undefined;
-  onUsageLimitDetails?: ((details: NormalizedProviderUsageLimitDetailsV1) => void | Promise<void>) | undefined;
+  onUsageLimitDetails?: ((
+    details: NormalizedProviderUsageLimitDetailsV1,
+    observedWindows?: readonly NormalizedProviderUsageLimitDetailsV1[],
+  ) => void | Promise<void>) | undefined;
   onQuotaEvidence?: ((windows: readonly NormalizedProviderUsageLimitDetailsV1[]) => void | Promise<void>) | undefined;
   onTerminalScreenObserved?: ((observation: ClaudeUnifiedTerminalScreenObservation) => void) | undefined;
   onRuntimeAuthFailureEvent?: ((error: unknown) => void | Promise<void>) | undefined;

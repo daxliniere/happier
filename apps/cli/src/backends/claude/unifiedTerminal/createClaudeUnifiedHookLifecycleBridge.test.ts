@@ -1364,7 +1364,7 @@ describe('createClaudeUnifiedHookLifecycleBridge', () => {
         expect(onUsageLimitDetails).toHaveBeenCalledWith(expect.objectContaining({
           limitCategory: 'capacity',
           providerLimitId: 'server_overloaded',
-        }));
+        }), []);
       });
       await vi.waitFor(() => {
         expect(observeLifecycle).toHaveBeenCalledWith({ type: 'turn_state', state: 'idle' });

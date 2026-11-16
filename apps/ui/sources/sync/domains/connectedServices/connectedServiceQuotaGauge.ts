@@ -785,6 +785,43 @@ function quotaSnapshotFetchedAtMs(snapshot: ConnectedServiceQuotaSnapshotV1): nu
     return snapshot.fetchedAtMs ?? snapshot.fetchedAt;
 }
 
+function runtimeIssueAndConnectedSnapshotShareProfile(
+    runtimeSnapshot: ConnectedServiceQuotaSnapshotV1,
+    connectedSnapshot: ConnectedServiceQuotaSnapshotV1,
+): boolean {
+    return snapshotsIdentifySameQuotaProfile(runtimeSnapshot, connectedSnapshot)
+        || (runtimeSnapshot.serviceId === connectedSnapshot.serviceId
+            && runtimeSnapshot.profileId === RUNTIME_ISSUE_NATIVE_PROFILE_ID
+            && NATIVE_QUOTA_PROFILE_ID_PATTERN.test(connectedSnapshot.profileId));
+}
+
+function retainKnownQuotaWindows(
+    runtimeSnapshot: ConnectedServiceQuotaSnapshotV1,
+    connectedSnapshot: ConnectedServiceQuotaSnapshotV1,
+    nowMs: number | undefined,
+): ConnectedServiceQuotaSnapshotV1 {
+    if (!runtimeIssueAndConnectedSnapshotShareProfile(runtimeSnapshot, connectedSnapshot)) return runtimeSnapshot;
+
+    const metersById = new Map<string, ConnectedServiceQuotaMeterV1>();
+    for (const meter of connectedSnapshot.meters) {
+        const resetAtMs = typeof meter.resetAtMs === 'number' ? meter.resetAtMs : meter.resetsAt;
+        if (nowMs !== undefined && typeof resetAtMs === 'number' && resetAtMs <= nowMs) continue;
+        metersById.set(meter.meterId, meter);
+    }
+    for (const meter of runtimeSnapshot.meters) metersById.set(meter.meterId, meter);
+
+    return {
+        ...connectedSnapshot,
+        ...runtimeSnapshot,
+        accountLabel: runtimeSnapshot.accountLabel ?? connectedSnapshot.accountLabel,
+        planLabel: runtimeSnapshot.planLabel ?? connectedSnapshot.planLabel,
+        activeAccountId: runtimeSnapshot.activeAccountId ?? connectedSnapshot.activeAccountId,
+        subscription: runtimeSnapshot.subscription ?? connectedSnapshot.subscription,
+        recoveryCredits: runtimeSnapshot.recoveryCredits ?? connectedSnapshot.recoveryCredits,
+        meters: [...metersById.values()],
+    };
+}
+
 function shouldPreferRuntimeIssueQuotaSnapshot(params: Readonly<{
     runtimeSnapshot: ConnectedServiceQuotaSnapshotV1;
     connectedSnapshot: ConnectedServiceQuotaSnapshotV1 | null;
@@ -794,10 +831,7 @@ function shouldPreferRuntimeIssueQuotaSnapshot(params: Readonly<{
     const connectedFetchedAtMs = quotaSnapshotFetchedAtMs(params.connectedSnapshot);
     // A session report must not hide a newer shared observation for the same account.
     // Native runtime reports without a profile id refer to the session's selected native account.
-    const sameProfile = snapshotsIdentifySameQuotaProfile(params.runtimeSnapshot, params.connectedSnapshot)
-        || (params.runtimeSnapshot.serviceId === params.connectedSnapshot.serviceId
-            && params.runtimeSnapshot.profileId === RUNTIME_ISSUE_NATIVE_PROFILE_ID
-            && NATIVE_QUOTA_PROFILE_ID_PATTERN.test(params.connectedSnapshot.profileId));
+    const sameProfile = runtimeIssueAndConnectedSnapshotShareProfile(params.runtimeSnapshot, params.connectedSnapshot);
     if (sameProfile) {
         // A later fetch with no readable usage is not evidence that this exhausted allowance recovered.
         // Keep its known zero until a usable observation arrives or its reset expires.
@@ -837,13 +871,16 @@ export function selectConnectedServiceSessionProviderUsageGaugeSource(params: Re
         connectedSnapshot: params.connectedServiceSnapshot,
     })) {
         const recoveryCredits = params.connectedServiceSnapshot
-            && snapshotsIdentifySameQuotaProfile(runtimeIssueQuotaSnapshot, params.connectedServiceSnapshot)
+            && runtimeIssueAndConnectedSnapshotShareProfile(runtimeIssueQuotaSnapshot, params.connectedServiceSnapshot)
             ? params.connectedServiceSnapshot.recoveryCredits ?? null
             : params.recoveryCredits ?? null;
+        const snapshot = params.connectedServiceSnapshot
+            ? retainKnownQuotaWindows(runtimeIssueQuotaSnapshot, params.connectedServiceSnapshot, params.nowMs)
+            : runtimeIssueQuotaSnapshot;
         return resolveConnectedServiceQuotaGaugeSource({
             providerId: params.providerId ?? runtimeIssueQuotaSnapshot.providerId ?? runtimeIssueQuotaSnapshot.serviceId,
             sourceKind: 'native_runtime_evidence',
-            snapshot: withRecoveryCredits(runtimeIssueQuotaSnapshot, recoveryCredits),
+            snapshot: withRecoveryCredits(snapshot, recoveryCredits ?? runtimeIssueQuotaSnapshot.recoveryCredits),
         });
     }
     if (!params.connectedServiceSnapshot) return null;

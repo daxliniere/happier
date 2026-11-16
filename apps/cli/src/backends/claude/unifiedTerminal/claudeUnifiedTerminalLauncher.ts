@@ -432,10 +432,13 @@ export async function claudeUnifiedTerminalLauncher(
     }
   };
 
-  const surfaceRateLimit = (details: NormalizedProviderUsageLimitDetailsV1): void => {
+  const surfaceRateLimit = (
+    details: NormalizedProviderUsageLimitDetailsV1,
+    observedWindows?: readonly NormalizedProviderUsageLimitDetailsV1[],
+  ): void => {
     recordPrimaryProviderUnavailableForPromptDelivery(details);
 
-    void surfaceClaudeRateLimitRuntimeIssue(session, details, '[unified]')
+    void surfaceClaudeRateLimitRuntimeIssue(session, details, '[unified]', { observedWindows })
       .catch((error) => {
         logger.debug('[unified]: failed to surface Claude rate-limit runtime issue', error);
       })
