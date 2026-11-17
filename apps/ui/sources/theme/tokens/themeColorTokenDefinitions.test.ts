@@ -75,6 +75,7 @@ const requiredTokenIds = [
     'control.switch.thumb.inactive',
     'control.radio.active',
     'control.radio.inactive',
+    'control.radio.dot',
     'control.segmentedControl.trackBackground',
     'control.segmentedControl.activeBackground',
     'control.fab.background',
