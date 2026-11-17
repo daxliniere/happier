@@ -2,7 +2,8 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { MeterBar, type MeterTone } from '@/components/ui/lists/MeterBar';
+import type { MeterTone } from '@/components/ui/lists/MeterBar';
+import { UsageMeterBar } from './UsageMeterBar';
 import { Text } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
 import { useNowMs } from '@/hooks/time/useNowMs';
@@ -135,9 +136,10 @@ export function ProviderUsageDetails(props: Readonly<{
                         </Text>
                         <ProviderUsageMeterDetailRight row={row} style={styles.meterRight} />
                     </View>
-                    {row.remainingPct !== null ? <MeterBar
+                    {row.remainingPct !== null ? <UsageMeterBar
                         testID={`agent-input-provider-usage-meter-bar:${row.meterId}`}
                         tone={mapGaugeToneToMeterTone(row.tone)}
+                        remainingPct={row.remainingPct}
                         // Remaining-first fill: the adjacent label says "% left" and the
                         // tone derives from remaining — the fill must match that language
                         // (battery model; user decision 2026-07-10, reverting 5ad4d06be).

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { renderScreen } from '@/dev/testkit';
 import { lightTheme } from '@/theme';
+import { TokenUsageRing } from '@/components/sessions/usage/TokenUsageRing';
 import { ConnectedServiceQuotaMeterRow } from './ConnectedServiceQuotaMeterRow';
 
 vi.mock('react-native', async () => {
@@ -33,7 +34,7 @@ describe('ConnectedServiceQuotaMeterRow', () => {
 
         const nowMs = 1_000_000;
         const screen = await renderScreen(
-            <ConnectedServiceQuotaMeterRow
+            <><ConnectedServiceQuotaMeterRow
                 meter={{
                     meterId: 'weekly',
                     label: 'Weekly',
@@ -48,7 +49,7 @@ describe('ConnectedServiceQuotaMeterRow', () => {
                 nowMs={nowMs}
                 pinned={false}
                 onTogglePin={() => {}}
-            />,
+            /><TokenUsageRing used={18} limit={100} remainingPct={18} label="18% remaining" value="18" progressTestID="reference-ring" /></>,
         );
 
         expect(screen.getTextContent()).toContain('18% left · resets in translated-2h 0m 0s');
@@ -59,7 +60,7 @@ describe('ConnectedServiceQuotaMeterRow', () => {
         // Remaining-first fill: the label says "18% left", so the bar fills 18% (battery model;
         // user decision 2026-07-10 reverting the consumption-fill flip in 5ad4d06be).
         expect(style.width).toBe('18%');
-        expect(style.backgroundColor).toBe(lightTheme.colors.state.warning.foreground);
+        expect(style.backgroundColor).toBe(screen.findByTestId('reference-ring')?.props.stroke);
     });
 
     it('renders unavailable reported numbers without usage counts or critical capacity', async () => {

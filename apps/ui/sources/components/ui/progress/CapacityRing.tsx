@@ -2,7 +2,7 @@ import * as React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Svg, Circle } from 'react-native-svg';
-import Color from 'color';
+import { resolveCapacityColor } from './capacityColor';
 
 /**
  * Canonical circular progress ring (gauge). Renders one or more CONCENTRIC arcs
@@ -74,8 +74,7 @@ export function CapacityRing(props: CapacityRingProps) {
             >
                 {arcs.map((arc, index) => {
                     // Boost the current theme's saturation, preserving hue, lightness and alpha.
-                    const themeColor = Color(arc.color).hsl();
-                    const color = themeColor.saturationl(Math.min(100, themeColor.saturationl() * 1.25)).rgb().string();
+                    const color = resolveCapacityColor(arc.color);
                     const radius = outerRadius - index * (strokeWidth + RING_GAP);
                     if (radius < strokeWidth) return null;
                     const circumference = 2 * Math.PI * radius;

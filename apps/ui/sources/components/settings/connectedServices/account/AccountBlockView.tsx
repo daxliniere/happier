@@ -12,7 +12,7 @@ import { Item } from '@/components/ui/lists/Item';
 import { ItemGroupColumn } from '@/components/ui/lists/ItemGroupColumns';
 import { ItemRowActions } from '@/components/ui/lists/ItemRowActions';
 import { ItemSection } from '@/components/ui/lists/ItemSection';
-import { MeterBar } from '@/components/ui/lists/MeterBar';
+import { UsageMeterBar } from '@/components/sessions/usage/UsageMeterBar';
 import { Switch } from '@/components/ui/forms/Switch';
 import { StatusPill } from '@/components/ui/status/StatusPill';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
@@ -299,9 +299,10 @@ const AccountUsageMeterDetail = React.memo(function AccountUsageMeterDetail(prop
     });
     if (props.row.remaining === null) return <Text style={props.captionStyle}>{detailLabel}</Text>;
     return (
-        <MeterBar
+        <UsageMeterBar
             testID={props.testID}
             tone={props.row.tone}
+            remainingPct={props.row.remainingPct}
             // Remaining-first fill: matches the row's "% left" label and the
             // capacity rings (battery model — see accountBlockModel).
             fillFraction={props.row.remaining}

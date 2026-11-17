@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Item } from '@/components/ui/lists/Item';
-import { MeterBar } from '@/components/ui/lists/MeterBar';
+import { UsageMeterBar } from '@/components/sessions/usage/UsageMeterBar';
 import { Text } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
 import type { ConnectedServiceQuotaMeterV1 } from '@happier-dev/protocol';
@@ -80,10 +80,11 @@ export const ConnectedServiceQuotaMeterRow = React.memo(function ConnectedServic
   const subtitle = (
     <View>
       <View style={styles.subtitleRow}>
-        <MeterBar
+        <UsageMeterBar
           testID="connected-service-quota-meter-row:remaining-bar"
           style={styles.bar}
           tone={tone}
+          remainingPct={remaining}
           // CS quota gauges are remaining-first end to end: the labels say "% left", the tone is
           // derived from remaining, and the capacity rings display remaining. The fill must match
           // that language (battery model: full green bar = plenty left) — a consumption fill next
