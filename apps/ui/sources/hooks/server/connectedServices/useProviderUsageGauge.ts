@@ -18,6 +18,7 @@ import {
 } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
+    deriveConnectedServiceQuotaSnapshotFromRuntimeIssue,
     selectConnectedServiceSessionProviderUsageGaugeSource,
     type ConnectedServiceQuotaGaugeSource,
     type ConnectedServiceQuotaGaugeViewModel,
@@ -30,10 +31,11 @@ import {
 } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceProjectionSignature } from '@/sync/domains/connectedServices/resolveConnectedServiceProjectionSignature';
 import { useProfile, useSetting } from '@/sync/domains/state/storage';
-import { useLatestProviderUsageRecordIdsForAgent } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsForAgent, useLatestProviderUsageRuntimeIssueForAgent } from '@/sync/store/hooks';
 import { isAgentId } from '@/agents/catalog/catalog';
 import { nowServerMs } from '@/sync/runtime/time';
 import { t } from '@/text';
+import { resolveDefaultProviderUsageProfileRef } from '@/components/sessions/usage/resolveDefaultProviderUsageProfileRef';
 
 export type ProviderUsageGaugeProfileRef = Readonly<{
     serviceId: string;
@@ -48,6 +50,8 @@ export type ProviderUsageGaugeResult = Readonly<{
     gaugeSource: ConnectedServiceQuotaGaugeSource | null;
     displaySnapshotSource: ProviderUsageDisplaySnapshotSource | null;
     profileKey: string | null;
+    /** Effective explicit or default account used by this gauge and its refresh action. */
+    profileRef: ProviderUsageGaugeProfileRef | null;
     windowMode: ConnectedServiceQuotaGaugeWindowMode;
 }>;
 
@@ -72,16 +76,35 @@ export function useProviderUsageGauge(params: Readonly<{
     sessionCheckNowSupported?: boolean;
     recoveryCredits?: ConnectedServiceQuotaRecoveryCreditsV1 | null;
 }>): ProviderUsageGaugeResult {
-    const profileRef = params.profileRef;
+    const accountProfile = useProfile();
+    const defaultProfileRef = React.useMemo(() => resolveDefaultProviderUsageProfileRef({
+        agentId: params.providerId,
+        connectedServices: accountProfile?.connectedServicesV2 ?? [],
+    }), [accountProfile?.connectedServicesV2, params.providerId]);
+    // Explicit session bindings select their own login. Otherwise use the same usable default
+    // profile as the provider-wide HUD, including its native-usage fallback behavior.
+    const profileRef = params.profileRef ?? (defaultProfileRef
+        ? { ...defaultProfileRef, provenance: 'published_quota_ref' as const }
+        : null);
+    const latestProviderUsageIssue = useLatestProviderUsageRuntimeIssueForAgent(
+        params.providerId && isAgentId(params.providerId) ? params.providerId : null,
+    );
+    // HUD and composer both use the latest provider-wide limit evidence. The current Session's
+    // issue can lag behind another Session's observation for the same Agent and account.
+    const providerRuntimeIssue = latestProviderUsageIssue.isDataReady
+        ? latestProviderUsageIssue.issue
+        : params.runtimeIssue ?? null;
+    const issueSnapshot = deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(providerRuntimeIssue);
+    const runtimeIssue = !profileRef || (issueSnapshot
+        && connectedServiceProfileKey(issueSnapshot) === connectedServiceProfileKey(profileRef))
+        ? providerRuntimeIssue
+        : null;
     const nativeRecordIds = useLatestProviderUsageRecordIdsForAgent(
-        !profileRef && !params.metadataRecordIds?.length && params.providerId && isAgentId(params.providerId)
-            ? params.providerId : null,
+        params.providerId && isAgentId(params.providerId) ? params.providerId : null,
     );
     // Direct sessions can be browsed before takeover publishes their own usage refs. Reuse the
     // native provider's known account, as New Session does, without replacing an explicit binding.
-    const metadataRecordIds = params.metadataRecordIds?.length ? params.metadataRecordIds
-        : nativeRecordIds;
-    const accountProfile = useProfile();
+    const metadataRecordIds = params.metadataRecordIds?.length ? params.metadataRecordIds : nativeRecordIds;
     const connectedServiceQuotasEnabled = useFeatureEnabled('connectedServices.quotas');
     const windowModesSetting = useSetting('sessionProviderUsageGaugeWindowModes');
     const numberWindowMode = useSetting('sessionProviderUsageGaugeNumberWindowMode');
@@ -150,7 +173,7 @@ export function useProviderUsageGauge(params: Readonly<{
             connectedServiceRefProvenance: displaySnapshotSource?.connectedServiceRefProvenance ?? null,
             sessionCheckNowSupported: params.sessionCheckNowSupported,
             recoveryCredits: params.recoveryCredits,
-            runtimeIssue: params.runtimeIssue ?? null,
+            runtimeIssue,
             nowMs: nowServerMs(),
         });
     }, [
@@ -159,7 +182,7 @@ export function useProviderUsageGauge(params: Readonly<{
         gaugeMode,
         params.providerId,
         params.recoveryCredits,
-        params.runtimeIssue,
+        runtimeIssue,
         params.sessionCheckNowSupported,
     ]);
     const gauge = React.useMemo(() => {
@@ -201,6 +224,7 @@ export function useProviderUsageGauge(params: Readonly<{
         gaugeSource,
         displaySnapshotSource,
         profileKey,
+        profileRef,
         windowMode,
-    }), [displaySnapshotSource, gauge, gaugeSource, profileKey, windowMode]);
+    }), [displaySnapshotSource, gauge, gaugeSource, profileKey, profileRef, windowMode]);
 }

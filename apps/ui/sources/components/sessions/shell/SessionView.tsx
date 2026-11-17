@@ -3797,10 +3797,10 @@ function SessionViewLoaded({
     const connectedServiceQuotaProfileRef = React.useMemo(() => (
         resolveConnectedServiceQuotaProfileRefForSession({
             metadata: session.metadata,
-            agentId,
+            agentId: liveComposerState.agentId,
             accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
         })
-    ), [accountProfile?.connectedServicesV2, agentId, session.metadata]);
+    ), [accountProfile?.connectedServicesV2, liveComposerState.agentId, session.metadata]);
     const sessionAgentCatalogEntries = React.useMemo(() => getResolvedBackendCatalogEntries({
         enabledAgentIds,
         acpCatalogSettingsV1: settings.acpCatalogSettingsV1,
@@ -4015,6 +4015,7 @@ function SessionViewLoaded({
         gaugeSource: providerUsageGaugeSource,
         displaySnapshotSource: providerUsageDisplaySnapshotSource,
         profileKey: connectedServiceQuotaProfileKey,
+        profileRef: providerUsageGaugeProfileRef,
         windowMode: sessionProviderUsageGaugeWindowMode,
     } = useProviderUsageGauge({
         providerId: liveComposerState.agentId,
@@ -4055,7 +4056,7 @@ function SessionViewLoaded({
         : providerUsageGauge;
     useProviderUsageAutoRefresh();
     const refreshProviderUsage = useProviderUsageRefresh({
-        connectedProfileRef: connectedServiceQuotaProfileRef,
+        connectedProfileRef: providerUsageGaugeProfileRef,
         recordIds: providerAccountUsageRecordIds,
     });
     const providerUsageGaugeConnectedServiceProfileRef =

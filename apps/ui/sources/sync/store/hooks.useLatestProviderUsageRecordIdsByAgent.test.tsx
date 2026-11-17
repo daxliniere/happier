@@ -3,7 +3,7 @@ import { act } from 'react-test-renderer';
 
 import { createSessionFixture, renderHook, standardCleanup } from '@/dev/testkit';
 
-import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssueForAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { storage } from '@/sync/domains/state/storageStore';
 
 afterEach(() => {
@@ -16,6 +16,30 @@ const withUsageRefs = (recordIds: string[]) => ({
 });
 
 describe('useLatestProviderUsageRecordIdsByAgent', () => {
+    it.each(['claude', 'codex', 'opencode'] as const)('selects the latest issue for %s using the provider-wide source', async (agentId) => {
+        const previousState = storage.getState();
+        const oldIssue = {
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: agentId, occurredAt: 1_000,
+            usageLimit: { v: 1, resetAtMs: 10_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait' },
+        } as const;
+        const latestIssue = { ...oldIssue, occurredAt: 2_000 };
+        try {
+            storage.setState({ isDataReady: true, sessions: {
+                old: createSessionFixture({ id: 'old', metadata: { flavor: agentId } as never, lastRuntimeIssue: oldIssue }),
+                latest: createSessionFixture({ id: 'latest', metadata: { flavor: agentId } as never, lastRuntimeIssue: latestIssue }),
+            } });
+            const hook = await renderHook(() => ({
+                composer: useLatestProviderUsageRuntimeIssueForAgent(agentId),
+                hud: useLatestProviderUsageRuntimeIssuesByAgent(),
+            }));
+            try {
+                expect(hook.getCurrent().composer).toEqual({ isDataReady: true, issue: latestIssue });
+                expect(hook.getCurrent().composer.issue).toEqual(hook.getCurrent().hud.get(agentId));
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previousState); }
+    });
+
     it('keeps limit evidence stable through unrelated updates and clears it when the latest session recovers', async () => {
         const previousState = storage.getState();
         const issue = {

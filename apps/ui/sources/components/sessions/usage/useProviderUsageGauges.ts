@@ -1,8 +1,5 @@
 import * as React from 'react';
 import type { AccountProfile } from '@happier-dev/protocol';
-import {
-    isConnectedServiceCredentialHealthStatusUsable,
-} from '@happier-dev/protocol';
 
 import { getAgentCore, type AgentId } from '@/agents/catalog/catalog';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
@@ -18,11 +15,11 @@ import {
     type ConnectedServiceQuotaGaugeWindowMode,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
-import { resolveConnectedServiceCredentialHealthStatus } from '@/sync/domains/connectedServices/resolveConnectedServiceCredentialHealthStatus';
 import { nowServerMs } from '@/sync/runtime/time';
 import { useSetting } from '@/sync/domains/state/storage';
 import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { t } from '@/text';
+import { resolveDefaultProviderUsageProfileRef } from './resolveDefaultProviderUsageProfileRef';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
 
@@ -52,17 +49,11 @@ export function useProviderUsageGauges(params: Readonly<{
     const profileRefByAgentId = React.useMemo(() => {
         const refs = new Map<AgentId, { serviceId: string; profileId: string }>();
         for (const agentId of params.agentIds) {
-            const supportedServiceIds = getAgentCore(agentId).connectedServices?.supportedServiceIds ?? [];
-            for (const serviceId of supportedServiceIds) {
-                const service = params.accountProfileConnectedServicesV2.find((candidate) => candidate.serviceId === serviceId);
-                const profile = service?.profiles.find((candidate) => (
-                    candidate.profileId.trim().length > 0
-                    && isConnectedServiceCredentialHealthStatusUsable(resolveConnectedServiceCredentialHealthStatus(candidate.status))
-                ));
-                if (!profile) continue;
-                refs.set(agentId, { serviceId, profileId: profile.profileId.trim() });
-                break;
-            }
+            const ref = resolveDefaultProviderUsageProfileRef({
+                agentId,
+                connectedServices: params.accountProfileConnectedServicesV2,
+            });
+            if (ref) refs.set(agentId, ref);
         }
         return refs;
     }, [params.accountProfileConnectedServicesV2, params.agentIds]);
