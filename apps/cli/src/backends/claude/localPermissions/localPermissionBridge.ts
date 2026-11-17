@@ -253,19 +253,21 @@ export class ClaudeLocalPermissionBridge {
             throw new Error(`Permission request ${requestId} is reserved by a newer runtime`);
         }
 
-        // If we already have an allowlist rule for this tool call, respond immediately without surfacing a prompt.
-        // This mirrors Claude Code's "don't ask again" behavior, but is enforced by Happier for reliability.
-        if (!this.isInteractiveTool(toolName) && isToolAllowedForSession(this.allowedToolIdentifiers, toolName, toolInput)) {
-            return this.buildAllowHookResponse({ hookEventName, toolInput });
-        }
-
         // In bypassPermissions Claude only asks for its own escalations (permissions.ask rules,
         // safety checks). YOLO skips routine approvals, so these go to the user.
         const providerEscalation = existing?.providerEscalation
             ?? (data.permission_mode ?? data.permissionMode) === 'bypassPermissions';
+
+        // If we already have an allowlist rule for this tool call, respond immediately without surfacing a prompt.
+        // This mirrors Claude Code's "don't ask again" behavior, but is enforced by Happier for reliability.
+        if (!providerEscalation && !this.isInteractiveTool(toolName) && isToolAllowedForSession(this.allowedToolIdentifiers, toolName, toolInput)) {
+            return this.buildAllowHookResponse({ hookEventName, toolInput });
+        }
+
         const policyDecision = this.computePolicyDecision(toolName, providerEscalation);
         if (
-            !this.isInteractiveTool(toolName)
+            !providerEscalation
+            && !this.isInteractiveTool(toolName)
             && isSafeFirstPartyHappierActionToolCall({ toolName, input: toolInput })
         ) {
             const hookResponse = this.buildAllowHookResponse({ hookEventName, toolInput });
@@ -458,7 +460,7 @@ export class ClaudeLocalPermissionBridge {
     }
 
     private computePolicyDecision(toolName: string, providerEscalation: boolean): 'prompt' | 'allow' | 'deny' {
-        if (isChangeTitleToolLikeName(toolName)) return 'allow';
+        if (!providerEscalation && isChangeTitleToolLikeName(toolName)) return 'allow';
         const mode = this.permissionMode;
         if (mode === 'yolo') return providerEscalation ? 'prompt' : 'allow';
         if (mode === 'safe-yolo') {
@@ -916,6 +918,7 @@ export class ClaudeLocalPermissionBridge {
         for (const [id, pending] of this.pendingRequests.entries()) {
             if (id === excludeRequestId) continue;
             if (this.isInteractiveTool(pending.toolName)) continue;
+            if (pending.providerEscalation) continue;
             if (isToolAllowedForSession(this.allowedToolIdentifiers, pending.toolName, pending.toolInput)) {
                 idsToApprove.push(id);
             }
