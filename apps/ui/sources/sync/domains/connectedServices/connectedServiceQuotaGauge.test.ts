@@ -1205,6 +1205,53 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         ]);
     });
 
+    it('does not let a known window mask an exhaustion the report could not be attributed to', () => {
+        const priorSnapshot: ConnectedServiceQuotaSnapshotV1 = {
+            ...snapshot([
+                meter({ meterId: 'weekly', label: 'Weekly', used: 60, limit: 100, remainingPct: 40 }),
+            ]),
+            serviceId: 'claude-subscription',
+            profileId: 'acct:abc123',
+            fetchedAt: 1_000,
+        };
+        const selected = selectConnectedServiceSessionProviderUsageGaugeSource({
+            providerId: 'claude',
+            connectedServiceSnapshot: priorSnapshot,
+            connectedServiceRefProvenance: 'connected_binding_profile',
+            runtimeIssue: {
+                v: 1,
+                scope: 'primary_session',
+                status: 'failed',
+                code: 'usage_limit',
+                source: 'usage_limit',
+                occurredAt: 2_000,
+                provider: 'claude',
+                usageLimit: {
+                    v: 1,
+                    resetAtMs: 9_000,
+                    retryAfterMs: null,
+                    quotaScope: 'account',
+                    recoverability: 'wait',
+                    limitCategory: 'usage_limit',
+                },
+            },
+            nowMs: 2_000,
+        });
+
+        expect(selected?.sourceKind).toBe('native_runtime_evidence');
+        // The exhausted window ranks first; the known window stays visible beside it.
+        expect(selected?.snapshot.meters[0]?.remainingPct).toBe(0);
+        expect(selected?.snapshot.meters.map((item) => item.meterId)).toContain('weekly');
+        const gauge = selected && computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: selected.snapshot,
+            windowMode: 'most_constrained',
+            nowMs: 2_000,
+            formatter,
+        });
+        expect(gauge?.remainingPct).toBe(0);
+        expect(gauge?.tone).toBe('critical');
+    });
+
     it('keeps fresher connected account usage ahead of stale runtime quota evidence', () => {
         const freshProfileSnapshot: ConnectedServiceQuotaSnapshotV1 = {
             ...snapshot([

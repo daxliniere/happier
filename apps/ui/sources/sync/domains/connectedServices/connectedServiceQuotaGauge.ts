@@ -819,12 +819,16 @@ function retainKnownQuotaWindows(
     if (!runtimeIssueAndConnectedSnapshotShareProfile(runtimeSnapshot, connectedSnapshot)) return runtimeSnapshot;
 
     const metersById = new Map<string, ConnectedServiceQuotaMeterV1>();
+    // The runtime report is the fresher authority for the window it names, so it leads the
+    // merge. A report that could not be attributed to a known window must not be ranked
+    // behind that window, or a stale remainder would mask the exhaustion it reports.
+    for (const meter of runtimeSnapshot.meters) metersById.set(meter.meterId, meter);
     for (const meter of connectedSnapshot.meters) {
         const resetAtMs = typeof meter.resetAtMs === 'number' ? meter.resetAtMs : meter.resetsAt;
         if (nowMs !== undefined && typeof resetAtMs === 'number' && resetAtMs <= nowMs) continue;
+        if (metersById.has(meter.meterId)) continue;
         metersById.set(meter.meterId, meter);
     }
-    for (const meter of runtimeSnapshot.meters) metersById.set(meter.meterId, meter);
 
     return {
         ...connectedSnapshot,
