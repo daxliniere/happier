@@ -3,7 +3,7 @@ import { act } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -35,7 +35,7 @@ describe('MessageView (copy button hitSlop, web)', () => {
     it('keeps selectable message actions visible across rows while selection mode is active on web', async () => {
         const { storage } = await import('@/sync/domains/state/storage');
         storage.setState((state) => ({ settings: { ...state.settings, transcriptMessageSelectionEnabled: true } }));
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { TranscriptMessageSelectionProvider } = await import('./messageSelection/TranscriptMessageSelectionContext');
 
         const firstMessage: any = {
@@ -85,7 +85,7 @@ describe('MessageView (copy button hitSlop, web)', () => {
     it('does not use hitSlop on web (avoids overlapping hit targets for sibling actions)', async () => {
         const { storage } = await import('@/sync/domains/state/storage');
         storage.setState((state) => ({ settings: { ...state.settings, transcriptMessageSelectionEnabled: true } }));
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { TranscriptMessageSelectionProvider } = await import('./messageSelection/TranscriptMessageSelectionContext');
 
         const message: any = {

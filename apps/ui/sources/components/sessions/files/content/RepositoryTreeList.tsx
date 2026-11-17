@@ -40,7 +40,7 @@ type RepositoryTreeListProps = {
     detailsMode?: boolean;
     visibilityMode?: 'project' | 'all';
     revealedPaths?: readonly string[];
-    revealRequest?: Readonly<{ path: string }>;
+    revealRequest?: Readonly<{ path: string; isDirectory?: boolean }>;
     onGitIgnoreAvailableChange?: (available: boolean | undefined) => void;
     writeActionsEnabled?: boolean;
     onRequestRefresh?: (() => void) | null;

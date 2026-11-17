@@ -11,7 +11,7 @@ export const SessionBrowseFilesSurface = React.memo((props: Readonly<{
     onOpenFilePinned: (fullPath: string) => void;
 }>) => {
     const pane = useAppPaneScope(props.scopeId ?? resolveSessionPaneScopeId(props.sessionId));
-    const files = pane.scopeState?.right.tabState.files as { revealRequest?: Readonly<{ path: string }> } | undefined;
+    const files = pane.scopeState?.right.tabState.files as { revealRequest?: Readonly<{ path: string; isDirectory?: boolean }> } | undefined;
     return (
     <SessionRepositoryTreeBrowserView
         sessionId={props.sessionId}

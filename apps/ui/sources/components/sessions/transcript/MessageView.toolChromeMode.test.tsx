@@ -3,7 +3,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { createPartialStorageModuleMock, renderScreen, standardCleanup } from '@/dev/testkit';
 import { createReactNativeWebMock } from '@/dev/testkit/mocks/reactNative';
 import { createReducer } from '@/sync/reducer/reducer';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type { OpenApprovalArtifactForSession } from '@/sync/domains/artifacts/approvalArtifacts';
 
 let toolChromeMode: 'cards' | 'activity_feed' = 'cards';
@@ -140,7 +140,7 @@ afterEach(() => {
 describe('MessageView (tool timeline chrome mode)', () => {
     it('passes a stable server route id to ToolTimelineRow when the message is already persisted', async () => {
         toolChromeMode = 'activity_feed';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -170,7 +170,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('renders ToolTimelineRow when toolViewTimelineChromeMode is activity_feed', async () => {
         toolChromeMode = 'activity_feed';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -198,7 +198,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('forwards approval requests to ToolTimelineRow when toolViewTimelineChromeMode is activity_feed', async () => {
         toolChromeMode = 'activity_feed';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const approvalRequests = createApprovalRequestsFixture();
 
         const message: any = {
@@ -227,7 +227,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('passes a stable server route id to ToolView when the message is already persisted', async () => {
         toolChromeMode = 'cards';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -258,7 +258,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('renders ToolView when toolViewTimelineChromeMode is cards', async () => {
         toolChromeMode = 'cards';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -288,7 +288,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('marks ToolView embedded when rendered inside a tool-calls group so grouped rows stay flush', async () => {
         toolChromeMode = 'cards';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -318,7 +318,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('forwards approval requests to ToolView when toolViewTimelineChromeMode is cards', async () => {
         toolChromeMode = 'cards';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const approvalRequests = createApprovalRequestsFixture();
 
         const message: any = {
@@ -347,7 +347,7 @@ describe('MessageView (tool timeline chrome mode)', () => {
 
     it('does not reserve a tool header action slot when tool pin identity facts are unavailable', async () => {
         toolChromeMode = 'cards';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const onToggleToolPin = vi.fn();
 
         const message: any = {

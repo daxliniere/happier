@@ -2,7 +2,7 @@ import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type { AgentTextMessage, UserTextMessage } from '@/sync/domains/messages/messageTypes';
 import type { PersistedSessionMessagePinV1 } from '@/sync/domains/messages/pins/sessionMessagePins';
 
@@ -96,7 +96,7 @@ describe('MessageView message pin button', () => {
     });
 
     it('renders a user-message pin action from message identity facts and routes the callback', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message: UserTextMessage = {
             kind: 'user-text',
             id: 'u1',
@@ -132,7 +132,7 @@ describe('MessageView message pin button', () => {
     });
 
     it('renders an assistant unpin action when an existing pin matches the row identity', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message: AgentTextMessage = {
             kind: 'agent-text',
             id: 'a1',

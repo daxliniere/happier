@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -76,7 +76,7 @@ describe('MessageView (discarded label)', () => {
   });
 
   it('renders the discarded label as selectable', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = {
       kind: 'user-text',

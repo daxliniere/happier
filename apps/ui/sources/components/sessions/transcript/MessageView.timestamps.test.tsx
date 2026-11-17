@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type {
     TranscriptForkCommon,
     TranscriptMessageDisplayCommon,
@@ -125,7 +125,7 @@ describe('MessageView timestamps', () => {
 
     it('does not render message timestamps by default before web hover actions are visible', async () => {
         vi.resetModules();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const screen = await renderScreen(
             <MessageView
@@ -141,7 +141,7 @@ describe('MessageView timestamps', () => {
     it('renders message timestamps with web hover actions in the default mode', async () => {
         copyButtonsVisible = true;
         vi.resetModules();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const userScreen = await renderScreen(
             <MessageView
@@ -170,7 +170,7 @@ describe('MessageView timestamps', () => {
         timestampDisplayMode = 'always';
         copyButtonsVisible = false;
         vi.resetModules();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const screen = await renderScreen(
             <MessageView
@@ -197,7 +197,7 @@ describe('MessageView timestamps', () => {
         timestampDisplayMode = 'never';
         copyButtonsVisible = true;
         vi.resetModules();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const screen = await renderScreen(
             <MessageView
@@ -214,7 +214,7 @@ describe('MessageView timestamps', () => {
         timestampDisplayMode = 'always';
         vi.restoreAllMocks();
         vi.resetModules();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const screen = await renderScreen(
             <MessageView
@@ -230,6 +230,7 @@ describe('MessageView timestamps', () => {
     it('renders from parent-provided transcript session common without row storage subscriptions', async () => {
         vi.resetModules();
         const { MessageViewWithSessionCommon } = await import('./MessageView');
+        const { AppPaneProvider } = await import('@/components/appShell/panes/AppPaneProvider');
         const messageDisplayCommon = {
             transcriptMessageTimestampDisplayMode: 'always',
             sessionThinkingDisplayMode: 'inline',
@@ -264,15 +265,17 @@ describe('MessageView timestamps', () => {
         } satisfies TranscriptToolRouteCommon;
 
         const screen = await renderScreen(
-            <MessageViewWithSessionCommon
-                sessionId="s1"
-                metadata={null}
-                messageDisplayCommon={messageDisplayCommon}
-                forkCommon={forkCommon}
-                toolChromeCommon={toolChromeCommon}
-                toolRouteCommon={toolRouteCommon}
-                message={{ kind: 'user-text', id: 'u1', localId: 'local-u1', createdAt: 1, text: 'hello' }}
-            />,
+            <AppPaneProvider>
+                <MessageViewWithSessionCommon
+                    sessionId="s1"
+                    metadata={null}
+                    messageDisplayCommon={messageDisplayCommon}
+                    forkCommon={forkCommon}
+                    toolChromeCommon={toolChromeCommon}
+                    toolRouteCommon={toolRouteCommon}
+                    message={{ kind: 'user-text', id: 'u1', localId: 'local-u1', createdAt: 1, text: 'hello' }}
+                />
+            </AppPaneProvider>,
         );
 
         expect(screen.findByTestId('transcript-message-timestamp:u1')?.props.children).toBe('May 19, 2026, 4:30 PM');

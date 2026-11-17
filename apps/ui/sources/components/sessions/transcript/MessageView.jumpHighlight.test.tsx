@@ -4,7 +4,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type { AgentTextMessage, UserTextMessage } from '@/sync/domains/messages/messageTypes';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -144,7 +144,7 @@ function jumpFadeCalls(calls: readonly unknown[][]): unknown[][] {
 
 async function renderTwoRows() {
     const { View } = await import('react-native');
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     return await renderScreen(
         <View>
             <View testID="row-u1">

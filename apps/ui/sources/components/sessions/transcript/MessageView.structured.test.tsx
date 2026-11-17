@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPartialStorageModuleMock, renderScreen, standardCleanup } from '@/dev/testkit';
 import { createReducer } from '@/sync/reducer/reducer';
 import { deriveTranscriptInteraction } from '@/utils/sessions/deriveTranscriptInteraction';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 const pathnameState = vi.hoisted(() => ({
     pathname: '/session/s1',
@@ -305,7 +305,7 @@ function createReviewFindingsMessage(kind: 'review_findings.v1' | 'review_findin
 
 describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     it('renders a structured review-comments card when meta.happier.kind is review_comments.v1', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { ReviewCommentsMessageCard } = await import('../reviews/messages/ReviewCommentsMessageCard');
 
         const message: any = {
@@ -346,7 +346,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('keeps structured review jump handlers stable across equivalent rerenders', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { ReviewCommentsMessageCard } = await import('../reviews/messages/ReviewCommentsMessageCard');
 
         const message: any = {
@@ -396,7 +396,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('keeps the committed router authoritative through an abandoned same-session structured-row render', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { ReviewCommentsMessageCard } = await import('../reviews/messages/ReviewCommentsMessageCard');
         const routerA = vi.fn();
         const routerB = vi.fn();
@@ -487,7 +487,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('does not render the MarkdownView for structured user messages', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'user-text',
@@ -528,7 +528,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('does not wrap structured user messages in a user bubble background', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'user-text',
@@ -575,7 +575,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders an inline attachments row for user messages with happier meta attachments.v1', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'user-text',
@@ -612,7 +612,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders inline session media images from primary happier session_media.v1 metadata', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const path = '.happier/uploads/generated/m1/generated.png';
         const message: any = {
@@ -652,7 +652,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders inline session media images from secondary happierMedia metadata', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const path = '.happier/uploads/generated/m2/secondary.webp';
         const message: any = {
@@ -696,7 +696,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders media-only assistant rows with empty text', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const path = '.happier/uploads/generated/m3/media-only.png';
         const message: any = {
@@ -735,7 +735,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a durable unavailable-media state without a clickable fake image', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message: any = {
             kind: 'agent-text',
             id: 'agent-media-unavailable',
@@ -768,7 +768,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders attachments for structured review-comment messages that carry attachment metadata', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { ReviewCommentsMessageCard } = await import('../reviews/messages/ReviewCommentsMessageCard');
 
         const message: any = {
@@ -812,7 +812,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('normalizes wrapped voice agent turn text before rendering it in the hidden voice transcript', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'user-text',
@@ -844,7 +844,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('hides internal voice tool follow-up payload turns from the hidden voice transcript', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'user-text',
@@ -867,7 +867,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('hides voice transcript turns whose normalized text is empty after trimming', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-text',
@@ -890,7 +890,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a placeholder tile for inline image attachments when filesImagePreviewMaxBytes is tiny', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         filesImagePreviewMaxBytes = 1;
 
@@ -927,7 +927,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('opens inline transcript images in the shared attachment preview modal', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const firstPath = '.happier/uploads/messages/m3/one.png';
         const secondPath = '.happier/uploads/messages/m3/two.png';
@@ -989,7 +989,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('navigates to the file screen when clicking Jump in the review-comments card', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'user-text',
@@ -1035,7 +1035,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('keeps structured public file actions inert when file access is not granted', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message: any = {
             kind: 'user-text',
             localId: 'local-public-review',
@@ -1075,7 +1075,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a structured review-findings card for tool-call messages when meta.happier.kind is review_findings.v1', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { ReviewFindingsMessageCard } = await import('../reviews/messages/ReviewFindingsMessageCard');
 
         const message: any = {
@@ -1138,7 +1138,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
 
     it('keeps the ToolTimelineRow for structured review tool-calls in activity feed mode', async () => {
         toolViewTimelineChromeMode = 'activity_feed';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { ReviewFindingsMessageCard } = await import('../reviews/messages/ReviewFindingsMessageCard');
 
         const message: any = {
@@ -1181,7 +1181,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a structured plan-output card for tool-call messages when meta.happier.kind is plan_output.v1', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { PlanOutputMessageCard } = await import('../plans/messages/PlanOutputMessageCard');
 
         const message: any = {
@@ -1223,7 +1223,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a structured delegate-output card for tool-call messages when meta.happier.kind is delegate_output.v1', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { DelegateOutputMessageCard } = await import('../delegations/messages/DelegateOutputMessageCard');
 
         const message: any = {
@@ -1263,7 +1263,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
 
     it('can adopt a plan by sending a structured user message to the parent session', async () => {
         submitMessageSpy.mockClear();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -1316,7 +1316,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
 
     it('can apply accepted findings by sending a structured user message to the parent session', async () => {
         submitMessageSpy.mockClear();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'tool-call',
@@ -1396,7 +1396,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
         ['authenticated view-only', viewOnlyInteraction],
     ] as const)('keeps plan adoption unavailable in %s transcripts', async (_surface, interaction) => {
         submitMessageSpy.mockClear();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const screen = await renderScreen(
             <MessageView
@@ -1422,7 +1422,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
         ['authenticated view-only', viewOnlyInteraction],
     ] as const)('keeps review v1/v2 mutations unavailable in %s transcripts', async (_surface, interaction) => {
         submitMessageSpy.mockClear();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         for (const kind of ['review_findings.v1', 'review_findings.v2'] as const) {
             const screen = await renderScreen(
@@ -1451,7 +1451,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a thinking label for agent thinking messages and passes markdown through unchanged', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-text',
@@ -1476,7 +1476,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('unwraps legacy "*Thinking...*" markdown wrapper when rendering thinking messages', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-text',
@@ -1494,7 +1494,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders inline thinking in summary mode as a collapsible row (no markdown until expanded)', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         thinkingDisplayMode = 'inline';
         thinkingInlinePresentation = 'summary';
 
@@ -1522,7 +1522,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
 
     it('can render thinking messages as a Reasoning tool card when sessionThinkingDisplayMode=tool', async () => {
         thinkingDisplayMode = 'tool';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-text',
@@ -1545,7 +1545,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
 
     it('can hide thinking messages when sessionThinkingDisplayMode=hidden', async () => {
         thinkingDisplayMode = 'hidden';
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-text',
@@ -1562,7 +1562,7 @@ describe('MessageView (structured meta)', { timeout: 60_000 }, () => {
     });
 
     it('renders a translated accessible recovered-history indicator with source time', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message: any = {
             id: 'history-message',
             kind: 'agent-text',

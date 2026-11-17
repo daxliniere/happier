@@ -187,7 +187,9 @@ describe('MessageView native streaming Markdown render', () => {
 
     it('feeds active assistant streaming updates through one real native Markdown renderer', async () => {
         const { MessageViewWithSessionCommon } = await import('./MessageView');
+        const { AppPaneProvider } = await import('@/components/appShell/panes/AppPaneProvider');
         const renderStreamingMessage = (message: AgentTextMessage) => (
+            <AppPaneProvider>
             <MessageViewWithSessionCommon
                 sessionId="s1"
                 metadata={null}
@@ -198,6 +200,7 @@ describe('MessageView native streaming Markdown render', () => {
                 toolRouteCommon={toolRouteCommon}
                 interaction={{ canSendMessages: true, canApprovePermissions: true }}
             />
+            </AppPaneProvider>
         );
 
         const screen = await renderScreen(renderStreamingMessage(createAgentMessage('Hello **wor')));

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { collectHostText, createToolCallMessageFixture, makeToolCall, renderScreen, standardCleanup } from '@/dev/testkit';
 import { deriveTranscriptInteraction } from '@/utils/sessions/deriveTranscriptInteraction';
 import { settingsDefaults } from '@/sync/domains/settings/settings';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -66,7 +66,7 @@ describe.each(['cards', 'activity_feed'] as const)('structured tool results in %
 
     it.each(structuredResults)('keeps $kind inside the tool disclosure', async (result) => {
         chromeMode = mode;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message = createToolCallMessageFixture({
             id: 'm1',
             seq: 11,
@@ -93,7 +93,7 @@ describe.each(['cards', 'activity_feed'] as const)('structured tool results in %
 
     it('keeps pin actions and jump attention on the collapsed tool row', async () => {
         chromeMode = mode;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { applyTranscriptJumpHighlightForJumpResult } = await import('./navigation/transcriptJumpHighlightStore');
         const { TRANSCRIPT_JUMP_HIGHLIGHT_TEST_ID } = await import('./navigation/TranscriptJumpHighlightOverlay');
         const onToggleToolPin = vi.fn();

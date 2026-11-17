@@ -4,7 +4,7 @@ import renderer, { act } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -277,7 +277,7 @@ describe('MessageView (fork button)', () => {
 
   it('does not use pointerEvents prop on web when actions are hidden (prevents click interception)', async () => {
     copyButtonsVisible = false;
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
@@ -292,7 +292,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('does not pass pointerEvents prop on web transcript row containers', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm2', createdAt: 2, text: 'hello', isThinking: false, seq: 6 };
 
     const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);
@@ -305,7 +305,7 @@ describe('MessageView (fork button)', () => {
 
   it('keeps visible action controls interactive without forcing global overlay priority', async () => {
     copyButtonsVisible = true;
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
@@ -321,7 +321,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('renders fork button left of copy when replay is enabled and message has seq', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
@@ -331,7 +331,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('renders fork button for user-text messages (left of copy)', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = { kind: 'user-text', id: 'm1', createdAt: 1, text: 'hi', seq: 5 };
 
@@ -344,7 +344,7 @@ describe('MessageView (fork button)', () => {
     ['user', { kind: 'user-text', id: 'm1', createdAt: 1, text: 'hi', seq: 5 }],
     ['agent', { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 }],
   ])('does not expose %s fork actions when the surface grant denies fork', async (_kind, message) => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const screen = await renderScreen(
       <MessageView
@@ -366,7 +366,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('rechecks the current surface grant before a stale mounted fork handler can open the strategy modal', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
     const allowedInteraction = {
       canSendMessages: true,
@@ -402,7 +402,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('renders the newly granted fork action in the first committed same-session render', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
     const deniedInteraction = {
       canSendMessages: false,
@@ -432,7 +432,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('keeps the committed fork grant authoritative through an abandoned same-session denied render', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
     const allowedInteraction = {
       canSendMessages: true,
@@ -491,7 +491,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('does not render fork button when message seq is 0 (uncommitted)', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 0 };
 
@@ -516,7 +516,7 @@ describe('MessageView (fork button)', () => {
         metadata: { host: 'workstation.local' },
       },
     };
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
 
     const message: any = { kind: 'user-text', id: 'm1', createdAt: 1, text: 'hi', seq: 5 };
 
@@ -542,7 +542,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('navigates to the fork child through the session route once the modal opens it', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'user-text', id: 'm1', createdAt: 1, text: 'hi', seq: 5 };
 
     const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);
@@ -560,7 +560,7 @@ describe('MessageView (fork button)', () => {
     const previousPlatform = Platform.OS;
     Platform.OS = 'ios';
     try {
-      const { MessageView } = await import('./MessageView');
+      const { MessageView } = await importMessageViewWithPaneProvider();
       const message = { kind: 'user-text' as const, id: 'm1', localId: null, createdAt: 1, text: 'hi', seq: 5 };
       const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);
       await screen.pressByTestIdAsync('transcript-message-fork:m1');
@@ -577,7 +577,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('carries the replay seed settings the account resolves', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
     const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);
@@ -592,7 +592,7 @@ describe('MessageView (fork button)', () => {
     replayEnabled = false;
     sessionMetadata = { machineId: 'm1', flavor: 'opencode', opencodeBackendMode: 'server' };
 
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
     const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);
@@ -602,7 +602,7 @@ describe('MessageView (fork button)', () => {
 
   it('still opens the strategy modal when session metadata machineId is missing', async () => {
     sessionMetadata = {};
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
     const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);
@@ -620,7 +620,7 @@ describe('MessageView (fork button)', () => {
   });
 
   it('keeps the row button inert instead of owning fork progress, which the modal shows', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: any = { kind: 'agent-text', id: 'm1', createdAt: 1, text: 'hi', isThinking: false, seq: 5 };
 
     const screen = await renderScreen(<MessageView message={message} metadata={null} sessionId="s1" />);

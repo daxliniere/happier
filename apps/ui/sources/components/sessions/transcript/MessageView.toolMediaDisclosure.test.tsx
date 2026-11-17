@@ -6,7 +6,7 @@ import { createPartialStorageModuleMock, renderScreen, standardCleanup } from '@
 import { settingsDefaults } from '@/sync/domains/settings/settings';
 import type { ToolCallMessage } from '@/sync/domains/messages/messageTypes';
 import { deriveTranscriptInteraction } from '@/utils/sessions/deriveTranscriptInteraction';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 let chromeMode: 'cards' | 'activity_feed' = 'cards';
 let collapsedDetail: 'title' | 'summary' = 'title';
@@ -28,7 +28,7 @@ afterEach(() => standardCleanup());
 describe('tool-result media disclosure', () => {
     it.each(['cards', 'activity_feed'] as const)('mounts media only inside expanded %s tool details', async (mode) => {
         chromeMode = mode;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const path = '.happier/uploads/artifacts/read-image/comparison.png';
         const message: ToolCallMessage = {
             kind: 'tool-call', id: 'read-image', localId: null, createdAt: 1, children: [],

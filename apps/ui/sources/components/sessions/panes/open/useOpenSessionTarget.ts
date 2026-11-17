@@ -59,7 +59,7 @@ export function useOpenSessionTarget(params: Readonly<{
             const current = pane.scopeState?.right.tabState.files;
             pane.setRightTabState('files', {
                 ...(current && typeof current === 'object' ? current : {}),
-                revealRequest: { path: target.revealPath },
+                revealRequest: { path: target.revealPath, ...(target.revealDirectory ? { isDirectory: true } : {}) },
             });
         }
         if (target.kind === 'sourceControl') {

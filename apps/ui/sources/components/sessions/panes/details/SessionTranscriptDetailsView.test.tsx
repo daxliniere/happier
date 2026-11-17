@@ -99,6 +99,7 @@ const TEST_ID = 'session-details-transcript';
 let testkit: typeof import('@/dev/testkit');
 let storage: typeof import('@/sync/domains/state/storageStore')['storage'];
 let SessionTranscriptDetailsView: typeof import('./SessionTranscriptDetailsView')['SessionTranscriptDetailsView'];
+let AppPaneProvider: typeof import('@/components/appShell/panes/AppPaneProvider')['AppPaneProvider'];
 let previousStorageState: unknown = null;
 
 function seedImportedSidechain(): void {
@@ -128,6 +129,7 @@ describe('SessionTranscriptDetailsView', () => {
         testkit = await import('@/dev/testkit');
         ({ storage } = await import('@/sync/domains/state/storageStore'));
         ({ SessionTranscriptDetailsView } = await import('./SessionTranscriptDetailsView'));
+        ({ AppPaneProvider } = await import('@/components/appShell/panes/AppPaneProvider'));
     }, 300_000);
 
     beforeEach(() => {
@@ -145,10 +147,12 @@ describe('SessionTranscriptDetailsView', () => {
         seedImportedSidechain();
 
         const screen = await testkit.renderScreen(
-            <SessionTranscriptDetailsView
-                scope={{ kind: 'sidechain', sessionId: SESSION_ID, sidechainId: SIDECHAIN_ID }}
-                testID={TEST_ID}
-            />,
+            <AppPaneProvider>
+                <SessionTranscriptDetailsView
+                    scope={{ kind: 'sidechain', sessionId: SESSION_ID, sidechainId: SIDECHAIN_ID }}
+                    testID={TEST_ID}
+                />
+            </AppPaneProvider>,
         );
         await testkit.flushHookEffects();
 
@@ -171,10 +175,12 @@ describe('SessionTranscriptDetailsView', () => {
         seedImportedSidechain();
 
         const screen = await testkit.renderScreen(
-            <SessionTranscriptDetailsView
-                scope={{ kind: 'sidechain', sessionId: SESSION_ID, sidechainId: SIDECHAIN_ID }}
-                testID={TEST_ID}
-            />,
+            <AppPaneProvider>
+                <SessionTranscriptDetailsView
+                    scope={{ kind: 'sidechain', sessionId: SESSION_ID, sidechainId: SIDECHAIN_ID }}
+                    testID={TEST_ID}
+                />
+            </AppPaneProvider>,
         );
         await testkit.flushHookEffects();
 

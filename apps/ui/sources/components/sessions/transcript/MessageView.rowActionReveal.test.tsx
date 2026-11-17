@@ -3,7 +3,7 @@ import { act } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type { ModeSwitchMessage, UserTextMessage } from '@/sync/domains/messages/messageTypes';
 import type { PersistedSessionMessagePinV1 } from '@/sync/domains/messages/pins/sessionMessagePins';
 
@@ -103,7 +103,7 @@ const existingPin: PersistedSessionMessagePinV1 = {
 };
 
 async function renderUserMessage(pins: readonly PersistedSessionMessagePinV1[] = []) {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     return renderScreen(
         <MessageView
             sessionId="s1"
@@ -181,7 +181,7 @@ describe('MessageView row action reveal', () => {
     });
 
     it('renders no pin for an agent event row', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const event: ModeSwitchMessage = {
             kind: 'agent-event',
             id: 'e1',

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { flushHookEffects, renderScreen, standardCleanup } from '@/dev/testkit';
 import type { AgentTextMessage } from '@/sync/domains/messages/messageTypes';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -193,7 +193,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('records streaming Markdown placeholder history only after the same-message render commits', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const interaction = { canSendMessages: true, canApprovePermissions: true };
         const staticMessage = createAgentMessage();
         const streamingMessage = createAgentMessage({
@@ -260,7 +260,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('paces appended streaming text instead of jumping, then returns to static Markdown after settling', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const baseMessage = createAgentMessage();
 
         const screen = await renderScreen(
@@ -320,7 +320,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('renders an assistant stream segment as streaming Markdown before the first text change', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -351,7 +351,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('reveals active streaming Markdown progressively without switching to the plain fallback', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -424,7 +424,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('paces streaming thinking text through the same reveal instead of jumping', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const baseThinking = createAgentMessage({ isThinking: true, text: 'Considering the request' });
 
         const screen = await renderScreen(
@@ -475,7 +475,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('marks active web assistant streaming content as a polite log live region', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -516,7 +516,7 @@ describe('MessageView (streaming smoothing)', () => {
             animateToolExpandCollapseFreshOnly: true,
             animateThinkingEnabled: true,
         };
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -553,7 +553,7 @@ describe('MessageView (streaming smoothing)', () => {
             animateToolExpandCollapseFreshOnly: true,
             animateThinkingEnabled: true,
         };
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -589,7 +589,7 @@ describe('MessageView (streaming smoothing)', () => {
             animateToolExpandCollapseFreshOnly: false,
             animateThinkingEnabled: false,
         };
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const baseMessage = createAgentMessage();
         const screen = await renderScreen(
             <MessageView
@@ -636,7 +636,7 @@ describe('MessageView (streaming smoothing)', () => {
                 updatedAtMs: 1_000,
             },
         } satisfies AgentTextMessage['meta'];
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const screen = await renderScreen(
             <MessageView
                 message={createAgentMessage({ localId: 'assistant-segment-1', meta: streamingMeta })}
@@ -664,7 +664,7 @@ describe('MessageView (streaming smoothing)', () => {
 
     it('renders active streaming plain text with the themed transcript color', async () => {
         captured.streamingMarkdownEnabled = false;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -693,7 +693,7 @@ describe('MessageView (streaming smoothing)', () => {
     });
 
     it('keeps historical assistant stream segments on the Markdown rendering path', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -721,7 +721,7 @@ describe('MessageView (streaming smoothing)', () => {
 
     it('renders the current stream segment text immediately when smoothing is disabled', async () => {
         captured.streamingSmoothingEnabled = false;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -763,7 +763,7 @@ describe('MessageView (streaming smoothing)', () => {
 
     it('hides partial streaming output when transcript streaming partial output is disabled', async () => {
         captured.streamingPartialEnabled = false;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -793,7 +793,7 @@ describe('MessageView (streaming smoothing)', () => {
 
     it('keeps the plain streaming fallback when streaming Markdown rendering is disabled', async () => {
         captured.streamingMarkdownEnabled = false;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,
@@ -821,7 +821,7 @@ describe('MessageView (streaming smoothing)', () => {
     it('suppresses the iOS native copy menu for active plain streaming transcript text', async () => {
         captured.platformOS = 'ios';
         captured.streamingMarkdownEnabled = false;
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const streamingMeta = {
             happierStreamSegmentV1: {
                 v: 1,

@@ -54,7 +54,7 @@ export type SessionRepositoryTreeBrowserViewProps = Readonly<{
     onSearchQueryChange?: (value: string) => void;
     showSearchBar?: boolean;
     onRequestClose?: () => void;
-    revealRequest?: Readonly<{ path: string }>;
+    revealRequest?: Readonly<{ path: string; isDirectory?: boolean }>;
 }>;
 
 type ToolbarActionId =
@@ -300,7 +300,7 @@ export const SessionRepositoryTreeBrowserView = React.memo((props: SessionReposi
     }, [props.sessionId, setSearchQuery, revealPath]);
 
     React.useEffect(() => {
-        if (props.revealRequest) handleRevealPath(props.revealRequest.path);
+        if (props.revealRequest) handleRevealPath(props.revealRequest.path, props.revealRequest.isDirectory === true);
     }, [props.revealRequest, handleRevealPath]);
 
     const handleSearchFolderPress = React.useCallback((folder: FileItem) => {

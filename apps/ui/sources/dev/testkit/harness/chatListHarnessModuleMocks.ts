@@ -77,6 +77,7 @@ export function installFlashListChatListCommonModuleMocks(
 
     vi.mock('@/utils/platform/responsive', () => ({
         useHeaderHeight: () => 0,
+        useDeviceType: () => 'phone',
     }));
 
     vi.mock('@/components/sessions/shell/useSessionScreenIsFocused', async () => {

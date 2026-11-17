@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -86,7 +86,7 @@ describe('MessageView (agent events)', () => {
     });
 
     it('renders agent-event text as selectable', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-event',
@@ -101,7 +101,7 @@ describe('MessageView (agent events)', () => {
     });
 
     it('renders agent events as inline left-aligned transcript rows with an icon', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = {
             kind: 'agent-event',

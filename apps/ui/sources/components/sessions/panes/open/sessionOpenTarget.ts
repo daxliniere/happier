@@ -52,7 +52,7 @@ export type SessionOpenTarget =
     /** The full agent roster — the right pane's Agents tab, or its own screen where there is none. */
     | Readonly<{ kind: 'agentRoster' }>
     /** The workspace file browser — the right pane's Files tab, or its own screen. */
-    | Readonly<{ kind: 'fileBrowser'; revealPath?: string }>
+    | Readonly<{ kind: 'fileBrowser'; revealPath?: string; revealDirectory?: boolean }>
     | Readonly<{ kind: 'sourceControl' }>
     /**
      * The workspace shell terminal, in the sidebar. The `bottom` and `details` dock locations are a

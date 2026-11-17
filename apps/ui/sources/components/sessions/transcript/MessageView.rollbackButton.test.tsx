@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, standardCleanup } from '@/dev/testkit';
 import { createSessionFixture } from '@/dev/testkit/fixtures/sessionFixtures';
 import { createStorageStoreMock } from '@/dev/testkit/mocks/storage';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import { createReducer } from '@/sync/reducer/reducer';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -194,7 +194,7 @@ describe('MessageView (rollback button)', () => {
     });
 
     it('renders rollback action for agent messages when rollbackAction is provided', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = { kind: 'agent-text', id: 'a1', createdAt: 1, text: 'hello', isThinking: false, seq: 2 };
 

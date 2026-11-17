@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -143,7 +143,7 @@ afterEach(() => {
 
 describe('MessageView (thinking pulse gating)', () => {
     it('enables the pulse only for the active thinking message id', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         captured.thinkingPulseProps.length = 0;
         captured.markdownProps.length = 0;
         captured.thinkingRowProps.length = 0;
@@ -191,7 +191,7 @@ describe('MessageView (thinking pulse gating)', () => {
 
 describe('MessageView (peer deliveries)', () => {
     it('renders a delivered subagent report as a collapsed sender-labelled row, not assistant prose', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         captured.thinkingRowProps.length = 0;
         captured.markdownProps.length = 0;
         const message: any = {

@@ -144,6 +144,7 @@ describe('MessageView memoization (R3)', () => {
     it('does not re-render messages when the parent re-renders with stable props, while selection updates still reach affected rows', async () => {
         vi.resetModules();
         const { MessageViewWithSessionCommon } = await import('./MessageView');
+        const { AppPaneProvider } = await import('@/components/appShell/panes/AppPaneProvider');
         const { TranscriptMessageSelectionProvider, useTranscriptSelectionActions } = await import('./messageSelection/TranscriptMessageSelectionContext');
 
         let bumpParent: (() => void) | null = null;
@@ -158,6 +159,7 @@ describe('MessageView memoization (R3)', () => {
             const [, setTick] = React.useState(0);
             bumpParent = () => setTick((tick) => tick + 1);
             return (
+                <AppPaneProvider>
                 <TranscriptMessageSelectionProvider sessionId="s1" eligibleMessageIdsInOrder={['a1', 'b1']}>
                     <ActionsProbe />
                     <MessageViewWithSessionCommon
@@ -179,6 +181,7 @@ describe('MessageView memoization (R3)', () => {
                         toolRouteCommon={toolRouteCommon}
                     />
                 </TranscriptMessageSelectionProvider>
+                </AppPaneProvider>
             );
         }
 

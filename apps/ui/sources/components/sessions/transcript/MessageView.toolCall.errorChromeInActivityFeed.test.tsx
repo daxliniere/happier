@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createToolCallMessageFixture, renderScreen, standardCleanup } from '@/dev/testkit';
 import { createReducer } from '@/sync/reducer/reducer';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -80,7 +80,7 @@ describe('MessageView (tool-call chrome in activity feed)', () => {
     afterEach(standardCleanup);
 
     it('renders a ToolTimelineRow for errored tool calls even when a structured node exists', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = createToolCallMessageFixture({
             id: 'tool-1',
@@ -115,7 +115,7 @@ describe('MessageView (tool-call chrome in activity feed)', () => {
     });
 
     it('renders a ToolTimelineRow when an inactive session forces a pending permission tool into error while a structured node exists', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const message: any = createToolCallMessageFixture({
             id: 'tool-inactive-1',

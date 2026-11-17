@@ -3,7 +3,7 @@ import { act } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type { Message } from '@/sync/domains/messages/messageTypes';
 import type { Metadata } from '@/sync/domains/state/storageTypes';
 
@@ -50,7 +50,7 @@ async function renderMessages(
     rowProps: Readonly<{ historical?: boolean; metadata?: Metadata | null }> = {},
 ) {
     vi.resetModules();
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const { TranscriptQuoteProvider } = await import('./quote/TranscriptQuoteContext');
     return await renderScreen(
         <TranscriptQuoteProvider value={onQuote}>

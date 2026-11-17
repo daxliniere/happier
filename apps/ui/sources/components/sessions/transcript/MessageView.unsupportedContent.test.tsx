@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -120,7 +120,7 @@ describe('MessageView unsupported-content rendering', () => {
             ['unsupported agent output', 'agent-text', '[Unsupported agent output: future-type]', 'unsupported-agent-output'],
             ['unsupported transcript record', 'agent-text', '[Unsupported transcript record]', 'unsupported-transcript-record'],
         ] as const)('keeps the raw diagnostic text for an %s', async (_name, kind, rawText, marker) => {
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
 
             const screen = await renderScreen(
                 <MessageView
@@ -143,7 +143,7 @@ describe('MessageView unsupported-content rendering', () => {
 
         it('copies the raw diagnostic so the offending payload type can be reported', async () => {
             setClipboardStringSafeMock.mockClear();
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
 
             const screen = await renderScreen(
                 <MessageView
@@ -175,7 +175,7 @@ describe('MessageView unsupported-content rendering', () => {
             ['unsupported agent output', '[Unsupported agent output: future-type]', 'unsupported-agent-output'],
             ['unsupported transcript record', '[Unsupported transcript record]', 'unsupported-transcript-record'],
         ] as const)('renders no transcript row for an %s', async (_name, rawText, marker) => {
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
 
             const screen = await renderScreen(
                 <MessageView
@@ -196,7 +196,7 @@ describe('MessageView unsupported-content rendering', () => {
         });
 
         it('keeps a localized placeholder for the user own unparsed message instead of dropping it', async () => {
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
 
             const screen = await renderScreen(
                 <MessageView
@@ -220,7 +220,7 @@ describe('MessageView unsupported-content rendering', () => {
 
         it('does not leak the raw fallback text into select-preview/copy text for the user own message', async () => {
             setClipboardStringSafeMock.mockClear();
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
 
             const screen = await renderScreen(
                 <MessageView
@@ -246,7 +246,7 @@ describe('MessageView unsupported-content rendering', () => {
     });
 
     it('renders normal message text unaffected when no unsupported-content marker is present', async () => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
 
         const screen = await renderScreen(
             <MessageView
@@ -270,7 +270,7 @@ describe('MessageView unsupported-content rendering', () => {
         'renders the literal raw placeholder text %s unchanged when the meta marker is absent or malformed (no string-sniffing)',
         async (rawText, meta) => {
             debugState.enabled = false;
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
 
             const screen = await renderScreen(
                 <MessageView

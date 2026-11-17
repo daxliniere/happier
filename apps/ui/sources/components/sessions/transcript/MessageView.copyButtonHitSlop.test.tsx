@@ -3,7 +3,7 @@ import { act, type ReactTestInstance } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 import type { Message } from '@/sync/domains/messages/messageTypes';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -70,7 +70,7 @@ describe('MessageView (copy button hitSlop)', () => {
             vi.resetModules();
             const { storage } = await import('@/sync/domains/state/storage');
             storage.setState((state) => ({ settings: { ...state.settings, transcriptMessageSelectionEnabled: true } }));
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
             const { TranscriptMessageSelectionProvider } = await import('./messageSelection/TranscriptMessageSelectionContext');
 
             const message: any = {
@@ -128,7 +128,7 @@ describe('MessageView (copy button hitSlop)', () => {
             vi.resetModules();
             const { storage } = await import('@/sync/domains/state/storage');
             storage.setState((state) => ({ settings: { ...state.settings, transcriptMessageSelectionEnabled: true } }));
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
             const { TranscriptMessageSelectionProvider } = await import('./messageSelection/TranscriptMessageSelectionContext');
 
             const message: any = {
@@ -154,7 +154,7 @@ describe('MessageView (copy button hitSlop)', () => {
         platformState.os = 'ios';
         vi.resetModules();
         const Clipboard = await import('expo-clipboard');
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const { TranscriptMessageSelectionProvider } = await import('./messageSelection/TranscriptMessageSelectionContext');
 
         const message: any = {
@@ -186,7 +186,7 @@ describe('MessageView (copy button hitSlop)', () => {
         async (branch) => {
             platformState.os = branch === 'web' ? 'web' : 'android';
             vi.resetModules();
-            const { MessageView } = await import('./MessageView');
+            const { MessageView } = await importMessageViewWithPaneProvider();
             const Clipboard = await import('expo-clipboard');
             const message = {
                 kind: branch === 'agent' ? 'agent-text' : 'user-text',
@@ -236,7 +236,7 @@ describe('MessageView (copy button hitSlop)', () => {
     it('clears the copied glyph and reports a refused retry after a successful message copy', async () => {
         platformState.os = 'android';
         vi.resetModules();
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const Clipboard = await import('expo-clipboard');
         const { Modal } = await import('@/modal');
         const writes = vi.mocked(Clipboard.setStringAsync);

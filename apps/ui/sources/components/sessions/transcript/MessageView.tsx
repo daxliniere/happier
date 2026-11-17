@@ -21,6 +21,9 @@ import type { StructuredMessageRendererParams } from '@/components/sessions/tran
 import { useRouter } from 'expo-router';
 import { useNavigateToSession } from '@/hooks/session/useNavigateToSession';
 import { buildSessionFileDeepLink } from '@/utils/url/sessionFileDeepLink';
+import { useOpenSessionTarget } from '@/components/sessions/panes/open/useOpenSessionTarget';
+import { sessionStatFile } from '@/sync/ops/sessionFileSystem/pathMetadataMutations';
+import { isSafeWorkspaceRelativePath } from '@/utils/path/isSafeWorkspaceRelativePath';
 import { fireAndForget } from '@/utils/system/fireAndForget';
 import { Text } from '@/components/ui/text/Text';
 import { useMessageStructuredReferences } from '@/components/sessions/transcript/references/messageStructuredReferences';
@@ -120,6 +123,7 @@ function useTranscriptMarkdownLinkPress(params: Readonly<{
   router: SessionFileDeepLinkRouter;
 }>) {
   const navigateToSession = useNavigateToSession();
+  const openTarget = useOpenSessionTarget({ sessionId: params.sessionId });
   const { canOpenFiles, sessionId, workspacePath, router } = params;
   return React.useCallback((url: string) => {
     // Explicit session routes are navigation, even when the viewer cannot open workspace files.
@@ -133,13 +137,30 @@ function useTranscriptMarkdownLinkPress(params: Readonly<{
     if (!canOpenFiles) return false;
     const resolved = resolveTranscriptMarkdownFileLink({ url, workspacePath });
     if (!resolved) return false;
-    pushSessionFileDeepLink(router, {
+    const openFile = () => pushSessionFileDeepLink(router, {
       sessionId,
       filePath: resolved.filePath,
       ...(resolved.anchor ? { source: 'file' as const, anchor: resolved.anchor } : {}),
     });
+    // A link names a path, not its kind. A line anchor can only mean a file; anything else is asked of
+    // the machine, because a folder belongs in the file browser and the file viewer cannot show it.
+    // When the path cannot be inspected the link opens as a file, exactly as it did before.
+    if (resolved.anchor) {
+      openFile();
+      return true;
+    }
+    void sessionStatFile(sessionId, resolved.filePath).then(
+      (stat) => {
+        if (stat.success && stat.exists && stat.kind === 'directory' && isSafeWorkspaceRelativePath(resolved.filePath)) {
+          openTarget({ kind: 'fileBrowser', revealPath: resolved.filePath, revealDirectory: true });
+        } else {
+          openFile();
+        }
+      },
+      openFile,
+    );
     return true;
-  }, [canOpenFiles, navigateToSession, router, sessionId, workspacePath]);
+  }, [canOpenFiles, navigateToSession, openTarget, router, sessionId, workspacePath]);
 }
 
 function useStructuredMessageJumpHandler(

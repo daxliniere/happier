@@ -96,3 +96,23 @@ export function installMessageViewCommonModuleMocks(
         return createPartialStorageModuleMock(importOriginal, {});
     });
 }
+
+let wrappedMessageView: { source: unknown; wrapper: unknown } | null = null;
+
+/**
+ * `MessageView` reaches the app pane scope through `useOpenSessionTarget`, and the app always mounts an
+ * `AppPaneProvider` above it. Tests that render the row on its own import it through here so they get
+ * the same ancestor instead of each re-declaring one. The wrapper is cached so a re-render keeps one
+ * component type and does not remount the row.
+ */
+export async function importMessageViewWithPaneProvider(): Promise<{ MessageView: typeof import('./MessageView').MessageView }> {
+    const { MessageView } = await import('./MessageView');
+    const { AppPaneProvider } = await import('@/components/appShell/panes/AppPaneProvider');
+    const React = await import('react');
+    if (wrappedMessageView?.source !== MessageView) {
+        const Wrapped = (props: React.ComponentProps<typeof MessageView>) =>
+            React.createElement(AppPaneProvider, null, React.createElement(MessageView, props));
+        wrappedMessageView = { source: MessageView, wrapper: Wrapped };
+    }
+    return { MessageView: wrappedMessageView.wrapper as typeof MessageView };
+}

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSessionFixture, renderScreen, standardCleanup } from '@/dev/testkit';
 import type { UserTextMessage } from '@/sync/domains/messages/messageTypes';
 import { storage } from '@/sync/domains/state/storageStore';
-import { installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
+import { importMessageViewWithPaneProvider, installMessageViewCommonModuleMocks } from './messageViewTestHelpers';
 
 installMessageViewCommonModuleMocks({
     text: async () => {
@@ -28,7 +28,7 @@ describe('MessageView session sender provenance', () => {
         { via: 'mcp', cached: true },
         { via: 'mcp', cached: false },
     ] as const)('identifies a session-authored user message via $via (cached sender: $cached)', async ({ via, cached }) => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const sourceSessionId = 'source-session-exact-id';
         storage.setState({
             sessions: cached ? {
@@ -59,7 +59,7 @@ describe('MessageView session sender provenance', () => {
         { happierProvenanceV1: { v: 1, kind: 'happierSession', sourceSessionId: 'source', via: 'unknown' } },
         { happierProvenanceV1: { v: 2, kind: 'happierSession', sourceSessionId: 'source', via: 'mcp' } },
     ])('keeps human and unsupported-provenance messages without a session attribution', async (meta) => {
-        const { MessageView } = await import('./MessageView');
+        const { MessageView } = await importMessageViewWithPaneProvider();
         const message = {
             kind: 'user-text', id: 'human-message', localId: 'human-message', createdAt: 1,
             text: 'A normal message.', meta,

@@ -964,11 +964,14 @@ export async function renderFlashListChatListSession(
     options: Parameters<typeof renderScreen>[1] = {},
 ): Promise<FlashListChatListHarness> {
     const { ChatList } = await import('@/components/sessions/transcript/ChatList');
+    // The app mounts the pane provider above every transcript row (rows open files through it). As the
+    // render wrapper it also survives `update(<ChatList/>)`, which replaces only the wrapped element.
+    const { AppPaneProvider } = await import('@/components/appShell/panes/AppPaneProvider');
     return renderFlashListChatList(
         React.createElement(ChatList, {
             session: { ...flashListChatListHarnessState.sessionState },
         }),
-        options,
+        { wrapper: ({ children }) => React.createElement(AppPaneProvider, null, children), ...options },
     );
 }
 

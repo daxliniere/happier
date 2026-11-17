@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 
 import { renderScreen, standardCleanup } from '@/dev/testkit';
 import type { AgentTextMessage } from '@/sync/domains/messages/messageTypes';
+import { importMessageViewWithPaneProvider } from './messageViewTestHelpers';
 
 vi.mock('react-native', async () => {
     const { createReactNativeNativeMock } = await import('@/dev/testkit/mocks/reactNative');
@@ -11,7 +12,7 @@ vi.mock('react-native', async () => {
 });
 
 it('keeps empty voice turns hidden when the same message gains and loses visible text', async () => {
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const message: AgentTextMessage = {
         kind: 'agent-text', id: 'voice-hook-order', localId: null, createdAt: 1, text: '   ',
         meta: { happier: {
@@ -45,7 +46,7 @@ afterEach(() => {
 
 it('keeps a growing thinking message safe when its display setting changes from hidden to inline and back', async () => {
     const { storage } = await import('@/sync/domains/state/storage');
-    const { MessageView } = await import('./MessageView');
+    const { MessageView } = await importMessageViewWithPaneProvider();
     const previousSettings = storage.getState().settings;
     storage.setState({ settings: {
         ...previousSettings,
