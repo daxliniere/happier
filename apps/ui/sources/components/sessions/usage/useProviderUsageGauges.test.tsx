@@ -12,13 +12,48 @@ vi.mock('@/hooks/server/useFeatureEnabled', () => ({ useFeatureEnabled: () => tr
 
 afterEach(() => standardCleanup());
 
-function services(status: 'connected' | 'refreshing' | 'needs_reauth' | 'refresh_failed_retryable') {
+function services(status: 'connected' | 'refreshing' | 'needs_reauth' | 'refresh_failed_retryable', serviceId = 'openai-codex') {
     return AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
-        serviceId: 'openai-codex', profiles: [{ profileId: 'work', status }],
+        serviceId, profiles: [{ profileId: 'work', status }],
     }] }).connectedServicesV2;
 }
 
 describe('provider usage configuration visibility', () => {
+    it.each([
+        { agentId: 'codex' as const, serviceId: 'openai-codex' },
+        { agentId: 'claude' as const, serviceId: 'anthropic' },
+    ] as const)('uses the same latest $agentId limit observation in the HUD and an older open session composer', async ({ agentId, serviceId }) => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const makeIssue = (occurredAt: number, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: agentId, occurredAt,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null,
+                quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId, profileId: 'work', fetchedAtMs: occurredAt },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        const sessionIssue = makeIssue(nowMs - 60_000, 0);
+        const latestIssue = makeIssue(nowMs, 30);
+        storage.setState({ isDataReady: true, sessions: {
+            open: createSessionFixture({ id: 'open', updatedAt: nowMs, metadata: { flavor: agentId, path: '/repo', host: 'test' }, lastRuntimeIssue: sessionIssue }),
+            latest: createSessionFixture({ id: 'latest', updatedAt: nowMs + 1, metadata: { flavor: agentId, path: '/repo', host: 'test' }, lastRuntimeIssue: latestIssue }),
+        } });
+        try {
+            const hook = await renderHook(() => ({
+                header: useProviderUsageGauges({ agentIds: [agentId], accountProfileConnectedServicesV2: services('connected', serviceId),
+                    windowMode: 'most_constrained', fetchEnabled: false }),
+                composer: useProviderUsageGauge({ providerId: agentId, modelId: null,
+                    profileRef: { serviceId, profileId: 'work', provenance: 'connected_binding_profile' },
+                    runtimeIssue: sessionIssue }),
+            }));
+            try {
+                expect(hook.getCurrent().header.gauges.get(agentId)?.remainingPct).toBe(30);
+                expect(hook.getCurrent().composer.gauge?.remainingPct).toBe(30);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
     it('updates composer and header center numbers from the same setting without changing their rings', async () => {
         const previous = storage.getState();
         const issue: SessionRuntimeIssueV1 = {

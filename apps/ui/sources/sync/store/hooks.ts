@@ -1825,18 +1825,56 @@ export function useLatestProviderUsageRecordIdsForAgent(agentId: AgentId | null)
   )));
 }
 
+function shouldReplaceLatestProviderUsageRuntimeIssue(
+  current: SessionRuntimeIssueV1 | null,
+  currentSessionUpdatedAt: number,
+  candidate: SessionRuntimeIssueV1,
+  candidateSessionUpdatedAt: number,
+): boolean {
+  return !current
+    || candidate.occurredAt > current.occurredAt
+    || (candidate.occurredAt === current.occurredAt && candidateSessionUpdatedAt > currentSessionUpdatedAt);
+}
+
+/** The same latest limit evidence used by provider-wide HUD gauges, scoped to one composer Agent. */
+export function useLatestProviderUsageRuntimeIssueForAgent(agentId: AgentId | null): Readonly<{
+  isDataReady: boolean;
+  issue: SessionRuntimeIssueV1 | null;
+}> {
+  return getStorage()(useShallow((state) => {
+    if (!state.isDataReady || !agentId) return { isDataReady: state.isDataReady, issue: null };
+    let latest: SessionRuntimeIssueV1 | null = null;
+    let latestSessionUpdatedAt = -1;
+    for (const session of Object.values(state.sessions)) {
+      const issue = session.lastRuntimeIssue;
+      if (!issue?.usageLimit || resolveAgentIdFromFlavor(issue.provider) !== agentId) continue;
+      if (!shouldReplaceLatestProviderUsageRuntimeIssue(latest, latestSessionUpdatedAt, issue, session.updatedAt)) continue;
+      latest = issue;
+      latestSessionUpdatedAt = session.updatedAt;
+    }
+    return { isDataReady: true, issue: latest };
+  }));
+}
+
 /** Latest limit evidence per provider; unrelated or unmetered sessions cannot erase account facts. */
 export function useLatestProviderUsageRuntimeIssuesByAgent(): ReadonlyMap<AgentId, SessionRuntimeIssueV1> {
   return getStorage()(useShallow((state) => {
     const issues = new Map<AgentId, SessionRuntimeIssueV1>();
+    const sessionUpdatedAtByAgent = new Map<AgentId, number>();
     if (!state.isDataReady) return issues;
-    for (const session of sortValuesByUpdatedAtDescending(state.sessions)) {
+    for (const session of Object.values(state.sessions)) {
       const issue = session.lastRuntimeIssue;
       if (!issue?.usageLimit) continue;
       // Session metadata follows provider switches; the failure's provider stays authoritative.
       const agentId = resolveAgentIdFromFlavor(issue.provider);
-      if (!agentId || (issues.get(agentId)?.occurredAt ?? -1) >= issue.occurredAt) continue;
+      if (!agentId || !shouldReplaceLatestProviderUsageRuntimeIssue(
+        issues.get(agentId) ?? null,
+        sessionUpdatedAtByAgent.get(agentId) ?? -1,
+        issue,
+        session.updatedAt,
+      )) continue;
       issues.set(agentId, issue);
+      sessionUpdatedAtByAgent.set(agentId, session.updatedAt);
     }
     return issues;
   }));
