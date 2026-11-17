@@ -177,7 +177,9 @@ describe('Item', () => {
         const compactSubtitle = findTestInstanceByTypeContainingText(regularListScreen, 'Text', 'A compact description');
         const explicitSubtitle = findTestInstanceByTypeContainingText(regularListScreen, 'Text', 'An explicitly capped description');
 
+        expect(defaultSubtitle).toBeDefined();
         expect(defaultSubtitle?.props?.numberOfLines).toBeUndefined();
+        expect(formerlyLimitedSubtitle).toBeDefined();
         expect(formerlyLimitedSubtitle?.props?.numberOfLines).toBeUndefined();
         expect(menuSubtitle?.props?.numberOfLines).toBe(1);
         expect(compactSubtitle?.props?.numberOfLines).toBe(1);
