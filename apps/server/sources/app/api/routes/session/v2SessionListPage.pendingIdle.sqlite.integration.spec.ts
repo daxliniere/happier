@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import Fastify from "fastify";
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/app/auth/auth";
 import { enableAuthentication } from "@/app/api/utils/enableAuthentication";
@@ -78,6 +78,13 @@ describe("session detail pending idleness evidence (SQLite integration)", () => 
             expect(response.json()).toMatchObject({ session: {
                 pendingCount: 8, pendingBlockedCount: 7, pendingBlockedNoEffectCount: 2, pendingVersion: 4,
             } });
+            // Prisma delivers `query` log events asynchronously, so they can trail the awaited
+            // route response. A marker query issued afterwards is logged after every route
+            // statement; once it is captured, the route's statements are complete.
+            await queryClient.$queryRawUnsafe("SELECT 1 AS pending_idle_capture_marker");
+            await vi.waitFor(() => {
+                expect(statements.some((statement) => statement.query.includes("pending_idle_capture_marker"))).toBe(true);
+            });
             const pendingStatements = statements.filter((statement) => statement.query.includes("SessionPendingMessage"));
             expect(pendingStatements).toHaveLength(1);
             const pendingStatement = pendingStatements[0];
