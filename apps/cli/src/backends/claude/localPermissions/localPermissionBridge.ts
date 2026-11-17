@@ -469,7 +469,8 @@ export class ClaudeLocalPermissionBridge {
             return 'prompt';
         }
         if (mode === 'read-only') {
-            return isDefaultWriteLikeToolName(toolName) ? 'deny' : 'allow';
+            if (isDefaultWriteLikeToolName(toolName)) return 'deny';
+            return providerEscalation ? 'prompt' : 'allow';
         }
         return 'prompt';
     }
