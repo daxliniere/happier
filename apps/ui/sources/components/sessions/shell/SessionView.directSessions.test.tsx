@@ -418,8 +418,8 @@ vi.mock('@/sync/api/account/apiConnectedServiceAuthGroupsV3', () => ({
 }));
 
 vi.mock('@/hooks/server/connectedServices/useProviderAccountUsageSnapshots', () => ({
-  useProviderAccountUsageSnapshots: (recordIds: readonly string[]) => {
-    providerAccountUsageSnapshotsState.requestedRecordIds = recordIds;
+  useProviderAccountUsageSnapshots: (recordIds: readonly string[], options?: { fetchEnabled?: boolean }) => {
+    if (options?.fetchEnabled !== false) providerAccountUsageSnapshotsState.requestedRecordIds = recordIds;
     return providerAccountUsageSnapshotsState.current;
   },
 }));
@@ -2638,6 +2638,7 @@ describe('SessionView (direct sessions)', () => {
     featureEnabledState['connectedServices.quotas'] = true;
     storageState.sessions.s1 = {
       ...storageState.sessions.s1,
+      metadata: { ...storageState.sessions.s1.metadata, flavor: 'claude', directSessionV1: undefined },
       lastRuntimeIssue: {
         v: 1,
         scope: 'primary_session',
@@ -2983,7 +2984,7 @@ describe('SessionView (direct sessions)', () => {
     const screen = await renderSessionViewAndSettle({ routeServerId: 'server-route-1' });
     expect(findAgentInput(screen).props.providerUsageGauge.usageRings
       .map((ring: { meterId: string; ringValueLabel: string }) => [ring.meterId, ring.ringValueLabel]))
-      .toEqual([['weekly', '18'], ['five_hour', '70'], ['daily', '5']]);
+      .toEqual([['weekly', '18'], ['daily', '5'], ['five_hour', '70']]);
   });
 
   it('uses connected-service reset-credit consumption from the connected-service quota view for connected-service-bound account usage', async () => {
@@ -3114,7 +3115,7 @@ describe('SessionView (direct sessions)', () => {
     settingByKeyState.current.usageLimitRecoverySettingsV1 = { v: 1, mode: 'ask', resumePromptMode: 'off' };
     installConnectedServiceWorkProfileRecoveryCreditSession();
     const beforeSnapshot = buildOpenAiCodexWorkQuotaSnapshot({
-      fetchedAt: 1,
+      fetchedAt: 2,
       used: 82,
       recoveryCredits: {
         kind: 'usage_limit_resets',
@@ -3123,7 +3124,7 @@ describe('SessionView (direct sessions)', () => {
       },
     });
     const polledSnapshot = buildOpenAiCodexWorkQuotaSnapshot({
-      fetchedAt: 2,
+      fetchedAt: 3,
       used: 45,
       recoveryCredits: {
         kind: 'usage_limit_resets',

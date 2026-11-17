@@ -1,4 +1,5 @@
-import type { AccountProfile } from '@happier-dev/protocol';
+import type { AccountProfile, SessionRuntimeIssueV1 } from '@happier-dev/protocol';
+import { resolveAgentIdFromFlavor } from '@happier-dev/agents';
 import {
     buildBackendTargetKey,
     isConnectedServiceCredentialHealthStatusUsable,
@@ -116,6 +117,7 @@ export function resolveConnectedServiceQuotaProfileRefForSession(params: Readonl
     metadata: Metadata | null | undefined;
     agentId: string;
     accountProfileConnectedServicesV2: ReadonlyArray<AccountProfileConnectedService>;
+    runtimeIssue?: SessionRuntimeIssueV1 | null;
 }>): ConnectedServiceQuotaProfileRefForSession | null {
     if (!isAgentId(params.agentId)) return null;
     const supportedServiceIds = getAgentCore(params.agentId).connectedServices?.supportedServiceIds ?? [];
@@ -130,12 +132,25 @@ export function resolveConnectedServiceQuotaProfileRefForSession(params: Readonl
         readObjectRecord(agentOptionStateByAgentId?.[targetKey])
         ?? readObjectRecord(agentOptionStateByAgentId?.[params.agentId])
         ?? null;
-    return resolveConnectedServiceQuotaProfileRefFromBindings({
+    const binding = resolveConnectedServiceQuotaProfileRefFromBindings({
         supportedServiceIds,
         agentOptionState,
         connectedServicesPayload: readObjectRecord(agentOptionState?.connectedServices) ?? metadata.connectedServices,
         accountProfileConnectedServicesV2: params.accountProfileConnectedServicesV2,
     });
+    const runtimeRef = params.runtimeIssue?.usageLimit?.quotaSnapshotRef;
+    // Runtime auth may have moved off the launch-time member. This chooses identity only;
+    // usage values still come from the shared provider/account resolver.
+    if (binding && resolveAgentIdFromFlavor(params.runtimeIssue?.provider) === params.agentId
+        && runtimeRef?.profileId && supportedServiceIds.some(serviceId => serviceId === runtimeRef.serviceId)) {
+        return {
+            serviceId: runtimeRef.serviceId,
+            profileId: runtimeRef.profileId,
+            ...(binding?.groupId ? { groupId: binding.groupId } : {}),
+            provenance: 'published_quota_ref',
+        };
+    }
+    return binding;
 }
 
 /**

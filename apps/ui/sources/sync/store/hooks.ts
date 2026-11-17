@@ -1825,6 +1825,13 @@ export function useLatestProviderUsageRecordIdsForAgent(agentId: AgentId | null)
   )));
 }
 
+/** Stable discovery ids shared by every usage reader, including records retained after a provider switch. */
+export function selectProviderUsageRecordIds(sessions: Record<string, Session>): readonly string[] {
+  return [...new Set([...selectLatestProviderUsageRecordIdsByAgent(
+    sortValuesByUpdatedAtDescending(sessions),
+  ).values()].flat())].sort();
+}
+
 function shouldReplaceLatestProviderUsageRuntimeIssue(
   current: SessionRuntimeIssueV1 | null,
   currentSessionUpdatedAt: number,
@@ -1836,24 +1843,27 @@ function shouldReplaceLatestProviderUsageRuntimeIssue(
     || (candidate.occurredAt === current.occurredAt && candidateSessionUpdatedAt > currentSessionUpdatedAt);
 }
 
-/** The same latest limit evidence used by provider-wide HUD gauges, scoped to one composer Agent. */
-export function useLatestProviderUsageRuntimeIssueForAgent(agentId: AgentId | null): Readonly<{
-  isDataReady: boolean;
-  issue: SessionRuntimeIssueV1 | null;
-}> {
-  return getStorage()(useShallow((state) => {
-    if (!state.isDataReady || !agentId) return { isDataReady: state.isDataReady, issue: null };
+/** Match account identity before comparing freshness; another login cannot erase its evidence. */
+export function selectProviderUsageRuntimeIssuesForAccounts(sessions: Record<string, Session>, targets: readonly Readonly<{
+  providerId: string | null;
+  profileRef?: Readonly<{ serviceId: string; profileId: string }> | null;
+}>[]): readonly (SessionRuntimeIssueV1 | null)[] {
+  return targets.map((target) => {
     let latest: SessionRuntimeIssueV1 | null = null;
-    let latestSessionUpdatedAt = -1;
-    for (const session of Object.values(state.sessions)) {
+    let updatedAt = -1;
+    if (!target.providerId) return latest;
+    for (const session of Object.values(sessions)) {
       const issue = session.lastRuntimeIssue;
-      if (!issue?.usageLimit || resolveAgentIdFromFlavor(issue.provider) !== agentId) continue;
-      if (!shouldReplaceLatestProviderUsageRuntimeIssue(latest, latestSessionUpdatedAt, issue, session.updatedAt)) continue;
+      if (!issue?.usageLimit || resolveAgentIdFromFlavor(issue.provider) !== target.providerId) continue;
+      const ref = issue.usageLimit.quotaSnapshotRef;
+      if (target.profileRef && (!ref || ref.serviceId !== target.profileRef.serviceId
+        || ref.profileId !== target.profileRef.profileId)) continue;
+      if (!shouldReplaceLatestProviderUsageRuntimeIssue(latest, updatedAt, issue, session.updatedAt)) continue;
       latest = issue;
-      latestSessionUpdatedAt = session.updatedAt;
+      updatedAt = session.updatedAt;
     }
-    return { isDataReady: true, issue: latest };
-  }));
+    return latest;
+  });
 }
 
 /** Latest limit evidence per provider; unrelated or unmetered sessions cannot erase account facts. */

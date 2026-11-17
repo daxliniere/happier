@@ -3,23 +3,18 @@ import * as React from 'react';
 import {
     ConnectedServiceIdSchema,
     type ConnectedServiceQuotaRecoveryCreditsV1,
-    type SessionRuntimeIssueV1,
 } from '@happier-dev/protocol';
 
 import { resolveConnectedServiceDisplayName } from '@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
 import { useConnectedServiceAuthGroupsQuery } from '@/hooks/server/connectedServices/useConnectedServiceAuthGroupsQuery';
-import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
-import { useProviderAccountUsageSnapshots } from '@/hooks/server/connectedServices/useProviderAccountUsageSnapshots';
+import { useProviderUsageSources } from './useProviderUsageSources';
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
 import {
-    selectProviderUsageDisplaySnapshot,
     type ProviderUsageDisplaySnapshotSource,
 } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
-    deriveConnectedServiceQuotaSnapshotFromRuntimeIssue,
-    selectConnectedServiceSessionProviderUsageGaugeSource,
     type ConnectedServiceQuotaGaugeSource,
     type ConnectedServiceQuotaGaugeViewModel,
     type ConnectedServiceQuotaGaugeWindowMode,
@@ -31,11 +26,8 @@ import {
 } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceProjectionSignature } from '@/sync/domains/connectedServices/resolveConnectedServiceProjectionSignature';
 import { useProfile, useSetting } from '@/sync/domains/state/storage';
-import { useLatestProviderUsageRecordIdsForAgent, useLatestProviderUsageRuntimeIssueForAgent } from '@/sync/store/hooks';
-import { isAgentId } from '@/agents/catalog/catalog';
 import { nowServerMs } from '@/sync/runtime/time';
 import { t } from '@/text';
-import { resolveDefaultProviderUsageProfileRef } from '@/components/sessions/usage/resolveDefaultProviderUsageProfileRef';
 
 export type ProviderUsageGaugeProfileRef = Readonly<{
     serviceId: string;
@@ -65,46 +57,33 @@ function resolveConnectedServiceProviderDisplayName(serviceId: string): string |
  * Single composer-facing owner of the provider usage (quota) gauge. The session composer and the
  * new-session composer both read it, so the gauge visibility setting, window modes, pinned meters,
  * account-group limit selection and the "no fake gauges" source rules apply identically to both.
- * Session-only evidence (usage record ids, runtime issues, recovery credits) is optional input.
+ * Usage sources are resolved by the same account owner as the HUD and picker. Session
+ * inputs select an account and expose recovery actions; they do not override its usage.
  */
 export function useProviderUsageGauge(params: Readonly<{
     providerId: string | null;
     profileRef: ProviderUsageGaugeProfileRef | null;
     modelId: string | null;
     metadataRecordIds?: readonly string[];
-    runtimeIssue?: SessionRuntimeIssueV1 | null;
+    nativeAccount?: boolean;
     sessionCheckNowSupported?: boolean;
     recoveryCredits?: ConnectedServiceQuotaRecoveryCreditsV1 | null;
 }>): ProviderUsageGaugeResult {
     const accountProfile = useProfile();
-    const defaultProfileRef = React.useMemo(() => resolveDefaultProviderUsageProfileRef({
-        agentId: params.providerId,
+    const requests = React.useMemo(() => [{
+        providerId: params.providerId,
+        profileRef: params.profileRef,
+        metadataRecordIds: params.metadataRecordIds,
+        nativeAccount: params.nativeAccount,
+        sessionCheckNowSupported: params.sessionCheckNowSupported,
+        recoveryCredits: params.recoveryCredits,
+    }], [params.providerId, params.profileRef, params.metadataRecordIds, params.nativeAccount, params.sessionCheckNowSupported, params.recoveryCredits]);
+    const [resolved] = useProviderUsageSources({
+        requests,
         connectedServices: accountProfile?.connectedServicesV2 ?? [],
-    }), [accountProfile?.connectedServicesV2, params.providerId]);
-    // Explicit session bindings select their own login. Otherwise use the same usable default
-    // profile as the provider-wide HUD, including its native-usage fallback behavior.
-    const profileRef = params.profileRef ?? (defaultProfileRef
-        ? { ...defaultProfileRef, provenance: 'published_quota_ref' as const }
-        : null);
-    const latestProviderUsageIssue = useLatestProviderUsageRuntimeIssueForAgent(
-        params.providerId && isAgentId(params.providerId) ? params.providerId : null,
-    );
-    // HUD and composer both use the latest provider-wide limit evidence. The current Session's
-    // issue can lag behind another Session's observation for the same Agent and account.
-    const providerRuntimeIssue = latestProviderUsageIssue.isDataReady
-        ? latestProviderUsageIssue.issue
-        : params.runtimeIssue ?? null;
-    const issueSnapshot = deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(providerRuntimeIssue);
-    const runtimeIssue = !profileRef || (issueSnapshot
-        && connectedServiceProfileKey(issueSnapshot) === connectedServiceProfileKey(profileRef))
-        ? providerRuntimeIssue
-        : null;
-    const nativeRecordIds = useLatestProviderUsageRecordIdsForAgent(
-        params.providerId && isAgentId(params.providerId) ? params.providerId : null,
-    );
-    // Direct sessions can be browsed before takeover publishes their own usage refs. Reuse the
-    // native provider's known account, as New Session does, without replacing an explicit binding.
-    const metadataRecordIds = params.metadataRecordIds?.length ? params.metadataRecordIds : nativeRecordIds;
+        fetchEnabled: true,
+    });
+    const { profileRef, profileKey, quotaDisplaySnapshot, displaySnapshotSource } = resolved;
     const connectedServiceQuotasEnabled = useFeatureEnabled('connectedServices.quotas');
     const windowModesSetting = useSetting('sessionProviderUsageGaugeWindowModes');
     const numberWindowMode = useSetting('sessionProviderUsageGaugeNumberWindowMode');
@@ -142,10 +121,6 @@ export function useProviderUsageGauge(params: Readonly<{
         return group ? group.policy.quotaLimitSelection : null;
     }, [authGroups.groups, profileRef?.groupId]);
 
-    const quotaSnapshots = useConnectedServiceQuotaSnapshots(profileRef ? [profileRef] : []);
-    const profileKey = profileRef ? connectedServiceProfileKey(profileRef) : null;
-    const quotaDisplaySnapshot = profileKey ? quotaSnapshots.snapshotsByKey[profileKey] ?? null : null;
-    const accountUsageSnapshotsByRecordId = useProviderAccountUsageSnapshots(metadataRecordIds);
     const activeAccountLabel = React.useMemo(() => {
         if (!profileRef) return quotaDisplaySnapshot?.accountLabel ?? null;
         return resolveConnectedServiceProfileLabel({
@@ -154,37 +129,8 @@ export function useProviderUsageGauge(params: Readonly<{
             profileId: profileRef.profileId,
         }) ?? quotaDisplaySnapshot?.accountLabel ?? profileRef.profileId;
     }, [profileRef, quotaDisplaySnapshot?.accountLabel, profileLabelByKey]);
-    const displaySnapshotSource = React.useMemo(() => (
-        selectProviderUsageDisplaySnapshot({
-            providerId: params.providerId,
-            metadataRecordIds,
-            accountUsageSnapshotsByRecordId,
-            connectedServiceProfileRef: profileRef,
-            connectedServiceQuotaView: quotaDisplaySnapshot,
-        })
-    ), [accountUsageSnapshotsByRecordId, metadataRecordIds, params.providerId, profileRef, quotaDisplaySnapshot]);
-    const gaugeSource = React.useMemo(() => {
-        if (!connectedServiceQuotasEnabled || gaugeMode === 'hidden') return null;
-        // The display-snapshot selector gates credential-backed data. Session limit evidence is
-        // still authoritative during reconnect, just as it is for the recovery banner.
-        return selectConnectedServiceSessionProviderUsageGaugeSource({
-            providerId: params.providerId,
-            connectedServiceSnapshot: displaySnapshotSource?.snapshot ?? null,
-            connectedServiceRefProvenance: displaySnapshotSource?.connectedServiceRefProvenance ?? null,
-            sessionCheckNowSupported: params.sessionCheckNowSupported,
-            recoveryCredits: params.recoveryCredits,
-            runtimeIssue,
-            nowMs: nowServerMs(),
-        });
-    }, [
-        connectedServiceQuotasEnabled,
-        displaySnapshotSource,
-        gaugeMode,
-        params.providerId,
-        params.recoveryCredits,
-        runtimeIssue,
-        params.sessionCheckNowSupported,
-    ]);
+    const gaugeSource = connectedServiceQuotasEnabled && gaugeMode !== 'hidden'
+        ? resolved.gaugeSource : null;
     const gauge = React.useMemo(() => {
         if (!gaugeSource) return null;
         return computeConnectedServiceQuotaGaugeViewModel({

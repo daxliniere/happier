@@ -74,7 +74,9 @@ function buildRecordIdsSignature(recordIds: ReadonlyArray<string>): string {
 
 export function useProviderAccountUsageSnapshots(
   recordIds: ReadonlyArray<string>,
+  options: Readonly<{ fetchEnabled?: boolean }> = {},
 ): Record<string, ProviderAccountUsageSnapshotV1 | null> {
+  const fetchEnabled = options.fetchEnabled !== false;
   const auth = useAuth();
   const credentials = auth.credentials;
   const quotasEnabled = useFeatureEnabled('connectedServices.quotas');
@@ -125,6 +127,7 @@ export function useProviderAccountUsageSnapshots(
   }, []);
 
   React.useEffect(() => {
+    if (!fetchEnabled) return;
     if (!quotasEnabled) return;
     if (!credentials) return;
 
@@ -152,9 +155,10 @@ export function useProviderAccountUsageSnapshots(
     const delayMs = Math.max(0, nextWakeAtMs - now);
     const handle = setTimeout(() => setWakeSeq((value) => value + 1), delayMs);
     return () => clearTimeout(handle);
-  }, [accountUsageCacheVersion, cacheByRecordId, credentialScope, credentials, normalizedRecordIds, quotasEnabled, wakeSeq]);
+  }, [fetchEnabled, accountUsageCacheVersion, cacheByRecordId, credentialScope, credentials, normalizedRecordIds, quotasEnabled, wakeSeq]);
 
   React.useEffect(() => {
+    if (!fetchEnabled) return;
     if (!quotasEnabled) return;
     if (!credentials) return;
 
@@ -245,7 +249,7 @@ export function useProviderAccountUsageSnapshots(
         controller.abort();
       }
     };
-  }, [accountUsageCacheVersion, credentialScope, quotasEnabled, credentials, normalizedRecordIds, wakeSeq, resolveAccountMode]);
+  }, [fetchEnabled, accountUsageCacheVersion, credentialScope, quotasEnabled, credentials, normalizedRecordIds, wakeSeq, resolveAccountMode]);
 
   const snapshotsByRecordId: Record<string, ProviderAccountUsageSnapshotV1 | null> = {};
   if (!quotasEnabled || !credentialScope) return snapshotsByRecordId;

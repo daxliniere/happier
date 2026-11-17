@@ -35,9 +35,13 @@ describe('provider usage configuration visibility', () => {
         });
         const sessionIssue = makeIssue(nowMs - 60_000, 0);
         const latestIssue = makeIssue(nowMs, 30);
+        const otherAccountIssue: SessionRuntimeIssueV1 = { ...makeIssue(nowMs + 1, 0), usageLimit: {
+            ...latestIssue.usageLimit!, quotaSnapshotRef: { serviceId, profileId: 'other-login', fetchedAtMs: nowMs + 1 },
+        } };
         storage.setState({ isDataReady: true, sessions: {
             open: createSessionFixture({ id: 'open', updatedAt: nowMs, metadata: { flavor: agentId, path: '/repo', host: 'test' }, lastRuntimeIssue: sessionIssue }),
             latest: createSessionFixture({ id: 'latest', updatedAt: nowMs + 1, metadata: { flavor: agentId, path: '/repo', host: 'test' }, lastRuntimeIssue: latestIssue }),
+            other: createSessionFixture({ id: 'other', updatedAt: nowMs + 2, metadata: { flavor: agentId, path: '/repo', host: 'test' }, lastRuntimeIssue: otherAccountIssue }),
         } });
         try {
             const hook = await renderHook(() => ({
@@ -45,7 +49,7 @@ describe('provider usage configuration visibility', () => {
                     windowMode: 'most_constrained', fetchEnabled: false }),
                 composer: useProviderUsageGauge({ providerId: agentId, modelId: null,
                     profileRef: { serviceId, profileId: 'work', provenance: 'connected_binding_profile' },
-                    runtimeIssue: sessionIssue }),
+                    }),
             }));
             try {
                 expect(hook.getCurrent().header.gauges.get(agentId)?.remainingPct).toBe(30);
@@ -77,7 +81,7 @@ describe('provider usage configuration visibility', () => {
                     windowMode: 'most_constrained', fetchEnabled: false }),
                 composer: useProviderUsageGauge({ providerId: 'codex', modelId: null,
                     profileRef: { serviceId: 'openai-codex', profileId: 'work', provenance: 'connected_binding_profile' },
-                    runtimeIssue: issue }),
+                    }),
             }));
             try {
                 const rings = hook.getCurrent().composer.gauge?.usageRings;
@@ -113,7 +117,7 @@ describe('provider usage configuration visibility', () => {
                     windowMode: 'most_constrained', fetchEnabled: false }),
                 composer: useProviderUsageGauge({ providerId: 'codex', modelId: null,
                     profileRef: { serviceId: 'openai-codex', profileId: 'work', provenance: 'connected_binding_profile', credentialHealthStatus },
-                    runtimeIssue: issue }),
+                    }),
             }));
             try {
                 expect(hook.getCurrent().header.gauges.get('codex')?.remainingPct).toBe(0);

@@ -124,7 +124,8 @@ vi.mock('@/sync/api/account/apiConnectedServicesQuotasV2', () => ({
 }));
 
 vi.mock('@/sync/api/account/apiConnectedServicesQuotasV3', () => ({
-    getConnectedServiceQuotaSnapshotPlain: async () => quotaApiState.plainSnapshot,
+    getConnectedServiceQuotaSnapshotPlain: async () => quotaApiState.plainSnapshot
+        ? { snapshot: quotaApiState.plainSnapshot, metadata: null } : null,
 }));
 
 function requireCollapsedContentPopover(chip: AgentInputExtraActionChip | null) {
