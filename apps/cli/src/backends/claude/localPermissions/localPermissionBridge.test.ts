@@ -1062,6 +1062,34 @@ describe('ClaudeLocalPermissionBridge', () => {
     bridge.dispose();
   });
 
+  it('keeps provider-escalated reads pending across a switch to read-only and on arrival in read-only', async () => {
+    const { session, client } = createPermissionHandlerSessionStub('escalated-read-only');
+    client.updateMetadata((m) => ({ ...m, permissionMode: 'yolo', permissionModeUpdatedAt: 123 }));
+    const bridge = new ClaudeLocalPermissionBridge(session, { responseTimeoutMs: null });
+    bridge.activate();
+    const read = (id: string, escalated = true) => bridge.handlePermissionHook({
+      hook_event_name: 'PermissionRequest',
+      ...(escalated ? { permission_mode: 'bypassPermissions' } : {}),
+      tool_name: 'Read', tool_input: { file_path: '/tmp/example.txt' }, tool_use_id: id,
+    });
+    const beforeSwitch = read('before-switch');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.agentState.requests['before-switch']).toBeDefined();
+    client.updateMetadata((m) => ({ ...m, permissionMode: 'read-only', permissionModeUpdatedAt: 456 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.agentState.requests['before-switch']).toBeDefined();
+    const afterSwitch = read('after-switch');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.agentState.requests['after-switch']).toBeDefined();
+    await expect(read('ordinary-read', false)).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } });
+    for (const id of ['before-switch', 'after-switch']) {
+      await client.rpcHandlerManager.getHandler('permission')!({ id, approved: false });
+    }
+    await expect(beforeSwitch).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'deny' } } });
+    await expect(afterSwitch).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'deny' } } });
+    bridge.dispose();
+  });
+
   it('hard-denies new write-like permission hooks immediately when permissionMode=read-only in metadata', async () => {
     const { session, client } = createPermissionHandlerSessionStub('session-read-only-immediate-deny');
     client.updateMetadata((m) => ({ ...m, permissionMode: 'read-only', permissionModeUpdatedAt: 123 }));
