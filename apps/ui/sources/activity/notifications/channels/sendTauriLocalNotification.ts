@@ -21,7 +21,9 @@ async function showClickableDesktopNotification(params: Readonly<{
             body: params.body,
             sessionId: params.sessionId ?? null,
         })) === true;
-    } catch {
+    } catch (error) {
+        // Fall back to the plain toast (its click opens nothing), but say why.
+        console.warn('[notifications] Clickable desktop notification unavailable', error);
         return false;
     }
 }
