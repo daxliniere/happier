@@ -10138,7 +10138,10 @@ describe('createOpenCodeServerRuntime', () => {
       { info: { role: 'assistant', id: 'msg_prior_answer', time: { created: 2, completed: 3 }, finish: 'stop', sessionID: 'ses_remote' },
         parts: [{ type: 'text', text: 'prior answer' }] },
     ]);
-    const session = createFakeSession();
+    const session = {
+      ...createFakeSession(),
+      rpcHandlerManager: createMutableApiSessionClientFixture().rpcHandlerManager,
+    };
     session.fetchCommittedTranscriptIdentitySnapshot.mockResolvedValue({ complete: true, rows: [
       { localId: 'original-ui-prompt', role: 'user', meta: { source: 'ui' } },
       { localId: 'original-answer', role: 'agent', provider: 'opencode',
