@@ -141,7 +141,7 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
       return { decision: 'denied' };
     }
 
-    if (this.isAllowedForSession(toolName, input)) {
+    if (!providerEscalation && this.isAllowedForSession(toolName, input)) {
       logger.debug(`${this.getLogPrefix()} Auto-approving (allowed for session) tool ${toolName} (${toolCallId})`);
       return { decision: 'approved_for_session' };
     }
@@ -210,9 +210,9 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     permissionMode: PermissionMode,
     providerEscalation = false,
   ): boolean {
+    if (providerEscalation) return false;
     if (this.isAlwaysAutoApproveTool(toolName, input)) return true;
     if (this.isHappierToolsShellBridgeToolCall(toolName, input)) return true;
-    if (providerEscalation && this.isFullAutoApproveMode(permissionMode)) return false;
 
     switch (permissionMode) {
       case 'yolo':
@@ -289,7 +289,7 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     }
 
     // Respect user "don't ask again for session" choices captured via our permission UI.
-    if (this.isAllowedForSession(toolName, input)) {
+    if (!providerEscalation && this.isAllowedForSession(toolName, input)) {
       logger.debug(`${this.getLogPrefix()} Auto-approving (allowed for session) tool ${toolName} (${toolCallId})`);
       this.recordAutoDecision(toolCallId, toolName, input, 'approved_for_session');
       return { decision: 'approved_for_session' };

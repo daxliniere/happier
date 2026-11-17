@@ -123,4 +123,46 @@ describe('Claude PermissionHandler - mode change auto-approve', () => {
     await client.rpcHandlerManager.getHandler('permission')?.({ id: 'toolu_yolo_escalation_1', approved: false } as any);
     await expect(withTimeout(pending, 1_000)).resolves.toMatchObject({ behavior: 'deny' });
   });
+  it.each([
+    ['previous session allowance', 'Write', { file_path: '/tmp/escalated', content: 'x' }],
+    ['safe first-party tool', 'mcp__happier__action_execute', { actionId: 'execution.run.get', input: { runId: 'run-1' } }],
+    ['title shortcut', 'mcp__happier__change_title', { title: 'Example' }],
+  ])('keeps Claude escalations pending despite %s', async (_label, tool, input) => {
+    const { session, client } = createPermissionHandlerSessionStub('escalation-shortcuts');
+    client.agentState.completedRequests.seed = {
+      tool: 'Write', arguments: {}, createdAt: 1, completedAt: 2,
+      status: 'approved', allowedTools: ['Write'],
+    };
+    const { PermissionHandler } = await import('./permissionHandler');
+    const handler = new PermissionHandler(session);
+    handler.handleModeChange('yolo');
+    const pending = handler.handleToolCall(tool, input, { permissionMode: 'yolo' }, {
+      signal: new AbortController().signal, toolUseId: 'escalated', providerPermissionMode: 'bypassPermissions',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(client.agentState.requests.escalated).toBeDefined();
+    await client.rpcHandlerManager.getHandler('permission')!({ id: 'escalated', approved: false });
+    await expect(pending).resolves.toMatchObject({ behavior: 'deny' });
+  });
+
+  it('keeps pending Claude escalations when another response expands the session allowance', async () => {
+    const { session, client } = createPermissionHandlerSessionStub('escalation-allowlist-expansion');
+    const { PermissionHandler } = await import('./permissionHandler');
+    const handler = new PermissionHandler(session);
+    const call = (id: string, escalated = false) => handler.handleToolCall('Write', { file_path: '/tmp/' + id, content: 'x' },
+      { permissionMode: escalated ? 'yolo' : 'default' }, {
+        signal: new AbortController().signal, toolUseId: id,
+        ...(escalated ? { providerPermissionMode: 'bypassPermissions' } : {}),
+      });
+    const ordinary = call('ordinary');
+    const escalated = call('escalated', true);
+    const sibling = call('sibling');
+    await client.rpcHandlerManager.getHandler('permission')!({ id: 'ordinary', approved: true, allowedTools: ['Write'] });
+    await expect(ordinary).resolves.toMatchObject({ behavior: 'allow' });
+    await expect(sibling).resolves.toMatchObject({ behavior: 'allow' });
+    expect(client.agentState.requests.escalated).toBeDefined();
+    await client.rpcHandlerManager.getHandler('permission')!({ id: 'escalated', approved: false });
+    await expect(escalated).resolves.toMatchObject({ behavior: 'deny' });
+  });
+
 });

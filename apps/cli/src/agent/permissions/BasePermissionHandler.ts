@@ -444,10 +444,13 @@ export abstract class BasePermissionHandler {
             if (resolveAgentRequestKind(pending.toolName) !== 'permission') continue;
             if (!this.isAllowedForSession(pending.toolName, pending.input)) continue;
 
-            this.resolvePendingPermissionRequest(permissionId, { decision: 'approved' }, {
-                status: 'approved',
-                decision: 'approved',
-            });
+            // The admitted request may carry a provider escalation or run-scoped policy.
+            // A broader session allowance must not override that request's own decision.
+            const decision = pending.resolveDecisionIfPolicyChanges
+                ? pending.resolveDecisionIfPolicyChanges()
+                : { decision: 'approved' as const };
+            if (!decision) continue;
+            this.resolvePendingPermissionRequest(permissionId, decision);
         }
     }
 

@@ -171,6 +171,7 @@ export class PermissionHandler {
             }
             if (context.status !== 'live') continue;
             if (isInteractiveTool(pending.toolName)) continue;
+            if (pending.providerEscalation) continue;
             if (this.isToolExplicitlyAllowed(pending.toolName, pending.input)) {
                 idsToApprove.push(id);
             }
@@ -648,11 +649,11 @@ export class PermissionHandler {
         }
 
         // Check if tool is explicitly allowed
-        if (this.isToolExplicitlyAllowed(toolName, rewrittenInput)) {
+        if (!providerEscalation && this.isToolExplicitlyAllowed(toolName, rewrittenInput)) {
             return { behavior: 'allow', updatedInput: rewrittenInput as Record<string, unknown> };
         }
 
-        if (isChangeTitleToolLikeName(toolName)) {
+        if (!providerEscalation && isChangeTitleToolLikeName(toolName)) {
             return { behavior: 'allow', updatedInput: rewrittenInput as Record<string, unknown> };
         }
 
@@ -678,12 +679,13 @@ export class PermissionHandler {
             return { behavior: 'allow', updatedInput: rewrittenInput as Record<string, unknown> };
         }
 
-        if (effectiveMode === 'acceptEdits' && descriptor.edit) {
+        if (!providerEscalation && effectiveMode === 'acceptEdits' && descriptor.edit) {
             return { behavior: 'allow', updatedInput: rewrittenInput as Record<string, unknown> };
         }
 
         if (
-            !isInteractiveTool(toolName)
+            !providerEscalation
+            && !isInteractiveTool(toolName)
             && isSafeFirstPartyHappierActionToolCall({ toolName, input: rewrittenInput })
         ) {
             return { behavior: 'allow', updatedInput: rewrittenInput as Record<string, unknown> };

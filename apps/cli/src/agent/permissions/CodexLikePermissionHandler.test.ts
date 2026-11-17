@@ -523,6 +523,49 @@ describe('CodexLikePermissionHandler', () => {
     expect((await promise).decision).toBe('denied');
   });
 
+  it.each([
+    ['previous session allowance', 'Write', { path: '/tmp/escalated' }],
+    ['safe first-party tool', 'mcp__happier__action_execute', { actionId: 'execution.run.get', input: { runId: 'run-1' } }],
+  ])('keeps a provider escalation pending despite %s', async (_label, tool, input) => {
+    const session = new FakeSession();
+    session.agentState.completedRequests.seed = {
+      tool: 'Write', arguments: {}, createdAt: 1, completedAt: 2,
+      status: 'approved', decision: 'approved_for_session', allowedTools: ['Write'],
+    };
+    const handler = new CodexLikePermissionHandler({
+      // FakeSession implements the permission transport boundary used by this handler.
+      session: session as unknown as ConstructorParameters<typeof CodexLikePermissionHandler>[0]['session'],
+      logPrefix: '[Test]',
+    });
+    handler.setPermissionMode('yolo');
+    const pending = handler.handleToolCall('escalated', tool, input, { providerEscalation: true });
+    handler.setPermissionMode('yolo');
+    expect(await settledState(pending)).toBe('pending');
+    expect(session.agentState.requests.escalated).toBeDefined();
+    await session.rpcHandlerManager.handlers.get('permission')!({ id: 'escalated', approved: false, decision: 'denied' });
+    await expect(pending).resolves.toMatchObject({ decision: 'denied' });
+  });
+
+  it('does not approve a pending escalation when another response expands the session allowance', async () => {
+    const session = new FakeSession();
+    const handler = new CodexLikePermissionHandler({
+      // FakeSession implements the permission transport boundary used by this handler.
+      session: session as unknown as ConstructorParameters<typeof CodexLikePermissionHandler>[0]['session'],
+      logPrefix: '[Test]',
+    });
+    handler.setPermissionMode('yolo');
+    const ordinary = handler.handleToolCall('ordinary', 'Write', { path: '/tmp/ordinary' }, { permissionMode: 'default' });
+    const escalated = handler.handleToolCall('escalated', 'Write', { path: '/tmp/escalated' }, { providerEscalation: true });
+    const sibling = handler.handleToolCall('sibling', 'Write', { path: '/tmp/sibling' }, { permissionMode: 'default' });
+    await session.rpcHandlerManager.handlers.get('permission')!({ id: 'ordinary', approved: true, allowedTools: ['Write'] });
+    await expect(ordinary).resolves.toMatchObject({ decision: 'approved' });
+    await expect(sibling).resolves.toMatchObject({ decision: 'approved_for_session' });
+    expect(await settledState(escalated)).toBe('pending');
+    expect(session.agentState.requests.escalated).toBeDefined();
+    await session.rpcHandlerManager.handlers.get('permission')!({ id: 'escalated', approved: false, decision: 'denied' });
+    await expect(escalated).resolves.toMatchObject({ decision: 'denied' });
+  });
+
   it('refuses claimed request IDs before yolo or legacy-allowlist auto decisions', async () => {
     const session = new FakeSession();
     const input = { path: '/tmp/x', content: 'hi' };
@@ -671,7 +714,7 @@ describe('CodexLikePermissionHandler', () => {
     await expect(pending).resolves.toEqual({ decision: 'approved' });
   });
 
-  it('denies session_title_set when coding prompt title updates are disabled', async () => {
+  it.each([false, true])('denies session_title_set when title updates are disabled (provider escalation: %s)', async (providerEscalation) => {
     const session = new FakeSession();
     const handler = new CodexLikePermissionHandler({
       session: session as any,
@@ -685,7 +728,7 @@ describe('CodexLikePermissionHandler', () => {
       } as any),
     });
 
-    const result = await handler.handleToolCall('tool-1', 'mcp__happier__session_title_set', { title: 'Renamed' });
+    const result = await handler.handleToolCall('tool-1', 'mcp__happier__session_title_set', { title: 'Renamed' }, { providerEscalation, permissionMode: 'yolo' });
 
     expect(result.decision).toBe('denied');
     expect(session.agentState.requests['tool-1']).toBeUndefined();

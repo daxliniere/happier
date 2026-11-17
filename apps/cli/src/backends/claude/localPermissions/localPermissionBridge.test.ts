@@ -1020,6 +1020,48 @@ describe('ClaudeLocalPermissionBridge', () => {
     });
   });
 
+  it.each([
+    ['previous session allowance', 'Write', { file_path: '/tmp/escalated', content: 'x' }],
+    ['safe first-party tool', 'mcp__happier__action_execute', { actionId: 'execution.run.get', input: { runId: 'run-1' } }],
+    ['title shortcut', 'mcp__happier__change_title', { title: 'Example' }],
+  ])('keeps escalated hooks pending despite %s', async (_label, tool, input) => {
+    const { session, client } = createPermissionHandlerSessionStub('local-escalation-shortcuts');
+    client.agentState.completedRequests.seed = {
+      tool: 'Write', arguments: {}, createdAt: 1, completedAt: 2,
+      status: 'approved', allowedTools: ['Write'],
+    };
+    client.updateMetadata((m) => ({ ...m, permissionMode: 'yolo', permissionModeUpdatedAt: 123 }));
+    const bridge = new ClaudeLocalPermissionBridge(session, { responseTimeoutMs: null });
+    bridge.activate();
+    const pending = bridge.handlePermissionHook({ hook_event_name: 'PermissionRequest', permission_mode: 'bypassPermissions',
+      tool_name: tool, tool_input: input, tool_use_id: 'escalated' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.agentState.requests.escalated).toBeDefined();
+    await client.rpcHandlerManager.getHandler('permission')!({ id: 'escalated', approved: false });
+    await expect(pending).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'deny' } } });
+    bridge.dispose();
+  });
+
+  it('keeps escalated hooks pending when another response expands the session allowance', async () => {
+    const { session, client } = createPermissionHandlerSessionStub('local-escalation-expansion');
+    const bridge = new ClaudeLocalPermissionBridge(session, { responseTimeoutMs: null });
+    bridge.activate();
+    const call = (id: string, escalated = false) => bridge.handlePermissionHook({ hook_event_name: 'PermissionRequest',
+      ...(escalated ? { permission_mode: 'bypassPermissions' } : {}),
+      tool_name: 'Write', tool_input: { file_path: '/tmp/' + id, content: 'x' }, tool_use_id: id });
+    const ordinary = call('ordinary');
+    const escalated = call('escalated', true);
+    const sibling = call('sibling');
+    await vi.advanceTimersByTimeAsync(0);
+    await client.rpcHandlerManager.getHandler('permission')!({ id: 'ordinary', approved: true, allowedTools: ['Write'] });
+    await expect(ordinary).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } });
+    await expect(sibling).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } });
+    expect(client.agentState.requests.escalated).toBeDefined();
+    await client.rpcHandlerManager.getHandler('permission')!({ id: 'escalated', approved: false });
+    await expect(escalated).resolves.toMatchObject({ hookSpecificOutput: { decision: { behavior: 'deny' } } });
+    bridge.dispose();
+  });
+
   it('hard-denies new write-like permission hooks immediately when permissionMode=read-only in metadata', async () => {
     const { session, client } = createPermissionHandlerSessionStub('session-read-only-immediate-deny');
     client.updateMetadata((m) => ({ ...m, permissionMode: 'read-only', permissionModeUpdatedAt: 123 }));
