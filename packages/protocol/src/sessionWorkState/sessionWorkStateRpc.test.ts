@@ -429,6 +429,18 @@ describe('session work-state RPC contracts', () => {
         })).toThrow();
     });
 
+    it.each(['claude', 'codex'])('accepts %s reset-credit requests through the session recovery RPC', (provider) => {
+        expect(SessionUsageLimitCheckNowRequestV1Schema.parse({
+            sessionId: 's1',
+            provider: ` ${provider} `,
+            operation: 'consume_reset_credit',
+        })).toEqual({
+            sessionId: 's1',
+            provider,
+            operation: 'consume_reset_credit',
+        });
+    });
+
     it('defines shared request and response schemas for usage-limit recovery session RPCs', () => {
         expect(SessionUsageLimitWaitResumeEnableRequestV1Schema.parse({
             sessionId: 's1',
@@ -478,15 +490,6 @@ describe('session work-state RPC contracts', () => {
             provider: 'codex',
             operation: 'switch_account_now',
             resumePromptMode: 'off',
-        });
-        expect(SessionUsageLimitCheckNowRequestV1Schema.parse({
-            sessionId: 's1',
-            provider: ' claude ',
-            operation: 'consume_reset_credit',
-        })).toEqual({
-            sessionId: 's1',
-            provider: 'claude',
-            operation: 'consume_reset_credit',
         });
         expect(() => SessionUsageLimitCheckNowRequestV1Schema.parse({
             sessionId: 's1',
