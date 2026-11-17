@@ -18,6 +18,8 @@ import {
 } from './runtime';
 import type { KeyboardCommandId, KeybindingRule } from './types';
 import { FocusReturnProvider } from './focusReturn';
+import { isComposerTypeToFocusKey } from './composer';
+import { ESCAPE_LAYER_PRIORITIES, getMaxEscapeKeyBlockerPriority } from './escape';
 import { subscribeToNativeHardwareKeyboardEvents } from '@/components/sessions/agentInput/subscribeToIosHardwareShiftEnter';
 
 type KeyboardShortcutRegistrationContextValue = Readonly<{
@@ -261,11 +263,19 @@ export function KeyboardShortcutProvider(props: React.PropsWithChildren<Readonly
             // Focus during keydown and leave its default action intact: the browser
             // inserts the first character into the newly focused composer as well.
             if (typeof navigator === 'undefined' || !/Win/i.test(navigator.platform)) return;
-            if (event.isComposing || event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) return;
+            if (!isComposerTypeToFocusKey({
+                key: event.key,
+                ctrlKey: event.ctrlKey,
+                altKey: event.altKey,
+                metaKey: event.metaKey,
+                isComposing: event.isComposing,
+                altGraph: event.getModifierState?.('AltGraph') === true,
+            })) return;
             if (readKeyboardContextFromEventTarget(event.target).isEditableTarget) return;
             const target = event.target as HTMLElement | null;
             if (target?.closest?.('[role="menu"], [role="listbox"], [role="combobox"], [role="dialog"], dialog')) return;
-            if (event.key === ' ' && target?.closest?.('button, a, [role="button"]')) return;
+            // Popovers and menus (including the composer action menu) register on the escape stack while open.
+            if (getMaxEscapeKeyBlockerPriority() > ESCAPE_LAYER_PRIORITIES.overlay) return;
             if (typeof document !== 'undefined' && document.querySelector(
                 '[role="dialog"], dialog[open], [aria-modal="true"], [role="menu"], [role="listbox"]',
             )) return;

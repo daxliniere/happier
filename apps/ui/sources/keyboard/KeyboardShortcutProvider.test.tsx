@@ -123,6 +123,35 @@ describe('KeyboardShortcutProvider', () => {
         expect(focused).toBe('second');
     });
 
+    it('types AltGr characters, keeps Space for scrolling, and yields to open popovers on Windows', async () => {
+        vi.stubGlobal('navigator', { platform: 'Win32' });
+        vi.stubGlobal('document', { querySelector: () => null });
+        const focus = vi.fn();
+        const { renderScreen } = await import('@/dev/testkit');
+        const { KeyboardShortcutProvider } = await import('./KeyboardShortcutProvider');
+        const { registerEscapeLayer, ESCAPE_LAYER_PRIORITIES } = await import('./escape');
+        await renderScreen(<KeyboardShortcutProvider handlers={{ 'composer.focus': focus }}><Child /></KeyboardShortcutProvider>);
+
+        // AltGr reports Ctrl+Alt on Windows but still types a character such as "@" or "{".
+        window.dispatchEvent(createKeyboardEvent({
+            key: '@', ctrlKey: true, altKey: true,
+            getModifierState: (name: string) => name === 'AltGraph',
+        } as Partial<KeyboardEvent>));
+        expect(focus).toHaveBeenCalledTimes(1);
+
+        // Space keeps scrolling the transcript.
+        window.dispatchEvent(createKeyboardEvent({ key: ' ' }));
+        expect(focus).toHaveBeenCalledTimes(1);
+
+        // An open popover (registered on the escape stack, like the action menu) keeps the keystroke.
+        const unregister = registerEscapeLayer({ priority: ESCAPE_LAYER_PRIORITIES.popover, onEscape: () => true });
+        window.dispatchEvent(createKeyboardEvent({ key: 'a' }));
+        expect(focus).toHaveBeenCalledTimes(1);
+        unregister();
+        window.dispatchEvent(createKeyboardEvent({ key: 'a' }));
+        expect(focus).toHaveBeenCalledTimes(2);
+    });
+
     it('preserves input ownership, overlays, composition, shortcuts and other platforms when typing', async () => {
         vi.stubGlobal('navigator', { platform: 'Win32' });
         const querySelector = vi.fn((): object | null => null);
