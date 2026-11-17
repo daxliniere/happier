@@ -63,6 +63,18 @@ export function shouldIgnoreComposerKeyboardEvent(event: ComposerKeyEvent): bool
     return event.isComposing === true || event.repeat === true;
 }
 
+/**
+ * A key that types visible text: one non-space character with no command modifier. Space keeps
+ * scrolling the focused transcript. AltGr (reported as Ctrl+Alt on Windows) still types characters
+ * such as "@" or "{".
+ */
+export function isComposerTypeToFocusKey(event: ComposerKeyEvent & Readonly<{ altGraph?: boolean }>): boolean {
+    if (event.isComposing === true) return false;
+    if (event.metaKey === true) return false;
+    if (event.altGraph !== true && (event.ctrlKey === true || event.altKey === true)) return false;
+    return Array.from(event.key).length === 1 && event.key.trim() !== '';
+}
+
 export function shouldRunComposerModeCycleShortcut(
     event: ComposerKeyEvent,
     input: ComposerShortcutSettings & Readonly<{
