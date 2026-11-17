@@ -497,8 +497,15 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
         : resolveConnectedServiceQuotaMeterScopePrefix(effectiveMeter);
     const roundedRemaining = Math.round(effectiveRemainingPct);
     const numberWindowMode = params.numberWindowMode;
+    // Explicitly drawn favorites can come from a different unit group than the global
+    // selection pool. They remain eligible for the center number as long as the meter
+    // passed the normal rankability and row checks above.
+    const numberCandidates = [...new Map([
+        ...rankableMeters,
+        ...selectedMeters.map(({ meter }) => meter),
+    ].map((meter) => [meter.meterId, meter])).values()];
     const matchingNumberMeters = numberWindowMode
-        ? rankableMeters.filter(meter => meterMatchesWindowMode(meter, numberWindowMode))
+        ? numberCandidates.filter(meter => meterMatchesWindowMode(meter, numberWindowMode))
         : [];
     const numberMeters = matchingNumberMeters.length ? matchingNumberMeters : rankableMeters;
     const numberMeter = numberWindowMode
@@ -508,6 +515,7 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
         ), null) ?? effectiveMeter
         : effectiveMeter;
     const numberRemainingPct = deriveQuotaMeterValues(numberMeter).remainingPct ?? effectiveRemainingPct;
+    const numberRow = buildMeterRow(numberMeter, params.nowMs, params.formatter);
     const remainingValueLabel = params.formatter.remaining({ percent: `${roundedRemaining}%` });
     const staleAt = params.snapshot.fetchedAt + params.snapshot.staleAfterMs;
     const isStale = params.nowMs > staleAt;
@@ -557,14 +565,22 @@ export function computeConnectedServiceQuotaGaugeViewModel(_params: Readonly<{
         detailRightLabel: selectedRow.detailRightLabel,
         usedLimitLabel: selectedRow.usedLimitLabel,
         resetLabel: selectedRow.resetLabel,
-        tone: selectedRow.tone,
+        tone: numberRow?.tone ?? selectedRow.tone,
         isStale,
         recoveryCreditSummary: summarizeConnectedServiceQuotaRecoveryCredits(params.snapshot.recoveryCredits, params.nowMs),
         effectiveMeter,
         allMeterRows,
         // Outermost ring first: the longest period encloses the shorter ones.
         usageRings: [...displayedMeterRows]
-            .sort((a, b) => connectedServiceQuotaWindowRank(b.meter) - connectedServiceQuotaWindowRank(a.meter))
+            .sort((a, b) => {
+                const aDuration = a.meter.windowDurationMs;
+                const bDuration = b.meter.windowDurationMs;
+                if (typeof aDuration === 'number' && aDuration > 0
+                    && typeof bDuration === 'number' && bDuration > 0) {
+                    return bDuration - aDuration;
+                }
+                return connectedServiceQuotaWindowRank(b.meter) - connectedServiceQuotaWindowRank(a.meter);
+            })
             .map(({ meter, row }) => {
             const ringRemaining = Math.round(row.remainingPct);
             return {

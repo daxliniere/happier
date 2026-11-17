@@ -88,6 +88,50 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(weeklyOnly?.usageRings.map(ring => ring.meterId)).toEqual(['secondary']);
     });
 
+    it('uses the chosen center window tone when it differs from the first drawn ring', () => {
+        const input = {
+            snapshot: snapshot([
+                meter({ meterId: 'five_hour', label: '5-hour', remainingPct: 0, utilizationPct: 100, windowDurationMs: 18_000_000 }),
+                meter({ meterId: 'weekly', label: 'Weekly', remainingPct: 70, utilizationPct: 30, windowDurationMs: 604_800_000 }),
+            ]),
+            windowMode: 'most_constrained' as const,
+            nowMs: 2_000,
+            formatter,
+        };
+        const center = computeConnectedServiceQuotaGaugeViewModel({
+            ...input, windowModes: ['weekly', 'session'], numberWindowMode: 'session',
+        });
+        const exhausted = computeConnectedServiceQuotaGaugeViewModel({ ...input, windowModes: ['session'] });
+        expect(center?.ringValueLabel).toBe('0');
+        expect(center?.tone).toBe(exhausted?.tone);
+    });
+
+    it('nests known longer durations outside shorter windows in the same family', () => {
+        const vm = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: snapshot([
+                meter({ meterId: 'one_hour', label: '1-hour', remainingPct: 10, utilizationPct: 90, windowDurationMs: 3_600_000 }),
+                meter({ meterId: 'five_hour', label: '5-hour', remainingPct: 60, utilizationPct: 40, windowDurationMs: 18_000_000 }),
+            ]),
+            windowMode: 'most_constrained', windowModes: ['session'], additionalMeterIds: ['five_hour'],
+            nowMs: 2_000, formatter,
+        });
+        expect(vm?.usageRings.map(ring => ring.meterId)).toEqual(['five_hour', 'one_hour']);
+    });
+
+    it('centers on a selected drawn favorite from another unit group', () => {
+        const vm = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: snapshot([
+                meter({ meterId: 'weekly', label: 'Weekly', remainingPct: 10, utilizationPct: 90, windowDurationMs: 604_800_000 }),
+                meter({ meterId: 'daily', label: 'Daily', remainingPct: 20, utilizationPct: 80, windowDurationMs: 86_400_000 }),
+                meter({ meterId: 'session_tokens', label: '5-hour', unit: 'tokens', remainingPct: 60, utilizationPct: 40, windowDurationMs: 18_000_000 }),
+            ]),
+            windowMode: 'most_constrained', windowModes: ['weekly'], additionalMeterIds: ['session_tokens'],
+            numberWindowMode: 'session', nowMs: 2_000, formatter,
+        });
+        expect(vm?.usageRings.map(ring => ring.meterId)).toContain('session_tokens');
+        expect(vm?.ringValueLabel).toBe('60');
+    });
+
     it.each([['five_hour', 'weekly'], ['primary', 'secondary']])(
         'shows both %s and %s by default while allowing a single-limit choice',
         (shortId, longId) => {
