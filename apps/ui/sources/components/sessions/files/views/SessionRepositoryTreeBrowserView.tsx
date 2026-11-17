@@ -5,6 +5,7 @@ import { useUnistyles } from 'react-native-unistyles';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 
 import { RepositoryTreeList } from '@/components/sessions/files/content/RepositoryTreeList';
+import { SessionMediaGrid } from '@/components/sessions/sessionMedia/SessionMediaGrid';
 import { SearchResultsList } from '@/components/sessions/files/content/SearchResultsList';
 import { DropdownMenu } from '@/components/ui/forms/dropdown/DropdownMenu';
 import type { ItemAction } from '@/components/ui/lists/itemActions';
@@ -124,7 +125,7 @@ export const SessionRepositoryTreeBrowserView = React.memo((props: SessionReposi
     const searchQuery = props.searchQuery ?? uncontrolledSearchQuery;
     const setSearchQuery = props.onSearchQueryChange ?? setUncontrolledSearchQuery;
     const [showChangedOnly, setShowChangedOnly] = React.useState(false);
-    const [visibilityMode, setVisibilityMode] = React.useState<'project' | 'all'>('project');
+    const [visibilityMode, setVisibilityMode] = React.useState<'session' | 'project' | 'all'>('project');
     const [gitIgnoreStatus, setGitIgnoreStatus] = React.useState<Readonly<{ sessionId: string; available?: boolean }> | null>(null);
     const gitIgnoreAvailable = gitIgnoreStatus?.sessionId === props.sessionId ? gitIgnoreStatus.available : undefined;
     const setGitIgnoreAvailable = React.useCallback((available: boolean | undefined) => {
@@ -132,8 +133,11 @@ export const SessionRepositoryTreeBrowserView = React.memo((props: SessionReposi
             ? previous : { sessionId: props.sessionId, available });
     }, [props.sessionId]);
     const { paths: revealedPaths, revealPath, latestRequest } = useRepositoryTreeRevealedPaths(props.sessionId);
-    const effectiveVisibilityMode = gitIgnoreAvailable === true ? visibilityMode : 'all';
+    const effectiveVisibilityMode = visibilityMode === 'session'
+        ? 'session'
+        : gitIgnoreAvailable === true ? visibilityMode : 'all';
     const visibilityTabs = React.useMemo(() => [
+        { id: 'session' as const, label: t('files.toolbar.sessionMedia') },
         { id: 'project' as const, label: t('files.toolbar.projectFiles') },
         { id: 'all' as const, label: t('files.toolbar.allFiles') },
     ], []);
@@ -707,6 +711,11 @@ export const SessionRepositoryTreeBrowserView = React.memo((props: SessionReposi
                     onScroll={scrollFades.onScroll}
                     scrollEventThrottle={16}
                 />
+            ) : visibilityMode === 'session' ? (
+                <SessionMediaGrid
+                    sessionId={props.sessionId}
+                    onOpenFile={handleRepositoryFileOpen}
+                />
             ) : (
                 <RepositoryTreeList
                     theme={repositoryTreeTheme}
@@ -806,7 +815,7 @@ export const SessionRepositoryTreeBrowserView = React.memo((props: SessionReposi
                         onSelectTab={setVisibilityMode}
                         testIDPrefix="repository-tree-visibility"
                     />
-                    {gitIgnoreAvailable === false ? (
+                    {gitIgnoreAvailable === false && visibilityMode !== 'session' ? (
                         <Text testID="repository-tree-project-unavailable" style={{ color: theme.colors.text.secondary }}>
                             {t('files.toolbar.projectFilesUnavailable')}
                         </Text>
