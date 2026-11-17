@@ -523,6 +523,41 @@ describe('CodexLikePermissionHandler', () => {
     expect((await promise).decision).toBe('denied');
   });
 
+  it('auto-approves a provider-escalated directory listing in yolo mode', async () => {
+    const session = new FakeSession();
+    const handler = new CodexLikePermissionHandler({ session: session as any, logPrefix: '[Test]' });
+    handler.setPermissionMode('yolo');
+
+    const decision = handler.handleToolCall(
+      'ls-escalation',
+      'CodexBash',
+      { command: ['/bin/bash', '-lc', 'ls -la'] },
+      { providerEscalation: true },
+    );
+
+    expect(await settledState(decision)).toBe('fulfilled');
+    await expect(decision).resolves.toMatchObject({ decision: 'approved_for_session' });
+    expect(session.agentState.requests['ls-escalation']).toBeUndefined();
+  });
+
+  it('does not auto-approve a provider escalation when ls is combined with another shell action', async () => {
+    const session = new FakeSession();
+    const handler = new CodexLikePermissionHandler({ session: session as any, logPrefix: '[Test]' });
+    handler.setPermissionMode('yolo');
+
+    const pending = handler.handleToolCall(
+      'ls-compound-escalation',
+      'CodexBash',
+      { command: ['/bin/bash', '-lc', 'ls && cat /etc/shadow'] },
+      { providerEscalation: true },
+    );
+
+    expect(await settledState(pending)).toBe('pending');
+    expect(session.agentState.requests['ls-compound-escalation']).toBeDefined();
+    await session.rpcHandlerManager.handlers.get('permission')!({ id: 'ls-compound-escalation', approved: false, decision: 'denied' });
+    await expect(pending).resolves.toMatchObject({ decision: 'denied' });
+  });
+
   it.each([
     ['previous session allowance', 'Write', { path: '/tmp/escalated' }],
     ['safe first-party tool', 'mcp__happier__action_execute', { actionId: 'execution.run.get', input: { runId: 'run-1' } }],

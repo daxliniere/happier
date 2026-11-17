@@ -26,6 +26,7 @@ import type { AccountSettings } from '@happier-dev/protocol';
 import { isDefaultWriteLikeToolName } from './writeLikeToolNameHeuristics';
 import { isTrustedAlwaysAutoApproveToolName } from './alwaysAutoApproveToolName';
 import { extractShellCommand } from './permissionToolIdentifier';
+import { isShellCommandAllowed } from './shellCommandAllowlist';
 import { resolveAgentRequestKind } from './requestKind';
 import { shouldDenyAgentSessionTitleToolCall } from './codingPromptTitlePermission';
 import { resolveSessionCodingPromptSettingsFromSession } from '../prompting/coding/resolveSessionCodingPromptSettings';
@@ -34,6 +35,11 @@ import { parseTrustedHappierToolsShellBridgeCommand } from '@/agent/tools/happie
 export type { PermissionResult, PendingRequest };
 
 const AUTO_APPROVE_HAPPIER_SHELL_BRIDGE_TOOLS = new Set(['change_title', 'session_title_set', 'save_memory', 'think']);
+const YOLO_SAFE_DIRECTORY_LISTING_PATTERNS = [
+  { kind: 'prefix', value: 'ls' },
+  { kind: 'prefix', value: '/bin/ls' },
+  { kind: 'prefix', value: '/usr/bin/ls' },
+] as const;
 export { isDefaultWriteLikeToolName };
 
 export class CodexLikePermissionHandler extends BasePermissionHandler {
@@ -195,6 +201,12 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     }
   }
 
+  private isYoloSafeDirectoryListingEscalation(toolName: string, input: unknown): boolean {
+    if (toolName.toLowerCase() !== 'codexbash') return false;
+    const command = extractShellCommand(input);
+    return command != null && isShellCommandAllowed(command, [...YOLO_SAFE_DIRECTORY_LISTING_PATTERNS]);
+  }
+
   private isFullAutoApproveMode(permissionMode: PermissionMode): boolean {
     return permissionMode === 'yolo' || permissionMode === 'bypassPermissions';
   }
@@ -210,7 +222,10 @@ export class CodexLikePermissionHandler extends BasePermissionHandler {
     permissionMode: PermissionMode,
     providerEscalation = false,
   ): boolean {
-    if (providerEscalation) return false;
+    if (providerEscalation) {
+      return this.isFullAutoApproveMode(permissionMode)
+        && this.isYoloSafeDirectoryListingEscalation(toolName, input);
+    }
     if (this.isAlwaysAutoApproveTool(toolName, input)) return true;
     if (this.isHappierToolsShellBridgeToolCall(toolName, input)) return true;
 
