@@ -1847,17 +1847,24 @@ function shouldReplaceLatestProviderUsageRuntimeIssue(
 export function selectProviderUsageRuntimeIssuesForAccounts(sessions: Record<string, Session>, targets: readonly Readonly<{
   providerId: string | null;
   profileRef?: Readonly<{ serviceId: string; profileId: string }> | null;
+  metadataRecordIds?: readonly string[] | null;
 }>[]): readonly (SessionRuntimeIssueV1 | null)[] {
   return targets.map((target) => {
     let latest: SessionRuntimeIssueV1 | null = null;
     let updatedAt = -1;
     if (!target.providerId) return latest;
+    const nativeAccountProfileIds = target.metadataRecordIds?.length
+      ? new Set(target.metadataRecordIds.flatMap((recordId) => [`acct:${recordId}`, `native:${recordId}`]))
+      : null;
     for (const session of Object.values(sessions)) {
       const issue = session.lastRuntimeIssue;
       if (!issue?.usageLimit || resolveAgentIdFromFlavor(issue.provider) !== target.providerId) continue;
-      const ref = issue.usageLimit.quotaSnapshotRef;
-      if (target.profileRef && (!ref || ref.serviceId !== target.profileRef.serviceId
-        || ref.profileId !== target.profileRef.profileId)) continue;
+      const refServiceId = issue.usageLimit.quotaSnapshotRef?.serviceId ?? issue.usageLimit.connectedService?.serviceId;
+      const refProfileId = issue.usageLimit.quotaSnapshotRef?.profileId ?? issue.usageLimit.connectedService?.profileId;
+      if (target.profileRef && (refServiceId !== target.profileRef.serviceId
+        || refProfileId !== target.profileRef.profileId)) continue;
+      if (!target.profileRef && nativeAccountProfileIds && refServiceId
+        && (!refProfileId || !nativeAccountProfileIds.has(refProfileId))) continue;
       if (!shouldReplaceLatestProviderUsageRuntimeIssue(latest, updatedAt, issue, session.updatedAt)) continue;
       latest = issue;
       updatedAt = session.updatedAt;

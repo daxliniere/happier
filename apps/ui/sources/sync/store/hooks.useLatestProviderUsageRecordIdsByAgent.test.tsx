@@ -16,6 +16,33 @@ const withUsageRefs = (recordIds: string[]) => ({
 });
 
 describe('useLatestProviderUsageRecordIdsByAgent', () => {
+    it('does not apply another connected profile runtime issue to an explicit native account target', () => {
+        const recordId = 'paug_v1_aaaaaaaa';
+        const connectedIssue = {
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'codex', occurredAt: 2_000,
+            usageLimit: { v: 1, resetAtMs: 10_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'openai-codex', profileId: 'work' } },
+        } as const;
+        const matchingNativeIssue = {
+            ...connectedIssue,
+            usageLimit: { ...connectedIssue.usageLimit,
+                quotaSnapshotRef: { serviceId: 'openai-codex', profileId: `acct:${recordId}` } },
+        } as const;
+        const sessions = {
+            connected: createSessionFixture({ id: 'connected', metadata: { flavor: 'codex' } as never,
+                lastRuntimeIssue: connectedIssue }),
+        };
+
+        expect(selectProviderUsageRuntimeIssuesForAccounts(sessions, [{
+            providerId: 'codex', metadataRecordIds: [recordId],
+        }])).toEqual([null]);
+        expect(selectProviderUsageRuntimeIssuesForAccounts({
+            native: createSessionFixture({ id: 'native', metadata: { flavor: 'codex' } as never,
+                lastRuntimeIssue: matchingNativeIssue }),
+        }, [{ providerId: 'codex', metadataRecordIds: [recordId] }])).toEqual([matchingNativeIssue]);
+    });
+
     it.each(['claude', 'codex', 'opencode'] as const)('selects the latest issue for %s using the provider-wide source', async (agentId) => {
         const previousState = storage.getState();
         const oldIssue = {

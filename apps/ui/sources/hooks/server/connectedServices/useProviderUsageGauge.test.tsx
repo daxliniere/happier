@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react-test-renderer';
-import { buildProviderAccountUsageRecordId, ProviderAccountUsageSnapshotV1Schema } from '@happier-dev/protocol';
+import { AccountProfileSchema, buildProviderAccountUsageRecordId, ProviderAccountUsageSnapshotV1Schema } from '@happier-dev/protocol';
 import { createSessionFixture, renderHook, standardCleanup } from '@/dev/testkit';
 import { storage } from '@/sync/domains/state/storageStore';
 import { resolveAuthCredentialsScopeKey } from '@/auth/storage/resolveAuthCredentialsScopeKey';
@@ -15,6 +15,36 @@ vi.mock('@/hooks/server/useFeatureEnabled', () => ({ useFeatureEnabled: () => tr
 afterEach(() => { standardCleanup(); __resetProviderAccountUsageSnapshotCache(); });
 
 describe('useProviderUsageGauge native usage discovery', () => {
+    it('does not show cached native account usage for the default connected profile without its own quota snapshot', async () => {
+        const previous = storage.getState();
+        const connectedServicesV2 = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'openai-codex', profiles: [{ profileId: 'work', status: 'connected' }],
+        }] }).connectedServicesV2;
+        const recordKey = { providerId: 'codex', accountSubjectId: 'personal-login', subjectKind: 'account', quotaScope: 'account' } as const;
+        const snapshot = ProviderAccountUsageSnapshotV1Schema.parse({
+            v: 1, recordId: buildProviderAccountUsageRecordId(recordKey), recordKey, providerId: 'codex',
+            accountSubject: { kind: 'providerSubject', id: 'personal-login' },
+            observedAtMs: Date.now(), fetchedAtMs: Date.now(), staleAfterMs: 60_000,
+            source: 'providerHttp', confidence: 'confirmed', state: 'loaded_data',
+            meters: [{ meterId: 'weekly', label: 'Weekly', used: 100, limit: 100, unit: 'count',
+                utilizationPct: null, remainingPct: null, resetsAt: null, status: 'ok',
+                details: { limitCategory: 'usage_limit' } }],
+        });
+        writeProviderAccountUsageSnapshotToCache({ credentialScope: resolveAuthCredentialsScopeKey(credentials), snapshot });
+        storage.setState({ isDataReady: true, profile: AccountProfileSchema.parse({ id: 'account', connectedServicesV2 }),
+            sessions: { personal: createSessionFixture({ id: 'personal', metadata: { flavor: 'codex', path: '/repo', host: 'test',
+                providerAccountUsageRefsV1: { v: 1, recordIds: [snapshot.recordId], updatedAtMs: Date.now() } } as never }) } });
+        try {
+            const hook = await renderHook(() => useProviderUsageGauges({
+                agentIds: ['codex'], accountProfileConnectedServicesV2: connectedServicesV2,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }));
+            try {
+                expect(hook.getCurrent().gauges.get('codex')).toBeUndefined();
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
     it.each(['claude', 'codex', 'opencode'] as const)('publishes the same cached %s account observation to the HUD and composer', async (providerId) => {
         const previous = storage.getState();
         const recordKey = { providerId, accountSubjectId: 'shared-login', subjectKind: 'account', quotaScope: 'account' } as const;
