@@ -3,7 +3,7 @@ import { act } from 'react-test-renderer';
 
 import { createSessionFixture, renderHook, standardCleanup } from '@/dev/testkit';
 
-import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssueForAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
+import { useLatestProviderUsageRecordIdsByAgent, selectProviderUsageRuntimeIssuesForAccounts, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { storage } from '@/sync/domains/state/storageStore';
 
 afterEach(() => {
@@ -30,12 +30,12 @@ describe('useLatestProviderUsageRecordIdsByAgent', () => {
                 latest: createSessionFixture({ id: 'latest', metadata: { flavor: agentId } as never, lastRuntimeIssue: latestIssue }),
             } });
             const hook = await renderHook(() => ({
-                composer: useLatestProviderUsageRuntimeIssueForAgent(agentId),
+                composer: selectProviderUsageRuntimeIssuesForAccounts(storage.getState().sessions, [{ providerId: agentId }]),
                 hud: useLatestProviderUsageRuntimeIssuesByAgent(),
             }));
             try {
-                expect(hook.getCurrent().composer).toEqual({ isDataReady: true, issue: latestIssue });
-                expect(hook.getCurrent().composer.issue).toEqual(hook.getCurrent().hud.get(agentId));
+                expect(hook.getCurrent().composer).toEqual([latestIssue]);
+                expect(hook.getCurrent().composer[0]).toEqual(hook.getCurrent().hud.get(agentId));
             } finally { await hook.unmount(); }
         } finally { storage.setState(previousState); }
     });

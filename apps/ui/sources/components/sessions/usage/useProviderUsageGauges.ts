@@ -3,23 +3,17 @@ import type { AccountProfile } from '@happier-dev/protocol';
 
 import { getAgentCore, type AgentId } from '@/agents/catalog/catalog';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
-import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
+import { useProviderUsageSources } from '@/hooks/server/connectedServices/useProviderUsageSources';
 import { runProviderUsageRefresh, useProviderUsageRefreshContext } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
-import { useProviderAccountUsageSnapshots } from '@/hooks/server/connectedServices/useProviderAccountUsageSnapshots';
-import { selectProviderUsageDisplaySnapshot } from '@/sync/domains/connectedServices/accountUsage/selectors';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
-    deriveConnectedServiceQuotaSnapshotFromRuntimeIssue,
-    selectConnectedServiceSessionProviderUsageGaugeSource,
     type ConnectedServiceQuotaGaugeViewModel,
     type ConnectedServiceQuotaGaugeWindowMode,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
-import { connectedServiceProfileKey } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { nowServerMs } from '@/sync/runtime/time';
 import { useSetting } from '@/sync/domains/state/storage';
 import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { t } from '@/text';
-import { resolveDefaultProviderUsageProfileRef } from './resolveDefaultProviderUsageProfileRef';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
 
@@ -27,9 +21,8 @@ type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][numb
  * Usage gauge per Agent, for surfaces that show every configured provider at once (the
  * sessions pane header and the Agent picker rail).
  *
- * Two sources, through the same selector the composer uses: a usable connected-service
- * profile's quota, else the provider account usage the Agent's most recent session
- * recorded for the native login. An Agent with neither has no entry.
+ * All observations and account matching are owned by useProviderUsageSources, shared
+ * with both composers. This hook only projects gauges and configuration for the rail/HUD.
  */
 export function useProviderUsageGauges(params: Readonly<{
     agentIds: readonly AgentId[];
@@ -46,34 +39,18 @@ export function useProviderUsageGauges(params: Readonly<{
 }> {
     const windowModes = useSetting('sessionProviderUsageGaugeWindowModes');
     const numberWindowMode = useSetting('sessionProviderUsageGaugeNumberWindowMode');
-    const profileRefByAgentId = React.useMemo(() => {
-        const refs = new Map<AgentId, { serviceId: string; profileId: string }>();
-        for (const agentId of params.agentIds) {
-            const ref = resolveDefaultProviderUsageProfileRef({
-                agentId,
-                connectedServices: params.accountProfileConnectedServicesV2,
-            });
-            if (ref) refs.set(agentId, ref);
-        }
-        return refs;
-    }, [params.accountProfileConnectedServicesV2, params.agentIds]);
-    const profileRefs = React.useMemo(() => [...profileRefByAgentId.values()], [profileRefByAgentId]);
-    const quotaSnapshots = useConnectedServiceQuotaSnapshots(profileRefs, {
-        fetchPolicy: params.fetchEnabled ? 'poll' : 'cache_only',
+    const requests = React.useMemo(() => params.agentIds.map(providerId => ({ providerId })), [params.agentIds]);
+    const resolved = useProviderUsageSources({
+        requests,
+        connectedServices: params.accountProfileConnectedServicesV2,
+        fetchEnabled: params.fetchEnabled,
     });
-
-    // The most recent session per Agent that recorded usage refs speaks for that Agent's login.
     const latestRecordIdsByAgent = useLatestProviderUsageRecordIdsByAgent();
     const latestRuntimeIssuesByAgent = useLatestProviderUsageRuntimeIssuesByAgent();
-    const recordIdsByAgentId = React.useMemo(() => {
-        const wanted = new Set<string>(params.agentIds);
-        return new Map([...latestRecordIdsByAgent].filter(([agentId]) => wanted.has(agentId)));
-    }, [params.agentIds, latestRecordIdsByAgent]);
-    const allRecordIds = React.useMemo(
-        () => params.fetchEnabled ? [...latestRecordIdsByAgent.values()].flat() : [],
-        [params.fetchEnabled, latestRecordIdsByAgent],
-    );
-    const accountUsageSnapshots = useProviderAccountUsageSnapshots(allRecordIds);
+    const recordIdsByAgentId = latestRecordIdsByAgent;
+    const profileRefByAgentId = React.useMemo(() => new Map(params.agentIds.map((id, index) => (
+        [id, resolved[index].profileRef] as const
+    ))), [params.agentIds, resolved]);
 
     const refreshContext = useProviderUsageRefreshContext();
     const refreshAgent = React.useCallback((agentId: AgentId) => {
@@ -87,30 +64,8 @@ export function useProviderUsageGauges(params: Readonly<{
     const gauges = React.useMemo(() => {
         const gauges = new Map<AgentId, ConnectedServiceQuotaGaugeViewModel>();
         const nowMs = nowServerMs();
-        for (const agentId of params.agentIds) {
-            const ref = profileRefByAgentId.get(agentId) ?? null;
-            const source = selectProviderUsageDisplaySnapshot({
-                providerId: agentId,
-                // A session can retain usage refs from before a provider switch. The display
-                // selector checks each snapshot's provider identity rather than the session's current one.
-                metadataRecordIds: allRecordIds,
-                accountUsageSnapshotsByRecordId: accountUsageSnapshots,
-                connectedServiceProfileRef: ref ? { ...ref, provenance: 'published_quota_ref' } : null,
-                connectedServiceQuotaView: ref ? quotaSnapshots.snapshotsByKey[connectedServiceProfileKey(ref)] ?? null : null,
-            });
-            // A limit-hit report remains useful while the quota endpoint has no snapshot. For a
-            // configured profile, accept only evidence explicitly bound to that same login.
-            const issue = latestRuntimeIssuesByAgent.get(agentId);
-            const runtimeSnapshot = ref ? deriveConnectedServiceQuotaSnapshotFromRuntimeIssue(issue) : null;
-            const runtimeIssue = !ref || (runtimeSnapshot
-                && connectedServiceProfileKey(runtimeSnapshot) === connectedServiceProfileKey(ref)) ? issue : null;
-            const gaugeSource = selectConnectedServiceSessionProviderUsageGaugeSource({
-                providerId: agentId,
-                connectedServiceSnapshot: source?.snapshot ?? null,
-                connectedServiceRefProvenance: source?.connectedServiceRefProvenance,
-                runtimeIssue,
-                nowMs,
-            });
+        for (const [index, agentId] of params.agentIds.entries()) {
+            const gaugeSource = resolved[index].gaugeSource;
             if (!gaugeSource) continue;
             const gauge = computeConnectedServiceQuotaGaugeViewModel({
                 snapshot: gaugeSource.snapshot,
@@ -124,9 +79,9 @@ export function useProviderUsageGauges(params: Readonly<{
             if (gauge) gauges.set(agentId, gauge);
         }
         return gauges;
-    }, [accountUsageSnapshots, allRecordIds, params.agentIds, params.windowMode, windowModes, numberWindowMode, profileRefByAgentId, quotaSnapshots.snapshotsByKey, latestRuntimeIssuesByAgent]);
+    }, [resolved, params.agentIds, params.windowMode, windowModes, numberWindowMode]);
     const configuredAgentIds = React.useMemo(() => new Set(
-        params.agentIds.filter((agentId) => (
+        params.agentIds.filter((agentId, index) => (
             // Configuration and query eligibility are different facts. A refresh/reconnect status
             // must not remove a saved provider from the HUD while its figures are unavailable.
             (getAgentCore(agentId).connectedServices?.supportedServiceIds ?? []).some((serviceId) => (
@@ -135,7 +90,8 @@ export function useProviderUsageGauges(params: Readonly<{
             ))
             || recordIdsByAgentId.has(agentId)
             || latestRuntimeIssuesByAgent.has(agentId)
+            || resolved[index].gaugeSource !== null
         )),
-    ), [params.agentIds, params.accountProfileConnectedServicesV2, recordIdsByAgentId, latestRuntimeIssuesByAgent]);
+    ), [params.agentIds, params.accountProfileConnectedServicesV2, recordIdsByAgentId, latestRuntimeIssuesByAgent, resolved]);
     return React.useMemo(() => ({ gauges, configuredAgentIds, refreshAgent }), [gauges, configuredAgentIds, refreshAgent]);
 }

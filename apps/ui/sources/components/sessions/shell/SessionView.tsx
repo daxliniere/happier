@@ -3799,8 +3799,9 @@ function SessionViewLoaded({
             metadata: session.metadata,
             agentId: liveComposerState.agentId,
             accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
+            runtimeIssue: sessionRuntimeStatusSource.lastRuntimeIssue,
         })
-    ), [accountProfile?.connectedServicesV2, liveComposerState.agentId, session.metadata]);
+    ), [accountProfile?.connectedServicesV2, liveComposerState.agentId, session.metadata, sessionRuntimeStatusSource.lastRuntimeIssue]);
     const sessionAgentCatalogEntries = React.useMemo(() => getResolvedBackendCatalogEntries({
         enabledAgentIds,
         acpCatalogSettingsV1: settings.acpCatalogSettingsV1,
@@ -4022,7 +4023,7 @@ function SessionViewLoaded({
         profileRef: connectedServiceQuotaProfileRef,
         modelId: modelMode,
         metadataRecordIds: providerAccountUsageRecordIds,
-        runtimeIssue: sessionRuntimeStatusSource.lastRuntimeIssue ?? null,
+        nativeAccount: usageLimitRecovery?.selectedAuth?.kind === 'native',
         sessionCheckNowSupported: usageLimitRecoveryCheckNowSupported,
         recoveryCredits: usageLimitRecoveryCredits,
     });
