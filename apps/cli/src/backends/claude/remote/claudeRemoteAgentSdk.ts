@@ -73,7 +73,6 @@ import { parseCheckpointsCommand, parseRewindCommand } from './agentSdk/claudeAg
 import { completeClaudeRemoteClear } from './localCommands';
 import {
     mapClaudeRateLimitEventToQuotaEvidence,
-    readClaudeRateLimitEventWindows,
     mapClaudeProviderFailureToUsageDetails,
     type NormalizedProviderUsageLimitDetailsV1,
 } from '../connectedServices/mapClaudeRateLimitEventToUsageDetails';
@@ -182,6 +181,8 @@ export async function claudeRemoteAgentSdk(opts: {
     /** Authenticated SDK hooks share the existing workflow observation channel without transcript output. */
     onSessionHook?: (data: SessionHookData) => void;
     onThinkingChange?: (thinking: boolean) => void;
+    /** Capture request-scoped evidence at submission, never while reading queued input ahead. */
+    onBeforeProviderPrompt?: () => void | Promise<void>;
     onProviderPromptStarted?: () => void | Promise<void>;
     onMessage: (message: SDKMessage) => void;
     /** Live provider ingress, before transcript filtering or buffering. */
@@ -210,10 +211,8 @@ export async function claudeRemoteAgentSdk(opts: {
     onCheckpointCaptured?: (checkpointId: string) => void;
     onCapabilities?: (caps: { slashCommands?: string[]; slashCommandDetails?: Array<{ command: string; description?: string }>; models?: unknown[] }) => void;
     onWorkStateSnapshot?: (snapshot: SessionWorkStateV1) => void | Promise<void>;
-    /** `observedWindows`: every window the same event reported, the limited one included. */
     onRateLimitEvent?: (
         details: NormalizedProviderUsageLimitDetailsV1,
-        observedWindows: readonly NormalizedProviderUsageLimitDetailsV1[],
     ) => void | Promise<void>;
     /** Every quota window reported by one rate-limit event; they form one quota snapshot. */
     onQuotaEvidence?: (windows: readonly NormalizedProviderUsageLimitDetailsV1[]) => void | Promise<void>;
@@ -1049,6 +1048,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
     };
 
 	    try {
+            if (initial.pendingProviderAction !== 'steer' && opts.onBeforeProviderPrompt) await opts.onBeforeProviderPrompt();
 	        response = createQuery({
 	            prompt: messages,
 	            options: queryOptions,
@@ -1656,6 +1656,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                         }
 
                         if (pendingProviderAction !== 'steer') {
+                            if (opts.onBeforeProviderPrompt) await opts.onBeforeProviderPrompt();
                             resetForegroundTurn();
                         }
                         foregroundTurnInterruptActive = true;
@@ -1859,7 +1860,7 @@ Current model: ${lastAppliedRuntimeSettings.model ?? 'provider default'}.${messa
                 }
                 const rateLimitDetails = mapClaudeProviderFailureToUsageDetails(message);
                 if (rateLimitDetails) {
-                    await opts.onRateLimitEvent?.(rateLimitDetails, readClaudeRateLimitEventWindows(message));
+                    await opts.onRateLimitEvent?.(rateLimitDetails);
                 }
             }
             if (inboundType === 'rate_limit_event') {
