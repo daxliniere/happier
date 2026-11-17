@@ -2,7 +2,8 @@ import * as React from 'react';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { MeterBar, type MeterTone } from '@/components/ui/lists/MeterBar';
+import type { MeterTone } from '@/components/ui/lists/MeterBar';
+import { UsageMeterBar } from '@/components/sessions/usage/UsageMeterBar';
 import { Text } from '@/components/ui/text/Text';
 import {
     formatTokenUsageCount,
@@ -93,9 +94,10 @@ export function GoalUsageMetadata(props: Readonly<{ goal: SessionWorkStateItem }
             >
                 {segments.join(' · ')}
             </Text>
-            <MeterBar
+            <UsageMeterBar
                 testID="session-goal-budget-meter"
                 tone={resolveBudgetTone(ratio)}
+                remainingPct={(1 - ratio) * 100}
                 fillFraction={ratio}
                 height={4}
                 caption={
