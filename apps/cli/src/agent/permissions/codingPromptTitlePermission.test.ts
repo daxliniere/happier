@@ -32,8 +32,92 @@ describe('shouldDenyAgentSessionTitleToolCall', () => {
     expect(shouldDenyAgentSessionTitleToolCall({ settings: settingsFor('ongoing'), sessionMetadata: titled, ...titleCall })).toBe(false);
   });
 
-  it('still denies every rename when title updates are disabled', () => {
-    expect(shouldDenyAgentSessionTitleToolCall({ settings: settingsFor('disabled'), sessionMetadata: null, ...titleCall })).toBe(true);
+  it('allows only a version-token update when title updates are otherwise disabled', () => {
+    const existingTitle = '⭐Build latest packages: v0.2.20-beta1.7';
+    const nextTitle = '⭐Build latest packages: v0.2.20-beta1.8';
+
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: existingTitle } },
+      toolName: 'mcp__happier__change_title',
+      input: { title: nextTitle },
+    })).toBe(false);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: existingTitle } },
+      toolName: 'mcp__happier__change_title',
+      input: { title: 'Build beta1.8' },
+    })).toBe(true);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: existingTitle } },
+      toolName: 'mcp__happier__change_title',
+      input: { title: '⭐Build latest packages v0.2.20-beta1.8' },
+    })).toBe(true);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: null,
+      toolName: 'mcp__happier__change_title',
+      input: { title: nextTitle },
+    })).toBe(true);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { name: existingTitle },
+      toolName: 'mcp__happier__session_title_set',
+      input: { title: nextTitle },
+    })).toBe(false);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: existingTitle } },
+      toolName: 'mcp__happier__change_title',
+      input: { title: '⭐Build latest packages: v0.2.20-beta1.7' },
+    })).toBe(true);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: `${existingTitle} based on v1.2.3` } },
+      toolName: 'mcp__happier__change_title',
+      input: { title: '⭐Build latest packages: v0.2.20-beta1.8 based on v1.2.3' },
+    })).toBe(true);
+  });
+
+  it('allows the same constrained version update through the shell bridge title action', () => {
+    const existingTitle = '⭐Build latest packages: v0.2.20-beta1.7';
+    const command = (title: string) =>
+      `happier tools call --source happier --tool change_title --args-json '${JSON.stringify({ title })}' --json`;
+
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: existingTitle } },
+      toolName: 'Bash',
+      input: { command: command('⭐Build latest packages: v0.2.20-beta1.8') },
+    })).toBe(false);
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: existingTitle } },
+      toolName: 'Bash',
+      input: { command: command('⭐Build beta1.8') },
+    })).toBe(true);
+  });
+
+  it('allows a version-only update in initial mode after the first title is already set', () => {
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('initial'),
+      sessionMetadata: { summary: { text: '⭐Build latest packages: v0.2.20-beta1.7' } },
+      toolName: 'mcp__happier__change_title',
+      input: { title: '⭐Build latest packages: v0.2.20-beta1.8' },
+    })).toBe(false);
+  });
+
+  it('allows a version-only update through the nested session title action', () => {
+    expect(shouldDenyAgentSessionTitleToolCall({
+      settings: settingsFor('disabled'),
+      sessionMetadata: { summary: { text: '⭐Build latest packages: v0.2.20-beta1.7' } },
+      toolName: 'happier_action_execute',
+      input: {
+        actionId: 'session.title.set',
+        input: { title: '⭐Build latest packages: v0.2.20-beta1.8' },
+      },
+    })).toBe(false);
   });
 
   it('never denies unrelated tool calls', () => {

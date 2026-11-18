@@ -111,6 +111,44 @@ describe('buildAppendSystemPromptBaseV1', () => {
     expect(out).toContain('# Attachments');
   });
 
+  it('gives a narrowly scoped version-only title instruction when an existing title is locked', () => {
+    const out = buildAppendSystemPromptBaseV1({
+      settings: {
+        codingPromptBehaviorV1: {
+          v: 1,
+          sessionTitleUpdates: 'disabled',
+          responseOptions: 'agent',
+        },
+      },
+      sessionMetadata: { summary: { text: '⭐Build latest packages: v0.2.20-beta1.7' } },
+      executionRunsFeatureEnabled: false,
+      memoryRecallGuidanceEnabled: false,
+    });
+
+    expect(out).toContain('If this task produces a new build version');
+    expect(out).toContain('update only the existing version token');
+    expect(out).toContain('preserve every other character exactly');
+    expect(out).not.toContain('task changes significantly');
+  });
+
+  it('keeps the title locked after its initial name while allowing only a build version refresh', () => {
+    const out = buildAppendSystemPromptBaseV1({
+      settings: {
+        codingPromptBehaviorV1: {
+          v: 1,
+          sessionTitleUpdates: 'initial',
+          responseOptions: 'agent',
+        },
+      },
+      sessionMetadata: { summary: { text: '⭐Build latest packages: v0.2.20-beta1.7' } },
+      executionRunsFeatureEnabled: false,
+      memoryRecallGuidanceEnabled: false,
+    });
+
+    expect(out).toContain('update only the existing version token');
+    expect(out).not.toContain('task changes significantly');
+  });
+
   it('omits session title instructions when the delivery has no title tool', () => {
     const out = buildAppendSystemPromptBaseV1({
       settings: {},

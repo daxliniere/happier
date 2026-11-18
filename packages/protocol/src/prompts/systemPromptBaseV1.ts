@@ -1,5 +1,6 @@
 import { trimIdent } from '../strings/trimIdent.js';
 import { isSessionHappierToolsEnabled } from '../mcpServers/sessionSelectionV1.js';
+import { hasSessionTitleInMetadata } from '../sessionMetadata/sessionTitle.js';
 import {
   isCodingPromptResponseOptionsEnabled,
   resolveCodingPromptSessionTitleInstructionModeV1,
@@ -19,6 +20,12 @@ export const HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_ONGOING_V1 = trimIdent(`
   ${HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_INITIAL_V1}
 
   Call the title tool again if the task changes significantly.
+`);
+
+export const HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_VERSION_ONLY_V1 = trimIdent(`
+  # Session title
+
+  Keep the existing session title unchanged. If this task produces a new build version, you may update only the existing version token in the title; preserve every other character exactly. Do not rename or rewrite the title.
 `);
 
 export const HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_V1 = HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_ONGOING_V1;
@@ -84,6 +91,8 @@ export function buildHappierBaseSystemPromptV1(args?: Readonly<{
     blocks.push(HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_INITIAL_V1);
   } else if (titleToolAvailable && sessionTitleUpdatesMode === 'ongoing') {
     blocks.push(HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_ONGOING_V1);
+  } else if (titleToolAvailable && sessionTitleUpdatesMode === 'disabled' && hasSessionTitleInMetadata(args?.sessionMetadata)) {
+    blocks.push(HAPPIER_BASE_SYSTEM_PROMPT_SESSION_TITLE_VERSION_ONLY_V1);
   }
   if (isCodingPromptResponseOptionsEnabled(args?.settings)) {
     blocks.push(HAPPIER_BASE_SYSTEM_PROMPT_OPTIONS_V1);

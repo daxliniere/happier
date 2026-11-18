@@ -172,6 +172,28 @@ describe('ProviderEnforcedPermissionHandler always-auto-approve matching', () =>
     });
   });
 
+  it('allows a version-only title refresh while keeping other changes denied', async () => {
+    const session = new FakeSession();
+    session.metadata = { summary: { text: '⭐Build latest packages: v0.2.20-beta1.7' } };
+    const handler = new ProviderEnforcedPermissionHandler(asApiSessionClient(session), {
+      logPrefix: '[Test]',
+      getAccountSettings: () => ({
+        codingPromptBehaviorV1: {
+          v: 1,
+          sessionTitleUpdates: 'initial',
+          responseOptions: 'agent',
+        },
+      } as any),
+    });
+
+    await expect(handler.handleToolCall('title-version', 'mcp__happier__change_title', {
+      title: '⭐Build latest packages: v0.2.20-beta1.8',
+    })).resolves.toEqual({ decision: 'approved' });
+    await expect(handler.handleToolCall('title-renamed', 'mcp__happier__change_title', {
+      title: 'Build beta1.8',
+    })).resolves.toEqual({ decision: 'denied' });
+  });
+
   it('falls back to account prompt settings when a compatibility session has no metadata snapshot reader', async () => {
     const session = new FakeSession();
     Object.defineProperty(session, 'getMetadataSnapshot', { value: undefined });

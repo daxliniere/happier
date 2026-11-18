@@ -1,5 +1,5 @@
-/** Whether the Session already has a title that automatic initialization must preserve. */
-export function hasSessionTitleInMetadata(sessionMetadata: unknown): boolean {
+/** The Session's visible title, including the legacy name field during migration. */
+export function getSessionTitleFromMetadata(sessionMetadata: unknown): string | null {
   const metadata = sessionMetadata && typeof sessionMetadata === 'object' && !Array.isArray(sessionMetadata)
     ? sessionMetadata as Record<string, unknown>
     : null;
@@ -8,5 +8,12 @@ export function hasSessionTitleInMetadata(sessionMetadata: unknown): boolean {
     ? summary.text
     : null;
   // summary.text is the title writer's current shape; name also covers legacy named Sessions.
-  return [summaryText, metadata?.name].some((title) => typeof title === 'string' && title.trim().length > 0);
+  return [summaryText, metadata?.name].find((title): title is string =>
+    typeof title === 'string' && title.trim().length > 0,
+  ) ?? null;
+}
+
+/** Whether the Session already has a title that automatic initialization must preserve. */
+export function hasSessionTitleInMetadata(sessionMetadata: unknown): boolean {
+  return getSessionTitleFromMetadata(sessionMetadata) !== null;
 }

@@ -776,6 +776,29 @@ describe('CodexLikePermissionHandler', () => {
     );
   });
 
+  it('allows a build-version title update while denying a full rename after initial naming', async () => {
+    const session = new FakeSession();
+    session.metadata = { summary: { text: '⭐Build latest packages: v0.2.20-beta1.7' } };
+    const handler = new CodexLikePermissionHandler({
+      session: session as any,
+      logPrefix: '[Test]',
+      getAccountSettings: () => ({
+        codingPromptBehaviorV1: {
+          v: 1,
+          sessionTitleUpdates: 'initial',
+          responseOptions: 'agent',
+        },
+      } as any),
+    });
+
+    await expect(handler.handleToolCall('title-version', 'mcp__happier__session_title_set', {
+      title: '⭐Build latest packages: v0.2.20-beta1.8',
+    })).resolves.toEqual({ decision: 'approved' });
+    await expect(handler.handleToolCall('title-renamed', 'mcp__happier__session_title_set', {
+      title: 'Build beta1.8',
+    })).resolves.toEqual({ decision: 'denied' });
+  });
+
   it('denies Happier shell-bridge title calls when coding prompt title updates are disabled', async () => {
     const session = new FakeSession();
     const handler = new CodexLikePermissionHandler({

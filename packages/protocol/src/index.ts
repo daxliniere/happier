@@ -2026,7 +2026,7 @@ export {
   type NativeSessionAliasesV1,
 } from './sessionMetadata/nativeSessionAliasesV1.js';
 
-export { hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
+export { getSessionTitleFromMetadata, hasSessionTitleInMetadata } from './sessionMetadata/sessionTitle.js';
 
 export {
   WINDOWS_REMOTE_SESSION_LAUNCH_MODES,
