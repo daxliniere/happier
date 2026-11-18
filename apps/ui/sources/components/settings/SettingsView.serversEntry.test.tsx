@@ -317,6 +317,8 @@ describe('SettingsView', () => {
             expect.stringContaining('runtime-1'),
             expect.stringContaining('LAPTOP-ZBP | desktop'),
         ]);
+        // Last seen is shown to the minute, not to the millisecond.
+        expect(lines.find((line) => line.text.includes('LAPTOP-ZBP'))?.text).toMatch(/ \| \d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z$/);
         await act(async () => { await screen.pressRowByTitle('common.version'); });
         expect(shared.copySpy).toHaveBeenCalledWith(subtitleText);
         // Item is a prop passthrough here, so read the toast from the row's accessory prop.

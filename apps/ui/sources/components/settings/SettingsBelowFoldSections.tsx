@@ -517,7 +517,7 @@ const SettingsAboutSection = React.memo(function SettingsAboutSection({
         `${t('settings.connectedDevicesLast14Days')}:`,
         ].map((text) => ({ text })),
         ...listConnectedDevices(settings, connectedClientsLastSeen, Date.now(), localDeviceId).map((device) => ({
-            text: `${device.name ?? t('status.unknown')} | ${device.platform} | ${device.appVersion ?? t('status.unknown')} | ${device.lastSeen === null ? t('status.unknown') : new Date(device.lastSeen).toISOString()}`,
+            text: `${device.name ?? t('status.unknown')} | ${device.platform} | ${device.appVersion ?? t('status.unknown')} | ${device.lastSeen === null ? t('status.unknown') : `${new Date(device.lastSeen).toISOString().slice(0, 16)}Z`}`,
             isLocalDevice: device.id === localDeviceId,
         })),
     ];
