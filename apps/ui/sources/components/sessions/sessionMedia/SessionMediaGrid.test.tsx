@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
     messages: [] as unknown[],
     isLoaded: true,
     navigate: vi.fn(),
+    loadStatus: 'no_more' as 'no_more' | 'in_flight',
 }));
 
 installSessionAttachmentCommonModuleMocks({
@@ -37,7 +38,7 @@ vi.mock('@/sync/store/hooks', async (importOriginal) => ({
     useSessionMessages: () => ({ messages: state.messages, isLoaded: state.isLoaded }),
 }));
 vi.mock('@/sync/sync', () => ({
-    sync: { loadOlderMessages: async () => ({ loaded: 0, hasMore: false, status: 'no_more' }) },
+    sync: { loadOlderMessages: async () => ({ loaded: 0, hasMore: state.loadStatus === 'in_flight', status: state.loadStatus }) },
 }));
 vi.mock('@/hooks/session/useNavigateToSession', () => ({
     useNavigateToSession: () => state.navigate,
@@ -94,6 +95,7 @@ describe('SessionMediaGrid', () => {
         state.messages = [];
         state.isLoaded = true;
         state.navigate.mockClear();
+        state.loadStatus = 'no_more';
     });
 
     it('shows an empty state when the session has no media', async () => {
@@ -133,5 +135,15 @@ describe('SessionMediaGrid', () => {
 
         expect(tileCount()).toBe(10);
         expect(screen.findByTestId('session-media-grid-show-all')).toBeNull();
+        expect(screen.findByTestId('session-media-grid-unknown')).toBeNull();
+    });
+
+    it('ends the grid with a question-mark tile while older history is still unknown', async () => {
+        state.loadStatus = 'in_flight';
+        state.messages = [imageMessage('m1', 1, '.happier/uploads/generated/m1/img.png')];
+        const screen = await renderGrid();
+
+        expect(screen.findByTestId('session-media-grid-unknown')).not.toBeNull();
+        expect(screen.findByTestId('session-media-grid-jump:m1')).not.toBeNull();
     });
 });
