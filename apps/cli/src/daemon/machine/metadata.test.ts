@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-import { initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from './metadata';
+import { formatForkVersionLabel, initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from './metadata';
+
+describe('formatForkVersionLabel', () => {
+  it('shows the release value in parentheses only when it differs from the fork version', () => {
+    expect(formatForkVersionLabel('0.2.20-beta1.7', '0.2.20-beta1.6'))
+      .toBe('0.2.20-beta1.7 (0.2.20-beta1.6)');
+  });
+
+  it('omits the duplicate release value when it matches the fork version', () => {
+    expect(formatForkVersionLabel('0.2.20-beta1.7', '0.2.20-beta1.7'))
+      .toBe('0.2.20-beta1.7');
+  });
+});
 
 describe('initialMachineMetadata', () => {
   it('advertises daemon-owned runtime control capabilities', () => {
     expect(initialMachineMetadata.happyForkVersion).toBe(
-      readFileSync(new URL('../../../../../fork/VERSION', import.meta.url), 'utf8').trim(),
+      formatForkVersionLabel(
+        readFileSync(new URL('../../../../../fork/VERSION', import.meta.url), 'utf8').trim(),
+        readFileSync(new URL('../../../../../fork/RELEASE', import.meta.url), 'utf8').trim(),
+      ),
     );
     expect(initialMachineMetadata.daemonTerminalSessionAttachSupported).toBe(true);
     expect(initialMachineMetadata.daemonSessionGoalControlsSupported).toBe(true);
