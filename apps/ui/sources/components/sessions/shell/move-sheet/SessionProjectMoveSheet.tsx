@@ -37,5 +37,5 @@ export function SessionProjectMoveSheet(props: SessionProjectMoveSheetProps): Re
             const target = props.targets.find((candidate) => candidate.id === id);
             if (target && !target.disabled) props.onSelect({ machineId: target.machineId, rootPath: target.rootPath });
         }
-    }} onRequestClose={props.onCancel} keyboardHintsEnabled={false} disableTransitions testID="session-project-move-sheet" />;
+    }} onRequestClose={props.onCancel} keyboardHintsEnabled={false} captureDialogTypingOnWeb disableTransitions testID="session-project-move-sheet" />;
 }

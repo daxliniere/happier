@@ -486,6 +486,8 @@ export type SelectionListProps = Readonly<{
      * Ignored on native so opening a popover/modal never summons the software keyboard.
      */
     autoFocusInputOnWeb?: boolean;
+    /** Capture typing inside the containing web dialog without focusing or opening a keyboard on mount. */
+    captureDialogTypingOnWeb?: boolean;
     /** Disable internal step transitions for testing. */
     disableTransitions?: boolean;
     /** Stable testID root (default 'selection-list'). */

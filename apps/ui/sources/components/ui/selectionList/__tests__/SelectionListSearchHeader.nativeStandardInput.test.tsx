@@ -27,6 +27,7 @@ function flattenStyle(style: unknown): Record<string, unknown> {
 describe('SelectionListSearchHeader native input presentation', () => {
     it('uses a standard native TextInput for path-like values even when autocomplete and head ellipsis are available', async () => {
         const { SelectionListSearchHeader } = await import('../SelectionListSearchHeader');
+        const focus = vi.fn();
         const screen = await renderScreen(
             <SelectionListSearchHeader
                 value="/Users/leeroy/Documents/Development/happier/remote-dev"
@@ -36,7 +37,9 @@ describe('SelectionListSearchHeader native input presentation', () => {
                 ghostSuffix="/src"
                 inputValueEllipsizeMode="head"
                 testID="hdr"
+                captureDialogTypingOnWeb
             />,
+            { createNodeMock: (element) => element.type === 'TextInput' ? { focus } : {} },
         );
 
         expect(screen.findByTestId('hdr:input:mirror')).toBeNull();
@@ -45,6 +48,8 @@ describe('SelectionListSearchHeader native input presentation', () => {
 
         const input = screen.findByTestId('hdr:input');
         expect(input).not.toBeNull();
+        expect(focus).not.toHaveBeenCalled();
+        expect(input!.props.autoFocus).not.toBe(true);
         const inputStyle = flattenStyle(input!.props.style);
         expect(inputStyle.position).not.toBe('absolute');
         expect(inputStyle.color).not.toBe('transparent');

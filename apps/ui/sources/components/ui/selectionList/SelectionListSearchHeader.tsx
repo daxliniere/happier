@@ -14,6 +14,8 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { TextInput } from '@/components/ui/text/Text';
 import { useReducedMotionPreference } from '@/hooks/ui/useReducedMotionPreference';
+import { isComposerTypeToFocusKey } from '@/keyboard/composer';
+import { readKeyboardContextFromEventTarget } from '@/keyboard/runtime';
 
 import { SelectionListInputMirror } from './SelectionListInputMirror';
 import { SelectionListSearchHeaderLeadingSlot } from './SelectionListSearchHeaderLeadingSlot';
@@ -191,6 +193,8 @@ export type SelectionListSearchHeaderProps = Readonly<{
     style?: StyleProp<ViewStyle>;
     /** Hook the underlying TextInput ref so the parent can imperatively focus. */
     inputRef?: React.Ref<RNTextInput>;
+    /** Route typing within the containing web dialog into search, without focusing on open. */
+    captureDialogTypingOnWeb?: boolean;
     /**
      * Key event handler. Web sends `KeyboardEvent`-like objects via rn-web's
      * `onKeyPress`; native sends `NativeSyntheticEvent<TextInputKeyPressEventData>`.
@@ -361,6 +365,26 @@ export function SelectionListSearchHeader(props: SelectionListSearchHeaderProps)
     // React Native Web can filter DOM-only keyboard props on TextInput/View,
     // so bridge directly through the resolved input DOM node.
     const nativeKeyPress = IS_WEB ? undefined : props.onKeyPress;
+    React.useEffect(() => {
+        if (!IS_WEB || !props.captureDialogTypingOnWeb) return;
+        const input = inputNodeRef.current;
+        if (typeof HTMLElement === 'undefined' || !(input instanceof HTMLElement)) return;
+        const dialog = input.closest('[role="dialog"], dialog');
+        if (!dialog) return;
+        const captureTyping = (event: Event) => {
+            if (!(event instanceof KeyboardEvent) || event.defaultPrevented) return;
+            if (!isComposerTypeToFocusKey({ key: event.key, ctrlKey: event.ctrlKey,
+                altKey: event.altKey, metaKey: event.metaKey, isComposing: event.isComposing,
+                altGraph: event.getModifierState('AltGraph') })) return;
+            if (readKeyboardContextFromEventTarget(event.target).isEditableTarget) return;
+            if (!(event.target instanceof Element) || event.target.closest('[role="dialog"], dialog') !== dialog) return;
+            // Keep the default action: the browser inserts this first character after focus moves.
+            input.focus();
+        };
+        dialog.addEventListener('keydown', captureTyping);
+        return () => dialog.removeEventListener('keydown', captureTyping);
+    }, [props.captureDialogTypingOnWeb]);
+
     React.useEffect(() => {
         if (!IS_WEB || !props.onKeyPress) return undefined;
         const target = inputNodeRef.current;

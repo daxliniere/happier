@@ -145,6 +145,52 @@ vi.mock('react-native', async () => {
 });
 
 describe('SelectionListSearchHeader web keydown bridge', () => {
+    it('captures dialog typing without focusing on open or consuming the first character', async () => {
+        const { SelectionListSearchHeader } = await import('../SelectionListSearchHeader');
+        const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'dialog');
+        const close = document.createElement('button');
+        const otherInput = document.createElement('input');
+        const container = document.createElement('div');
+        dialog.append(close, otherInput, container);
+        document.body.append(dialog);
+        close.focus();
+        const root = createRoot(container);
+        try {
+            const props = { value: '', onChangeText: () => {}, placeholder: 'Search projects',
+                canPop: false, testID: 'hdr', captureDialogTypingOnWeb: true };
+            await act(async () => { root.render(<SelectionListSearchHeader {...props} />); });
+            const input = container.querySelector('input');
+            expect(document.activeElement).toBe(close);
+            for (const init of [{ key: 'a', ctrlKey: true }, { key: 'a', isComposing: true }, { key: 'ArrowDown' }, { key: 'Enter' }]) {
+                close.dispatchEvent(new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true }));
+                expect(document.activeElement).toBe(close);
+            }
+            const typing = new KeyboardEvent('keydown', { key: 'H', shiftKey: true, bubbles: true, cancelable: true });
+            close.dispatchEvent(typing);
+            expect(document.activeElement).toBe(input);
+            expect(typing.defaultPrevented).toBe(false);
+            otherInput.focus();
+            otherInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+            expect(document.activeElement).toBe(otherInput);
+            const nestedDialog = document.createElement('div');
+            nestedDialog.setAttribute('role', 'dialog');
+            const nestedButton = document.createElement('button');
+            nestedDialog.append(nestedButton);
+            dialog.append(nestedDialog);
+            nestedButton.focus();
+            nestedButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+            expect(document.activeElement).toBe(nestedButton);
+            await act(async () => { root.unmount(); });
+            close.focus();
+            close.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+            expect(document.activeElement).toBe(close);
+        } finally {
+            await act(async () => { root.unmount(); });
+            dialog.remove();
+        }
+    });
+
     it('dispatches Tab keydown through a DOM ref bridge when React Native Web filters keyboard props', async () => {
         const { SelectionListSearchHeader } = await import('../SelectionListSearchHeader');
         const container = document.createElement('div');

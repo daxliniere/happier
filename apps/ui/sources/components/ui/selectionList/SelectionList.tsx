@@ -745,6 +745,7 @@ export function SelectionList(props: SelectionListProps): React.ReactElement {
                         inputPrefix={props.inputPrefix}
                         inputSuffix={props.inputSuffix}
                         inputRef={searchInputRef}
+                        captureDialogTypingOnWeb={props.captureDialogTypingOnWeb}
                         onCaretAtEndChange={setCaretAtEnd}
                         onIsComposingChange={setIsComposing}
                         listboxId={listboxId}
