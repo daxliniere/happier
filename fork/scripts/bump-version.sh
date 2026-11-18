@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# CT100-compatible counterpart to bump-version.ps1. Upstream package versions
-# remain unchanged; only the fork build metadata and embedded CLI labels move.
+# CT100-compatible counterpart to bump-version.ps1. RELEASE names the base release;
+# both it and the new fork build version are copied into generated CLI metadata.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
@@ -13,17 +13,17 @@ fi
 prefix="${BASH_REMATCH[1]}"
 number="${BASH_REMATCH[2]}"
 next="${prefix}$((10#$number + 1))"
-release="$(<"$root/fork/RELEASE")"
+base_release="$(<"$root/fork/RELEASE")"
 
 printf '%s\n' "$next" > "$version_file"
-node - "$root" "$next" "$release" <<'NODE'
+node - "$root" "$next" "$base_release" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 
-const [root, version, release] = process.argv.slice(2);
+const [root, version, baseRelease] = process.argv.slice(2);
 fs.writeFileSync(
   path.join(root, 'fork/build-version.json'),
-  `${JSON.stringify({ version, release })}\n`,
+  `${JSON.stringify({ version, release: baseRelease })}\n`,
   'utf8',
 );
 
@@ -31,7 +31,7 @@ fs.writeFileSync(
 const cliPath = path.join(root, 'apps/cli/package.json');
 const manifest = JSON.parse(fs.readFileSync(cliPath, 'utf8'));
 manifest.happierForkVersion = version;
-manifest.happierForkRelease = release;
+manifest.happierForkRelease = baseRelease;
 fs.writeFileSync(cliPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 NODE
 

@@ -46,13 +46,7 @@ for tool in git node yarn sha256sum flock find tar gzip realpath sort xargs; do 
 version=$(cat "$repo/fork/VERSION")
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$repo/dist/fork-cache}"
 [[ "$version" =~ ^0\.2\.[0-9]+-(fork\.[0-9]+|beta[0-9]+\.[0-9]+)$ ]] || die "Invalid fork/VERSION: $version"
-node --input-type=module - "$repo/fork/build-version.json" "$version" <<'JS'
-import { readFileSync } from 'node:fs';
-const metadata = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-if (metadata.version !== process.argv[3] || !metadata.release) {
-  throw new Error('fork/VERSION and fork/build-version.json must agree before building');
-}
-JS
+node "$repo/fork/scripts/check-build-version.mjs" "$repo"
 [[ -z "$(git -C "$repo" status --porcelain --untracked-files=normal)" ]] || die "Checkout has uncommitted work. Integrate/commit it before a release build."
 [[ -d "$repo/node_modules" && ! -L "$repo/node_modules" || "$install" == 1 ]] || die "Use --install for a checkout with missing/shared-symlink dependencies"
 if [[ "$only" != android ]]; then

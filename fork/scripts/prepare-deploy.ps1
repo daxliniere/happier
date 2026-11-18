@@ -4,6 +4,8 @@ $ErrorActionPreference = 'Stop'
 
 $root = (& git -C $PSScriptRoot rev-parse --show-toplevel).Trim()
 Set-Location -LiteralPath $root
+& node (Join-Path $root 'fork/scripts/check-build-version.mjs') $root
+if ($LASTEXITCODE -ne 0) { throw 'Fork build metadata is inconsistent.' }
 foreach ($component in 'server', 'cli') {
     & yarn -s "release:build:binaries:$component" --channel preview --targets linux-x64
     if ($LASTEXITCODE -ne 0) { throw "release:build:binaries:$component failed." }

@@ -19,7 +19,10 @@ function fixture(t) {
     writeFileSync(path, contents, { mode: executable ? 0o755 : 0o644 });
   };
   put(join(repo, 'fork/VERSION'), '0.2.20-fork.32\n');
+  put(join(repo, 'fork/RELEASE'), 'rc4\n');
   put(join(repo, 'fork/build-version.json'), '{"version":"0.2.20-fork.32","release":"rc4"}');
+  put(join(repo, 'apps/cli/package.json'), '{"happierForkVersion":"0.2.20-fork.32","happierForkRelease":"rc4"}');
+  put(join(repo, 'fork/scripts/check-build-version.mjs'), readFileSync(new URL('./check-build-version.mjs', import.meta.url), 'utf8'));
   put(join(repo, 'package.json'), '{}');
   put(join(repo, '.gitignore'), 'dist/\nnode_modules/\n');
   mkdirSync(join(repo, 'node_modules'), { recursive: true });
@@ -102,14 +105,25 @@ test('version mismatch refuses before any compiler starts', t => {
   f.put(join(f.repo, 'fork/build-version.json'), '{"version":"0.2.20-fork.31","release":"rc4"}');
   const result = f.run();
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /must agree/);
+  assert.match(result.stderr, /fork\/build-version\.json must match/);
+  assert.ok(!existsSync(f.calls));
+});
+
+test('stale CLI label metadata refuses before any compiler starts', t => {
+  const f = fixture(t);
+  f.put(join(f.repo, 'apps/cli/package.json'), '{"happierForkVersion":"0.2.20-fork.31","happierForkRelease":"rc4"}');
+  const result = f.run();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /apps\/cli\/package\.json/);
   assert.ok(!existsSync(f.calls));
 });
 
 test('beta build labels are accepted by the release prerequisite check', t => {
   const f = fixture(t);
   f.put(join(f.repo, 'fork/VERSION'), '0.2.20-beta1.4\n');
+  f.put(join(f.repo, 'fork/RELEASE'), '0.2.20-beta1.4\n');
   f.put(join(f.repo, 'fork/build-version.json'), '{"version":"0.2.20-beta1.4","release":"0.2.20-beta1.4"}');
+  f.put(join(f.repo, 'apps/cli/package.json'), '{"happierForkVersion":"0.2.20-beta1.4","happierForkRelease":"0.2.20-beta1.4"}');
   spawnSync('git', ['-C', f.repo, 'add', '.']);
   spawnSync('git', ['-C', f.repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'beta label']);
   const result = f.run({}, ['--check']);
