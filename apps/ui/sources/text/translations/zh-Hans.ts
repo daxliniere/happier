@@ -7787,6 +7787,8 @@ export const zhHans: TranslationStructure = {
           toolArtifactImageA11y: ({ name }: { name: string }) => `打开工具产物图片 ${name}`,
           imageUnavailable: '图像不可用',
           jumpToMessage: "在聊天中显示",
+          showMore: "显示更多",
+          showAll: "显示全部",
           empty: "此会话中还没有媒体",
         },
         cannotDisplayBinary: "无法显示二进制文件内容",

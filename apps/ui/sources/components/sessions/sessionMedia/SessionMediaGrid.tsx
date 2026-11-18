@@ -17,6 +17,7 @@ import type { SessionMediaGalleryItem } from '@/sync/domains/sessionMedia/collec
 import { SessionMediaInlineImagePreviewTile } from './SessionMediaInlineImages';
 import { resolveSessionMediaImageMimeType, toSessionMediaPreviewImage } from './sessionMediaPresentation';
 
+const PAGE_SIZE = 8;
 const MIN_CELL_WIDTH = 150;
 const CELL_HEIGHT = 200;
 
@@ -65,6 +66,16 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 12,
         paddingVertical: 8,
     },
+    footer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 24,
+        paddingVertical: 12,
+    },
+    footerButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
     empty: {
         flex: 1,
         alignItems: 'center',
@@ -86,7 +97,11 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
 }>) {
     const { theme } = useUnistyles();
     const styles = stylesheet;
-    const { items, isLoaded, isLoadingHistory } = useSessionMediaItems(props.sessionId, true);
+    // Start small: older history is only paged in as far as the shown count needs, and fully on "Show all".
+    const [limit, setLimit] = React.useState<number | null>(PAGE_SIZE);
+    const { items, isLoaded, isLoadingHistory, historyExhausted } = useSessionMediaItems(props.sessionId, true, limit);
+    const visibleItems = React.useMemo(() => (limit === null ? items : items.slice(0, limit)), [items, limit]);
+    const hasMore = !historyExhausted || items.length > visibleItems.length;
     const navigateToSession = useNavigateToSession();
     const [width, setWidth] = React.useState(0);
     const columns = Math.max(2, Math.floor(width / MIN_CELL_WIDTH));
@@ -94,13 +109,13 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
     const { entries, previewImages } = React.useMemo(() => {
         const result: GridEntry[] = [];
         const images: ReturnType<typeof toSessionMediaPreviewImage>[] = [];
-        for (const item of items) {
+        for (const item of visibleItems) {
             const imageMimeType = resolveSessionMediaImageMimeType(item.media);
             result.push({ item, imageMimeType, imageIndex: imageMimeType ? images.length : -1 });
             if (imageMimeType) images.push(toSessionMediaPreviewImage(props.sessionId, item.media, imageMimeType));
         }
         return { entries: result, previewImages: images };
-    }, [items, props.sessionId]);
+    }, [visibleItems, props.sessionId]);
 
     const openPreview = React.useCallback((index: number) => {
         Modal.show({
@@ -185,6 +200,26 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
                     keyExtractor={(entry: GridEntry) => entry.item.key}
                     renderItem={renderItem}
                     estimatedItemSize={CELL_HEIGHT}
+                    ListFooterComponent={hasMore ? (
+                        <View style={styles.footer}>
+                            <Pressable
+                                testID="session-media-grid-show-more"
+                                accessibilityRole="button"
+                                onPress={() => setLimit((current) => (current === null ? null : current + PAGE_SIZE))}
+                                style={styles.footerButton}
+                            >
+                                <Text style={[styles.caption, { color: theme.colors.text.link }]}>{t('files.sessionMedia.showMore')}</Text>
+                            </Pressable>
+                            <Pressable
+                                testID="session-media-grid-show-all"
+                                accessibilityRole="button"
+                                onPress={() => setLimit(null)}
+                                style={styles.footerButton}
+                            >
+                                <Text style={[styles.caption, { color: theme.colors.text.link }]}>{t('files.sessionMedia.showAll')}</Text>
+                            </Pressable>
+                        </View>
+                    ) : null}
                 />
             ) : null}
         </View>

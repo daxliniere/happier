@@ -7538,6 +7538,8 @@ export const fr: TranslationStructure = {
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Ouvrir l’image produite par l’outil ${name}`,
                 imageUnavailable: 'Image indisponible',
                 jumpToMessage: "Afficher dans le chat",
+                showMore: "Afficher plus",
+                showAll: "Tout afficher",
                 empty: "Aucun média dans cette session pour l’instant",
             },
             cannotDisplayBinary: 'Impossible d’afficher le contenu d’un fichier binaire',

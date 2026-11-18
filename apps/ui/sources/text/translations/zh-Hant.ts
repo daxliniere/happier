@@ -6789,6 +6789,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
           toolArtifactImageA11y: ({ name }: { name: string }) => `開啟工具產物圖片 ${name}`,
           imageUnavailable: '圖片無法使用',
           jumpToMessage: "在聊天中顯示",
+          showMore: "顯示更多",
+          showAll: "顯示全部",
           empty: "此工作階段中還沒有媒體",
         },
         cannotDisplayBinary: '無法顯示二進位檔案內容',

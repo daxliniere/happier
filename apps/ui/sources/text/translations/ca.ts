@@ -7551,6 +7551,8 @@ deps: {
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Obre la imatge d'artefacte d'eina ${name}`,
                 imageUnavailable: 'La imatge no està disponible',
                 jumpToMessage: "Mostra al xat",
+                showMore: "Mostra'n més",
+                showAll: "Mostra-ho tot",
                 empty: "Encara no hi ha contingut multimèdia en aquesta sessió",
             },
             cannotDisplayBinary: 'No es pot mostrar el contingut del fitxer binari',

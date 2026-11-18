@@ -46,9 +46,15 @@ vi.mock('@/components/ui/lists/flashListCompat/FlashListCompat', async () => {
     const React = await import('react');
     return {
         useMappingHelper: () => ({ getMappingKey: (_key: unknown, index: number) => index }),
-        FlashList: (props: { data: readonly unknown[]; renderItem: (info: { item: unknown }) => React.ReactNode }) =>
-            React.createElement('FlashList', null, props.data.map((item, index) =>
-                React.createElement(React.Fragment, { key: index }, props.renderItem({ item })))),
+        FlashList: (props: {
+            data: readonly unknown[];
+            renderItem: (info: { item: unknown }) => React.ReactNode;
+            ListFooterComponent?: React.ReactNode;
+        }) =>
+            React.createElement('FlashList', null,
+                props.data.map((item, index) =>
+                    React.createElement(React.Fragment, { key: index }, props.renderItem({ item }))),
+                props.ListFooterComponent),
     };
 });
 
@@ -108,5 +114,24 @@ describe('SessionMediaGrid', () => {
 
         expect(state.navigate).toHaveBeenCalledWith('s1', { query: { jumpSeq: 9 } });
         expect(screen.findByTestId('session-media-grid-image:.happier/uploads/generated/m1/a.png')).not.toBeNull();
+    });
+
+    it('shows the newest 8 first and reveals the rest with Show all', async () => {
+        state.messages = Array.from({ length: 10 }, (_, index) =>
+            imageMessage(`m${index + 1}`, index + 1, `.happier/uploads/generated/m${index + 1}/img.png`));
+        const screen = await renderGrid();
+        const tileCount = () => screen.root
+            .findAll((node) => String(node.props?.testID ?? '').startsWith('session-media-grid-jump:')).length;
+
+        expect(tileCount()).toBe(8);
+        expect(screen.findByTestId('session-media-grid-jump:m10')).not.toBeNull();
+        expect(screen.findByTestId('session-media-grid-jump:m2')).toBeNull();
+
+        await act(async () => {
+            invokeTestInstanceHandler(screen.findByTestId('session-media-grid-show-all'), 'onPress');
+        });
+
+        expect(tileCount()).toBe(10);
+        expect(screen.findByTestId('session-media-grid-show-all')).toBeNull();
     });
 });

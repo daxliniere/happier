@@ -7583,6 +7583,8 @@ export const en = {
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Open tool artifact image ${name}`,
                 imageUnavailable: 'Image unavailable',
                 jumpToMessage: "Show in chat",
+                showMore: "Show more",
+                showAll: "Show all",
                 empty: "No media in this session yet",
             },
             cannotDisplayBinary: 'Cannot display binary file content',
