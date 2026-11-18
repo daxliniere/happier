@@ -1489,6 +1489,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
                 ?? (item.serverId === selection.activeServerId ? state.sessionListViewData : null);
             const targets = resolveSessionProjectMoveTargets({ items: source ?? [], serverId: item.serverId,
                 assignments: readSessionProjectAssignments(appearances), labels: state.sessionOrganizationLabelsByLabelKey,
+                appearances,
                 currentWorkspace: item.workspace,
             });
             const project = await openProjectMoveSheet({ targets, canRestore: current !== null });

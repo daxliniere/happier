@@ -54,6 +54,41 @@ function makeMachine(partial: Partial<Machine> & Pick<Machine, 'id'>): Machine {
 }
 
 describe('buildSessionListViewData', () => {
+    it('orders project move targets by meaningful activity rather than name, creation, or metadata updates', () => {
+        const sessions = [
+            { id: 'a', path: '/Alpha', createdAt: 30, meaningfulActivityAt: 40, updatedAt: 900 },
+            { id: 'z', path: '/Zulu', createdAt: 10, meaningfulActivityAt: 80, updatedAt: 10 },
+            { id: 'z-old', path: '/Zulu', createdAt: 5, meaningfulActivityAt: 15, updatedAt: 5 },
+            { id: 'b', path: '/Beta', createdAt: 20, meaningfulActivityAt: 40, updatedAt: 20 },
+        ].map(({ path, meaningfulActivityAt, ...session }) => ({
+            ...makeSession({ ...session, metadata: { machineId: 'machine', path, host: 'host', version: '1' } }),
+            meaningfulActivityAt,
+        }));
+        const items = buildSessionListViewData(Object.fromEntries(sessions.map((session) => [session.id, session])), {}, {
+            groupInactiveSessionsByProject: false, serverScope: { serverId: 'home' },
+        });
+        expect(resolveSessionProjectMoveTargets({ items, serverId: 'home', assignments: {}, labels: {} })
+            .map((target) => target.rootPath)).toEqual(['/Zulu', '/Alpha', '/Beta']);
+    });
+
+    it('treats moving an old session into a project as a recent touch of the destination', () => {
+        const sessions = [
+            makeSession({ id: 'old', createdAt: 10, metadata: { machineId: 'machine', path: '/old', host: 'host', version: '1' } }),
+            makeSession({ id: 'recent', createdAt: 80, metadata: { machineId: 'machine', path: '/Alpha', host: 'host', version: '1' } }),
+        ];
+        const items = buildSessionListViewData(Object.fromEntries(sessions.map((session) => [session.id, session])), {}, {
+            groupInactiveSessionsByProject: false, serverScope: { serverId: 'home' },
+        });
+        const params = {
+            items, serverId: 'home', labels: {},
+            assignments: { 'home:old': { machineId: 'machine', rootPath: '/Zulu' } },
+            appearances: { 'home:old': { sessionId: 'old', display: { t: 'plain' as const, v: { project: { machineId: 'machine', rootPath: '/Zulu' } } }, updatedAt: 100 } },
+        };
+        expect(resolveSessionProjectMoveTargets(params).map((target) => target.rootPath)).toEqual(['/Zulu', '/Alpha', '/old']);
+        expect(resolveSessionProjectMoveTargets({ ...params, appearances: {} }).map((target) => target.rootPath))
+            .toEqual(['/Alpha', '/old', '/Zulu']);
+    });
+
     it('offers natural and assigned projects from date views, scoped to the selected server', () => {
         const session = makeSession({ id: 'moving', metadata: { machineId: 'machine', path: '/original', host: 'host', version: '1' } });
         const items = ['home', 'other'].flatMap((serverId) => buildSessionListViewData({ moving: session }, {}, {

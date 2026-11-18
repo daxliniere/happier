@@ -1,7 +1,7 @@
-import type { SessionOrganizationLabel } from '@happier-dev/protocol';
+import type { SessionOrganizationLabel, SessionOrganizationSessionAppearance } from '@happier-dev/protocol';
 import type { MachineDisplayRenderable } from '@/sync/domains/machines/machineDisplayRenderable';
 import { compareSessionFolderWorkspaceRefs, resolveDurableWorkspaceRefForSessionListHeader, type SessionFolderWorkspaceRefV1 } from '@/sync/domains/session/folders';
-import { buildSessionListViewData, type SessionListViewItem } from '@/sync/domains/session/listing/sessionListViewData';
+import { buildSessionListViewData, resolveSessionListDateGroupingAt, type SessionListViewItem } from '@/sync/domains/session/listing/sessionListViewData';
 import type { SessionListRenderableSession } from '@/sync/domains/session/listing/sessionListRenderable';
 import type { SessionProjectAssignments } from '@/sync/domains/session/organization/projectAssignment';
 import { resolveServerWorkspaceDisplay } from '@/sync/domains/session/organization/workspaceDisplay';
@@ -12,6 +12,7 @@ export function resolveSessionProjectMoveTargets(params: Readonly<{
     items: readonly SessionListViewItem[];
     serverId: string;
     assignments: SessionProjectAssignments;
+    appearances?: Readonly<Record<string, SessionOrganizationSessionAppearance>>;
     labels: Readonly<Record<string, SessionOrganizationLabel>>;
     currentWorkspace?: SessionFolderWorkspaceRefV1;
 }>): SessionProjectMoveTarget[] {
@@ -23,22 +24,35 @@ export function resolveSessionProjectMoveTargets(params: Readonly<{
         else if (item.type === 'header' && item.machine) machines[item.machine.id] = item.machine;
     }
     const options = { groupInactiveSessionsByProject: true, sectionModeV1: 'single' as const, serverScope: { serverId: params.serverId } };
-    const headers = [
-        ...buildSessionListViewData(sessions, machines, options),
-        ...buildSessionListViewData(sessions, machines, { ...options, projectAssignmentsBySessionKey: params.assignments }),
-    ];
     const targets = new Map<string, SessionProjectMoveTarget>();
-    for (const header of headers) {
-        if (header.type !== 'header' || header.headerKind !== 'project') continue;
-        const workspace = resolveDurableWorkspaceRefForSessionListHeader(header);
-        if (workspace?.t !== 'workspaceScope' || !workspace.machineId) continue;
-        const id = `${params.serverId}:${header.workspaceKey}`;
-        const display = resolveServerWorkspaceDisplay(params.labels, params.serverId, header.workspaceKey);
-        targets.set(id, { id, title: display.label ?? header.title,
-            subtitle: `${header.subtitle ?? workspace.machineId} · ${workspace.rootPath}`,
-            machineId: workspace.machineId, rootPath: workspace.rootPath,
-            disabled: Boolean(params.currentWorkspace && compareSessionFolderWorkspaceRefs(params.currentWorkspace, workspace)),
-        });
+    const lastTouchedByTarget = new Map<string, number>();
+    for (const assignments of [undefined, params.assignments]) {
+        const items = buildSessionListViewData(sessions, machines, { ...options, projectAssignmentsBySessionKey: assignments });
+        let targetId: string | null = null;
+        for (const item of items) {
+            if (item.type === 'session') {
+                if (!targetId) continue;
+                const sessionKey = `${params.serverId}:${item.session.id}`;
+                // Only the visual destination receives the move touch; the natural project stays available.
+                const movedAt = assignments?.[sessionKey] ? params.appearances?.[sessionKey]?.updatedAt ?? 0 : 0;
+                lastTouchedByTarget.set(targetId, Math.max(lastTouchedByTarget.get(targetId) ?? 0,
+                    resolveSessionListDateGroupingAt(item.session), movedAt));
+                continue;
+            }
+            targetId = null;
+            if (item.headerKind !== 'project') continue;
+            const workspace = resolveDurableWorkspaceRefForSessionListHeader(item);
+            if (workspace?.t !== 'workspaceScope' || !workspace.machineId) continue;
+            const id = `${params.serverId}:${item.workspaceKey}`;
+            targetId = id;
+            const display = resolveServerWorkspaceDisplay(params.labels, params.serverId, item.workspaceKey);
+            targets.set(id, { id, title: display.label ?? item.title,
+                subtitle: `${item.subtitle ?? workspace.machineId} · ${workspace.rootPath}`,
+                machineId: workspace.machineId, rootPath: workspace.rootPath,
+                disabled: Boolean(params.currentWorkspace && compareSessionFolderWorkspaceRefs(params.currentWorkspace, workspace)),
+            });
+        }
     }
-    return [...targets.values()].sort((a, b) => a.title.localeCompare(b.title) || a.subtitle.localeCompare(b.subtitle));
+    return [...targets.values()].sort((a, b) => (lastTouchedByTarget.get(b.id) ?? 0) - (lastTouchedByTarget.get(a.id) ?? 0)
+        || a.title.localeCompare(b.title) || a.subtitle.localeCompare(b.subtitle));
 }
