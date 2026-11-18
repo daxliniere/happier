@@ -8029,6 +8029,8 @@ export const pl: TranslationStructure = {
           toolArtifactImageA11y: ({ name }: { name: string }) => `Otwórz obraz artefaktu narzędzia ${name}`,
           imageUnavailable: 'Obraz jest niedostępny',
           jumpToMessage: "Pokaż w czacie",
+          showMore: "Pokaż więcej",
+          showAll: "Pokaż wszystko",
           empty: "W tej sesji nie ma jeszcze multimediów",
         },
         cannotDisplayBinary: "Nie można wyświetlić zawartości pliku binarnego",

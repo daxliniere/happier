@@ -7551,6 +7551,8 @@ export const de: TranslationStructure = {
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Bild-Artefakt des Tools öffnen: ${name}`,
                 imageUnavailable: 'Bild nicht verfügbar',
                 jumpToMessage: "Im Chat anzeigen",
+                showMore: "Mehr anzeigen",
+                showAll: "Alle anzeigen",
                 empty: "In dieser Sitzung gibt es noch keine Medien",
             },
             cannotDisplayBinary: 'Der Inhalt einer Binärdatei lässt sich nicht anzeigen',

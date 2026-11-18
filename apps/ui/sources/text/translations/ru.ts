@@ -8012,6 +8012,8 @@ export const ru: TranslationStructure = {
           toolArtifactImageA11y: ({ name }: { name: string }) => `Открыть изображение артефакта инструмента ${name}`,
           imageUnavailable: 'Изображение недоступно',
           jumpToMessage: "Показать в чате",
+          showMore: "Показать ещё",
+          showAll: "Показать все",
           empty: "В этой сессии пока нет медиафайлов",
         },
         cannotDisplayBinary: "Невозможно отобразить содержимое бинарного файла",
