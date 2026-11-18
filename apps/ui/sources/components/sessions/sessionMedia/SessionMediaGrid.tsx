@@ -84,12 +84,18 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
 }));
 
-type GridEntry = Readonly<{
+type MediaGridEntry = Readonly<{
+    kind: 'media';
     item: SessionMediaGalleryItem;
     /** Present for images only; non-images open as files. */
     imageMimeType: string | null;
     imageIndex: number;
 }>;
+
+/** Trailing "?" tile: older history has not been ruled out, so there may be more media. */
+type UnknownGridEntry = Readonly<{ kind: 'unknown' }>;
+
+type GridEntry = MediaGridEntry | UnknownGridEntry;
 
 export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Readonly<{
     sessionId: string;
@@ -102,6 +108,11 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
     const { items, isLoaded, isLoadingHistory, historyExhausted } = useSessionMediaItems(props.sessionId, true, limit);
     const visibleItems = React.useMemo(() => (limit === null ? items : items.slice(0, limit)), [items, limit]);
     const hasMore = !historyExhausted || items.length > visibleItems.length;
+    // Unsure (rather than known) that more exists: everything loaded is shown and history is not exhausted.
+    const showUnknownTile = !historyExhausted && visibleItems.length === items.length;
+    const showMore = React.useCallback(() => {
+        setLimit((current) => (current === null ? null : current + PAGE_SIZE));
+    }, []);
     const navigateToSession = useNavigateToSession();
     const [width, setWidth] = React.useState(0);
     const columns = Math.max(2, Math.floor(width / MIN_CELL_WIDTH));
@@ -111,11 +122,12 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
         const images: ReturnType<typeof toSessionMediaPreviewImage>[] = [];
         for (const item of visibleItems) {
             const imageMimeType = resolveSessionMediaImageMimeType(item.media);
-            result.push({ item, imageMimeType, imageIndex: imageMimeType ? images.length : -1 });
+            result.push({ kind: 'media', item, imageMimeType, imageIndex: imageMimeType ? images.length : -1 });
             if (imageMimeType) images.push(toSessionMediaPreviewImage(props.sessionId, item.media, imageMimeType));
         }
+        if (showUnknownTile) result.push({ kind: 'unknown' });
         return { entries: result, previewImages: images };
-    }, [visibleItems, props.sessionId]);
+    }, [visibleItems, props.sessionId, showUnknownTile]);
 
     const openPreview = React.useCallback((index: number) => {
         Modal.show({
@@ -125,6 +137,21 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
     }, [previewImages]);
 
     const renderItem = React.useCallback(({ item: entry }: Readonly<{ item: GridEntry }>) => {
+        if (entry.kind === 'unknown') {
+            return (
+                <View style={styles.cell}>
+                    <Pressable
+                        testID="session-media-grid-unknown"
+                        accessibilityRole="button"
+                        accessibilityLabel={t('files.sessionMedia.showMore')}
+                        onPress={showMore}
+                        style={styles.fileTile}
+                    >
+                        <Icon name="question" size={96} weight="bold" color={theme.colors.text.primary} />
+                    </Pressable>
+                </View>
+            );
+        }
         const { media, seq, messageId } = entry.item;
         return (
             <View style={styles.cell}>
@@ -170,9 +197,9 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
                 ) : null}
             </View>
         );
-    }, [navigateToSession, openPreview, props.onOpenFile, props.sessionId, styles, theme.colors.text.link, theme.colors.text.secondary]);
+    }, [navigateToSession, openPreview, props.onOpenFile, props.sessionId, showMore, styles, theme.colors.text.link, theme.colors.text.primary, theme.colors.text.secondary]);
 
-    if (isLoaded && !isLoadingHistory && entries.length === 0) {
+    if (isLoaded && !isLoadingHistory && visibleItems.length === 0) {
         return (
             <View testID="session-media-grid-empty" style={styles.empty}>
                 <Text style={styles.caption}>{t('files.sessionMedia.empty')}</Text>
@@ -197,7 +224,7 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
                     key={columns}
                     data={entries}
                     numColumns={columns}
-                    keyExtractor={(entry: GridEntry) => entry.item.key}
+                    keyExtractor={(entry: GridEntry) => (entry.kind === 'unknown' ? 'unknown' : entry.item.key)}
                     renderItem={renderItem}
                     estimatedItemSize={CELL_HEIGHT}
                     ListFooterComponent={hasMore ? (
@@ -205,7 +232,7 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
                             <Pressable
                                 testID="session-media-grid-show-more"
                                 accessibilityRole="button"
-                                onPress={() => setLimit((current) => (current === null ? null : current + PAGE_SIZE))}
+                                onPress={showMore}
                                 style={styles.footerButton}
                             >
                                 <Text style={[styles.caption, { color: theme.colors.text.link }]}>{t('files.sessionMedia.showMore')}</Text>
