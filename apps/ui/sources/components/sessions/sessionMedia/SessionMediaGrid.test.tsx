@@ -36,6 +36,9 @@ vi.mock('@/sync/store/hooks', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/sync/store/hooks')>()),
     useSessionMessages: () => ({ messages: state.messages, isLoaded: state.isLoaded }),
 }));
+vi.mock('@/sync/sync', () => ({
+    sync: { loadOlderMessages: async () => ({ loaded: 0, hasMore: false, status: 'no_more' }) },
+}));
 vi.mock('@/hooks/session/useNavigateToSession', () => ({
     useNavigateToSession: () => state.navigate,
 }));

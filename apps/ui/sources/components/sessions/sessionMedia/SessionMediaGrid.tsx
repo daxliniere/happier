@@ -7,6 +7,7 @@ import { t } from '@/text';
 import { Text } from '@/components/ui/text/Text';
 import { Icon } from '@/components/ui/icons/Icon';
 import { Typography } from '@/constants/Typography';
+import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 import { FlashList } from '@/components/ui/lists/flashListCompat/FlashListCompat';
 import { AttachmentImagePreviewModal } from '@/components/sessions/attachments/preview/AttachmentImagePreviewModal';
 import { useNavigateToSession } from '@/hooks/session/useNavigateToSession';
@@ -57,6 +58,13 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 4,
         paddingVertical: 2,
     },
+    loading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
     empty: {
         flex: 1,
         alignItems: 'center',
@@ -78,7 +86,7 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
 }>) {
     const { theme } = useUnistyles();
     const styles = stylesheet;
-    const { items, isLoaded } = useSessionMediaItems(props.sessionId, true);
+    const { items, isLoaded, isLoadingHistory } = useSessionMediaItems(props.sessionId, true);
     const navigateToSession = useNavigateToSession();
     const [width, setWidth] = React.useState(0);
     const columns = Math.max(2, Math.floor(width / MIN_CELL_WIDTH));
@@ -149,7 +157,7 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
         );
     }, [navigateToSession, openPreview, props.onOpenFile, props.sessionId, styles, theme.colors.text.link, theme.colors.text.secondary]);
 
-    if (isLoaded && entries.length === 0) {
+    if (isLoaded && !isLoadingHistory && entries.length === 0) {
         return (
             <View testID="session-media-grid-empty" style={styles.empty}>
                 <Text style={styles.caption}>{t('files.sessionMedia.empty')}</Text>
@@ -163,6 +171,12 @@ export const SessionMediaGrid = React.memo(function SessionMediaGrid(props: Read
             style={styles.root}
             onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
         >
+            {isLoadingHistory ? (
+                <View testID="session-media-grid-loading" style={styles.loading}>
+                    <ActivitySpinner size="small" color={theme.colors.text.secondary} />
+                    <Text style={styles.caption}>{t('common.loading')}</Text>
+                </View>
+            ) : null}
             {width > 0 ? (
                 <FlashList
                     key={columns}
