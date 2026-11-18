@@ -8,10 +8,6 @@ import type { MachineMetadata } from '@/api/types';
 import type { CliUpdateFacts } from '@happier-dev/protocol';
 import packageJson from '../../../package.json';
 
-export function formatForkVersionLabel(version: string, release: string): string {
-  return version === release ? version : `${version} — based on ${release}`;
-}
-
 const execFileAsync = promisify(execFile);
 
 export async function getPreferredHostName(): Promise<string> {
@@ -54,7 +50,7 @@ export function refreshMachineMetadataForCurrentDaemon(
     host,
     platform: os.platform(),
     happyCliVersion: packageJson.version,
-    happyForkVersion: formatForkVersionLabel(packageJson.happierForkVersion, packageJson.happierForkRelease),
+    happyForkVersion: packageJson.happierForkVersion,
     homeDir: os.homedir(),
     happyHomeDir: configuration.happyHomeDir,
     happyLibDir: projectPath(),

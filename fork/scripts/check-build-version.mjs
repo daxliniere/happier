@@ -24,5 +24,5 @@ if (errors.length > 0) {
   console.error(`Fork build metadata is inconsistent:\n- ${errors.join('\n- ')}`);
   process.exitCode = 1;
 } else {
-  console.log(`Fork build ${version} (base release ${release})`);
+  console.log(`Fork build ${version} metadata checks passed`);
 }

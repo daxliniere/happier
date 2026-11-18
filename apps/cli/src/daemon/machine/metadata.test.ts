@@ -1,26 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-import { formatForkVersionLabel, initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from './metadata';
-
-describe('formatForkVersionLabel', () => {
-  it('names the base release explicitly when it differs from the fork build', () => {
-    expect(formatForkVersionLabel('0.2.20-beta1.7', '0.2.20-beta1.6'))
-      .toBe('0.2.20-beta1.7 — based on 0.2.20-beta1.6');
-  });
-
-  it('does not repeat the same value when the fork build is the release', () => {
-    expect(formatForkVersionLabel('0.2.20-beta1.4', '0.2.20-beta1.4'))
-      .toBe('0.2.20-beta1.4');
-  });
-});
+import { initialMachineMetadata, refreshMachineMetadataForCurrentDaemon } from './metadata';
 
 describe('initialMachineMetadata', () => {
   it('advertises daemon-owned runtime control capabilities', () => {
-    expect(initialMachineMetadata.happyForkVersion).toBe(formatForkVersionLabel(
+    expect(initialMachineMetadata.happyForkVersion).toBe(
       readFileSync(new URL('../../../../../fork/VERSION', import.meta.url), 'utf8').trim(),
-      readFileSync(new URL('../../../../../fork/RELEASE', import.meta.url), 'utf8').trim(),
-    ));
+    );
     expect(initialMachineMetadata.daemonTerminalSessionAttachSupported).toBe(true);
     expect(initialMachineMetadata.daemonSessionGoalControlsSupported).toBe(true);
   });
