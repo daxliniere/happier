@@ -8,14 +8,14 @@ describe('measureWindowBounds', () => {
 
         // The web ref reads from the same DOM clock as scrollTop: no async lag.
         await expect(measureWindowBounds({
-            getBoundingClientRectFn: () => ({ x: 12, y: 34, width: 320, height: 56 }),
+            getBoundingClientRect: () => ({ x: 12, y: 34, width: 320, height: 56 }),
         })).resolves.toEqual({ x: 12, y: 34, width: 320, height: 56 });
     });
 
     it('prefers the synchronous web path over the async measureInWindow fallback when both are present', async () => {
         let measureInWindowCalled = false;
         await expect(measureWindowBounds({
-            getBoundingClientRectFn: () => ({ x: 1, y: 2, width: 3, height: 4 }),
+            getBoundingClientRect: () => ({ x: 1, y: 2, width: 3, height: 4 }),
             measureInWindow: (callback) => {
                 measureInWindowCalled = true;
                 callback(99, 99, 99, 99);
@@ -34,10 +34,10 @@ describe('measureWindowBounds', () => {
 
     it('rejects invalid bounds from the synchronous web path', async () => {
         await expect(measureWindowBounds({
-            getBoundingClientRectFn: () => ({ x: Number.NaN, y: 34, width: 320, height: 56 }),
+            getBoundingClientRect: () => ({ x: Number.NaN, y: 34, width: 320, height: 56 }),
         })).resolves.toBeNull();
         await expect(measureWindowBounds({
-            getBoundingClientRectFn: () => ({ x: 12, y: 34, width: -1, height: 56 }),
+            getBoundingClientRect: () => ({ x: 12, y: 34, width: -1, height: 56 }),
         })).resolves.toBeNull();
     });
 

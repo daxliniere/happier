@@ -240,7 +240,7 @@ export function buildSessionListTreeRows(params: BuildSessionListTreeRowsParams)
                 folderStack.length = 0;
                 return;
             }
-            const rowId = treeRowId.workspaceRoot(groupKey);
+            const rowId = treeRowId.workspaceRoot(groupKey, item.section);
             if (!activeWorkspaceOrderContainer) {
                 const containerId = `workspace-order:${String(item.serverId ?? '').trim() || '__unknown_server__'}:default`;
                 activeWorkspaceOrderContainer = {

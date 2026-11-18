@@ -12,6 +12,8 @@ import type {
 import { buildSessionListDragSnapshot } from './sessionListDragSnapshot';
 import { resolveSessionListDragPointer } from './resolveSessionListDragPointer';
 import { treeRowId } from '../drop-resolution/treeRowId';
+import { commitSessionListDragIntent } from './commitSessionListDragIntent';
+import { buildSessionListDragIntent } from './sessionListDragIntent';
 
 const workspaceA: SessionFolderWorkspaceRefV1 = {
     t: 'workspaceScope',
@@ -111,6 +113,69 @@ function snapshotFor(sourceSessionId: string) {
 }
 
 describe('resolveSessionListDragPointer', () => {
+    it.each([
+        [15, 'empty', 'reorder-before', -1],
+        [25, 'empty', 'reorder-after', 39],
+        [70, 'expanded', 'reorder-before', 39],
+        [105, 'expanded', 'reorder-after', 119],
+    ] as const)('moves a whole project at y=%s, including past a project whose only session is pinned', async (y, target, kind, top) => {
+        const headers = ['empty', 'expanded', 'source'].map((key) => ({
+            ...projectHeader(), groupKey: key, workspaceKey: key, section: 'active' as const,
+        }));
+        const items: SessionListIndexItem[] = [
+            { type: 'header', title: 'Pinned', headerKind: 'pinned', groupKey: 'pinned-v1' },
+            { ...sessionIndexItem('pinned'), groupKey: 'pinned-v1', groupKind: 'pinned', pinned: true },
+            { type: 'header', title: 'Active', headerKind: 'active', groupKey: 'active', serverId: 'server-a' },
+            headers[0]!, headers[1]!,
+            { ...sessionIndexItem('child'), groupKey: 'expanded', section: 'active' },
+            headers[2]!,
+            { type: 'header', title: 'Inactive', headerKind: 'inactive', groupKey: 'inactive', serverId: 'server-a' },
+            ...headers.map((header) => ({ ...header, section: 'inactive' as const })),
+        ];
+        const snapshot = buildSessionListDragSnapshot({
+            items, viewItems: [], sessionDragKey: treeRowId.workspaceRoot('source', 'active'),
+            folderSortMode: 'mixed', foldersFeatureEnabled: true,
+        });
+        const rows: TreeContentRow[] = ([
+            [treeRowId.workspaceRoot('empty', 'active'), 0], [treeRowId.workspaceRoot('expanded', 'active'), 40],
+            ['session:server-a:child', 80], [treeRowId.workspaceRoot('source', 'active'), 120],
+            [treeRowId.workspaceRoot('empty', 'inactive'), 160], [treeRowId.workspaceRoot('expanded', 'inactive'), 200],
+            [treeRowId.workspaceRoot('source', 'inactive'), 240],
+        ] as const).map(([id, rowY]) => {
+            const metadata = snapshot.topology.rowMetadataById.get(id)!;
+            return {
+                id, parentId: metadata.parentRowId, containerId: metadata.containerId,
+                kind: metadata.kind === 'session' ? 'leaf' : 'container', depth: 0,
+                bounds: { x: 0, y: rowY, width: 320, height: 40 },
+            };
+        });
+        const resolved = resolveSessionListDragPointer({
+            snapshot, registry: liveRegistry(rows), pointer: { x: 160, y },
+            viewport: { viewportWindowX: 0, viewportWindowY: 0, scrollOffsetY: 0, viewportHeight: 600 },
+        });
+        expect(resolved.result.instruction).toMatchObject({ kind, targetId: treeRowId.workspaceRoot(target, 'active') });
+        expect(resolved.geometry).toMatchObject({ kind: 'line', geometry: { top } });
+        let savedOrder: Record<string, string[]> = {};
+        const committed = await commitSessionListDragIntent({
+            intent: buildSessionListDragIntent({
+                result: resolved.result, sourceRowId: snapshot.source.sourceRowId,
+                sourceKind: snapshot.source.kind, snapshotSignature: snapshot.signature,
+            }),
+            context: {
+                latestItems: items, sessionFoldersV1: { v: 1, folders: [] },
+                sessionListGroupOrderV1: {}, sessionWorkspaceOrderV1: {}, now: () => 1,
+                setSessionFoldersV1: vi.fn(), setSessionListGroupOrderV1: vi.fn(),
+                setSessionWorkspaceOrderV1: (order) => { savedOrder = order; },
+                setSessionFolderAssignment: async () => {},
+            },
+        });
+        expect(committed).toEqual({ ok: true });
+        const expected = target === 'empty'
+            ? kind === 'reorder-before' ? ['source', 'empty', 'expanded'] : ['empty', 'source', 'expanded']
+            : kind === 'reorder-before' ? ['empty', 'source', 'expanded'] : ['empty', 'expanded', 'source'];
+        expect(savedOrder['server:server-a:workspaces']).toEqual(expected.map((key) => `workspace:${key}`));
+    });
+
     it('identifies the effective insertion slot across neighboring before/after targets', () => {
         const snapshot = snapshotFor('row-0');
         const resolveAt = (y: number) => resolveSessionListDragPointer({

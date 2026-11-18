@@ -62,7 +62,7 @@ function resolveRowInstruction(params: ResolveTreeInstructionParams, target: Tre
     const verticalThird = classifyVerticalThird(
         target.bounds,
         params.pointer!,
-        canHaveChildren ? CONTAINER_NEST_BAND_RATIO : undefined,
+        params.rules.allowNesting === false ? 0 : canHaveChildren ? CONTAINER_NEST_BAND_RATIO : undefined,
     );
     if (verticalThird === 'top' || verticalThird === 'bottom') {
         const depth = computeReorderInstructionDepth(target);

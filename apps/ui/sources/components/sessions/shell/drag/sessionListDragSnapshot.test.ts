@@ -72,6 +72,27 @@ function viewItems(): SessionListViewItem[] {
 }
 
 describe('buildSessionListDragSnapshot', () => {
+    it('keeps separate drag targets for the same projects in Active and Inactive', () => {
+        const items: SessionListIndexItem[] = (['active', 'inactive'] as const).flatMap((section) => [
+            { type: 'header' as const, title: section, headerKind: section, groupKey: section, serverId: 'server-a' },
+            { ...projectHeader('project-a'), section },
+            { ...sessionIndexItem(`${section}-a`, 'project-a', null, 0), section },
+            { ...projectHeader('project-b'), section },
+            { ...sessionIndexItem(`${section}-b`, 'project-b', null, 0), section },
+        ]);
+        const snapshot = buildSessionListDragSnapshot({
+            items, viewItems: [], sessionDragKey: 'server-a:active-a',
+            folderSortMode: 'mixed', foldersFeatureEnabled: true,
+        });
+        const roots = [...snapshot.topology.rowMetadataById.values()].filter((row) => row.kind === 'workspace-root');
+        expect(roots).toHaveLength(4);
+        const active = snapshot.topology.rowMetadataById.get('session:server-a:active-a')!;
+        const inactive = snapshot.topology.rowMetadataById.get('session:server-a:inactive-a')!;
+        expect(active.rootId).not.toBe(inactive.rootId);
+        expect(snapshot.topology.rowMetadataById.get(active.rootId)?.item.section).toBe('active');
+        expect(snapshot.topology.rowMetadataById.get(inactive.rootId)?.item.section).toBe('inactive');
+    });
+
     it('freezes tree topology (rows/drop zones/metadata) WITHOUT any pixel geometry', () => {
         const snapshot = buildSessionListDragSnapshot({
             items: indexItems(),

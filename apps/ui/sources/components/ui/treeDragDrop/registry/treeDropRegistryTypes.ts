@@ -54,14 +54,14 @@ export type TreeContentDropZone = Readonly<{
 /**
  * Platform measurement boundary: a ref that can report a window rectangle.
  *
- * `measureInWindow` is the async native path. `getBoundingClientRectFn` is the
+ * `measureInWindow` is the async native path. `getBoundingClientRect` is the
  * synchronous web path — when present, `measureWindowBounds` reads it from the
  * same DOM clock as `scrollTop`, eliminating the stale-bounds drift that the
  * old async `measureInWindow` + scroll-rebase model produced (plan section 1.4).
  */
 export type TreeDropMeasurableRef = Readonly<{
     measureInWindow?: (callback: (x: number, y: number, width: number, height: number) => void) => void;
-    getBoundingClientRectFn?: () => Readonly<{ x: number; y: number; width: number; height: number }>;
+    getBoundingClientRect?: () => Readonly<{ x: number; y: number; width: number; height: number }>;
 }>;
 
 /**

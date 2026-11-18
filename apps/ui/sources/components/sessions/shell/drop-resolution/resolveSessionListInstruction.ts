@@ -55,6 +55,7 @@ export function resolveSessionListInstruction(params: Readonly<{
         source: params.source,
         pointer: params.pointer,
         rules: {
+            allowNesting: params.source.metadata.kind !== 'workspace-root',
             maxDepth: params.maxDepth ?? SESSION_FOLDER_MAX_DEPTH,
             canMoveToRoot: (_source, zone) => {
                 const container = params.tree.containerMetadataById.get(zone.containerId);

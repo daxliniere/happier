@@ -164,6 +164,7 @@ export const SessionListRow = React.memo(function SessionListRow(props: SessionL
     const rowNode = rowDragEnabled ? (
         <Animated.View
             ref={setWrapperRef}
+            testID={`session-list-drag-row:${sessionKey}`}
             collapsable={false}
             style={animatedStyle}
             pointerEvents={rowPointerEvents}
@@ -174,6 +175,7 @@ export const SessionListRow = React.memo(function SessionListRow(props: SessionL
     ) : (
         <View
             ref={setWrapperRef}
+            testID={`session-list-drag-row:${sessionKey}`}
             collapsable={false}
             pointerEvents={rowPointerEvents}
             onLayout={handleRowLayout}

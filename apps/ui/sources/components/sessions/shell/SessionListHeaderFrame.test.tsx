@@ -15,7 +15,7 @@ describe('session list row measurement lifetime', () => {
     it('keeps a recycled same-sized view registered under its new item without another layout event', async () => {
         const measured = new Map<string, TreeDropMeasurableRef>();
         const node: TreeDropMeasurableRef = {
-            getBoundingClientRectFn: () => ({ x: 0, y: 40, width: 300, height: 40 }),
+            getBoundingClientRect: () => ({ x: 0, y: 40, width: 300, height: 40 }),
         };
         const register = (rowId: string, ref: TreeDropMeasurableRef | null) => {
             if (ref) measured.set(rowId, ref);

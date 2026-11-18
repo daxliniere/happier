@@ -50,7 +50,7 @@ describe('session list drag commit outcomes', () => {
             setSessionWorkspaceOrderV1: vi.fn(), scrollToOffset: vi.fn(),
         }));
         const refs = positions.map((_, index) => ({
-            getBoundingClientRectFn: () => ({ x: 0, y: positions[index]! - scrollOffset, width: 300, height: heights[index]! }),
+            getBoundingClientRect: () => ({ x: 0, y: positions[index]! - scrollOffset, width: 300, height: heights[index]! }),
         }));
         ['a', 'b', 'c'].forEach((id, index) => hook.getCurrent().registerTreeRowBounds(`session:server-a:${id}`, refs[index]!));
         await act(async () => { hook.getCurrent().handleDragStart(`server-a:${sourceId}`); });
@@ -198,7 +198,7 @@ describe('session list drag commit outcomes', () => {
         const register = () => {
             hook.getCurrent().order['pinned-v1'].forEach((key, index) => {
                 hook.getCurrent().interactions.registerTreeRowBounds(`session:${key}`, {
-                    getBoundingClientRectFn: () => ({ x: 0, y: index * 40, width: 300, height: 40 }),
+                    getBoundingClientRect: () => ({ x: 0, y: index * 40, width: 300, height: 40 }),
                 });
             });
         };

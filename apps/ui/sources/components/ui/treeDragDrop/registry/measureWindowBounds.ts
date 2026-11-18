@@ -7,7 +7,7 @@ import { isFiniteRect } from '../geometry/treeDropCoordinateSpace';
  *
  * Plan section 3.1: this is the ONLY place that touches a platform measurement
  * API. It has two paths:
- * - synchronous web path: when the ref exposes `getBoundingClientRectFn`, read
+ * - synchronous web path: when the ref exposes `getBoundingClientRect`, read
  *   it directly. This shares the DOM clock with `scrollTop`, eliminating the
  *   stale-bounds drift the old async `measureInWindow` + scroll-rebase model
  *   produced (plan section 1.4).
@@ -19,8 +19,8 @@ import { isFiniteRect } from '../geometry/treeDropCoordinateSpace';
 export function measureWindowBounds(ref: TreeDropMeasurableRef | null): Promise<WindowBounds | null> {
     if (!ref) return Promise.resolve(null);
 
-    if (typeof ref.getBoundingClientRectFn === 'function') {
-        const rect = ref.getBoundingClientRectFn();
+    if (typeof ref.getBoundingClientRect === 'function') {
+        const rect = ref.getBoundingClientRect();
         const bounds: WindowBounds = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
         return Promise.resolve(isFiniteRect(bounds) ? bounds : null);
     }

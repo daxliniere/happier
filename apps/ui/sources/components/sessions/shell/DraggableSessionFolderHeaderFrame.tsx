@@ -66,7 +66,7 @@ export const DraggableSessionFolderHeaderFrame = React.memo(function DraggableSe
         <Animated.View
             ref={setWrapperRef}
             collapsable={false}
-            testID={props.folderId ? `session-folder-drag-row-${props.folderId}` : undefined}
+            testID={props.folderId ? `session-folder-drag-row-${props.folderId}` : `session-project-drag-row-${dragKey}`}
             style={animatedStyle}
             onLayout={handleLayout}
         >

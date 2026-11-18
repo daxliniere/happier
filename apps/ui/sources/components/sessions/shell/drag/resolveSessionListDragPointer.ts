@@ -80,6 +80,25 @@ function asTreeDropZone(dropZone: TreeContentDropZone): TreeContainerDropZone {
     return dropZone;
 }
 
+/** Project moves target whole groups, including empty headings, rather than their child rows. */
+function resolveProjectDragRows(
+    snapshot: SessionListDragSnapshot,
+    rows: ReadonlyArray<TreeContentRow>,
+): ReadonlyArray<TreeContentRow> {
+    if (snapshot.source.treeSource.metadata.kind !== 'workspace-root') return rows;
+    const bottomByRoot = new Map<string, number>();
+    for (const row of rows) {
+        const rootId = snapshot.topology.rowMetadataById.get(row.id)?.rootId;
+        if (!rootId) continue;
+        bottomByRoot.set(rootId, Math.max(bottomByRoot.get(rootId) ?? -Infinity, row.bounds.y + row.bounds.height));
+    }
+    return rows.filter((row) => snapshot.topology.rowMetadataById.get(row.id)?.kind === 'workspace-root')
+        .map((row) => ({
+            ...row,
+            bounds: { ...row.bounds, height: (bottomByRoot.get(row.id) ?? row.bounds.y + row.bounds.height) - row.bounds.y },
+        }));
+}
+
 /**
  * Combines the FROZEN topology metadata with the LIVE content geometry into a
  * single content-space `SessionListTreeModel` the session resolver consumes.
@@ -118,7 +137,11 @@ export function resolveSessionListDragPointer(
         return { result: IDLE_RESULT, geometry: NONE_GEOMETRY, destinationKey: null };
     }
 
-    const geometry = registry.getContentGeometry();
+    const registeredGeometry = registry.getContentGeometry();
+    const geometry: TreeDropContentGeometry = {
+        rows: resolveProjectDragRows(snapshot, registeredGeometry.rows),
+        dropZones: registeredGeometry.dropZones,
+    };
 
     // The live registry never registers drop zones — it only tracks rows. Derive
     // the implicit root-edge / sibling-gap zones in content coordinates from the

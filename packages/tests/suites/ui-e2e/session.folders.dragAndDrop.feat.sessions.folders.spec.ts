@@ -13,9 +13,11 @@ import { createTestAuthMtls } from '../../src/testkit/auth';
 import { registerMachineIdentity } from '../../src/testkit/machineIdentity';
 import { createMachineBoundSessionScopedSocketCollector } from '../../src/testkit/sessionSocketBinding';
 import { fetchSessionV2 } from '../../src/testkit/sessions';
+import { fetchJson } from '../../src/testkit/http';
 import { waitFor } from '../../src/testkit/timing';
 import { startForwardedHeaderProxy } from '../../src/testkit/uiE2e/forwardedHeaderProxy';
 import { setSessionOrganizationPin } from '../../src/testkit/uiE2e/sessionOrganization';
+import { collectBrowserDiagnostics, appendBrowserDiagnostics } from '../../src/testkit/uiE2e/browserDiagnostics';
 import {
   createPlainSession,
   dragFolderToTarget,
@@ -205,6 +207,91 @@ test.describe('ui e2e: session folders drag and drop', () => {
     await ui?.stop().catch(() => {});
     await proxyStop?.().catch(() => {});
     await server?.stop().catch(() => {});
+  });
+
+  test('project grips reorder whole groups past an empty pinned project without resizing', async ({ page }) => {
+    test.setTimeout(180_000);
+    if (!server || !token || !uiBaseUrl) throw new Error('Missing project drag fixture');
+    const diagnostics = collectBrowserDiagnostics({ page });
+    const ids: string[] = [];
+    try {
+      for (const name of ['project-grip-c', 'project-grip-b', 'project-grip-a']) {
+        ids.push(await createPlainSession({
+          baseUrl: server.baseUrl, token, rootPath: `/tmp/${name}`, machineId: SEEDED_MACHINE_ID,
+          title: name, tagPrefix: 'project-grip',
+        }));
+      }
+      await setSessionOrganizationPin({ baseUrl: server.baseUrl, token, sessionId: ids[2]!, pinned: true });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await gotoDomContentLoadedWithRetries(page, `${uiBaseUrl}/?happier_hmr=0`, 120_000);
+      await waitForInitialAppUi({ page, timeoutMs: 120_000 });
+      const serverId = await resolveCanonicalServerIdForUi(uiServerUrl!);
+      await setSessionFolderDragSettings({
+        page, baseUrl: uiBaseUrl, apiBaseUrl: server.baseUrl, token,
+        serverId, sessionFoldersV1: { v: 1, folders: [] },
+      });
+      const headers = page.locator('[data-testid^="session-list-project-header:"]');
+      await expect(headers).toHaveCount(3, { timeout: 120_000 });
+      const headerIds = await headers.evaluateAll((nodes) => nodes.map((node) => ({
+        id: node.getAttribute('data-testid')!, label: node.textContent ?? '',
+      })));
+      const resolveHeaderId = (name: string) => {
+        const id = headerIds.find((header) => header.label.includes(name))?.id;
+        if (!id) throw new Error(`Missing project heading ${name}`);
+        return id;
+      };
+      const emptyId = resolveHeaderId('project-grip-a');
+      const sourceId = resolveHeaderId('project-grip-c');
+      const expandedId = resolveHeaderId('project-grip-b');
+      const projectRow = (headerId: string) => page.locator('[data-testid^="session-project-drag-row-"]')
+        .filter({ has: page.getByTestId(headerId) });
+      const drag = async (targetId: string, edge: 'top' | 'bottom') => {
+        const grip = page.getByTestId(`session-workspace-reorder-handle:${sourceId.slice('session-list-project-header:'.length)}`);
+        await grip.hover();
+        const source = await grip.boundingBox();
+        const target = await (edge === 'top' ? projectRow(targetId) : page.getByTestId(`session-list-drag-row:${serverId}:${ids[1]}`)).boundingBox();
+        if (!source || !target) throw new Error('Missing project drag bounds');
+        await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+        await page.mouse.down();
+        try {
+          await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2 + 10, { steps: 3 });
+          await page.mouse.move(target.x + target.width / 2, target.y + (edge === 'top' ? target.height * 0.35 : target.height * 0.9), { steps: 12 });
+          const line = page.getByTestId('session-list-drop-overlay-line');
+          await expect(line).toBeVisible();
+          await expect(line).toHaveCSS('opacity', '1');
+          const expectedEdge = edge === 'top' ? target.y : target.y + target.height;
+          await expect.poll(async () => Math.abs((await line.boundingBox())!.y + 1 - expectedEdge)).toBeLessThan(4);
+        } finally {
+          await page.mouse.up();
+        }
+      };
+      await drag(emptyId, 'top');
+      await expect.poll(async () => {
+        const source = await page.getByTestId(sourceId).boundingBox();
+        const empty = await page.getByTestId(emptyId).boundingBox();
+        return source != null && empty != null && source.y < empty.y;
+      }).toBe(true);
+      await drag(expandedId, 'bottom');
+      await expect.poll(async () => {
+        const source = await page.getByTestId(sourceId).boundingBox();
+        const child = await page.getByTestId(`session-list-item-${ids[1]}`).boundingBox();
+        return source != null && child != null && source.y > child.y;
+      }).toBe(true);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await expect(page.getByTestId(sourceId)).toBeVisible({ timeout: 120_000 });
+      expect((await page.getByTestId(sourceId).boundingBox())!.y)
+        .toBeGreaterThan((await page.getByTestId(expandedId).boundingBox())!.y);
+    } catch (error) {
+      throw appendBrowserDiagnostics(error, diagnostics());
+    } finally {
+      // This suite shares one account; remove only this test's seeded sessions.
+      for (const id of ids) {
+        const deleted = await fetchJson<unknown>(`${server.baseUrl}/v1/sessions/${encodeURIComponent(id)}`, {
+          method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+        });
+        expect(deleted.status).toBe(200);
+      }
+    }
   });
 
   test('keeps linked worktree folders scoped while focusing and dragging within one repository heading', async ({ page }) => {

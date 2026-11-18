@@ -52,6 +52,8 @@ export type TreeDragSource = Readonly<{
 }>;
 
 export type TreeDropRules = Readonly<{
+    /** Reorder-only surfaces split each target in half instead of offering nesting. */
+    allowNesting?: boolean;
     canNestInto: (source: TreeDragSource, targetId: string) => boolean;
     canReorderAround: (source: TreeDragSource, target: TreeRow, parentId: string | null) => boolean;
     canMoveToRoot?: (source: TreeDragSource, dropZone: TreeContainerDropZone) => boolean;

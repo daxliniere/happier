@@ -1242,7 +1242,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
             if (item.headerKind === 'folder' && item.folderId) {
                 labels.set(treeRowId.folder(item.folderId), item.title);
             } else if (item.headerKind === 'project' && item.groupKey) {
-                labels.set(treeRowId.workspaceRoot(item.groupKey), item.title);
+                labels.set(treeRowId.workspaceRoot(item.groupKey, item.section), item.title);
             }
         }
         return labels;
@@ -1918,7 +1918,7 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         }
         if ((item.workspaceLabel || item.title) && item.headerKind === 'project') {
             const collapseKey = item.groupKey ?? '';
-            const treeRow = treeRowId.workspaceRoot(item.groupKey ?? item.title);
+            const treeRow = treeRowId.workspaceRoot(item.groupKey ?? item.title, item.section);
             const moveActionHandlers = getRowMoveActionHandlers({ sourceRowId: treeRow, sourceLabel: item.title });
             return (
                 <DraggableSessionFolderHeaderFrame
