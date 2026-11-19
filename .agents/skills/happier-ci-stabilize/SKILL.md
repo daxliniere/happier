@@ -12,7 +12,7 @@ Drive a failing CI or release run to an evidence-backed terminal result with the
 - Read and apply `.agents/skills/happier-testing/SKILL.md` before changing tests, fixtures, mocks, testkits, timeouts, or lane selection.
 - Use `.agents/skills/happier-implement/SKILL.md` for repository corrections and its RED -> GREEN requirement for behavior changes.
 - Resolve privileged publication through `.agents/skills/happier-release/SKILL.md`; this skill never invents release authority.
-- After a coherent validated 0.2 correction, use `.agents/skills/happier-port-0-2-to-0-3/SKILL.md` once for an evidence-backed 0.3 disposition.
+- Use `.agents/skills/happier-port-0-2-to-0-3/SKILL.md` only if Dax explicitly requests a 0.3 port; CI stabilization on 0.2 does not trigger one.
 
 Read [failure-collection.md](references/failure-collection.md) for a failing run, [ci-cleanup.md](references/ci-cleanup.md) before simplifying CI/tests, and [nightly-recovery.md](references/nightly-recovery.md) before rerunning or resuming a release.
 

@@ -38,15 +38,11 @@ Deep diagnosis records linked work during intake, establishes the issue contract
 
 Diagnosis and triage are read-only by default. Implementation and GitHub write-back require separate explicit authority.
 
-## 0.2 correction and 0.3 continuation
+## 0.2 corrections and explicitly requested 0.3 ports
 
-Every issue correction implemented on the 0.2 source line must receive an evidence-backed disposition on the evolved 0.3 line. During diagnosis, inspect whether the same user-visible contract or defect mechanism is reachable in 0.3 and identify its likely current owner and any expanded sibling paths. Search by behavior and domain identifiers rather than assuming the same files or architecture still own the decision.
+Issue corrections default to the 0.2 line. Do not inspect, implement, or prepare a disposition for 0.3 as routine follow-up. If Dax explicitly requests a 0.3 port, invoke `.agents/skills/happier-port-0-2-to-0-3` for the requested intent, including any directly related accepted follow-ups. The port skill owns destination discovery, adaptation, and validation; it does not stage or commit.
 
-After implementation is authorized, work on and validate 0.2 first. Once the source correction forms one coherent validated batch, invoke `.agents/skills/happier-port-0-2-to-0-3` once for that batch. Reuse valid diagnosis evidence, re-discover the current 0.3 owner, and classify every source intent as already satisfied, adapted, broadened, or not applicable. Apply every applicable correction through 0.3's current canonical owner without restoring superseded 0.2 logic, overwriting unrelated destination work, or propagating 0.3 changes backward.
-
-Do not port or fully reanalyze 0.3 during every source edit. If a later source refinement changes an intent, reassess that intent and its destination disposition; repeat the broader destination analysis only when scope, ownership, or architecture materially changed. The port skill does not stage or commit. If no verified 0.3 checkout is available, complete the source-side evidence and report the port as blocked with the missing location or authority.
-
-An issue-linked 0.2 implementation is not `VERIFIED_COMPLETE` until every source intent has a 0.3 disposition and every applicable destination change has its deciding validation. This completion rule is separate from release availability: `stage:source` still requires the complete correction to be integrated and verified on canonical `dev`.
+An issue-linked implementation is `VERIFIED_COMPLETE` when the requested correction is implemented and validated on its requested target line. A 0.3 disposition is required only when Dax explicitly requested 0.3 work. `stage:source` still requires the complete correction to be integrated and verified on canonical `dev`.
 
 ## Correction lifecycle and release channels
 
@@ -63,7 +59,7 @@ For an open issue whose complete correction becomes integrated and verified on c
 
 ### Source verification and handoff decision
 
-For `stage:source`, verification means the complete issue correction is integrated on canonical `dev` and applicable deciding regression, integration, or source evidence establishes the corrected contract, with no known material defect remaining in that correction. For a 0.2 correction, also complete its required 0.3 disposition. This label records source availability; it does not certify every CI lane, physical platform, release artifact, or reporter confirmation.
+For `stage:source`, verification means the complete issue correction is integrated on canonical `dev` and applicable deciding regression, integration, or source evidence establishes the corrected contract, with no known material defect remaining in that correction. This label records source availability; it does not certify every CI lane, physical platform, release artifact, or reporter confirmation.
 
 Keep required validation obligations and report failed, skipped, or unavailable checks accurately. A broader typecheck that cannot start because executor capacity is unavailable, or native QA that requires an unavailable external runtime, is a disclosed validation gap. Such unavailability alone must not withhold `stage:source` when the deciding correction evidence already holds, and applying the label does not mark that check passed or the whole implementation `VERIFIED_COMPLETE`. A check that reveals a material defect in the correction, missing deciding evidence, a partial fix, or an unmerged change still prevents claiming the complete correction is verified in source.
 

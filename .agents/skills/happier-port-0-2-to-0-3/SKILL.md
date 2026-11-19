@@ -1,11 +1,11 @@
 ---
 name: happier-port-0-2-to-0-3
-description: Port a complete Happier change from the 0.2 source line into the evolved 0.3 destination line by intent, including later source refinements, without copying predecessor architecture or overwriting unrelated work. Use whenever committed, staged, or unstaged 0.2 behavior must be analyzed for 0.3 applicability, adapted through 0.3's canonical owners, and validated without propagating 0.3 changes backward. This skill does not stage or commit changes.
+description: Port a complete Happier change from the 0.2 source line into the evolved 0.3 destination line by intent, including later source refinements, without copying predecessor architecture or overwriting unrelated work. Use only when Dax explicitly requests a 0.3 port; ordinary 0.2 fixes, features, CI work, and issue handling do not trigger this skill. This skill does not stage or commit changes.
 ---
 
 # Happier Port 0.2 to 0.3
 
-Own the forward-port lifecycle from the 0.2 release line to the 0.3 development line. Treat checkout paths as runtime inputs, never as product or release identities.
+Own the forward-port lifecycle from the 0.2 release line to the 0.3 development line only for an explicitly requested port. Treat checkout paths as runtime inputs, never as product or release identities.
 
 ## 1. Load the owning workflows
 

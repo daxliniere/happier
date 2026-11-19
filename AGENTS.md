@@ -46,19 +46,21 @@ Always make the smallest coherent systemic change at the correct canonical owner
    - `.agents/skills/happier-commit-worktree` only for a user-requested large or continuously changing worktree commit campaign, not an ordinary scoped commit.
    - `.agents/skills/happier-review` is the only general Happier review/QA orchestrator. The archived `review-protocol` and `code-reviewer` skills must not be invoked.
    - `.agents/skills/happier-pr-steward` for user-requested pull-request stewardship; it composes `happier-review` and the mutation authority in `happier-github-ops`.
-   - `.agents/skills/happier-port-0-2-to-0-3` after every coherent validated 0.2 change batch. Validate 0.2 first, then give every intent an evidence-backed 0.3 disposition through the evolved owner; the skill never stages or commits.
+   - `.agents/skills/happier-port-0-2-to-0-3` only when Dax explicitly requests a 0.3 port. Never invoke it as follow-up to ordinary 0.2 work.
    - `.agents/skills/happier-testing` for TDD, test quality, lane selection, and live validation.
    - `.agents/skills/happier-docs` for internal or published documentation.
    - `.agents/skills/happier-instruction-eval` only for an explicit instruction-variant evaluation or an approved evaluation boundary.
-   - `.agents/skills/happier-issue-triage` for read-only issue retrieval, clustering, and routing; `.agents/skills/happier-issue-diagnose` for deep read-only diagnosis. Issue correction, release follow-up, labels, closure, attribution, and reporter handoff follow `docs/issue-triage.md`. On 0.2, validate the source correction, then complete its 0.3 disposition.
+   - `.agents/skills/happier-issue-triage` for read-only issue retrieval, clustering, and routing; `.agents/skills/happier-issue-diagnose` for deep read-only diagnosis. Issue correction, release follow-up, labels, closure, attribution, and reporter handoff follow `docs/issue-triage.md`. For 0.2 issues, validate the 0.2 correction; any 0.3 follow-up requires Dax's explicit request.
    - `.agents/skills/happier-diagnose` for read-only runtime/support incidents; requested source fixes proceed through `happier-implement`.
    - `.agents/skills/happier-profile-and-optimize` when success is measured performance; implementation still uses `happier-implement`, and UI write-time rules remain in `apps/ui/AGENTS.md`.
-   - `.agents/skills/happier-compatibility` for wire, persistence, mixed-version, upgrade, rollback, and 0.2 → 0.3 seams.
+   - `.agents/skills/happier-compatibility` for explicitly requested cross-version compatibility work. Do not proactively migrate 0.2 changes to 0.3.
    - `.agents/skills/decompose-gates` for hard multi-part work and lane briefs; `.agents/skills/verify-claims` before relying on delegated or external claims; `.agents/skills/attack-conclusion` before non-trivial handoff; and `.agents/skills/handoff-report` for substantive findings or completed work.
 3. Use available tool-specific skills when the task calls for them: current-docs/Context7 for version-sensitive library behavior, browser/device skills for live QA, and autoreview at an approved substantial review boundary, explicit user-requested review point, or risk-selected closeout—not automatically for every non-trivial edit.
 4. Read `docs/agent-craft.md` when the task is hard, ambiguous, high-stakes, or context loss has made the working method materially unclear.
 
 ## Scope, autonomy, and completion
+
+- The normal fork target is 0.2. Do not port 0.2 work to 0.3, prepare 0.3 dispositions, or treat 0.3 compatibility as part of an ordinary fix or feature unless Dax explicitly requests 0.3 work.
 
 - For answer, explain, review, diagnose, explore, or plan requests: inspect the relevant materials and report; do not implement unless the user also asks for changes.
 - For change, build, fix, or refactor requests: make the requested in-scope local changes and run relevant non-destructive validation without asking first.

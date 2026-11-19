@@ -77,4 +77,4 @@ Report:
 - which wording or structural change earned its place and why;
 - the smallest recommended canonical-owner edit, or that no change is justified.
 
-Use the final response unless the user requested durable evaluation tracking. Do not create a new report file, update `AGENTS.md`, or propagate a variant to another repository without explicit change authority. If an accepted change affects the 0.2 source line, use `.agents/skills/happier-port-0-2-to-0-3` for its destination disposition.
+Use the final response unless the user requested durable evaluation tracking. Do not create a new report file, update `AGENTS.md`, or propagate a variant to another repository without explicit change authority. A change on the 0.2 source line remains 0.2-only unless Dax explicitly requests a 0.3 port.

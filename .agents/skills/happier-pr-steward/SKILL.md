@@ -1,6 +1,6 @@
 ---
 name: happier-pr-steward
-description: Analyze and shepherd a Happier pull request from intent review through approved refinements, current-head CI and review follow-up, evidence-based comment adjudication, and any required intent-preserving version-line port. Use when asked to assess whether a PR is correct or mergeable, detect duplicate or split-brain logic, add follow-up commits, request or monitor reviews, address PR feedback, or carry a 0.2 PR and every accepted follow-up into the evolved 0.3 line.
+description: Analyze and shepherd a Happier pull request from intent review through approved refinements, current-head CI and review follow-up, and evidence-based comment adjudication. Use when asked to assess whether a PR is correct or mergeable, detect duplicate or split-brain logic, add follow-up commits, request or monitor reviews, or address PR feedback. A 0.3 port happens only when Dax explicitly requests it.
 ---
 
 # Happier PR Steward
@@ -14,7 +14,7 @@ Use these skills as applicable:
 - `.agents/skills/happier-review` for the review basis, affected corridor, findings, and merge assessment;
 - `.agents/skills/happier-implement` and `.agents/skills/happier-testing` for approved behavior changes and RED -> GREEN evidence;
 - `.agents/skills/happier-compatibility` for released seams and version skew;
-- `.agents/skills/happier-port-0-2-to-0-3` when a 0.2 PR must be represented in the 0.3 line;
+- `.agents/skills/happier-port-0-2-to-0-3` only when Dax explicitly requests a 0.3 port;
 - `.agents/skills/happier-commit-worktree` when a destination checkout is large or actively dirty;
 - `.agents/skills/happier-github-ops` for authenticated GitHub reads and every public mutation;
 - `.agents/skills/verify-claims` before relying on bot, human, CI, or delegated claims;
@@ -60,13 +60,13 @@ Exact approval covers only the described implementation batch; a standing grant 
 
 Apply refinements on the PR branch before porting them. Use TDD for production behavior changes, inspect the final branch diff against the base, and validate in proportion to risk. Commit only related paths or hunks with a Conventional Commit message, the current local Git identity, and only the verified co-author trailers justified by material content in that commit.
 
-Do not make a destination implementation the design authority for the PR branch. The PR remains the first implementation surface; the destination port follows only after the source change is coherent and validated.
+Do not make a destination implementation the design authority for the PR branch. The PR remains the first implementation surface; a destination port occurs only if Dax explicitly requests one, after the source change is coherent and validated.
 
-## 6. Invoke the required version-line port
+## 6. Optional explicitly requested version-line port
 
-When the PR belongs to the 0.2 line, invoke `.agents/skills/happier-port-0-2-to-0-3` for the complete PR intent plus every steward-authored and review-driven follow-up. Supply explicit checkout locations; do not encode local folder names in the PR lifecycle. The port skill owns destination discovery, adaptation, and validation, but it never stages or commits.
+Do not port a 0.2 PR automatically. Only when Dax explicitly requests a 0.3 port, invoke `.agents/skills/happier-port-0-2-to-0-3` for the requested intent and its accepted follow-ups. Supply explicit checkout locations; do not encode local folder names in the PR lifecycle. The port skill owns destination discovery, adaptation, and validation, but it never stages or commits.
 
-After the port is validated, this PR workflow owns the separately authorized destination commit. Use `.agents/skills/happier-commit-worktree` when needed, select only related paths or hunks, and preserve the same commit-specific material contributor attribution in the adapted destination change. Do not add the PR author to an independently designed destination correction unless their contribution is actually embodied there.
+If an explicitly requested port is validated, this PR workflow owns the separately authorized destination commit. Use `.agents/skills/happier-commit-worktree` when needed, select only related paths or hunks, and preserve the same commit-specific material contributor attribution in the adapted destination change. Do not add the PR author to an independently designed destination correction unless their contribution is actually embodied there.
 
 ## 7. Request review through the active authorization
 
