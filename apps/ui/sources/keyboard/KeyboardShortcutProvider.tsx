@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { Modal } from '@/modal';
-import { storage } from '@/sync/domains/state/storage';
+import { storage, useLocalSetting } from '@/sync/domains/state/storage';
 import { t } from '@/text';
 import {
     buildKeyboardShortcutLabels,
@@ -145,6 +145,7 @@ export function KeyboardShortcutProvider(props: React.PropsWithChildren<Readonly
         keyboardShortcutOverridesV1: state.settings.keyboardShortcutOverridesV1,
         keyboardShortcutDisabledCommandIdsV1: state.settings.keyboardShortcutDisabledCommandIdsV1,
     })));
+    const composerTypeToFocusEnabled = useLocalSetting('composerTypeToFocusEnabled');
     const labelHandlers = React.useMemo<KeyboardShortcutHandlers>(() => ({
         ...rootHandlers,
         'shortcutsHelp.open': () => undefined,
@@ -184,6 +185,7 @@ export function KeyboardShortcutProvider(props: React.PropsWithChildren<Readonly
         keyboardShortcutDisabledCommandIdsV1: readonly string[] | undefined;
         keyboardShortcutOverridesV1: Readonly<Record<string, readonly KeybindingRule[]>> | undefined;
         handlers: KeyboardShortcutHandlers;
+        composerTypeToFocusEnabled: boolean;
     }> | null>(null);
     latestShortcutRuntimeRef.current = {
         keyboardShortcutsV2Enabled,
@@ -192,6 +194,7 @@ export function KeyboardShortcutProvider(props: React.PropsWithChildren<Readonly
         keyboardShortcutDisabledCommandIdsV1,
         keyboardShortcutOverridesV1,
         handlers,
+        composerTypeToFocusEnabled,
     };
     const executeCommand = React.useCallback((commandId: KeyboardCommandId): boolean => {
         const handler = latestShortcutRuntimeRef.current?.handlers[commandId];
@@ -259,10 +262,7 @@ export function KeyboardShortcutProvider(props: React.PropsWithChildren<Readonly
                 event.stopPropagation();
                 return;
             }
-
-            // Focus during keydown and leave its default action intact: the browser
-            // inserts the first character into the newly focused composer as well.
-            if (typeof navigator === 'undefined' || !/Win/i.test(navigator.platform)) return;
+            if (!latestShortcutRuntime.composerTypeToFocusEnabled) return;
             if (!isComposerTypeToFocusKey({
                 key: event.key,
                 ctrlKey: event.ctrlKey,
@@ -272,21 +272,19 @@ export function KeyboardShortcutProvider(props: React.PropsWithChildren<Readonly
                 altGraph: event.getModifierState?.('AltGraph') === true,
             })) return;
             if (readKeyboardContextFromEventTarget(event.target).isEditableTarget) return;
-            const target = event.target as HTMLElement | null;
-            if (target?.closest?.('[role="menu"], [role="listbox"], [role="combobox"], [role="dialog"], dialog')) return;
-            // Popovers and menus (including the composer action menu) register on the escape stack while open.
+            // Modals trap focus inside their dialog; popovers and menus register on the escape stack.
+            if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"], [aria-modal="true"]')) return;
             if (getMaxEscapeKeyBlockerPriority() > ESCAPE_LAYER_PRIORITIES.overlay) return;
-            if (typeof document !== 'undefined' && document.querySelector(
-                '[role="dialog"], dialog[open], [aria-modal="true"], [role="menu"], [role="listbox"]',
-            )) return;
-            latestShortcutRuntime.handlers['composer.focus']?.();
+            // Focus during keydown and keep its default action: the browser types this first
+            // character into the newly focused composer.
+            executeCommand('composer.focus');
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [platform, surface]);
+    }, [executeCommand, platform, surface]);
 
     React.useEffect(() => {
         if (Platform.OS === 'web') return;

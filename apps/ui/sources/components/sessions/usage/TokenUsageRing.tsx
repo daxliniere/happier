@@ -3,7 +3,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Typography } from '@/constants/Typography';
 import { Text } from '@/components/ui/text/Text';
-import { CapacityRing } from '@/components/ui/progress/CapacityRing';
+import { CapacityRing, getConcentricCapacityRingSize } from '@/components/ui/progress/CapacityRing';
 
 import { resolveTokenUsageProgressRatio } from './tokenUsageFormatting';
 import { useSetting } from '@/sync/domains/state/storage';
@@ -20,7 +20,7 @@ type TokenUsageRingMeter = Readonly<{
 export type TokenUsageRingProps = TokenUsageRingMeter & Readonly<{
     label: string;
     value: string;
-    /** Multiple limits, outermost first; each keeps its own fill and colour. */
+    /** Per-window fills and tones, outermost first; the center value is independent. */
     rings?: readonly TokenUsageRingMeter[];
     size?: number;
     strokeWidth?: number;
@@ -66,7 +66,7 @@ export function TokenUsageRing(props: TokenUsageRingProps) {
                 color: resolveColor(meter),
                 trackColor: meter.remainingPct !== undefined && meter.remainingPct <= 0 ? resolveColor(meter) : undefined,
             }))}
-            size={props.size ?? 20}
+            size={getConcentricCapacityRingSize(props.size ?? 20, props.rings?.length ?? 1, props.strokeWidth ?? 2)}
             strokeWidth={props.strokeWidth ?? 2}
             color={toneColor}
             trackColor={props.remainingPct !== undefined && props.remainingPct <= 0 ? toneColor : undefined}

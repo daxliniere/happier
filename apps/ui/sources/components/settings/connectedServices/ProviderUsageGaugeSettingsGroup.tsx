@@ -66,12 +66,12 @@ export const ProviderUsageGaugeSettingsGroup = React.memo(function ProviderUsage
         <DropdownMenu
             open={numberMenuOpen}
             onOpenChange={setNumberMenuOpen}
+            variant="selectable"
             selectedId={numberWindow}
+            // "Automatic" picks which rings to draw; it is not a window the centre number can follow.
             items={candidates.filter(candidate => candidate.id !== 'automatic').map(candidate => ({
                 ...candidate,
                 testID: `settings-session-providerUsageGauge-number:${candidate.id}`,
-                icon: <Icon name={numberWindow === candidate.id ? 'check-square' : 'square'} size={20}
-                    color={numberWindow === candidate.id ? theme.colors.accent.blue : theme.colors.text.secondary} />,
             }))}
             onSelect={id => { if (isQuotaGaugeWindowMode(id)) setNumberWindow(id); }}
             rowKind="item"

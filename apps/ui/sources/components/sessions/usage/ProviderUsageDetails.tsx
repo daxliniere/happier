@@ -16,6 +16,10 @@ import { connectedServiceQuotaGaugeFormatter } from './connectedServiceQuotaGaug
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 import { useProviderUsageRefreshState } from '@/hooks/server/connectedServices/useProviderUsageRefreshState';
 import { getProviderUsageRingSize } from './ProviderUsageRing';
+import {
+    resolveConnectedServiceSubscriptionStatusLabel,
+    resolveConnectedServiceSubscriptionStatusTone,
+} from '@/sync/domains/connectedServices/subscriptionStatus';
 
 function ProviderUsageRefreshIndicator(props: Readonly<{ serviceId: string; sourceProfileId: string; size: number }>) {
     const refreshing = useProviderUsageRefreshState(props.serviceId, props.sourceProfileId);
@@ -65,6 +69,8 @@ export function ProviderUsageDetails(props: Readonly<{
         ? t('agentInput.providerUsage.titleForProvider', { provider: props.viewModel.providerDisplayName })
         : t('agentInput.providerUsage.title');
     const recoveryCreditSummary = props.viewModel.recoveryCreditSummary;
+    const subscriptionTone = props.viewModel.subscription
+        ? resolveConnectedServiceSubscriptionStatusTone(props.viewModel.subscription.status) : null;
     return (
         <View style={styles.popoverContent}>
             <View style={styles.titleRow}>
@@ -90,9 +96,9 @@ export function ProviderUsageDetails(props: Readonly<{
                         <View style={styles.subscriptionStatus}>
                             <View style={[
                                 styles.subscriptionStatusDot,
-                                props.viewModel.subscription.renewal === 'on'
+                                subscriptionTone === 'on'
                                     ? styles.subscriptionStatusDotOn
-                                    : props.viewModel.subscription.renewal === 'off'
+                                    : subscriptionTone === 'off'
                                         ? styles.subscriptionStatusDotOff
                                         : styles.subscriptionStatusDotUnknown,
                             ]} />
@@ -100,16 +106,18 @@ export function ProviderUsageDetails(props: Readonly<{
                                 testID="agent-input-provider-usage-subscription:renewal"
                                 style={styles.subscriptionRenewal}
                             >
-                                {props.viewModel.subscription.renewalLabel}
+                                {resolveConnectedServiceSubscriptionStatusLabel(props.viewModel.subscription.status)}
                             </Text>
                         </View>
                     </View>
-                    <Text
-                        testID="agent-input-provider-usage-subscription:summary"
-                        style={styles.subscriptionSummary}
-                    >
-                        {props.viewModel.subscription.summary}
-                    </Text>
+                    {props.viewModel.subscription.summary ? (
+                        <Text
+                            testID="agent-input-provider-usage-subscription:summary"
+                            style={styles.subscriptionSummary}
+                        >
+                            {props.viewModel.subscription.summary}
+                        </Text>
+                    ) : null}
                     {props.viewModel.subscription.period ? (
                         <Text style={styles.subscriptionMeta}>{props.viewModel.subscription.period}</Text>
                     ) : null}

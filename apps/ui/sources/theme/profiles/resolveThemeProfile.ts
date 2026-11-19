@@ -75,7 +75,6 @@ export const resolveThemeProfile = ({ mode, profile }: ResolveThemeProfileInput)
 
     let nextColors = cloneTheme(baseTheme).colors;
     const explicitOverrides = new Set<string>();
-
     for (const [tokenId, value] of Object.entries(profile.overrides[mode])) {
         const definition = getThemeProfileTokenDefinition(tokenId);
         if (!definition || !isValidThemeProfileColorValue(value)) {

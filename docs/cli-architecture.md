@@ -174,6 +174,13 @@ rejected best-effort message.
 
 ## Direct-session JSONL read progress (development)
 
+Claude's direct-session mapper and stored-session writer share
+`backends/claude/utils/readClaudeUserMessageText` to project human prompts from
+both string content and SDK text-block arrays into user text messages. Direct
+history, follow and import use the same mapper. Tool/media content, peer deliveries,
+sidechains and meta records retain their structured output path. This correction
+is in development source; it does not establish preview or stable availability.
+
 The shared readers in `api/directSessions/filePaging` own byte paging for native
 JSONL sources. If their existing read allowance cannot complete the next record
 and no source has been consumed, they throw `JsonlRecordTooLargeError` with code
@@ -566,6 +573,15 @@ holding its `daemon.state.json` and `daemon.state.json.lock` — and only that s
 - `daemon stop` stops the current scope only; `daemon stop --all` and `auth logout --all` deliberately
   stop every relay's daemon.
 
+### Session Stop without a live runtime (development)
+
+The existing Protocol Session Stop owner classifies a missing runtime separately
+from a missing saved Session. CLI and UI both report `already_stopped` with
+`no_runtime_session_inactive` only when an authoritative Session read confirms
+that the saved Session is inactive. An active Session or an unavailable read
+leaves termination unconfirmed; cached UI activity and transport errors do not
+prove that a process stopped.
+
 ### Confirmed daemon stop outcomes (development)
 
 Current 0.2 development source reports `not_running` separately from a confirmed `stopped`
@@ -603,6 +619,12 @@ home on incomplete stop. Restart remains best effort for its stop phase, logs in
 through the default file logger, and requires its existing distinct running identity proof.
 
 ### One CLI update transaction (plan R13 f)
+
+In development source, the post-update repair handoff also runs when the canonical doctor relay
+inventory finds an installed local relay, even if background services need no repair. The newly
+activated CLI owns the diagnosis: repair displays installed relay versions, checks the matching
+channel against the published server release, and asks before updating. Relay update commands
+preserve the installed channel and user/system scope; CLI activation itself does not update relays.
 
 `runManagedCliUpdate` (`packages/cli-common/src/firstPartyRuntime/runManagedCliUpdate.ts`) is the
 only way a managed first-party CLI is updated in place. `happier self update`, the desktop's
@@ -691,6 +713,17 @@ daemon is not. The
 desktop's `cli.update.v1` does not pass that step: it relies on the launcher move-aside and does
 not end sessions, but it is unverified on a real Windows host. Remote update is disabled on Windows
 (below).
+
+In current development source (not yet released), self-update and direct `self __install-payload` CLI promotion reject
+invocations below a Happier daemon or daemon-started session before downloads, locks, launcher
+capture or service shutdown. The update owner uses the daemon's Windows process inspection and
+shared session-command classification to walk the calling process's ancestors. Run the update
+from an independent terminal after saving work. System/service ancestors without command lines
+are traversed using their parent PID; command lines are required only for potential Happier hosts.
+This also applies to fresh-install payload promotion. Failure to inspect ancestry still refuses the
+update without modifying the installation, with the inspection reason (no command text) in the error.
+`self update --help` and `-h` print help before update
+dispatch. This prevents self-termination during quiescing; the recovery limits above still apply.
 
 **Rolling back across a migration.** The previous version must read whatever the new one wrote
 before it failed. CLI self-update callers are ≥ 0.2.13; current desktop hsetup can also replace
@@ -790,6 +823,13 @@ layout boundary (`isManagedCliDaemonServiceLauncher`: a managed shim or a payloa
 install root) either way — leaves the definition as it is and starts what is installed, so the
 desktop's quiet start of a stopped service (D6) runs the CLI the service already runs and any switch
 goes through the install dry-run's consent and the strict install.
+
+In development source, status and start/restart resolve their expected launcher through
+`resolveDaemonServiceInstallRuntimeTarget`, the installer's canonical launcher policy, without
+acquiring a JavaScript runtime. Once a managed shim is available, start/restart refresh an older
+version-pinned managed bootstrap launcher to that shim. With no stable launcher available they
+retain the already-resolved runtime target. The installed autostart mode and desktop attribution
+are preserved; the managed/user-installed CLI consent boundary above still applies.
 
 **One CLI per computer (plan R12).** That consent is asked at most once per decision: when the
 executor has asked "Let Happier manage it / Keep my own" (prompt `setup.cliChoice`, before any write;
@@ -1825,6 +1865,14 @@ attachable. There is no parallel Herdr session synchronization service.
 
 ## Daemon architecture
 
+In current 0.2 development source, Windows process inspection in
+`apps/cli/src/daemon/doctor.ts` awaits PowerShell/CIM asynchronously for both
+PID-specific enrichment and the full-discovery fallback. Slow queries keep the
+daemon event loop available; inspection adds no query-local deadline or buffer
+override. Query and JSON failures retain the existing unavailable-evidence result
+and write a file warning without command lines or query output. Process
+classification and PID safety continue to use the same inspection owner.
+
 Startup reattachment and resume of an already-running session reconcile both
 the daemon's session access key and the session's machine routing metadata.
 The recovered-session machine-control owner uses the existing versioned
@@ -2156,10 +2204,32 @@ continues to require the exact captured issue. The arming-time check cannot esta
 the original failure across a restart or re-arming. A superseded live turn or
 archived session settles the old recovery
 terminally instead of waiting for provider proof after suppressing admission.
+Claude's public usage-limit issue is projected through the protocol schema's own
+field set without validating provider values before failure publication. Provider
+observation time, account attribution, sidechain attribution and note kind remain
+internal evidence. Invalid values reach the existing durable admission reduction
+below rather than throwing before local turn failure and recovery reporting. At durable
+mutation validation, an invalid issue on an otherwise valid terminal failure loses
+only the deepest invalid fields or unknown keys first. The same owner revalidates
+before dropping an affected top-level field, then falls back to the shared generic
+failure issue if necessary, with a warning in the default file log. Valid reset and
+account-association details survive optional-field errors. The terminal transition
+remains authoritative; malformed mutation fields still fail validation. Historical
+invalid-issue failures retained only as recovery evidence remain quarantined at
+startup; this admission correction does not replay them. Existing recovery of other
+supported dead-letter shapes is unchanged. The server may settle delayed terminal
+evidence for an older turn without replacing a later-begun current turn, including
+when that current turn has completed. Lists, badges, presence and socket updates
+continue to consume the canonical current-turn projection.
+Runtime-state revision and generation conflicts retry under the existing recovery
+scheduler budget and backoff, rather than immediately cancelling recovery.
 Failure reporting does not wait for its durable projection.
-An unresolved projection is retryable while the live turn matches the projected
-in-progress turn. Without that witness, or when the projected turn is already
-completed or cancelled, recovery settles terminally without admitting a continuation.
+An unresolved in-progress projection remains retryable when there is no local
+active turn, or when the local active turn matches the projection. This allows a
+locally failed turn to publish its durable terminal mutation before continuation
+admission. A conflicting local turn, an archived session or a failure after arming
+still supersedes recovery; completed or cancelled projections settle terminally.
+Projection waits consume the existing recovery attempt budget and backoff.
 Completed projections omit both the failed issue and input origin; they cannot
 distinguish provider task notifications from newer human work. The terminal
 recovery event appears in the session transcript, but cancelled usage-limit
@@ -2253,6 +2323,12 @@ soft threshold. The quota intake precheck uses that same selector; a daemon
 restart cannot make stale or exhausted targets eligible. Failure-driven
 `usage_limit` and `same_provider_account_exhausted` selection retains its existing
 unknown-quota allowance, and pre-turn probes can establish fresh evidence.
+Predictive burn evidence uses the same `probeIfSnapshotOlderThanMs` value as its
+projection horizon. The runtime snapshot store anchors its baseline to the oldest
+observation in the matching generation, effective meter, provider-limit and reset
+context that spans that horizon; readings captured only seconds apart therefore do
+not extrapolate a multi-minute switch. A reset or context change starts a new
+baseline, and non-decreasing, stale or inconsistent observations fail closed.
 Selection also checks learned model exclusions against the requested and applied
 models of the group's live sessions. Generic turn success has no model identity
 and therefore cannot erase a model-specific rejection. This is learned evidence,

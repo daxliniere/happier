@@ -1,126 +1,126 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushHookEffects, renderHook } from '@/dev/testkit';
 
-import { createDeferred, flushHookEffects, renderHook } from '@/dev/testkit';
-
-const routerPush = vi.hoisted(() => vi.fn());
-const slot = vi.hoisted(() => ({ queue: [] as Array<string | null> }));
-const invokeTauri = vi.hoisted(() => vi.fn(async (_command: string) => slot.queue.shift() ?? null));
-const registration = vi.hoisted(() => ({
-    wake: null as null | ((payload: unknown) => void),
-    pending: null as null | { resolve: () => void; reject: (error: unknown) => void },
+const native = vi.hoisted(() => ({
+    pending: null as unknown,
+    listener: null as null | (() => void),
+    finishListening: null as null | (() => void),
+    delayedRegistration: false,
+    failedRegistration: false,
     unlisten: vi.fn(),
+    invoke: vi.fn(),
 }));
-const listenTauriEvent = vi.hoisted(() => vi.fn());
+const push = vi.hoisted(() => vi.fn());
 
+vi.mock('expo-router', async () => {
+    const { createExpoRouterMock } = await import('@/dev/testkit/mocks/router');
+    return createExpoRouterMock({ router: { push } }).module;
+});
 vi.mock('react-native', async () => {
     const { createReactNativeWebMock } = await import('@/dev/testkit/mocks/reactNative');
     return createReactNativeWebMock();
 });
-vi.mock('expo-router', async () => {
-    const { createExpoRouterMock } = await import('@/dev/testkit/mocks/router');
-    return createExpoRouterMock({ router: { push: routerPush } }).module;
-});
+// The asynchronous native IPC/event transport is the system boundary; navigation remains real.
 vi.mock('@/utils/platform/tauri', () => ({
     isTauriDesktop: () => true,
-    invokeTauri,
-    listenTauriEvent,
+    invokeTauri: (...args: unknown[]) => native.invoke(...args),
+    listenTauriEvent: async (_event: string, listener: () => void) => {
+        if (native.failedRegistration) throw new Error('Event listener unavailable');
+        if (native.delayedRegistration) {
+            await new Promise<void>((resolve) => { native.finishListening = resolve; });
+        }
+        native.listener = listener;
+        return native.unlisten;
+    },
 }));
 
-async function mountHook() {
-    const { useDesktopNotificationClickRouting } = await import('./useDesktopNotificationClickRouting');
-    return renderHook(() => useDesktopNotificationClickRouting());
-}
+import { useDesktopNotificationClickRouting } from './useDesktopNotificationClickRouting';
 
 describe('useDesktopNotificationClickRouting', () => {
     beforeEach(() => {
-        routerPush.mockClear();
-        invokeTauri.mockClear();
-        registration.unlisten.mockClear();
-        registration.wake = null;
-        slot.queue = [];
-        listenTauriEvent.mockImplementation(async (_event: string, handler: (payload: unknown) => void) => {
-            registration.wake = handler;
-            return registration.unlisten;
+        push.mockClear();
+        native.pending = null;
+        native.listener = null;
+        native.finishListening = null;
+        native.delayedRegistration = false;
+        native.failedRegistration = false;
+        native.unlisten.mockReset();
+        native.invoke.mockReset().mockImplementation(async () => {
+            const data = native.pending;
+            native.pending = null;
+            return data;
         });
     });
+    afterEach(() => { vi.restoreAllMocks(); });
 
-    it('opens a click remembered before the listener existed, once', async () => {
-        slot.queue = ['session-2'];
-        const hook = await mountHook();
+    it('consumes a click arriving while listener registration is pending', async () => {
+        native.delayedRegistration = true;
+        const hook = await renderHook(useDesktopNotificationClickRouting);
+        // No event can reach JavaScript yet. The shell retains the click.
+        native.pending = { sessionId: 'during-startup' };
+        native.finishListening?.();
         await flushHookEffects();
-
-        expect(routerPush).toHaveBeenCalledTimes(1);
-        expect(routerPush).toHaveBeenCalledWith(expect.stringContaining('session-2'));
+        expect(push).toHaveBeenCalledExactlyOnceWith('/session/during-startup');
         await hook.unmount();
     });
 
-    it('reads the slot only after listener registration settles, so a click during setup is kept', async () => {
-        const registered = createDeferred<() => void>();
-        listenTauriEvent.mockImplementationOnce(async () => registered.promise);
-        const hook = await mountHook();
+    it('opens a pending click once when the same click also wakes the live listener', async () => {
+        native.pending = { sessionId: 'one-click' };
+        const hook = await renderHook(useDesktopNotificationClickRouting);
+        native.listener?.();
         await flushHookEffects();
-        expect(invokeTauri).not.toHaveBeenCalled();
-
-        slot.queue = ['session-3']; // clicked while registration was still pending
-        registered.resolve(registration.unlisten);
-        await flushHookEffects();
-
-        expect(routerPush).toHaveBeenCalledWith(expect.stringContaining('session-3'));
+        expect(push).toHaveBeenCalledExactlyOnceWith('/session/one-click');
         await hook.unmount();
     });
 
-    it('still drains the slot and warns when listener registration fails', async () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        listenTauriEvent.mockRejectedValueOnce(new Error('no event bridge'));
-        slot.queue = ['session-4'];
-        const hook = await mountHook();
+    it('takes live clicks from native pending data rather than the event payload', async () => {
+        const hook = await renderHook(useDesktopNotificationClickRouting);
+        native.pending = { sessionId: 'live-click' };
+        native.listener?.();
         await flushHookEffects();
-
-        expect(routerPush).toHaveBeenCalledWith(expect.stringContaining('session-4'));
-        expect(warn).toHaveBeenCalledWith(expect.stringContaining('listener unavailable'), expect.anything());
-        warn.mockRestore();
+        expect(push).toHaveBeenCalledExactlyOnceWith('/session/live-click');
         await hook.unmount();
     });
 
-    it('opens a live click once when the event and startup read overlap, and the newest click wins', async () => {
-        const hook = await mountHook();
+    it('does not route a pending response that settles after unmount', async () => {
+        let finishRead: ((value: unknown) => void) | undefined;
+        native.invoke.mockImplementation(() => new Promise((resolve) => { finishRead = resolve; }));
+        const hook = await renderHook(useDesktopNotificationClickRouting);
+        await hook.unmount();
+        finishRead?.({ sessionId: 'retired-window' });
         await flushHookEffects();
-        expect(routerPush).not.toHaveBeenCalled();
+        expect(push).not.toHaveBeenCalled();
+        expect(native.unlisten).toHaveBeenCalledTimes(1);
+    });
 
-        slot.queue = ['session-5'];
-        registration.wake?.({ sessionId: 'session-5' });
-        registration.wake?.({ sessionId: 'session-5' });
+    it('disposes a listener whose registration settles after unmount', async () => {
+        native.delayedRegistration = true;
+        const hook = await renderHook(useDesktopNotificationClickRouting);
+        await hook.unmount();
+        native.finishListening?.();
         await flushHookEffects();
-        expect(routerPush).toHaveBeenCalledTimes(1);
+        expect(native.unlisten).toHaveBeenCalledTimes(1);
+        expect(push).not.toHaveBeenCalled();
+    });
 
-        slot.queue = ['session-6'];
-        registration.wake?.({});
+    it('reports native read failures without navigating', async () => {
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        native.invoke.mockRejectedValue(new Error('IPC unavailable'));
+        const hook = await renderHook(useDesktopNotificationClickRouting);
         await flushHookEffects();
-        expect(routerPush).toHaveBeenLastCalledWith(expect.stringContaining('session-6'));
+        expect(warning).toHaveBeenCalled();
+        expect(push).not.toHaveBeenCalled();
         await hook.unmount();
     });
 
-    it('stops listening and ignores a pending read after unmount', async () => {
-        const read = createDeferred<string | null>();
-        invokeTauri.mockImplementationOnce(async () => read.promise);
-        const hook = await mountHook();
+    it('opens a pending click and reports when listener registration fails', async () => {
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        native.failedRegistration = true;
+        native.pending = { sessionId: 'listener-unavailable' };
+        const hook = await renderHook(useDesktopNotificationClickRouting);
         await flushHookEffects();
-        await hook.unmount();
-
-        expect(registration.unlisten).toHaveBeenCalledTimes(1);
-        read.resolve('session-7');
-        await flushHookEffects();
-        expect(routerPush).not.toHaveBeenCalled();
-    });
-
-    it('warns instead of hiding a failed pending read', async () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        invokeTauri.mockRejectedValueOnce(new Error('boom'));
-        const hook = await mountHook();
-        await flushHookEffects();
-
-        expect(warn).toHaveBeenCalledWith(expect.stringContaining('click unavailable'), expect.anything());
-        warn.mockRestore();
+        expect(push).toHaveBeenCalledExactlyOnceWith('/session/listener-unavailable');
+        expect(warning).toHaveBeenCalled();
         await hook.unmount();
     });
 });

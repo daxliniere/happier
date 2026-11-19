@@ -107,6 +107,29 @@ describe('theme profile import/export', () => {
         }
     });
 
+    it('uses the imported selection ink for radio dots rather than the button foreground', () => {
+        const result = importThemeProfileFromJson(JSON.stringify({
+            name: 'Custom selection', type: 'dark',
+            colors: { 'editor.background': '#101010', 'editor.foreground': '#EEEEEE',
+                'button.background': '#ABCDEF', 'button.foreground': '#101010' },
+        }), { now: '2026-05-12T00:00:00.000Z' });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const effective = resolveThemeProfile({ mode: 'dark', profile: result.profile });
+        expect(effective.colors.radio.dot).toBe(effective.colors.radio.active);
+        expect(effective.colors.radio.dot).not.toBe('#101010');
+    });
+
+    it('preserves an explicitly authored radio dot across export and import', () => {
+        const authored = { ...profile, overrides: { light: {}, dark: { 'control.radio.dot': '#AABBCC' } } };
+        const result = importThemeProfileFromJson(exportThemeProfileToJson(authored), { now: profile.updatedAt });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.profile.overrides.dark['control.radio.dot']).toBe('#AABBCC');
+        expect(resolveThemeProfile({ mode: 'dark', profile: result.profile }).colors.radio.dot).toBe('#AABBCC');
+    });
+
     it('auto-detects and imports a supported VS Code theme JSON payload', () => {
         const json = JSON.stringify({
             name: 'Pitch Dark',
@@ -146,29 +169,6 @@ describe('theme profile import/export', () => {
             expect(result.profile.overrides.dark['syntax.keyword']).toBe('#C4A7E7');
             expect(result.profile.overrides.dark['syntax.comment']).toBe('#6E6A86');
         }
-    });
-
-    it('uses the imported selection ink for radio dots rather than the button foreground', () => {
-        const result = importThemeProfileFromJson(JSON.stringify({
-            name: 'Custom selection', type: 'dark',
-            colors: { 'editor.background': '#101010', 'editor.foreground': '#EEEEEE',
-                'button.background': '#ABCDEF', 'button.foreground': '#101010' },
-        }), { now: '2026-05-12T00:00:00.000Z' });
-
-        expect(result.ok).toBe(true);
-        if (!result.ok) return;
-        const effective = resolveThemeProfile({ mode: 'dark', profile: result.profile });
-        expect(effective.colors.radio.dot).toBe(effective.colors.radio.active);
-        expect(effective.colors.radio.dot).not.toBe('#101010');
-    });
-
-    it('preserves an explicitly authored radio dot across export and import', () => {
-        const authored = { ...profile, overrides: { light: {}, dark: { 'control.radio.dot': '#AABBCC' } } };
-        const result = importThemeProfileFromJson(exportThemeProfileToJson(authored), { now: profile.updatedAt });
-        expect(result.ok).toBe(true);
-        if (!result.ok) return;
-        expect(result.profile.overrides.dark['control.radio.dot']).toBe('#AABBCC');
-        expect(resolveThemeProfile({ mode: 'dark', profile: result.profile }).colors.radio.dot).toBe('#AABBCC');
     });
 
     it('paints imported messages with the theme neutral surface and text, not its accent button', () => {

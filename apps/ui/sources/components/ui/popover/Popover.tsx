@@ -122,6 +122,12 @@ function areWindowRectsEqual(a: WindowRect | null, b: WindowRect | null): boolea
 }
 
 type PopoverCommonProps = Readonly<{
+    /**
+     * Room preferred below the anchor before an `auto-vertical` popover flips above it. Defaults to
+     * `maxHeightCap`; set it when the height cap is the window, so side choice keeps a usable threshold.
+     * Horizontal side choice always uses `maxWidthCap`.
+     */
+    placementMinSpace?: number;
     open: boolean;
     /**
      * Legacy anchor prop. Kept for backwards compatibility — zero callsite changes needed.
@@ -158,8 +164,6 @@ type PopoverCommonProps = Readonly<{
     placement?: PopoverPlacement;
     gap?: number;
     maxHeightCap?: number;
-    /** Preferred room for choosing a side, independent of the maximum content height. */
-    placementMinSpace?: number;
     maxWidthCap?: number;
     portal?: PopoverPortalOptions;
     /**
@@ -789,7 +793,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
 
             const resolvedPlacement = resolvePlacement({
                 placement,
-                preferredMinAvailable: placementMinSpace ?? (placement === 'auto-horizontal' ? maxWidthCap : maxHeightCap),
+                preferredMinAvailable: placement === 'auto-horizontal' ? maxWidthCap : (placementMinSpace ?? maxHeightCap),
                 available: {
                     top: availableTop,
                     bottom: availableBottom,

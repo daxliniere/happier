@@ -2359,7 +2359,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
             await flushItemTranscriptBoundary(null);
             await params.session.sendUserTextMessageCommitted(update.text, {
                 localId: `codex-app-server-user:${context.streamScopeId}:${update.itemId}`,
-                meta: { importedFrom: 'codex-app-server' },
+                meta: { importedFrom: 'codex-app-server', ...(update.nativeContent ? { codexNativeContent: update.nativeContent } : {}) },
             });
             return;
         }

@@ -88,6 +88,56 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
         expect(weeklyOnly?.usageRings.map(ring => ring.meterId)).toEqual(['secondary']);
     });
 
+    it('keeps the default center number on a drawn ring and colors it by the chosen window', () => {
+        const input = {
+            snapshot: snapshot([
+                meter({ meterId: 'primary', label: '5-hour', remainingPct: 0, utilizationPct: 100, windowDurationMs: 18_000_000 }),
+                meter({ meterId: 'secondary', label: 'Weekly', remainingPct: 70, utilizationPct: 30, windowDurationMs: 604_800_000 }),
+            ]),
+            windowMode: 'most_constrained' as const,
+            nowMs: 2_000, formatter,
+        };
+        // An exhausted window the user did not draw must not take over the default center.
+        expect(computeConnectedServiceQuotaGaugeViewModel({
+            ...input, windowModes: ['weekly'], numberWindowMode: 'most_constrained',
+        })?.ringValueLabel).toBe('70');
+        const exhaustedCenter = computeConnectedServiceQuotaGaugeViewModel({
+            ...input, windowModes: ['weekly', 'session'], numberWindowMode: 'session',
+        });
+        const exhaustedAlone = computeConnectedServiceQuotaGaugeViewModel({ ...input, windowModes: ['session'] });
+        const healthyAlone = computeConnectedServiceQuotaGaugeViewModel({ ...input, windowModes: ['weekly'] });
+        expect(exhaustedAlone?.tone).not.toBe(healthyAlone?.tone);
+        expect(exhaustedCenter?.ringValueLabel).toBe('0');
+        expect(exhaustedCenter?.tone).toBe(exhaustedAlone?.tone);
+    });
+
+    it('centers an explicitly chosen window on its drawn favorite ring from another unit group', () => {
+        const vm = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: snapshot([
+                meter({ meterId: 'weekly', label: 'Weekly', remainingPct: 10, utilizationPct: 90, windowDurationMs: 604_800_000 }),
+                meter({ meterId: 'daily', label: 'Daily', remainingPct: 20, utilizationPct: 80, windowDurationMs: 86_400_000 }),
+                meter({ meterId: 'session_tokens', label: '5-hour', unit: 'tokens', remainingPct: 60, utilizationPct: 40, windowDurationMs: 18_000_000 }),
+            ]),
+            windowMode: 'most_constrained', windowModes: ['weekly'], additionalMeterIds: ['session_tokens'],
+            numberWindowMode: 'session', nowMs: 2_000, formatter,
+        });
+        expect(vm?.usageRings.map(ring => ring.meterId)).toContain('session_tokens');
+        expect(vm?.ringValueLabel).toBe('60');
+    });
+
+    it('draws longer windows outside shorter ones even within one window family', () => {
+        const vm = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: snapshot([
+                meter({ meterId: 'one_hour', label: '1-hour', remainingPct: 10, utilizationPct: 90, windowDurationMs: 3_600_000 }),
+                meter({ meterId: 'five_hour', label: '5-hour', remainingPct: 60, utilizationPct: 40, windowDurationMs: 18_000_000 }),
+            ]),
+            windowMode: 'most_constrained', windowModes: ['session'], additionalMeterIds: ['five_hour'],
+            nowMs: 2_000, formatter,
+        });
+        expect(vm?.usageRings.map(ring => ring.meterId)).toEqual(['five_hour', 'one_hour']);
+    });
+
+
     it('uses the chosen center window tone when it differs from the first drawn ring', () => {
         const input = {
             snapshot: snapshot([
@@ -279,8 +329,21 @@ describe('computeConnectedServiceQuotaGaugeViewModel', () => {
             formatter,
         });
         expect(viewModel?.isStale).toBe(false);
-        expect(viewModel?.subscription).toMatchObject({ renewal: 'off', isLastKnown: false });
+        expect(viewModel?.subscription).toMatchObject({ status: 'ending', isLastKnown: false });
         expect(viewModel?.subscription?.summary).toBe('Ends in 1 day');
+    });
+
+    it('reports an evidenced subscription without renewal or end date as active, without a duplicate summary', () => {
+        const viewModel = computeConnectedServiceQuotaGaugeViewModel({
+            snapshot: {
+                ...snapshot([meter({ meterId: 'daily', label: 'Daily', used: 30, limit: 100 })]),
+                subscription: { status: 'subscribed', renewal: 'unknown', observedAtMs: 1_000, staleAfterMs: 500 },
+            },
+            windowMode: 'most_constrained',
+            nowMs: 2_000,
+            formatter,
+        });
+        expect(viewModel?.subscription).toMatchObject({ status: 'active', summary: null });
     });
 
     it('selects the reliable meter with the least remaining quota for most_constrained mode', () => {
