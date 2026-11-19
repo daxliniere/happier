@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSessionTagMenu } from '@/components/sessions/actions/useSessionTagMenu';
 
 import { Modal } from '@/modal';
 import { t } from '@/text';
@@ -120,6 +121,7 @@ export function useSessionRowActionMenu(params: Readonly<{
     selectionModeActive?: boolean;
     onEnterSelectionMode?: () => void;
     isNativeMobile: boolean;
+    isMobileLayout?: boolean;
     setContextMenuOpen: (open: boolean) => void;
     openTagsMenuFromContext: () => void;
     reminder?: SessionReminderPresentation | null;
@@ -140,40 +142,18 @@ export function useSessionRowActionMenu(params: Readonly<{
         [customColorPickerLoading, params.appearance],
     );
     const [reminderPresets, setReminderPresets] = useSettingMutable('sessionReminderPresetsV1');
-    const tagMenuItems = React.useMemo((): DropdownMenuItem[] => {
-        return params.knownTags.map((tag) => ({
-            id: tag,
-            title: tag,
-            rightElement: params.activeTags.includes(tag) ? (
-                <Icon name="check" size={16} color={params.iconColor} />
-            ) : undefined,
-        }));
-    }, [params.activeTags, params.iconColor, params.knownTags]);
-
-    const handleTagMenuSelect = React.useCallback((tagId: string) => {
-        if (!params.onSetTags) return;
-        const next = params.activeTags.includes(tagId)
-            ? params.activeTags.filter((tag) => tag !== tagId)
-            : [...params.activeTags, tagId];
-        void executeLocalSessionAction({
-            target,
-            actionId: SESSION_ACTION_EDIT_TAGS_ID,
-            tags: next,
-            onSetTags: params.onSetTags,
-        }).catch(showActionError);
-    }, [params.activeTags, params.onSetTags, target]);
-
-    const handleTagMenuCreate = React.useCallback((query: string) => {
-        if (!params.onSetTags) return;
-        const newTag = query.trim();
-        if (!newTag || params.activeTags.includes(newTag)) return;
-        void executeLocalSessionAction({
-            target,
-            actionId: SESSION_ACTION_EDIT_TAGS_ID,
-            tags: [...params.activeTags, newTag],
-            onSetTags: params.onSetTags,
-        }).catch(showActionError);
-    }, [params.activeTags, params.onSetTags, target]);
+    const onSetTags = React.useCallback((tags: string[]) => executeLocalSessionAction({
+        target,
+        actionId: SESSION_ACTION_EDIT_TAGS_ID,
+        tags,
+        onSetTags: params.onSetTags,
+    }), [params.onSetTags, target]);
+    const { tagMenuItems, handleTagMenuSelect, handleTagMenuCreate } = useSessionTagMenu({
+        activeTags: params.activeTags,
+        knownTags: params.knownTags,
+        iconColor: params.iconColor,
+        onSetTags: params.onSetTags ? onSetTags : null,
+    });
 
     const [stoppingSession, performStopMutation] = useHappyAction(async () => {
         await executeSessionAction({
@@ -420,7 +400,7 @@ export function useSessionRowActionMenu(params: Readonly<{
     ]);
 
     const contextMenuItems = React.useMemo((): DropdownMenuItem[] => {
-        if (!params.isNativeMobile) return [];
+        if (!params.isNativeMobile && !params.isMobileLayout) return [];
         const items: DropdownMenuItem[] = [];
         if (params.selectionModeAvailable === true && typeof params.onEnterSelectionMode === 'function') {
             items.push({
@@ -429,7 +409,7 @@ export function useSessionRowActionMenu(params: Readonly<{
                 icon: <Icon name="check-circle" size={14} color={params.iconColor} />,
             });
         }
-        if (params.tagsEnabled && typeof params.onSetTags === 'function') {
+        if (params.isMobileLayout && params.tagsEnabled && typeof params.onSetTags === 'function') {
             const tagsItem = createSessionActionDropdownItem({
                 actionId: SESSION_ACTION_EDIT_TAGS_ID,
                 iconColor: params.iconColor,
@@ -456,6 +436,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         params.onTogglePinned,
         params.selectionModeAvailable,
         params.tagsEnabled,
+        params.isMobileLayout,
         target.isPinned,
     ]);
 

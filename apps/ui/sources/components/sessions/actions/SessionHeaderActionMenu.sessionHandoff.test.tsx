@@ -14,6 +14,7 @@ import {
   SESSION_ACTION_ARCHIVE_ID,
   SESSION_ACTION_CLEAR_ATTENTION_STANDING_ID,
   SESSION_ACTION_DELETE_ID,
+  SESSION_ACTION_EDIT_TAGS_ID,
   SESSION_ACTION_MARK_READ_ID,
   SESSION_ACTION_MARK_UNREAD_ID,
   SESSION_ACTION_PIN_ID,
@@ -36,6 +37,7 @@ const resolvePreferredServerIdForSessionIdMock = vi.hoisted(() => vi.fn());
 const usePreferredServerIdForSessionMock = vi.hoisted(() => vi.fn());
 const fireAndForgetMock = vi.hoisted(() => vi.fn());
 const navigationFocused = vi.hoisted(() => ({ current: true }));
+const viewport = vi.hoisted(() => ({ width: 1440, height: 900, scale: 1, fontScale: 1 }));
 const routerBackMock = vi.hoisted(() => vi.fn());
 const routerReplaceMock = vi.hoisted(() => vi.fn());
 const realStorageRef = vi.hoisted(() => ({ current: null as typeof import('@/sync/domains/state/storageStore')['storage'] | null }));
@@ -211,6 +213,7 @@ installSessionActionsCommonModuleMocks({
       Platform: {
         OS: 'web',
       },
+      useWindowDimensions: () => viewport,
       AppState: {
         currentState: 'active',
         addEventListener: vi.fn(() => ({ remove: vi.fn() })),
@@ -229,6 +232,7 @@ installSessionActionsCommonModuleMocks({
       useSessionOrganizationProjection: () => organizationProjectionState.current,
       useSettings: () => storageState.current.settings,
       useSetting: (key: string) => {
+        if (key === 'sessionTagsEnabled') return storageState.current.settings.sessionTagsEnabled;
         if (key === 'actionsSettingsV1') return actionsSettingsState.current;
         if (key === 'sessionReplayEnabled') return true;
         if (key === 'voice') return voiceSettingState.current;
@@ -459,6 +463,7 @@ describe('SessionHeaderActionMenu handoff', () => {
   });
 
   beforeEach(async () => {
+    viewport.width = 1440;
     realStorage.setState(realStorage.getInitialState(), true);
     resetSessionActionsCommonModuleMockState();
     runSessionHandoffPickerFlowMock.mockReset();
@@ -612,6 +617,25 @@ describe('SessionHeaderActionMenu handoff', () => {
       await pending;
       credentialsSpy.mockRestore();
       request.mockRestore();
+    }
+  });
+
+  it.each([390, 1440])('offers Tags only in the mobile header menu (width=%s)', async (width) => {
+    viewport.width = width;
+    storageState.current.settings.sessionTagsEnabled = true;
+    const session = createSessionFixture({ id: 'header-tags' });
+    const screen = await renderScreen(<SessionHeaderActionMenu sessionId={session.id} session={session} />);
+    const dropdown = screen.findByType('DropdownMenu' as React.ElementType);
+    expect(dropdown.props.items.some((item: { id: string }) => item.id === SESSION_ACTION_EDIT_TAGS_ID))
+      .toBe(width === 390);
+    if (width === 390) {
+      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
+      try {
+        await act(async () => { dropdown.props.onSelect(SESSION_ACTION_EDIT_TAGS_ID); });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(screen.findAllByType('DropdownMenu' as React.ElementType).some((menu) => menu.props.open && menu.props.search)).toBe(true);
     }
   });
 

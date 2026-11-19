@@ -10,7 +10,7 @@ export function getTagsForSession(
 }
 
 export function getAllKnownTags(
-    sessionTagsV1: Record<string, string[]> | null | undefined,
+    sessionTagsV1: Readonly<Record<string, readonly string[]>> | null | undefined,
 ): string[] {
     if (!sessionTagsV1) return [];
     const all = new Set<string>();

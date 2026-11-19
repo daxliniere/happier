@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { useIsTablet } from '@/utils/platform/responsive';
+import { SessionHeaderTagMenu } from './SessionHeaderTagMenu';
 import { useSessionArchivePending } from '@/hooks/session/useSessionArchivePending';
 import { Pressable, View } from 'react-native';
 import { listActionSpecs } from '@happier-dev/protocol';
@@ -64,6 +66,7 @@ import {
   resolveManualReadStateFromSessionActionId,
   SESSION_ACTION_ARCHIVE_ID,
   SESSION_ACTION_DELETE_ID,
+  SESSION_ACTION_EDIT_TAGS_ID,
   SESSION_ACTION_CLEAR_ATTENTION_STANDING_ID,
   SESSION_ACTION_MARK_READ_ID,
   SESSION_ACTION_MARK_UNREAD_ID,
@@ -200,6 +203,11 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
   const navigateToSession = useNavigateToSession();
   const enabledAgentIds = useEnabledAgentIds();
   const settings = useSettings();
+  const isTablet = useIsTablet();
+  const sessionTagsEnabled = useSetting('sessionTagsEnabled');
+  const tagsAvailable = !isTablet && sessionTagsEnabled === true;
+  const [tagMenuOpen, setTagMenuOpen] = React.useState(false);
+  const menuAnchorRef = React.useRef<View>(null);
   const sessionReplayEnabled = useSetting('sessionReplayEnabled');
   const voice = useSetting('voice');
   const hasGlobalVoiceAgentConversation = useHasGlobalVoiceAgentConversation();
@@ -331,6 +339,13 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
     if (Array.isArray(props.extraItems) && props.extraItems.length > 0) {
       out.push(...props.extraItems);
     }
+    if (tagsAvailable && sessionServerId) {
+      const item = createSessionActionDropdownItem({
+        actionId: SESSION_ACTION_EDIT_TAGS_ID,
+        iconColor: theme.colors.chrome.header.foreground,
+      });
+      if (item) out.push(item);
+    }
 
     const existingActionIds = new Set(out.map((item) => item.id));
     for (const actionId of listVisibleSessionActionIds({
@@ -384,6 +399,8 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
     return out;
   }, [
     props.extraItems,
+    tagsAvailable,
+    sessionServerId,
     props.sessionId,
     open,
     archivePending,
@@ -406,6 +423,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
   if (actions.length === 0) return null;
 
   return (
+    <>
     <DropdownMenu
       open={open}
       onOpenChange={setOpen}
@@ -433,6 +451,10 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
           return;
         }
         setOpen(false);
+        if (actionId === SESSION_ACTION_EDIT_TAGS_ID && tagsAvailable && sessionServerId) {
+          requestAnimationFrame(() => setTagMenuOpen(true));
+          return;
+        }
         if (actionId === SESSION_HEADER_FIND_ITEM_ID) {
           // Open after the menu has closed, so its focus return does not take focus from the find field.
           requestAnimationFrame(() => { executeKeyboardCommand('find.open'); });
@@ -678,6 +700,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
       }}
       trigger={({ toggle }) => (
             <Pressable
+              ref={menuAnchorRef}
               onPress={toggle}
               testID="session-header-action-menu-trigger"
               accessibilityRole="button"
@@ -702,6 +725,14 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
       matchTriggerWidth={false}
       maxWidthCap={320}
     />
+    {tagMenuOpen && tagsAvailable && sessionServerId ? <SessionHeaderTagMenu
+      serverId={sessionServerId}
+      sessionId={props.sessionId}
+      anchorRef={menuAnchorRef}
+      iconColor={theme.colors.chrome.header.foreground}
+      onOpenChange={setTagMenuOpen}
+    /> : null}
+    </>
   );
 }
 
