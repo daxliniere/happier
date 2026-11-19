@@ -116,7 +116,7 @@ import { useFrozenSessionListItemsDuringDrag } from './drag/useFrozenSessionList
 import { SessionListDropOverlay } from './drag/SessionListDropOverlay';
 import { SessionListHeaderControls } from './SessionListHeaderControls';
 import { useSessionListSearchTextByKey } from './useSessionListSearchTextByKey';
-import { useSessionListMemorySearchAugmentation } from './search/useSessionListMemorySearchAugmentation';
+import { useSessionListTranscriptSearch } from './search/useSessionListTranscriptSearch';
 import { useSessionListHeaderFilterRetention } from './search/useSessionListHeaderFilterRetention';
 import { useSessionListScrollRetention } from './scroll/useSessionListScrollRetention';
 import { buildSessionListRetentionKey } from './scroll/sessionListRetentionKey';
@@ -216,7 +216,6 @@ const EMPTY_COLLAPSED_GROUP_KEYS: Readonly<Record<string, boolean>> = Object.fre
 const EMPTY_SESSION_LIST_VIEW_ITEMS: ReadonlyArray<SessionListViewItem> = Object.freeze([]);
 const EMPTY_SESSION_LIST_ROW_STORE_SCOPES: ReadonlyArray<{ sessionId: string; serverId?: string | null }> = Object.freeze([]);
 const EMPTY_SESSION_ROW_STORE_KEY_SET: ReadonlySet<string> = Object.freeze(new Set<string>());
-const EMPTY_MEMORY_MATCHED_SESSION_KEYS: ReadonlySet<string> = Object.freeze(new Set<string>());
 const EMPTY_REACHABLE_SESSION_DISPLAY_BY_KEY: Readonly<Record<string, never>> = Object.freeze({});
 const EMPTY_SESSION_TAGS_BY_KEY: Readonly<Record<string, readonly string[]>> = Object.freeze({});
 const SESSION_LIST_IDLE_MOVE_RESULT = Object.freeze({
@@ -279,20 +278,6 @@ function buildPrioritySessionRowReasonCounts(
         if (sessionItem.selected === true) incrementPriorityReasonCount(counts, 'selected');
     }
     return counts;
-}
-
-function buildSessionCandidateKeySet(items: ReadonlyArray<SessionListViewItem>): ReadonlySet<string> {
-    if (items.length === 0) return EMPTY_MEMORY_MATCHED_SESSION_KEYS;
-    const keys = new Set<string>();
-    for (const item of items) {
-        if (item.type !== 'session') continue;
-        const serverId = String(item.serverId ?? '').trim();
-        const sessionId = String(item.session?.id ?? '').trim();
-        if (serverId && sessionId) {
-            keys.add(sessionTagKey(serverId, sessionId));
-        }
-    }
-    return keys.size > 0 ? keys : EMPTY_MEMORY_MATCHED_SESSION_KEYS;
 }
 
 function buildStringRecordSignature(value: Readonly<Record<string, string>> | null | undefined): string {
@@ -542,32 +527,24 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
     } = useSessionListHeaderFilterRetention(retentionKey);
     const [refreshingSessions, setRefreshingSessions] = React.useState(false);
     const refreshingSessionsRef = React.useRef(false);
-    const getSessionListMemoryCandidateKeys = React.useCallback(
-        () => buildSessionCandidateKeySet(data ?? EMPTY_SESSION_LIST_VIEW_ITEMS),
-        [data],
-    );
-    const memorySearch = useSessionListMemorySearchAugmentation({
-        searchQuery,
-        getCandidateSessionKeys: getSessionListMemoryCandidateKeys,
-        enabled: surfaceOwnership.dataActive,
-    });
-    const activeMemoryMatchedSessionKeys = React.useMemo(() => {
-        const query = searchQuery.trim();
-        if (!query || memorySearch.lastSuccessfulQuery !== query) {
-            return EMPTY_MEMORY_MATCHED_SESSION_KEYS;
-        }
-        return memorySearch.memoryMatchedSessionKeys;
-    }, [memorySearch.lastSuccessfulQuery, memorySearch.memoryMatchedSessionKeys, searchQuery]);
     const searchableTextBySessionKey = useSessionListSearchTextByKey(
         data ?? EMPTY_SESSION_LIST_VIEW_ITEMS,
         searchQuery.trim().length > 0,
     );
+    const transcriptSearch = useSessionListTranscriptSearch({
+        searchQuery,
+        items: data ?? EMPTY_SESSION_LIST_VIEW_ITEMS,
+        searchableTextBySessionKey,
+        enabled: surfaceOwnership.dataActive,
+        loadHistory: props.storageKind === 'direct' ? undefined : sync.fetchSessionListSearchHistory,
+    });
     const headerFilters = React.useMemo(() => ({
         searchQuery,
         selectedTags: selectedHeaderTags,
         searchableTextBySessionKey,
-        memoryMatchedSessionKeys: activeMemoryMatchedSessionKeys,
-    }), [activeMemoryMatchedSessionKeys, searchQuery, searchableTextBySessionKey, selectedHeaderTags]);
+        transcriptMatchedSessionKeys: transcriptSearch.transcriptMatchedSessionKeys,
+        transcriptExcludedSessionKeys: transcriptSearch.transcriptExcludedSessionKeys,
+    }), [transcriptSearch.transcriptExcludedSessionKeys, transcriptSearch.transcriptMatchedSessionKeys, searchQuery, searchableTextBySessionKey, selectedHeaderTags]);
 
     const stopScrollEventPropagationOnWeb = React.useCallback((event: any) => {
         // Expo Router (Vaul/Radix) modals on web often install document-level scroll-lock listeners
@@ -1835,16 +1812,16 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
 
     const collapsedKeys = collapsedGroupKeysV1 ?? EMPTY_COLLAPSED_GROUP_KEYS;
     const searchTrailingAccessory = React.useMemo(() => (
-        memorySearch.isSearchingMemory ? (
+        transcriptSearch.isSearching ? (
             <ActivitySpinner
-                testID="session-list-memory-search-loading-indicator"
+                testID="session-list-transcript-search-loading-indicator"
                 size={14}
                 color={theme.colors.text.secondary}
                 accessibilityElementsHidden={true}
                 importantForAccessibility="no-hide-descendants"
             />
         ) : null
-    ), [memorySearch.isSearchingMemory, theme.colors.text.secondary]);
+    ), [transcriptSearch.isSearching, theme.colors.text.secondary]);
     // One top bar for the whole list; it sits outside the virtualized list so it stays mounted and in place while filtering.
     const headerControls = React.useMemo(() => {
         const menu = (
@@ -1868,6 +1845,8 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
                 onSelectedTagsChange={setSelectedHeaderTags}
                 onSearchQueryChange={setSearchQuery}
                 searchTrailingAccessory={searchTrailingAccessory}
+                searchFailed={transcriptSearch.hasError}
+                onRetrySearch={transcriptSearch.retry}
                 viewMenu={menu}
             />
         );
@@ -1876,6 +1855,8 @@ export const SessionsListContent = React.memo(function SessionsListContent(props
         selectedHeaderTags,
         searchQuery,
         searchTrailingAccessory,
+        transcriptSearch.hasError,
+        transcriptSearch.retry,
         sessionTagsEnabled,
         folderActionsEnabled,
         hideInactiveSessions,

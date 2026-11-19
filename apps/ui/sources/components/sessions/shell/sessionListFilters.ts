@@ -1,4 +1,6 @@
 import type { SessionListViewItem } from '@/sync/domains/state/storage';
+import { parseSearchQuery, type ParsedSearchQuery } from '@happier-dev/protocol';
+import { createSessionSearchMatcher } from '@/sync/domains/session/searchQuery';
 
 import { sessionTagKey } from './sessionTagUtils';
 import { isSessionListPrimaryHeaderKind } from './sessionListPrimaryHeader';
@@ -7,21 +9,13 @@ export type SessionListHeaderFilterInput = Readonly<{
     searchQuery: string;
     selectedTags: ReadonlyArray<string>;
     searchableTextBySessionKey: Readonly<Record<string, string>>;
-    memoryMatchedSessionKeys?: ReadonlySet<string>;
+    transcriptMatchedSessionKeys?: ReadonlySet<string>;
+    transcriptExcludedSessionKeys?: ReadonlySet<string>;
 }>;
 
 export type SessionListHeaderFilterState = SessionListHeaderFilterInput & Readonly<{
     sessionTags: Readonly<Record<string, readonly string[]>>;
 }>;
-
-function normalizeSearchTokens(query: string): string[] {
-    return query
-        .trim()
-        .toLocaleLowerCase()
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter(Boolean);
-}
 
 function buildSessionKey(item: Extract<SessionListViewItem, { type: 'session' }>): string | null {
     const serverId = String(item.serverId ?? '').trim();
@@ -47,7 +41,7 @@ function appendSearchText(parts: string[], value: string | null | undefined): vo
     if (trimmed.length > 0) parts.push(trimmed);
 }
 
-function buildSessionSearchText(
+export function buildSessionSearchText(
     item: Extract<SessionListViewItem, { type: 'session' }>,
     sessionKey: string | null,
     searchableTextBySessionKey: Readonly<Record<string, string>>,
@@ -67,15 +61,20 @@ function buildSessionSearchText(
 function sessionMatchesSearch(
     item: Extract<SessionListViewItem, { type: 'session' }>,
     sessionKey: string | null,
-    searchTokens: ReadonlyArray<string>,
+    query: ParsedSearchQuery,
     searchableTextBySessionKey: Readonly<Record<string, string>>,
-    memoryMatchedSessionKeys: ReadonlySet<string> | null | undefined,
+    transcriptMatchedSessionKeys: ReadonlySet<string> | null | undefined,
 ): boolean {
-    if (searchTokens.length === 0) return true;
-    if (sessionKey && memoryMatchedSessionKeys?.has(sessionKey)) return true;
+    if (query.excludedTerms.length === 0) {
+        if (query.terms.length === 0 || (sessionKey && transcriptMatchedSessionKeys?.has(sessionKey))) return true;
+    }
     const haystack = buildSessionSearchText(item, sessionKey, searchableTextBySessionKey);
+    const matcher = createSessionSearchMatcher(query, haystack);
+    if (matcher.excluded) return false;
+    if (query.terms.length === 0) return true;
+    if (sessionKey && transcriptMatchedSessionKeys?.has(sessionKey)) return true;
     if (!haystack) return false;
-    return searchTokens.every((token) => haystack.includes(token));
+    return matcher.matched;
 }
 
 export function hasActiveSessionListHeaderFilters(input: Pick<SessionListHeaderFilterInput, 'searchQuery' | 'selectedTags'> | null | undefined): boolean {
@@ -110,7 +109,7 @@ export function filterSessionListItemsForHeaderControls(
 ): SessionListViewItem[] {
     if (!hasActiveSessionListHeaderFilters(input)) return items as SessionListViewItem[];
 
-    const searchTokens = normalizeSearchTokens(input.searchQuery);
+    const query = parseSearchQuery(input.searchQuery);
     const selectedTags = new Set(input.selectedTags);
     const result: SessionListViewItem[] = [];
     // Sub-headings on the path to the current row; each is shown only once a session beneath it matches.
@@ -139,8 +138,9 @@ export function filterSessionListItemsForHeaderControls(
 
         const key = buildSessionKey(item);
         if (
-            !sessionMatchesSelectedTags(key, selectedTags, input.sessionTags)
-            || !sessionMatchesSearch(item, key, searchTokens, input.searchableTextBySessionKey, input.memoryMatchedSessionKeys)
+            (key && input.transcriptExcludedSessionKeys?.has(key))
+            || !sessionMatchesSelectedTags(key, selectedTags, input.sessionTags)
+            || !sessionMatchesSearch(item, key, query, input.searchableTextBySessionKey, input.transcriptMatchedSessionKeys)
         ) {
             continue;
         }
