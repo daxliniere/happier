@@ -1358,7 +1358,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
             renewal: "續訂",
             renewalOn: "開啟",
             renewalOff: "關閉",
-            renewalUnknown: "未知",
+            active: "有效",
             renews: ({ date }: { date: string }) => `${date}續訂`,
             ends: ({ date }: { date: string }) => `${date}結束`,
             renewsInDays: ({ days }: { days: number }) => `${days}天後續訂`,
@@ -1508,6 +1508,12 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
             refreshA11y: '重新整理用量與限額',
             usageCaption: '用量',
             resetsCaption: '配額重設',
+            credits: {
+                title: '點數',
+                balance: ({ balance }: { balance: string }) => `${balance} 點數`,
+                spent: '已用完',
+                includedUsed: '方案內額度已用完 · 可使用點數',
+            },
             usedDetail: ({ used, limit }: { used: string; limit: string }) => `已用 ${used}/${limit}`,
             capacity: ({ percent }: { percent: number }) => `容量 ${percent}%`,
             memberEnabledLabel: '已在池中啟用',
@@ -6438,7 +6444,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
             dismiss: '關閉問題',
             dismissed: '問題已關閉',
             submissionFailures: {
-                unconfirmed: '已向 Claude 傳送提交操作，但仍在等待確認。請重試以檢查確認狀態，或開啟 Claude 終端。',
+                unconfirmed: 'Happier 無法確認你的回答。請重試，或開啟 Claude 終端查看。',
             },
             claudeDialogNotice: {
                 header: 'Claude 對話框',
@@ -7413,6 +7419,8 @@ settingsSession: {
         inputBehavior: {
             keepFocusTitle: "傳送後保持編輯器焦點",
             keepFocusSubtitle: "留在訊息欄位，以便立即撰寫下一則訊息。",
+            typeToFocusTitle: "隨處輸入",
+            typeToFocusSubtitle: "在文字欄位外直接輸入即可跳到訊息欄位。",
             title: '輸入行為',
             footer: '設定按 Enter 傳送與訊息歷史行為。',
             enterToSendEnabledNativeSubtitle: '按 Enter 傳送',
@@ -9151,6 +9159,9 @@ settingsSession: {
         sessionReferenceUnavailable: '無法使用的工作階段',
         sessionReferenceOpen: ({ name }: { name: string }) => `開啟工作階段 ${name}`,
         switchedToMode: ({ mode }: { mode: string }) => `已切換到 ${mode} 模式`,
+        readAloudA11y: '朗讀',
+        stopReadAloudA11y: '停止朗讀',
+        readAloudFailed: '無法朗讀此訊息。請檢查語音設定。',
         recoveredHistory: '已復原的歷史記錄',
         unknownEvent: '未知事件',
         contextCompactionStarted: '正在壓縮上下文...',
@@ -9265,6 +9276,13 @@ settingsSession: {
         codeCopied: '程式碼已複製',
         copyFailed: '複製失敗',
         mermaidRenderFailed: '渲染 mermaid 圖表失敗',
+        table: {
+            open: '開啟表格',
+            copyCsv: '複製為 CSV',
+            copyMarkdown: '複製為 Markdown',
+            csvLabel: 'CSV',
+            viewerTitle: '表格',
+        },
         diffLabel: '差異',
         codeLabel: '程式碼',
 

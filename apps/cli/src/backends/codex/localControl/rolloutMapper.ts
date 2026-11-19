@@ -12,7 +12,7 @@ export type CodexRolloutAction =
     /** The provider ended the turn with an error (Codex records it on `task_complete.error`). */
     | { type: 'turn-failed'; providerTurnId: string | null; error: Record<string, unknown> }
     | { type: 'context-compaction'; phase: 'completed'; lifecycleId: string; source: 'provider-event' | 'transcript-inference'; providerEventId?: string }
-    | { type: 'user-text'; text: string }
+    | { type: 'user-text'; text: string; clientId?: string; nativeContent?: readonly Record<string, unknown>[] }
     | { type: 'assistant-text'; text: string }
     | { type: 'thinking'; text: string }
     | { type: 'tool-call'; callId: string; name: string; input: unknown }

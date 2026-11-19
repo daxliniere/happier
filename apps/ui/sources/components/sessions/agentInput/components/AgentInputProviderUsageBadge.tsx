@@ -95,8 +95,7 @@ function areProviderUsageViewModelsEqual(
     const subscriptionEqual = leftSubscription === rightSubscription || (!!leftSubscription && !!rightSubscription
         && leftSubscription.summary === rightSubscription.summary
         && leftSubscription.period === rightSubscription.period
-        && leftSubscription.renewal === rightSubscription.renewal
-        && leftSubscription.renewalLabel === rightSubscription.renewalLabel
+        && leftSubscription.status === rightSubscription.status
         && leftSubscription.checkedLabel === rightSubscription.checkedLabel
         && leftSubscription.notice === rightSubscription.notice
         && leftSubscription.accessUntilLabel === rightSubscription.accessUntilLabel

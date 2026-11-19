@@ -39,6 +39,11 @@ export type CapacityRingProps = Readonly<{
 /** Radial gap between adjacent concentric arcs: one transparent pixel separates the limits. */
 const RING_GAP = 1;
 
+/** Preserve the innermost content area as concentric limits are added. */
+export function getConcentricCapacityRingSize(innerRingSize: number, ringCount: number, strokeWidth: number): number {
+    return innerRingSize + Math.max(0, ringCount - 1) * 2 * (strokeWidth + RING_GAP);
+}
+
 function clamp01(value: number): number {
     if (!Number.isFinite(value)) return 0;
     if (value <= 0) return 0;

@@ -324,7 +324,7 @@ export function useSessionListRowInteractions({
         if (!ref) return;
         const snapshot = activeDragSnapshotRef.current;
         if (!snapshot) return;
-        const topologyRow = snapshot.topology.rows.find((row) => row.rowId === rowId);
+        const topologyRow = snapshot.topology.rowsById.get(rowId);
         if (!topologyRow) return;
         const windowBounds = await measureWindowBounds(ref);
         if (!windowBounds) return;

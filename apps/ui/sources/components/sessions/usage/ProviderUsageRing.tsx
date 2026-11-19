@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { CapacityRing } from '@/components/ui/progress/CapacityRing';
+import { CapacityRing, getConcentricCapacityRingSize } from '@/components/ui/progress/CapacityRing';
 import { TokenUsageRing, type TokenUsageRingProps } from './TokenUsageRing';
 import type { ConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import { t } from '@/text';
@@ -9,7 +9,8 @@ import { t } from '@/text';
 const RAIL_RING_SIZE = 18;
 
 export function getProviderUsageRingSize(gauge: ConnectedServiceQuotaGaugeViewModel, baseSize = RAIL_RING_SIZE): number {
-    return baseSize + Math.max(0, gauge.usageRings.length - 1) * 6;
+    // The outer size TokenUsageRing draws; it grows the base size for each extra concentric ring.
+    return getConcentricCapacityRingSize(baseSize, gauge.usageRings.length, 2);
 }
 
 /**
@@ -55,7 +56,7 @@ export function ProviderUsageRing(props: Readonly<{
             rings={rings}
             label={label}
             value={gauge.ringValueLabel}
-            size={getProviderUsageRingSize(gauge, props.size)}
+            size={props.size ?? RAIL_RING_SIZE}
             testID={props.testID}
             ringTestID={props.ringTestID}
             valueTestID={props.valueTestID}

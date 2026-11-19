@@ -62,6 +62,7 @@ import { TranscriptRollbackActionButton } from '@/components/sessions/transcript
 import { MessageActionRow } from '@/components/sessions/transcript/messageActions/MessageActionRow';
 import { RowActionDeferredIcon } from '@/components/sessions/transcript/messageActions/RowActionRevealSlot';
 import { MessagePinButton } from '@/components/sessions/transcript/messageActions/MessagePinButton';
+import { MessageSpeakButton } from '@/components/sessions/transcript/messageActions/MessageSpeakButton';
 import { resolveMessagePinAvailability } from '@/components/sessions/transcript/messageActions/resolveMessagePinAvailability';
 import { readCoarsePrimaryPointer, useRowActionHoverHost } from '@/components/sessions/transcript/messageActions/rowActionRevealHost';
 import { resolveToolRowPinAction } from '@/components/sessions/transcript/toolCalls/ToolCallPinAction';
@@ -845,6 +846,14 @@ function UserTextBlock(props: {
                 invertedActionsLayout={timestampPresentation.invertTimestampAndActions}
               />
             ) : null}
+            <MessageSpeakButton
+              messageKey={String(props.message.id)}
+              text={copyText}
+              testID={`transcript-message-speak:${props.message.id}`}
+              onHoverIn={isWeb ? () => setIsCopyButtonHovered(true) : undefined}
+              onHoverOut={isWeb ? () => setIsCopyButtonHovered(false) : undefined}
+              invertedActionsLayout={timestampPresentation.invertTimestampAndActions}
+            />
             <CopyMessageButton
               markdown={copyText}
               testID={`transcript-message-copy:${props.message.id}`}
@@ -984,6 +993,14 @@ function UserTextBlock(props: {
                 invertedActionsLayout={timestampPresentation.invertTimestampAndActions}
               />
             ) : null}
+            <MessageSpeakButton
+              messageKey={String(props.message.id ?? props.message.localId)}
+              text={copyText}
+              testID={`transcript-message-speak:${props.message.id ?? props.message.localId}`}
+              onHoverIn={isWeb ? () => setIsCopyButtonHovered(true) : undefined}
+              onHoverOut={isWeb ? () => setIsCopyButtonHovered(false) : undefined}
+              invertedActionsLayout={timestampPresentation.invertTimestampAndActions}
+            />
             <CopyMessageButton
               markdown={copyText}
               testID={`transcript-message-copy:${props.message.id ?? props.message.localId}`}
@@ -1505,6 +1522,14 @@ function AgentTextBlock(props: {
               invertedActionsLayout={timestampPresentation.invertTimestampAndActions}
             />
           ) : null}
+          <MessageSpeakButton
+            messageKey={String(props.message.id)}
+            text={copyText}
+            testID={`transcript-message-speak:${props.message.id}`}
+            onHoverIn={isWeb ? () => setIsCopyButtonHovered(true) : undefined}
+            onHoverOut={isWeb ? () => setIsCopyButtonHovered(false) : undefined}
+            invertedActionsLayout={timestampPresentation.invertTimestampAndActions}
+          />
           <CopyMessageButton
             markdown={copyText}
             testID={`transcript-message-copy:${props.message.id}`}
