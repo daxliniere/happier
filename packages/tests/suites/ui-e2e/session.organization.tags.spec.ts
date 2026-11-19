@@ -13,6 +13,7 @@ import { gotoDomContentLoadedWithRetries, normalizeLoopbackBaseUrl } from '../..
 import { createPlainSession } from '../../src/testkit/uiE2e/sessionFoldersDrag';
 import { readSessionTagLabelsFromOrganizationSnapshot } from '../../src/testkit/uiE2e/sessionOrganization';
 import { waitForInitialAppUi } from '../../src/testkit/uiE2e/waitForInitialAppUi';
+import { appendBrowserDiagnostics, collectBrowserDiagnostics } from '../../src/testkit/uiE2e/browserDiagnostics';
 
 const run = createRunDirs({ runLabel: 'ui-e2e-session-organization-tags' });
 
@@ -243,5 +244,33 @@ test.describe('ui e2e: session organization tags', () => {
 
     await reloadSessionList(page, uiBaseUrl);
     await expectRowsVisible(page, [taggedSessionId, untaggedSessionId]);
+  });
+
+  test('edits tags from the mobile list context menu and in-session menu', async ({ page }) => {
+    test.setTimeout(180_000);
+    if (!server || !uiBaseUrl || !token) throw new Error('missing server/ui fixtures');
+    const diagnostics = collectBrowserDiagnostics({ page });
+    try {
+      const [sessionId] = await seedSessions({ baseUrl: server.baseUrl, token, count: 1 });
+      const tagLabel = `mobile-tag-${run.runId}`;
+      await page.setViewportSize({ width: 390, height: 844 });
+      await reloadSessionList(page, uiBaseUrl);
+      const row = page.getByTestId(testIds.row(sessionId));
+      // Hold through Pressable's long-press threshold, as on a touch screen.
+      await row.click({ delay: 800 });
+      await page.getByTestId('dropdown-option-ui_session_tags_edit').click();
+      await page.locator('input[placeholder^="Add or search tag"]').fill(tagLabel);
+      await page.getByTestId(testIds.createTagOption).click();
+      await expectAssignedTagLabels({ baseUrl: server.baseUrl, token, sessionId, labels: [tagLabel] });
+
+      await reloadSessionList(page, uiBaseUrl);
+      await page.getByTestId(testIds.row(sessionId)).click();
+      await page.getByTestId('session-header-action-menu-trigger').click();
+      await page.getByTestId('dropdown-option-ui_session_tags_edit').click();
+      await page.getByTestId(testIds.existingTagOption(tagLabel)).click();
+      await expectAssignedTagLabels({ baseUrl: server.baseUrl, token, sessionId, labels: [] });
+    } catch (error) {
+      throw appendBrowserDiagnostics(error, diagnostics());
+    }
   });
 });

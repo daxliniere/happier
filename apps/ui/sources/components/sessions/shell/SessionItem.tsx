@@ -1147,6 +1147,7 @@ const SessionItemContent = React.memo(
             selectionModeActive: rowSelection.isSelectionMode,
             onEnterSelectionMode: handleEnterSelectionMode,
             isNativeMobile,
+            isMobileLayout: !isTablet,
             setContextMenuOpen,
             openTagsMenuFromContext: () => {
                 setTagMenuEverOpened(true);
@@ -1269,7 +1270,7 @@ const SessionItemContent = React.memo(
         const showInlineTagChips = showTagChips && tagDisplayPlan.placement === 'inline';
         const showBelowTagChips = showTagChips && tagDisplayPlan.placement === 'below';
         const enableLongPressContextMenu =
-            isNativeMobile
+            (isNativeMobile || !isTablet)
             && nativeInlineDragEnabled !== true
             && contextMenuItems.length > 0;
         const openContextMenuFromLongPress = React.useCallback(() => {
@@ -1667,7 +1668,7 @@ const SessionItemContent = React.memo(
                                 </GestureDetector>
                             ) : null}
                             {showTagAction ? (
-                                tagMenuEverOpened || Platform.OS === 'web' ? (
+                                isTablet && (tagMenuEverOpened || Platform.OS === 'web') ? (
                                     <DropdownMenu
                                         open={tagMenuOpen}
                                         onOpenChange={(next) => {
@@ -1839,8 +1840,8 @@ const SessionItemContent = React.memo(
                             : null,
         ];
 
-        const shouldRenderNativeContextMenu = isNativeMobile && contextMenuOpen && contextMenuItems.length > 0;
-        const shouldRenderNativeTagMenu = isNativeMobile && supportsTag && tagMenuOpen;
+        const shouldRenderNativeContextMenu = (isNativeMobile || !isTablet) && contextMenuOpen && contextMenuItems.length > 0;
+        const shouldRenderNativeTagMenu = (isNativeMobile || !isTablet) && supportsTag && tagMenuOpen;
         const menuNodes = shouldRenderNativeContextMenu || shouldRenderNativeTagMenu ? (
             <>
                 {shouldRenderNativeContextMenu ? (
