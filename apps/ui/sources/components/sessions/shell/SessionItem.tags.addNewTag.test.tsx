@@ -52,13 +52,14 @@ vi.mock('@/hooks/ui/useHappyAction', () => ({
 }));
 
 const promptSpy = vi.fn(async () => 'new-tag');
+const platformState = vi.hoisted(() => ({ os: 'ios' }));
 
 installSessionShellCommonModuleMocks({
     reactNative: async () => {
         const { createReactNativeWebMock } = await import('@/dev/testkit/mocks/reactNative');
         return createReactNativeWebMock({
             Platform: {
-                OS: 'ios',
+                get OS() { return platformState.os; },
             },
         });
     },
@@ -101,7 +102,8 @@ describe('SessionItem tags (new tag)', () => {
         standardCleanup();
     });
 
-    it('creates a new tag via the tag dropdown create action and adds it to active tags', async () => {
+    it.each(['ios', 'web'])('creates a new tag from the mobile context menu on %s', async (os) => {
+        platformState.os = os;
         promptSpy.mockClear();
         const onSetTags = vi.fn();
 
@@ -169,6 +171,9 @@ describe('SessionItem tags (new tag)', () => {
         if (!contextMenu) {
             throw new Error('Context menu not found');
         }
+        expect(contextMenu.props.items).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: SESSION_ACTION_EDIT_TAGS_ID }),
+        ]));
 
         await act(async () => {
             invokeTestInstanceHandler(contextMenu, 'onSelect', SESSION_ACTION_EDIT_TAGS_ID);
