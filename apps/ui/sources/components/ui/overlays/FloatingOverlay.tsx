@@ -56,6 +56,11 @@ const stylesheet = StyleSheet.create((theme) => {
             backgroundColor: theme.colors.surface.base,
             ...shadowLevelStyle(theme.colors.shadowLevels[2]),
         },
+        // The outline that marks a menu or picker surface against the content behind it.
+        menuOutline: {
+            borderWidth: 2,
+            borderColor: theme.colors.border.strong,
+        },
         themedSurfaceClip: {
             borderRadius: OVERLAY_BORDER_RADIUS,
             overflow: 'hidden',
@@ -104,8 +109,11 @@ interface FloatingOverlayProps {
     edgeIndicators?: boolean | Readonly<{ size?: number; opacity?: number }>;
     /** Optional arrow that points back to the anchor (useful for context menus). */
     arrow?: FloatingOverlayArrow;
-    /** Defaults to legacy modal chrome; bounded popovers can opt into theme surface chrome. */
-    surfaceChrome?: 'modal' | 'theme';
+    /**
+     * Defaults to legacy modal chrome; bounded popovers can opt into theme surface chrome.
+     * `menu` is theme surface chrome plus the 2px strong-border outline shared by menus and pickers.
+     */
+    surfaceChrome?: 'modal' | 'theme' | 'menu';
     /**
      * Initial visibility for scroll edge fades before measurement.
      * Useful for optimistic trailing-edge fades (e.g., bottom: true for lists
@@ -172,6 +180,8 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
         initialVisibility: props.initialVisibility,
     });
 
+    const themedChrome = surfaceChrome !== 'modal';
+
     const arrowCfg = React.useMemo(() => {
         if (!arrow) return null;
         if (arrow === true) return { placement: 'bottom' as const, size: 12 } as const;
@@ -230,12 +240,13 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
 
     const overlay = (
         <Animated.View style={[
-            surfaceChrome === 'theme' ? styles.themedSurfaceShadowFrame : styles.modalShadowFrame,
+            themedChrome ? styles.themedSurfaceShadowFrame : styles.modalShadowFrame,
             { maxHeight },
+            surfaceChrome === 'menu' ? styles.menuOutline : null,
             containerStyle,
         ]}>
             <Animated.View style={[
-                surfaceChrome === 'theme' ? styles.themedSurfaceClip : styles.modalClipSurface,
+                themedChrome ? styles.themedSurfaceClip : styles.modalClipSurface,
                 { maxHeight },
             ]}>
                 {content}
@@ -271,7 +282,7 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
         transform: [{ rotate: '45deg' as const }],
     };
 
-    if (surfaceChrome === 'theme') {
+    if (themedChrome) {
         Object.assign(arrowBoxStyle, resolveThemeSurfaceChromeStyle({
             borderColor: theme.colors.border.surface,
             highlightColor: theme.colors.effect.surfaceHighlight,

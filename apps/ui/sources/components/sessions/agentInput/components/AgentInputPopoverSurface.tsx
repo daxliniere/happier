@@ -58,7 +58,7 @@ export const AgentInputPopoverSurface = React.memo(
           edgeFades={edgeFades}
           edgeIndicators={edgeIndicators}
           arrow={arrow}
-          surfaceChrome="theme"
+          surfaceChrome="menu"
           initialVisibility={initialVisibility}
           onScrollViewScroll={onScroll}
         >

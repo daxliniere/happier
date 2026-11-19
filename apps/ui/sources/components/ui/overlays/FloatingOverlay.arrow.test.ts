@@ -253,6 +253,47 @@ describe('FloatingOverlay', () => {
         }
     });
 
+    it('outlines menu chrome with the 2px strong theme border on the frame, keeping theme surface and shadow', async () => {
+        shared.themeOverride = {
+            colors: {
+                border: { surface: 'rgba(0,0,0,0.08)', strong: 'rgba(0,0,0,0.5)' },
+                effect: { surfaceHighlight: 'rgba(255,255,255,0.04)' },
+            },
+        };
+
+        const screen = await renderOverlay({
+            maxHeight: 200,
+            surfaceChrome: 'menu',
+        });
+
+        const frameStyle = findOverlayFrameStyle(screen);
+        const clipStyle = findOverlayClipStyle(screen);
+        expect(frameStyle.borderWidth).toBe(2);
+        expect(frameStyle.borderColor).toBe('rgba(0,0,0,0.5)');
+        expect(hasShadow(frameStyle)).toBe(true);
+        expect(clipStyle.borderColor).toBe('rgba(0,0,0,0.08)');
+    });
+
+    it('lets a caller container style refine the menu outline (for example a trigger-connected edge)', async () => {
+        const screen = await renderOverlay({
+            maxHeight: 200,
+            surfaceChrome: 'menu',
+            containerStyle: { borderTopWidth: 0 },
+        });
+
+        const frameStyle = findOverlayFrameStyle(screen);
+        expect(frameStyle.borderWidth).toBe(2);
+        expect(frameStyle.borderTopWidth).toBe(0);
+    });
+
+    it('does not outline plain theme or modal chrome', async () => {
+        for (const surfaceChrome of ['modal', 'theme'] as const) {
+            vi.resetModules();
+            const screen = await renderOverlay({ maxHeight: 200, surfaceChrome });
+            expect(findOverlayFrameStyle(screen).borderWidth).toBeUndefined();
+        }
+    });
+
     it('keeps themed surface chrome split between a shadow frame and clipped content surface', async () => {
         shared.themeOverride = {
             colors: {

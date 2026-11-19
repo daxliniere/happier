@@ -751,7 +751,7 @@ describe('DropdownMenu', () => {
         expect(style?.borderBottomWidth).toBe(0);
     });
 
-    it('opts dropdown overlays into themed surface chrome', async () => {
+    it('opts dropdown overlays into the outlined menu surface chrome', async () => {
         const { DropdownMenu } = await import('./DropdownMenu');
 
         const screen = await renderScreen(React.createElement(DropdownMenu, {
@@ -763,7 +763,7 @@ describe('DropdownMenu', () => {
         }));
 
         const overlay = screen.findByType('FloatingOverlay' as any);
-        expect(overlay?.props?.surfaceChrome).toBe('theme');
+        expect(overlay?.props?.surfaceChrome).toBe('menu');
     });
 
     it('wires menu result rows to the overlay scroll container for keyboard auto-scroll', async () => {

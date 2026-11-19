@@ -682,13 +682,12 @@ export function DropdownMenu(props: DropdownMenuProps) {
                             edgeFades={{ top: true, bottom: true }}
                             edgeIndicators={{ size: 14, opacity: 0.35 }}
                             arrow={overlayArrowCfg ? { placement, size: overlayArrowCfg.size } : false}
-                            surfaceChrome="theme"
+                            surfaceChrome="menu"
                             scrollViewRef={resultScroll.scrollRef}
                             onScrollViewLayout={resultScroll.onViewportLayout}
                             onScrollViewContentSizeChange={resultScroll.onContentSizeChange}
                             onScrollViewScroll={resultScroll.onScroll}
                             containerStyle={[
-                                { borderWidth: 2, borderColor: theme.colors.border.strong },
                                 props.connectToTrigger
                                     ? (
                                         placement === 'top'
