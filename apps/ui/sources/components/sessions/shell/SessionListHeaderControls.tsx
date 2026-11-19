@@ -3,7 +3,7 @@ import { Pressable, View, type TextStyle } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/forms/dropdown/DropdownMenu';
-import { TextInput } from '@/components/ui/text/Text';
+import { Text, TextInput } from '@/components/ui/text/Text';
 import { t } from '@/text';
 import { Icon } from '@/components/ui/icons/Icon';
 
@@ -68,6 +68,15 @@ const stylesheet = StyleSheet.create((theme) => ({
         alignItems: 'center' as const,
         justifyContent: 'center' as const,
     },
+    searchFailure: {
+        minHeight: 48,
+        justifyContent: 'center' as const,
+        paddingHorizontal: 15,
+        paddingBottom: 6,
+    },
+    searchFailureText: {
+        color: theme.colors.text.secondary,
+    },
     iconButton: {
         width: 20,
         height: 24,
@@ -98,6 +107,8 @@ export const SessionListHeaderControls = React.memo(function SessionListHeaderCo
     onSelectedTagsChange: (tags: string[]) => void;
     onSearchQueryChange: (query: string) => void;
     searchTrailingAccessory?: React.ReactNode;
+    searchFailed?: boolean;
+    onRetrySearch?: () => void;
     viewMenu: React.ReactNode;
 }>) {
     const {
@@ -119,7 +130,7 @@ export const SessionListHeaderControls = React.memo(function SessionListHeaderCo
     const activeIconColor = theme.colors.accent.blue;
     const searchHasQuery = searchInputValue.trim().length > 0;
     const searchTrailingAccessoryHasContent = React.Children.count(searchTrailingAccessory) > 0;
-    const showSearchClearButton = searchHasQuery && !searchTrailingAccessoryHasContent;
+    const showSearchClearButton = searchHasQuery;
     const shouldRenderSearchTrailingSlot = searchTrailingAccessoryHasContent || searchHasQuery;
     const selectedTagSet = React.useMemo(() => new Set(selectedTags), [selectedTags]);
 
@@ -170,92 +181,105 @@ export const SessionListHeaderControls = React.memo(function SessionListHeaderCo
     }, [onSelectedTagsChange, selectedTagSet, selectedTags]);
 
     return (
-        <View style={styles.bar} testID="session-list-header-controls">
-            <View style={styles.searchField}>
-                <Icon
-                    name="magnifying-glass"
-                    size={16}
-                    color={searchHasQuery ? activeIconColor : iconColor}
-                />
-                <TextInput
-                    ref={inputRef}
-                    testID="session-list-search-input"
-                    accessibilityLabel={t('sessionsList.searchSessions')}
-                    placeholder={t('sessionsList.searchSessionsPlaceholder')}
-                    placeholderTextColor={theme.colors.input.placeholder}
-                    value={searchInputValue}
-                    onChangeText={handleSearchQueryChange}
-                    onKeyPress={handleSearchKeyPress}
-                    returnKeyType="search"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={[styles.searchInput, SEARCH_INPUT_CHROME_RESET_STYLE]}
-                />
-                {shouldRenderSearchTrailingSlot ? (
-                    <View
-                        testID="session-list-search-trailing-accessory"
-                        pointerEvents={showSearchClearButton ? 'auto' : 'none'}
-                        accessibilityElementsHidden={showSearchClearButton ? undefined : true}
-                        importantForAccessibility={showSearchClearButton ? undefined : 'no-hide-descendants'}
-                        style={styles.searchTrailingAccessory}
-                    >
-                        {showSearchClearButton ? (
-                            <Pressable
-                                testID="session-list-search-clear"
-                                accessibilityRole="button"
-                                accessibilityLabel={t('common.clearSearch')}
-                                onPress={handleClearSearch}
-                                hitSlop={10}
-                                style={styles.searchClearButton}
-                            >
-                                <Icon
-                                    name="x-circle"
-                                    size={14}
-                                    color={theme.colors.text.tertiary}
-                                />
-                            </Pressable>
-                        ) : searchTrailingAccessory}
-                    </View>
-                ) : null}
-            </View>
-            {allKnownTags.length > 0 ? (
-                <DropdownMenu
-                    open={tagMenuOpen}
-                    onOpenChange={setTagMenuOpen}
-                    items={tagItems}
-                    onSelect={handleTagSelect}
-                    selectedId={selectedTags[0] ?? null}
-                    placement="left"
-                    variant="slim"
-                    search={allKnownTags.length > 8}
-                    searchPlaceholder={t('sessionTags.searchOrAddPlaceholder')}
-                    closeOnSelect={false}
-                    matchTriggerWidth={false}
-                    maxWidthCap={220}
-                    showCategoryTitles={false}
-                    popoverPortalWebTarget="body"
-                    trigger={({ toggle }) => (
+        <View>
+            <View style={styles.bar} testID="session-list-header-controls">
+                <View style={styles.searchField}>
+                    <Icon
+                        name="magnifying-glass"
+                        size={16}
+                        color={searchHasQuery ? activeIconColor : iconColor}
+                    />
+                    <TextInput
+                        ref={inputRef}
+                        testID="session-list-search-input"
+                        accessibilityLabel={t('sessionsList.searchSessions')}
+                        placeholder={t('sessionsList.searchSessionsPlaceholder')}
+                        placeholderTextColor={theme.colors.input.placeholder}
+                        value={searchInputValue}
+                        onChangeText={handleSearchQueryChange}
+                        onKeyPress={handleSearchKeyPress}
+                        returnKeyType="search"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        style={[styles.searchInput, SEARCH_INPUT_CHROME_RESET_STYLE]}
+                    />
+                    {shouldRenderSearchTrailingSlot ? (
+                        <View
+                            testID="session-list-search-trailing-accessory"
+                            pointerEvents="none"
+                            accessibilityElementsHidden={true}
+                            importantForAccessibility="no-hide-descendants"
+                            style={styles.searchTrailingAccessory}
+                        >
+                            {searchTrailingAccessory}
+                        </View>
+                    ) : null}
+                    {showSearchClearButton ? (
                         <Pressable
-                            testID="session-list-tag-filter-trigger"
+                            testID="session-list-search-clear"
                             accessibilityRole="button"
-                            accessibilityLabel={t('sessionsList.filterByTags')}
-                            onPress={(event) => {
-                                stopPressEventPropagation(event);
-                                toggle();
-                            }}
-                            hitSlop={8}
-                            style={styles.iconButton}
+                            accessibilityLabel={t('common.clearSearch')}
+                            onPress={handleClearSearch}
+                            hitSlop={10}
+                            style={styles.searchClearButton}
                         >
                             <Icon
-                                name="tag"
-                                size={16}
-                                color={selectedTags.length > 0 ? activeIconColor : iconColor}
+                                name="x-circle"
+                                size={14}
+                                color={theme.colors.text.tertiary}
                             />
                         </Pressable>
-                    )}
-                />
+                    ) : null}
+                </View>
+                {allKnownTags.length > 0 ? (
+                    <DropdownMenu
+                        open={tagMenuOpen}
+                        onOpenChange={setTagMenuOpen}
+                        items={tagItems}
+                        onSelect={handleTagSelect}
+                        selectedId={selectedTags[0] ?? null}
+                        placement="left"
+                        variant="slim"
+                        search={allKnownTags.length > 8}
+                        searchPlaceholder={t('sessionTags.searchOrAddPlaceholder')}
+                        closeOnSelect={false}
+                        matchTriggerWidth={false}
+                        maxWidthCap={220}
+                        showCategoryTitles={false}
+                        popoverPortalWebTarget="body"
+                        trigger={({ toggle }) => (
+                            <Pressable
+                                testID="session-list-tag-filter-trigger"
+                                accessibilityRole="button"
+                                accessibilityLabel={t('sessionsList.filterByTags')}
+                                onPress={(event) => {
+                                    stopPressEventPropagation(event);
+                                    toggle();
+                                }}
+                                hitSlop={8}
+                                style={styles.iconButton}
+                            >
+                                <Icon
+                                    name="tag"
+                                    size={16}
+                                    color={selectedTags.length > 0 ? activeIconColor : iconColor}
+                                />
+                            </Pressable>
+                        )}
+                    />
+                ) : null}
+                {viewMenu}
+            </View>
+            {props.searchFailed ? (
+                <Pressable
+                    testID="session-list-search-retry"
+                    accessibilityRole="button"
+                    onPress={props.onRetrySearch}
+                    style={styles.searchFailure}
+                >
+                    <Text accessibilityRole="alert" style={styles.searchFailureText}>{t('sessionsList.searchIncomplete')} {t('common.retry')}</Text>
+                </Pressable>
             ) : null}
-            {viewMenu}
         </View>
     );
 });

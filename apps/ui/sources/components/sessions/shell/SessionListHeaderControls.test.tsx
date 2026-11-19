@@ -127,7 +127,7 @@ describe('SessionListHeaderControls', () => {
         expect(onSearchQueryChange).toHaveBeenCalledWith('');
     });
 
-    it('keeps the clear button hidden while a search trailing accessory is active', async () => {
+    it('keeps search cancellable while a search trailing accessory is active', async () => {
         const { SessionListHeaderControls } = await import('./SessionListHeaderControls');
         const screen = await renderScreen(
             <SessionListHeaderControls
@@ -142,7 +142,7 @@ describe('SessionListHeaderControls', () => {
         );
 
         expect(screen.findByTestId('session-list-search-trailing-accessory-content')).toBeTruthy();
-        expect(screen.findByTestId('session-list-search-clear')).toBeNull();
+        expect(screen.findByTestId('session-list-search-clear')).toBeTruthy();
     });
 
     it('keeps a fixed search trailing accessory slot when the accessory content changes', async () => {

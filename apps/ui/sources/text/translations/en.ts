@@ -6389,6 +6389,7 @@ export const en = {
         },
     },
     sessionsList: {
+        searchIncomplete: 'Some saved messages could not be searched.',
         serverHeader: ({ server }: { server: string }) => `Server: ${server}`,
         storagePersistedTab: 'Happier',
         storageDirectTab: 'Direct',
