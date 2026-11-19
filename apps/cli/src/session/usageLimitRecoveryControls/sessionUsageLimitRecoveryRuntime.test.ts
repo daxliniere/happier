@@ -132,6 +132,8 @@ describe('generic usage-limit continuation through the session control boundary'
   beforeEach(async () => {
     testOs.homedir = await createTempDir('usage-limit-runtime-home-');
     vi.resetAllMocks();
+    // Keep timing deterministic; nonzero timer spread is covered by the scheduler contract.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     network.enqueue.mockResolvedValue({ didWrite: true, terminal: false });
     network.rpc.mockResolvedValue({ ok: true });
     const features = FeaturesResponseSchema.parse({ features: { sessions: { enabled: true,
