@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/text';
@@ -9,6 +9,7 @@ import { formatMessageSelectionRowAccessibilityLabel } from './messageSelectionA
 import { useOptionalTranscriptSelectionActions, useOptionalTranscriptSelectionRow } from './TranscriptMessageSelectionContext';
 import { Icon } from '@/components/ui/icons/Icon';
 import { RowActionDeferredIcon } from '@/components/sessions/transcript/messageActions/RowActionRevealSlot';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 
 const TRANSCRIPT_SELECT_ACTION_HIT_SLOP = 15;
 const TRANSCRIPT_SELECT_MODE_HIT_SLOP = 22;
@@ -46,7 +47,7 @@ export function SelectMessageButton(props: Readonly<{
         : t('transcript.selection.enterA11y');
 
     return (
-        <Pressable
+        <PressableSurface
             testID={props.testID}
             onPress={isSelectionToggle ? row.toggle : () => actions.enter(props.messageId)}
             onHoverIn={props.onHoverIn}
@@ -55,6 +56,8 @@ export function SelectMessageButton(props: Readonly<{
             accessibilityRole={isSelectionToggle ? 'checkbox' : 'button'}
             accessibilityState={isSelectionToggle ? { checked: row.isSelected } : undefined}
             accessibilityLabel={accessibilityLabel}
+            webTooltip={accessibilityLabel}
+            tone="none"
             style={({ pressed }) => [
                 styles.button,
                 Platform.OS === 'web' ? styles.webActionButton : null,
@@ -71,7 +74,7 @@ export function SelectMessageButton(props: Readonly<{
                     color={iconColor}
                 />
             </RowActionDeferredIcon>
-        </Pressable>
+        </PressableSurface>
     );
 }
 
