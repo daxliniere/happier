@@ -7537,6 +7537,7 @@ export const fr: TranslationStructure = {
                 attachmentImageA11y: ({ name }: { name: string }) => `Ouvrir l’image jointe ${name}`,
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Ouvrir l’image produite par l’outil ${name}`,
                 imageUnavailable: 'Image indisponible',
+                title: "Médias de la session",
                 jumpToMessage: "Afficher dans le chat",
                 showMore: "Afficher plus",
                 showAll: "Tout afficher",

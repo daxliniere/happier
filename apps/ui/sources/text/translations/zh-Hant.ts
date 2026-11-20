@@ -6788,6 +6788,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
           attachmentImageA11y: ({ name }: { name: string }) => `開啟附件圖片 ${name}`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `開啟工具產物圖片 ${name}`,
           imageUnavailable: '圖片無法使用',
+          title: "工作階段媒體",
           jumpToMessage: "在聊天中顯示",
           showMore: "顯示更多",
           showAll: "顯示全部",

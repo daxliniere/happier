@@ -7550,6 +7550,7 @@ export const de: TranslationStructure = {
                 attachmentImageA11y: ({ name }: { name: string }) => `Angehängtes Bild öffnen: ${name}`,
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Bild-Artefakt des Tools öffnen: ${name}`,
                 imageUnavailable: 'Bild nicht verfügbar',
+                title: "Sitzungsmedien",
                 jumpToMessage: "Im Chat anzeigen",
                 showMore: "Mehr anzeigen",
                 showAll: "Alle anzeigen",

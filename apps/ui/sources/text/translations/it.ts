@@ -8364,6 +8364,7 @@ export const it: TranslationStructure = {
           attachmentImageA11y: ({ name }: { name: string }) => `Apri immagine allegata ${name}`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `Apri immagine artefatto dello strumento ${name}`,
           imageUnavailable: 'Immagine non disponibile',
+          title: "Media della sessione",
           jumpToMessage: "Mostra nella chat",
           showMore: "Mostra altri",
           showAll: "Mostra tutto",

@@ -8028,6 +8028,7 @@ export const pl: TranslationStructure = {
           attachmentImageA11y: ({ name }: { name: string }) => `Otwórz załączony obraz ${name}`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `Otwórz obraz artefaktu narzędzia ${name}`,
           imageUnavailable: 'Obraz jest niedostępny',
+          title: "Multimedia sesji",
           jumpToMessage: "Pokaż w czacie",
           showMore: "Pokaż więcej",
           showAll: "Pokaż wszystko",

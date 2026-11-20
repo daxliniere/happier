@@ -8285,6 +8285,7 @@ localTailscale: {
           attachmentImageA11y: ({ name }: { name: string }) => `添付画像 ${name} を開く`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `ツール成果物画像 ${name} を開く`,
           imageUnavailable: '画像は利用できません',
+          title: "セッションのメディア",
           jumpToMessage: "チャットで表示",
           showMore: "さらに表示",
           showAll: "すべて表示",

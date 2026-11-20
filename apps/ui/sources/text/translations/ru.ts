@@ -8011,6 +8011,7 @@ export const ru: TranslationStructure = {
           attachmentImageA11y: ({ name }: { name: string }) => `Открыть прикрепленное изображение ${name}`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `Открыть изображение артефакта инструмента ${name}`,
           imageUnavailable: 'Изображение недоступно',
+          title: "Медиа сессии",
           jumpToMessage: "Показать в чате",
           showMore: "Показать ещё",
           showAll: "Показать все",
