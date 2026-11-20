@@ -108,7 +108,7 @@ const SessionReferenceChip = React.memo((props: Readonly<{
     const title = liveTitle ?? props.label;
 
     const openSession = React.useCallback(() => {
-        void navigateToSession(props.sessionId);
+        void navigateToSession(props.sessionId, { pushHistory: true });
     }, [navigateToSession, props.sessionId]);
 
     const testID = `transcript-session-reference:${props.sessionId}`;

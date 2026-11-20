@@ -132,7 +132,7 @@ function useTranscriptMarkdownLinkPress(params: Readonly<{
     const sessionLink = /^\/session\/([A-Za-z0-9_-]+)(?:\?([^#]*))?$/.exec(url);
     if (sessionLink) {
       const serverId = new URLSearchParams(sessionLink[2] ?? '').get('serverId');
-      void navigateToSession(sessionLink[1], { serverId });
+      void navigateToSession(sessionLink[1], { serverId, pushHistory: true });
       return true;
     }
     if (!canOpenFiles) return false;

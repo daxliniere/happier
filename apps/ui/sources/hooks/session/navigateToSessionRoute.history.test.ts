@@ -31,4 +31,13 @@ describe('session route history', () => {
         expect(navigate.mock.calls[0]?.[1]?.dangerouslySingular()).toBe('session');
         expect(push).not.toHaveBeenCalled();
     });
+
+    it.each(['ios', 'android'] as const)('pushes history on %s when following a link from inside a session', (platform) => {
+        Platform.OS = platform;
+        const navigate = vi.fn();
+        const push = vi.fn();
+        navigateToSessionRoute({ router: { navigate, push }, sessionId: 'history-b', pushHistory: true });
+        expect(push).toHaveBeenCalledWith('/session/history-b');
+        expect(navigate).not.toHaveBeenCalled();
+    });
 });

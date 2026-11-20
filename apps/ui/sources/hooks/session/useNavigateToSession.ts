@@ -25,6 +25,7 @@ export function useNavigateToSession() {
             sessionId,
             serverId: opts?.serverId ?? null,
             ...(opts?.query ? { query: opts.query } : null),
+            ...(opts?.pushHistory ? { pushHistory: true } : null),
             refreshAuth: getCurrentAuth()?.refreshFromActiveServer ?? null,
         });
     }, [router]);

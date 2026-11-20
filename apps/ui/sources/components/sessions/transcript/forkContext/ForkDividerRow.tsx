@@ -25,7 +25,7 @@ export function ForkDividerRow(props: Readonly<{
 
   const handleOpenParent = React.useCallback(() => {
     const seq = Math.max(0, Math.trunc(props.parentCutoffSeqInclusive));
-    void navigateToSession(props.parentSessionId, { query: { jumpSeq: seq } });
+    void navigateToSession(props.parentSessionId, { query: { jumpSeq: seq }, pushHistory: true });
   }, [navigateToSession, props.parentCutoffSeqInclusive, props.parentSessionId]);
 
   return (

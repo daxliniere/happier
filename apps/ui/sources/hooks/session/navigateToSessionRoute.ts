@@ -28,6 +28,11 @@ export type NavigateToSessionOptions = Readonly<{
     serverId?: string | null;
     /** Extra route params carried onto the session href, e.g. `jumpSeq`. */
     query?: SessionRouteQuery;
+    /**
+     * Keep the originating screen in history on native too, so Back returns to it. Use for links
+     * followed from inside a session (transcript links); list/inbox entry points keep the singular stack.
+     */
+    pushHistory?: boolean;
 }>;
 
 export type SessionRouteNavigator = Pick<Router, 'navigate' | 'push'>;
@@ -48,7 +53,7 @@ export function navigateToSessionRoute(params: Readonly<{
         sessionId: params.sessionId,
         source: 'navigate-hook',
     });
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' || params.pushHistory) {
         params.router.push(href);
     } else {
         params.router.navigate(href, {
