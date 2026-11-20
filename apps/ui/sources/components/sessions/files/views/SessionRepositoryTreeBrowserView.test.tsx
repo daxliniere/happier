@@ -245,6 +245,15 @@ describe('SessionRepositoryTreeBrowserView', () => {
         expect(screen.findByTestId('repository-tree-list')).toBeNull();
     });
 
+    it('lands on the Session media tab when asked to, then reports the request handled', async () => {
+        const onViewRequestHandled = vi.fn();
+        const { screen } = await renderRepositoryTreeBrowserView({ viewRequest: { view: 'session' }, onViewRequestHandled });
+
+        expect(screen.findByTestId('session-media-grid')).not.toBeNull();
+        expect(screen.findByTestId('repository-tree-list')).toBeNull();
+        expect(onViewRequestHandled).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps the repository tree list stable when only scroll edge visibility changes', async () => {
         await renderRepositoryTreeBrowserView();
         const initialProps = repositoryTreeListProps.at(-1);

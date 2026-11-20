@@ -7558,6 +7558,7 @@ deps: {
                 attachmentImageA11y: ({ name }: { name: string }) => `Obre la imatge adjunta ${name}`,
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Obre la imatge d'artefacte d'eina ${name}`,
                 imageUnavailable: 'La imatge no està disponible',
+                title: "Contingut multimèdia de la sessió",
                 jumpToMessage: "Mostra al xat",
                 showMore: "Mostra'n més",
                 showAll: "Mostra-ho tot",

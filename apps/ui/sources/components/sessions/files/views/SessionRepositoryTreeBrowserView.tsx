@@ -55,6 +55,9 @@ export type SessionRepositoryTreeBrowserViewProps = Readonly<{
     showSearchBar?: boolean;
     onRequestClose?: () => void;
     revealRequest?: Readonly<{ path: string; isDirectory?: boolean }>;
+    /** One-shot request to switch to a tab; applied once, then reported through `onViewRequestHandled`. */
+    viewRequest?: Readonly<{ view: 'session' }>;
+    onViewRequestHandled?: () => void;
 }>;
 
 type ToolbarActionId =
@@ -302,6 +305,15 @@ export const SessionRepositoryTreeBrowserView = React.memo((props: SessionReposi
     React.useEffect(() => {
         if (props.revealRequest) handleRevealPath(props.revealRequest.path, props.revealRequest.isDirectory === true);
     }, [props.revealRequest, handleRevealPath]);
+
+    const { viewRequest, onViewRequestHandled } = props;
+    React.useEffect(() => {
+        if (!viewRequest) return;
+        setVisibilityMode(viewRequest.view);
+        setSearchQuery('');
+        setShowChangedOnly(false);
+        onViewRequestHandled?.();
+    }, [viewRequest, onViewRequestHandled, setSearchQuery]);
 
     const handleSearchFolderPress = React.useCallback((folder: FileItem) => {
         handleRevealPath(folder.fullPath.replace(/\/+$/, ''), true);

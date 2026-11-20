@@ -7590,6 +7590,7 @@ export const en = {
                 attachmentImageA11y: ({ name }: { name: string }) => `Open attached image ${name}`,
                 toolArtifactImageA11y: ({ name }: { name: string }) => `Open tool artifact image ${name}`,
                 imageUnavailable: 'Image unavailable',
+                title: "Session media",
                 jumpToMessage: "Show in chat",
                 showMore: "Show more",
                 showAll: "Show all",

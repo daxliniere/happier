@@ -8022,6 +8022,7 @@ export const es: TranslationStructure = {
           attachmentImageA11y: ({ name }: { name: string }) => `Abrir imagen adjunta ${name}`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `Abrir imagen de artefacto de herramienta ${name}`,
           imageUnavailable: 'La imagen no está disponible',
+          title: "Medios de la sesión",
           jumpToMessage: "Mostrar en el chat",
           showMore: "Mostrar más",
           showAll: "Mostrar todo",

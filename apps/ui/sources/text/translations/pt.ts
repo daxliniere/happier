@@ -8153,6 +8153,7 @@ export const pt: TranslationStructure = {
           attachmentImageA11y: ({ name }: { name: string }) => `Abrir imagem anexada ${name}`,
           toolArtifactImageA11y: ({ name }: { name: string }) => `Abrir imagem de artefato da ferramenta ${name}`,
           imageUnavailable: 'A imagem não está disponível',
+          title: "Mídia da sessão",
           jumpToMessage: "Mostrar no chat",
           showMore: "Mostrar mais",
           showAll: "Mostrar tudo",
