@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { PinIcon, PinSlashIcon } from '@/components/sessions/shell/sessionPinIcons';
@@ -10,6 +10,7 @@ import { buildSessionMessagePinAtPressTime, type MessagePinAvailability } from '
 import { ICON_SIZE } from '@/components/ui/icons/Icon';
 
 import { RowActionDeferredIcon } from './RowActionRevealSlot';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 
 export function MessagePinButton(props: Readonly<{
     availability: MessagePinAvailability;
@@ -34,7 +35,7 @@ export function MessagePinButton(props: Readonly<{
     };
 
     return (
-        <Pressable
+        <PressableSurface
             testID={props.testID}
             onPress={handlePress}
             onHoverIn={props.onHoverIn}
@@ -42,6 +43,8 @@ export function MessagePinButton(props: Readonly<{
             hitSlop={hitSlop}
             accessibilityRole="button"
             accessibilityLabel={label}
+            webTooltip={label}
+            tone="none"
             style={({ pressed }) => [
                 styles.button,
                 Platform.OS === 'web' ? styles.webActionButton : null,
@@ -58,7 +61,7 @@ export function MessagePinButton(props: Readonly<{
                     <PinIcon size={ICON_SIZE.xs} color={iconColor} />
                 )}
             </RowActionDeferredIcon>
-        </Pressable>
+        </PressableSurface>
     );
 }
 

@@ -99,6 +99,7 @@ import {
 } from '@/utils/sessions/deriveTranscriptInteraction';
 import { useSessionInteractionSource, useSessionReferenceTarget } from '@/sync/domains/state/storage';
 import { Icon, ICON_SIZE } from '@/components/ui/icons/Icon';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 import { getSessionDisplayTitle } from '@/utils/sessions/sessionUtils';
 
 type StreamSegmentStateForRendering = 'streaming' | 'complete' | 'interrupted';
@@ -1641,7 +1642,7 @@ function ForkMessageButton(props: {
   if (!sessionForkSupportSource) return null;
 
   return (
-    <Pressable
+    <PressableSurface
       testID={`transcript-message-fork:${props.messageId}`}
       onPress={handlePress}
       onHoverIn={props.onHoverIn}
@@ -1649,6 +1650,8 @@ function ForkMessageButton(props: {
       hitSlop={hitSlop}
       accessibilityRole="button"
       accessibilityLabel={t('session.forking.forkFromMessageA11y')}
+      webTooltip={t('session.forking.forkFromMessageA11y')}
+      tone="none"
       style={({ pressed }) => [
         styles.forkMessageButton,
         Platform.OS === 'web' ? styles.webActionButton : null,
@@ -1664,7 +1667,7 @@ function ForkMessageButton(props: {
           color={theme.colors.text.secondary}
         />
       </RowActionDeferredIcon>
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -1699,7 +1702,7 @@ function CopyMessageButton(props: { markdown: string; testID?: string; invertedA
   }
 
   return (
-    <Pressable
+    <PressableSurface
       testID={props.testID}
       onPress={handlePress}
       onHoverIn={props.onHoverIn}
@@ -1707,6 +1710,8 @@ function CopyMessageButton(props: { markdown: string; testID?: string; invertedA
       hitSlop={hitSlop}
       accessibilityRole="button"
       accessibilityLabel={t('common.copy')}
+      webTooltip={t('common.copy')}
+      tone="none"
       style={({ pressed }) => [
         styles.copyMessageButton,
         Platform.OS === 'web' ? styles.webActionButton : null,
@@ -1721,7 +1726,7 @@ function CopyMessageButton(props: { markdown: string; testID?: string; invertedA
           color={copied ? theme.colors.state.success.foreground : theme.colors.text.secondary}
         />
       </RowActionDeferredIcon>
-    </Pressable>
+    </PressableSurface>
   );
 }
 

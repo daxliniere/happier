@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { ICON_SIZE, Icon } from '@/components/ui/icons/Icon';
@@ -11,6 +11,7 @@ import { useIsReadingAloud } from '@/voice/local/readAloudState';
 import { useReadAloudAvailable } from '@/voice/local/useReadAloudAvailable';
 import { primeWebAudioPlayback } from '@/voice/output/webAudioContext';
 import { fireAndForget } from '@/utils/system/fireAndForget';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 
 import { RowActionDeferredIcon } from './RowActionRevealSlot';
 
@@ -44,7 +45,7 @@ export function MessageSpeakButton(props: Readonly<{
     if (text.trim().length === 0 || !available) return null;
 
     return (
-        <Pressable
+        <PressableSurface
             testID={props.testID}
             onPress={handlePress}
             onHoverIn={props.onHoverIn}
@@ -52,6 +53,8 @@ export function MessageSpeakButton(props: Readonly<{
             hitSlop={Platform.OS === 'web' ? undefined : 15}
             accessibilityRole="button"
             accessibilityLabel={playing ? t('message.stopReadAloudA11y') : t('message.readAloudA11y')}
+            webTooltip={playing ? t('message.stopReadAloudA11y') : t('message.readAloudA11y')}
+            tone="none"
             style={({ pressed }) => [
                 styles.button,
                 Platform.OS === 'web' ? styles.webActionButton : null,
@@ -67,7 +70,7 @@ export function MessageSpeakButton(props: Readonly<{
                     color={playing ? theme.colors.state.active.foreground : theme.colors.text.secondary}
                 />
             </RowActionDeferredIcon>
-        </Pressable>
+        </PressableSurface>
     );
 }
 

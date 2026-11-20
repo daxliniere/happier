@@ -5,6 +5,7 @@ import type {
     AccessibilityState,
     GestureResponderEvent,
     PressableProps,
+    PressableStateCallbackType,
     StyleProp,
     ViewStyle,
 } from 'react-native';
@@ -48,7 +49,7 @@ export type PressableSurfaceProps = Readonly<{
     /** Inset the feedback paint and focus ring inside the interactive frame. */
     feedbackInset?: number;
     /** The control's own box styling. The feedback fill is applied ON TOP of it. */
-    style?: StyleProp<ViewStyle>;
+    style?: PressableProps['style'];
     /**
      * Applied LAST, after the feedback fill, so a consumer's `style` prop still has the final word
      * — which is the ordering the adopting controls already had.
@@ -56,6 +57,8 @@ export type PressableSurfaceProps = Readonly<{
     styleOverride?: StyleProp<ViewStyle>;
     /** Portaled hover/keyboard-focus tooltip on web; a no-op elsewhere. */
     webTooltip?: string;
+    onHoverIn?: PressableProps['onHoverIn'];
+    onHoverOut?: PressableProps['onHoverOut'];
     tooltipContent?: React.ReactNode;
     tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
     testID?: string;
@@ -83,13 +86,21 @@ export const PressableSurface = React.memo((props: PressableSurfaceProps) => {
 
     const handleFocus = React.useCallback(() => setFocused(true), []);
     const handleBlur = React.useCallback(() => setFocused(false), []);
-    const handleHoverIn = React.useCallback(() => setHovered(true), []);
-    const handleHoverOut = React.useCallback(() => setHovered(false), []);
+    const handleHoverIn = React.useCallback((event: Parameters<NonNullable<PressableProps['onHoverIn']>>[0]) => {
+        setHovered(true);
+        props.onHoverIn?.(event);
+    }, [props.onHoverIn]);
+    const handleHoverOut = React.useCallback((event: Parameters<NonNullable<PressableProps['onHoverOut']>>[0]) => {
+        setHovered(false);
+        props.onHoverOut?.(event);
+    }, [props.onHoverOut]);
 
-    const resolveStyle = React.useCallback(({ pressed, hovered }: { pressed?: boolean; hovered?: boolean }) => {
+    const resolveStyle = React.useCallback((state: PressableStateCallbackType & { hovered?: boolean }) => {
+        const { pressed, hovered } = state;
+        const consumerStyle = typeof props.style === 'function' ? props.style(state) : props.style;
         const backgroundColor = feedbackInset > 0 ? undefined : feedback.resolveBackgroundColor({ pressed, hovered });
         return [
-            props.style,
+            consumerStyle,
             Platform.OS === 'web' ? WEB_FOCUS_OUTLINE_RESET : null,
             backgroundColor === undefined ? null : { backgroundColor },
             props.styleOverride,
