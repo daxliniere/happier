@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 
@@ -14,6 +14,7 @@ import { t } from '@/text';
 import type { SessionRollbackTarget } from '@happier-dev/protocol';
 import { Icon } from '@/components/ui/icons/Icon';
 import { RowActionDeferredIcon } from '@/components/sessions/transcript/messageActions/RowActionRevealSlot';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 
 export const TranscriptRollbackActionButton = React.memo((props: {
     sessionId: string;
@@ -115,7 +116,7 @@ export const TranscriptRollbackActionButton = React.memo((props: {
         : t('session.rollback.latestTurnA11y');
 
     return (
-        <Pressable
+        <PressableSurface
             testID={props.testID}
             onPress={handlePress}
             onHoverIn={props.onHoverIn}
@@ -123,6 +124,8 @@ export const TranscriptRollbackActionButton = React.memo((props: {
             hitSlop={hitSlop}
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel}
+            webTooltip={accessibilityLabel}
+            tone="none"
             style={({ pressed }) => [
                 props.style,
                 (pressed || isRollingBack) ? props.pressedStyle : null,
@@ -135,6 +138,6 @@ export const TranscriptRollbackActionButton = React.memo((props: {
                     <Icon name="arrow-arc-left" size={14} color={theme.colors.text.secondary} />
                 </RowActionDeferredIcon>
             )}
-        </Pressable>
+        </PressableSurface>
     );
 });

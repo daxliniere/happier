@@ -35,7 +35,7 @@ export type PressFeedbackSurfaceTokenId = typeof PRESS_FEEDBACK_SURFACE_TOKEN_ID
  * `control` is a bounded button: it always paints its own press, and hover outranks selection
  * because a toggled-on control still has to acknowledge the pointer.
  */
-export type PressFeedbackTone = 'row' | 'control';
+export type PressFeedbackTone = 'row' | 'control' | 'none';
 
 export type PressFeedbackPlatform = 'ios' | 'android' | 'web';
 
@@ -69,6 +69,7 @@ export function resolvePressFeedbackSurfaceTokenId(params: Readonly<{
     selected: boolean;
     disabled: boolean;
 }>): PressFeedbackSurfaceTokenId | null {
+    if (params.tone === 'none') return null;
     if (params.disabled) return null;
 
     if (params.tone === 'row') {
