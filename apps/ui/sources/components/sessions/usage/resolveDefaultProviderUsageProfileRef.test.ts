@@ -30,4 +30,15 @@ describe('resolveDefaultProviderUsageProfileRef', () => {
         expect(resolveDefaultProviderUsageProfileRef({ agentId: 'opencode', connectedServices })).toBeNull();
         expect(resolveDefaultProviderUsageProfileRef({ agentId: null, connectedServices })).toBeNull();
     });
+
+    it.each(['opencode', 'pi'] as const)('never borrows another provider\'s login for %s', (agentId: AgentId) => {
+        const connectedServices = AccountProfileSchema.parse({
+            id: 'account',
+            connectedServicesV2: [
+                { serviceId: 'claude-subscription', profiles: [{ profileId: 'Claude-2', status: 'connected' }] },
+                { serviceId: 'openai-codex', profiles: [{ profileId: 'work', status: 'connected' }] },
+            ],
+        }).connectedServicesV2;
+        expect(resolveDefaultProviderUsageProfileRef({ agentId, connectedServices })).toBeNull();
+    });
 });

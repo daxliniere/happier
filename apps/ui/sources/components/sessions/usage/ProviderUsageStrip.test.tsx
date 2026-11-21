@@ -42,8 +42,10 @@ describe('ProviderUsageStrip', () => {
     it('toggles every provider together from the whole HUD, including its unused space', async () => {
         const refresh = vi.fn();
         const screen = await renderScreen(<ProviderUsageStripContent
-            agentIds={['codex', 'claude']}
-            gauges={new Map([['codex', gauge('openai-codex', 'weekly', 100)], ['claude', gauge('anthropic', 'five_hour', 30)]])}
+            entries={[
+                { key: 'codex', agentId: 'codex', label: 'Codex', gauge: gauge('openai-codex', 'weekly', 100) },
+                { key: 'claude', agentId: 'claude', label: 'Claude', gauge: gauge('anthropic', 'five_hour', 30) },
+            ]}
             onRefresh={refresh}
         />);
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeNull();
@@ -70,13 +72,31 @@ describe('ProviderUsageStrip', () => {
 
     it('opens the shared details from a configured provider with no figures', async () => {
         const screen = await renderScreen(<ProviderUsageStripContent
-            agentIds={['codex', 'claude']}
-            gauges={new Map([['codex', gauge('openai-codex', 'weekly', 10)]])}
+            entries={[
+                { key: 'codex', agentId: 'codex', label: 'Codex', gauge: gauge('openai-codex', 'weekly', 10) },
+                { key: 'claude', agentId: 'claude', label: 'Claude', gauge: null },
+            ]}
             onRefresh={vi.fn()}
         />);
         act(() => screen.findHostByTestId('sessions-provider-usage-strip')!.props.onPress());
         expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeTruthy();
         expect(screen.getTextContent()).toContain('Claude');
         expect(screen.getTextContent()).toContain('Unavailable');
+    });
+
+    it('shows each account separately, numbering them only in the opened panel', async () => {
+        const screen = await renderScreen(<ProviderUsageStripContent
+            entries={[
+                { key: 'claude:1', agentId: 'claude', label: 'Claude 1', gauge: { ...gauge('anthropic', 'five_hour', 30), providerDisplayName: 'Claude 1' } },
+                { key: 'claude:2', agentId: 'claude', label: 'Claude 2', gauge: null },
+            ]}
+            onRefresh={vi.fn()}
+        />);
+        expect(screen.findByTestId('sessions-provider-usage-item:claude:1')).toBeTruthy();
+        expect(screen.findByTestId('sessions-provider-usage-item:claude:2')).toBeTruthy();
+        expect(screen.getTextContent()).not.toContain('Claude 1');
+        act(() => screen.findHostByTestId('sessions-provider-usage-strip')!.props.onPress());
+        expect(screen.getTextContent()).toContain('Claude 1 usage');
+        expect(screen.getTextContent()).toContain('Claude 2');
     });
 });
