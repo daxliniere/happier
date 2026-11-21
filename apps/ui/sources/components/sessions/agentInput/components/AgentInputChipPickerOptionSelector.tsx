@@ -327,7 +327,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
+    gap: 4,
     backgroundColor: "transparent",
   },
   optionLeft: {
@@ -344,7 +344,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 6,
+    gap: 2,
   },
   railAction: {
     width: RAIL_ACTION_SIZE,
