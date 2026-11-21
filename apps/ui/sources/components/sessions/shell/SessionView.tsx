@@ -199,6 +199,7 @@ import {
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
 import { resolveProviderUsageGaugeWindowMode } from '@/components/sessions/usage/resolveProviderUsageGaugeWindowMode';
 import { useProviderUsageAutoRefresh } from '@/hooks/server/connectedServices/useProviderUsageAutoRefresh';
+import { selectArmedAgentUsageGauge } from '@/components/sessions/usage/selectArmedAgentUsageGauge';
 import { useProviderUsageRefresh } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
 import { useProviderUsageGauges } from '@/components/sessions/usage/useProviderUsageGauges';
 import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
@@ -3991,7 +3992,7 @@ function SessionViewLoaded({
         setAgentPickerUsageDemanded(true);
         inSessionAgentPicker.onAgentPickerIntent();
     }, [inSessionAgentPicker.onAgentPickerIntent]);
-    const { gauges: providerUsageGaugesByAgentId } = useProviderUsageGauges({
+    const { gauges: providerUsageGaugesByAgentId, accounts: providerUsageAccounts } = useProviderUsageGauges({
         agentIds: catalogAgentIds,
         accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
         windowMode: sessionProviderUsageGaugeWindowMode,
@@ -4010,8 +4011,14 @@ function SessionViewLoaded({
     }, [liveComposerState.agentId, providerUsageGauge, providerUsageGaugesByAgentId, sessionAgentCatalogEntries]);
     // Once another Agent is armed in the picker, the composer's usage ring follows that Agent.
     const armedUsageAgentId = armedContinuationTarget ? resolveAgentIdFromFlavor(armedContinuationTarget.agentId) : null;
+    // Once the owner has picked a specific account for it, the ring describes that account.
     const composerProviderUsageGauge = armedUsageAgentId
-        ? providerUsageGaugesByAgentId.get(armedUsageAgentId) ?? null
+        ? selectArmedAgentUsageGauge({
+            accounts: providerUsageAccounts,
+            agentId: armedUsageAgentId,
+            connectedServices: inSessionAgentPicker.armedContinuation?.selection.connectedServices ?? null,
+            fallback: providerUsageGaugesByAgentId.get(armedUsageAgentId) ?? null,
+        })
         : providerUsageGauge;
     useProviderUsageAutoRefresh();
     const refreshProviderUsage = useProviderUsageRefresh({
@@ -5135,7 +5142,11 @@ function SessionViewLoaded({
                     // The account is chosen before Continue and rides the armed intent; nothing
                     // about the running session's own binding changes until the switch is sent.
                     connectedServices: inSessionAgentPicker.armedContinuation?.selection.connectedServices ?? null,
-                    onConnectedServicesChange: inSessionAgentPicker.setArmedContinuationConnectedServices,
+                    // While a submission is issued the choice is final, so the popover goes back to a
+                    // read-only preview instead of offering a pick that would be ignored.
+                    onConnectedServicesChange: inSessionAgentPicker.armedContinuationSubmission
+                        ? undefined
+                        : inSessionAgentPicker.setArmedContinuationConnectedServices,
                 }
                 : null,
             sessionMetadata: session.metadata,

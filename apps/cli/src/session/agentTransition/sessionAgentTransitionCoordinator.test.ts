@@ -1893,6 +1893,40 @@ describe('runSessionAgentTransition', () => {
       expect(written.codexSessionId).toBeUndefined();
     });
 
+    it('starts a fresh conversation with the full replay when the owner chose an explicit account', async () => {
+      // The record names a conversation but not the account that produced it, and a connected
+      // account keeps its own provider home. Reusing it under an account the owner picked
+      // deliberately could resume a conversation that account cannot see, or silently start an
+      // empty one while the brief is bounded to the away delta. An unconfirmable record is ignored.
+      primeHappyPath(codexSourceMetadata());
+      mocks.readAgentNativeResumeRecord.mockResolvedValue({
+        identity: { v: 1, vendorResumeId: 'claude-native-9' },
+        departureSeqInclusive: 55,
+      });
+
+      const result = await runSessionAgentTransition({
+        credentials,
+        request: request({
+          expectedCurrentAgentId: 'codex',
+          selection: {
+            v: 1,
+            agentId: 'claude',
+            connectedServices: {
+              v: 1,
+              bindingsByServiceId: {
+                'claude-subscription': { source: 'connected', selection: 'profile', profileId: 'claude1' },
+              },
+            },
+          },
+        }),
+      });
+
+      expect(result).toEqual({ type: 'accepted', localId: LOCAL_ID });
+      expect(readSeedSource()).not.toHaveProperty('returningAgentLastSeenSeq');
+      expect(readCommittedDivider()).not.toHaveProperty('returningAgentLastSeenSeqInclusive');
+      expect(readCommittedTargetView().claudeSessionId).toBeUndefined();
+    });
+
     it('refuses a recorded id the shared eligibility owner will not resume', async () => {
       // The record decides nothing on its own: whether an id may be resumed is
       // the ordinary inactive-resume question, answered by one owner.

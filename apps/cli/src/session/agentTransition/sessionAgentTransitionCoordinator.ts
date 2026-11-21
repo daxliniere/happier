@@ -813,13 +813,19 @@ export async function runSessionAgentTransition(params: Readonly<{
   // inversion is a stated risk spot — choosing a narrower context bound and only
   // then discovering that native return is unavailable omits history the fresh
   // target needs, and nothing in the result would say so.
-  const nativeReturn = targetBackendTarget.kind === 'configuredAcpBackend' ? null : await resolveAgentNativeReturnIdentity({
-    store: localAgentNativeResumeRecordStore,
-    sessionId: request.sessionId,
-    targetAgentId,
-    sourceMetadata: stoppedMetadata,
-    accountSettings: readAccountSettings(),
-  });
+  // A record names a conversation but not the connected account that produced it, and each
+  // connected account keeps its own provider home. When the owner chose the account explicitly
+  // the record cannot be confirmed to belong to it, so it is ignored: the target starts fresh and
+  // receives the full replay rather than resuming a conversation it may not be able to see.
+  const nativeReturn = targetBackendTarget.kind === 'configuredAcpBackend' || request.selection.connectedServices
+    ? null
+    : await resolveAgentNativeReturnIdentity({
+      store: localAgentNativeResumeRecordStore,
+      sessionId: request.sessionId,
+      targetAgentId,
+      sourceMetadata: stoppedMetadata,
+      accountSettings: readAccountSettings(),
+    });
 
   // Bounded context through the existing Replay owner. The transcript head is
   // read AFTER the confirmed stop, so a late source row remains canonical

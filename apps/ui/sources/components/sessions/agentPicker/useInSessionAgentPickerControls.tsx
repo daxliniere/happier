@@ -833,6 +833,10 @@ export function useInSessionAgentPickerControls(
     // re-asks the machine and never un-arms the switch.
     const setArmedContinuationConnectedServices = React.useCallback((connectedServices: ConnectedServiceBindingsV1) => {
         if (armed === null) return;
+        // The account is part of the arm's identity. Once a submission is issued, re-arming would
+        // mint a new localId and drop the issued input, so custody could no longer spend or retry
+        // the transition it issued. The choice is final until that submission is resolved.
+        if (armed.submission !== undefined) return;
         const entry = targetEntries.find((candidate) => candidate.targetKey === armed.backendTargetKey);
         if (!entry) return;
         const next: SessionAgentPickerSelection = { ...projectPersistedArmSelection(armed), connectedServices };
