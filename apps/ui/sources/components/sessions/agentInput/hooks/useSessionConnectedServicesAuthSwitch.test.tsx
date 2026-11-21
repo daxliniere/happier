@@ -493,6 +493,62 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
         await hook.unmount();
     });
 
+    it('offers to continue under the newly applied account until the continuation is consumed', async () => {
+        const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
+
+        const hook = await renderHook(() =>
+            useSessionConnectedServicesAuthSwitch({
+                sessionId: 'session-1',
+                agentId: 'claude',
+                machineId: 'machine-1',
+                serverId: 'server-1',
+                agentCore: {
+                    id: 'claude',
+                    connectedServices: {
+                        supportedServiceIds: ['anthropic'],
+                        sessionAuthSwitch: { continuityMode: 'restart_same_home' },
+                    },
+                },
+                sessionMetadata: {
+                    connectedServices: {
+                        v: 1,
+                        bindingsByServiceId: {
+                            anthropic: { source: 'native' },
+                        },
+                    },
+                },
+                settings: {
+                    connectedServicesProfileLabelByKey: { 'anthropic/work': 'Work' },
+                    connectedServicesDefaultProfileByServiceId: {},
+                },
+                switchingDisabledReason: null,
+                sessionActive: true,
+            }),
+        );
+        expect(hook.getCurrent().accountContinuationLabel).toBeNull();
+
+        const popover = renderChipPopover(
+            hook.getCurrent().connectedServicesAuthChip?.collapsedContentPopover?.renderContent,
+        ) as React.ReactElement<{ setBindingForService: (serviceId: string, binding: unknown) => void }>;
+        await act(async () => {
+            popover.props.setBindingForService('anthropic', {
+                source: 'connected',
+                selection: 'profile',
+                profileId: 'work',
+            });
+            await Promise.resolve();
+        });
+
+        expect(hook.getCurrent().accountContinuationLabel).toBe('Anthropic: Work');
+
+        await act(async () => {
+            hook.getCurrent().clearAccountContinuation();
+        });
+        expect(hook.getCurrent().accountContinuationLabel).toBeNull();
+
+        await hook.unmount();
+    });
+
     it('uses the latest stopped-session state after rerendering from active to inactive', async () => {
         const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
 
@@ -2625,6 +2681,7 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
 
         expect(hook.getCurrent().connectedServicesAuthChip?.collapsedContentPopover?.label)
             .toBe('connectedServices.authChip.nativeLabel');
+        expect(hook.getCurrent().accountContinuationLabel).toBeNull();
         expect(modalAlertMock).toHaveBeenCalledWith(
             'common.error',
             'connectedServices.authSwitch.errors.groupGenerationConflict',

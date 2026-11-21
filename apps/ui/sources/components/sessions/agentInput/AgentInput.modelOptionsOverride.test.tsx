@@ -328,7 +328,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
             onChangeText: () => {},
             onSend,
             agentType: provider,
-            modelContinuationEnabled: true,
+            sessionContinuationEnabled: true,
             metadata,
             modelMode: newModel,
             modelOptionsOverride: [{ value: newModel, label: 'New Model', description: '' }],
@@ -374,7 +374,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
             .not.toBe('Continue with New Model');
 
         await act(async () => {
-            screen.tree.update(<AgentInput {...props} modelContinuationEnabled={false} />);
+            screen.tree.update(<AgentInput {...props} sessionContinuationEnabled={false} />);
         });
         expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel).toBe('common.send');
 
@@ -388,6 +388,43 @@ describe('AgentInput (modelOptionsOverride)', () => {
             .not.toBe('Continue with New Model');
     });
 
+    it('offers to continue under a newly applied account with an empty draft', async () => {
+        const onSend = vi.fn();
+        const props: React.ComponentProps<typeof AgentInput> = {
+            sessionId: 'session-1',
+            value: '',
+            placeholder: 'Type',
+            onChangeText: () => {},
+            onSend,
+            agentType: 'claude',
+            sessionContinuationEnabled: true,
+            accountContinuationLabel: 'Anthropic: Work',
+            metadata: { path: '/tmp', host: 'host', flavor: 'claude' },
+            sendMenuModes: ['agent_queue', 'server_pending', 'interrupt'],
+            autocompleteKinds: [],
+            autocompleteSuggestions: async () => [],
+        };
+        const screen = await renderScreen(<AgentInput {...props} />);
+        const send = screen.findByTestId('session-composer-send');
+        expect(send?.props.disabled).toBe(false);
+        expect(send?.props.accessibilityLabel).toBe('Continue with Anthropic: Work');
+        await screen.pressByTestIdAsync('session-composer-send');
+        expect(onSend).toHaveBeenCalledWith({
+            inputTextOverride: 'common.continue',
+            deliveryIntent: 'server_pending',
+        });
+
+        await act(async () => {
+            screen.tree.update(<AgentInput {...props} sessionContinuationEnabled={false} />);
+        });
+        expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel).toBe('common.send');
+
+        await act(async () => {
+            screen.tree.update(<AgentInput {...props} accountContinuationLabel={null} />);
+        });
+        expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel).toBe('common.send');
+    });
+
     it.each([288, 320])('keeps a long model continuation and engine control inside a %spx row at large text size', async (width) => {
         mockWindowWidth = 320;
         mockAgentInputActionBarLayout = 'auto';
@@ -396,7 +433,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
         const renderComposer = (label: string) => <AgentInput
                 sessionId="session-1" value="" placeholder="Type" onChangeText={() => {}} onSend={() => {}}
                 agentType="opencode"
-                modelContinuationEnabled
+                sessionContinuationEnabled
                 metadata={{ path: '/tmp', host: 'host', flavor: 'opencode',
                     sessionAppliedModelV1: { v: 1, provider: 'opencode', modelId: 'old', updatedAt: 1 } }}
                 modelMode="new"

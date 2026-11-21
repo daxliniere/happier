@@ -5209,6 +5209,7 @@ function SessionViewLoaded({
         );
     }, [composerProfileId]);
     const queuedSendInFlight = React.useRef(false);
+    const clearAccountContinuation = sessionConnectedServicesAuthSwitch.clearAccountContinuation;
     const composerSendActions = resolveSessionComposerSendActions({
         configuredMode: settings.sessionMessageSendMode,
         busySteerSendPolicy: settings.sessionBusySteerSendPolicy,
@@ -5401,6 +5402,10 @@ function SessionViewLoaded({
                 didRecordOutboundAccepted = true;
                 trackMessageSent();
                 requestMountedTranscriptFollow();
+                // A turn under the newly switched account has started; stop offering to continue.
+                if (sessionAgentSendDestination.kind === 'sessionAgent') {
+                    clearAccountContinuation();
+                }
             };
             const clearAfterOutboundHandoff = () => {
                 // Composer admission ends at the durable/optimistic outbound handoff. Runtime
@@ -6317,7 +6322,8 @@ function SessionViewLoaded({
                 acpConfigOptionOverridesOverride={optimisticSessionConfigOptionOverrides}
                 modelMode={modelMode}
                 onModelModeChange={updateModelMode}
-                modelContinuationEnabled={canChooseComposerSendActions}
+                sessionContinuationEnabled={canChooseComposerSendActions}
+                accountContinuationLabel={sessionConnectedServicesAuthSwitch.accountContinuationLabel}
                 modelDiscoveryContext={resolveSessionModelDiscoveryContext}
                 metadata={session.metadata}
                 profileId={liveComposerState.profileId ?? undefined}
