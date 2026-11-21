@@ -150,6 +150,7 @@ export function useProviderUsageGauge(params: Readonly<{
             // A connected login is named by its service; anything else (native login, a runtime
             // limit report) belongs to the composer's own provider, whatever service keys it.
             providerDisplayName: displaySnapshotSource?.kind === 'connected_service_quota_view'
+                && gaugeSource.sourceKind !== 'native_runtime_evidence'
                 && profileRef && gaugeSource.snapshot.serviceId === profileRef.serviceId
                 ? resolveConnectedServiceProviderDisplayName(gaugeSource.snapshot.serviceId)
                 : params.providerId && isAgentId(params.providerId)
