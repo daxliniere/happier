@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { getAgentCore, type AgentId } from '@/agents/catalog/catalog';
+import type { AgentId } from '@/agents/catalog/catalog';
 import type { ConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 
 import { AgentIcon } from '@/agents/registry/AgentIcon';
@@ -34,28 +34,39 @@ export const ProviderUsageStrip = React.memo(function ProviderUsageStrip() {
     const agentIds = useEnabledAgentIds();
     const accountProfile = useProfile();
     const windowMode = resolveProviderUsageGaugeWindowMode(useSetting('sessionProviderUsageGaugeWindowMode'));
-    const { gauges, configuredAgentIds, refreshAgent } = useProviderUsageGauges({
+    const { accounts, gauges, configuredAgentIds, refreshAgent } = useProviderUsageGauges({
         agentIds,
         accountProfileConnectedServicesV2: accountProfile?.connectedServicesV2 ?? [],
         windowMode,
         fetchEnabled: true,
     });
     useProviderUsageAutoRefresh();
-    const shownAgentIds = agentIds.filter((agentId) => gauges.has(agentId) || configuredAgentIds.has(agentId));
-    return <ProviderUsageStripContent agentIds={shownAgentIds} gauges={gauges} onRefresh={refreshAgent} />;
+    // Only providers with an account of their own appear; each of their accounts is listed separately.
+    const entries = accounts.filter((account) => gauges.has(account.agentId) || configuredAgentIds.has(account.agentId));
+    return <ProviderUsageStripContent entries={entries} onRefresh={refreshAgent} />;
 });
 
-/** The strip's presentation; quota subscriptions stay at its connected owner above. */
-export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Readonly<{
-    agentIds: readonly AgentId[];
-    gauges: ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>;
+export type ProviderUsageStripEntry = Readonly<{
+    key: string;
+    agentId: AgentId;
+    /** Provider name, numbered ("Claude 2") only when that provider has several accounts. */
+    label: string;
+    gauge: ConnectedServiceQuotaGaugeViewModel | null;
+}>;
+
+/**
+ * The strip's presentation; quota subscriptions stay at its connected owner above. One ring per
+ * account, in order; account numbers appear only in the opened panel's headings.
+ */
+export function ProviderUsageStripContent({ entries, onRefresh }: Readonly<{
+    entries: readonly ProviderUsageStripEntry[];
     onRefresh: (agentId: AgentId) => void;
 }>) {
     const styles = stylesheet;
     const { height: windowHeight } = useWindowDimensions();
     const anchorRef = React.useRef<React.ElementRef<typeof View>>(null);
     const [open, setOpen] = React.useState(false);
-    const firstAgentId = agentIds[0];
+    const firstAgentId = entries[0]?.agentId;
     if (!firstAgentId) return null;
     return (
         <>
@@ -67,7 +78,7 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
                 accessibilityRole="button"
                 accessibilityState={{ expanded: open }}
                 accessibilityLabel={t('agentInput.providerUsage.accessibilityLabel', {
-                    value: agentIds.map((agentId) => `${t(getAgentCore(agentId).displayNameKey)} ${gauges.get(agentId)?.badgeLabel ?? t('common.unavailable')}`).join(', '),
+                    value: entries.map((entry) => `${entry.label} ${entry.gauge?.badgeLabel ?? t('common.unavailable')}`).join(', '),
                 })}
                 onPress={() => {
                     onRefresh(firstAgentId);
@@ -75,14 +86,14 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
                 }}
             >
                 <HorizontalOverflowScrollView contentContainerStyle={styles.providers} showsHorizontalScrollIndicator={false}>
-                    {agentIds.map((agentId) => (
+                    {entries.map((entry) => (
                         <View
-                            key={agentId}
-                            testID={`sessions-provider-usage-item:${agentId}`}
+                            key={entry.key}
+                            testID={`sessions-provider-usage-item:${entry.key}`}
                             style={styles.item}
                         >
-                            <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
-                            <ProviderUsageRing gauge={gauges.get(agentId) ?? null} testID={`sessions-provider-usage:${agentId}`} />
+                            <AgentIcon agentId={entry.agentId} size={STRIP_ICON_SIZE} />
+                            <ProviderUsageRing gauge={entry.gauge} testID={`sessions-provider-usage:${entry.key}`} />
                         </View>
                     ))}
                 </HorizontalOverflowScrollView>
@@ -98,10 +109,9 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
                 testID="sessions-provider-usage-popover"
                 content={open ? (
                     <View testID="sessions-provider-usage-sections">
-                        {agentIds.map((agentId) => {
-                            const gauge = gauges.get(agentId);
+                        {entries.map(({ key, agentId, label, gauge }) => {
                             return (
-                                <View key={agentId} testID={`sessions-provider-usage-section:${agentId}`} style={styles.section}>
+                                <View key={key} testID={`sessions-provider-usage-section:${key}`} style={styles.section}>
                                     {gauge ? (
                                         <ProviderUsageDetails viewModel={gauge} leading={(
                                             <>
@@ -114,7 +124,7 @@ export function ProviderUsageStripContent({ agentIds, gauges, onRefresh }: Reado
                                             <View style={styles.item}>
                                                 <AgentIcon agentId={agentId} size={STRIP_ICON_SIZE} />
                                                 <ProviderUsageRing gauge={null} />
-                                                <Text style={styles.providerName}>{t(getAgentCore(agentId).displayNameKey)}</Text>
+                                                <Text style={styles.providerName}>{label}</Text>
                                             </View>
                                             <Text style={styles.unavailableLabel}>{t('common.unavailable')}</Text>
                                         </View>
