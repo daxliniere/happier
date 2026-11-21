@@ -832,8 +832,8 @@ export function useInSessionAgentPickerControls(
     // of the machine inspection, so the existing arm stays valid for the same target: it is updated
     // in place rather than re-evaluated, which means this never re-asks the machine and never
     // un-arms the switch, even while a re-inspection of that same target is still in flight (an
-    // unarmed window would send the next message to the source Agent). If the target later turns
-    // out to be unavailable, the existing reconciliation clears the arm exactly as it does today.
+    // unarmed window would send the next message to the source Agent). Whether an armed target is
+    // later refused is decided exactly as it is for a model change; this does not alter that.
     const setArmedContinuationConnectedServices = React.useCallback((connectedServices: ConnectedServiceBindingsV1) => {
         if (armed === null) return;
         // The account is part of the arm's identity. Once a submission is issued, re-arming would
