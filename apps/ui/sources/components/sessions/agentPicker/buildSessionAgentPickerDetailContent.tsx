@@ -89,6 +89,9 @@ export function buildSessionAgentPickerDetailContent(params: Readonly<{
                 modelLabel: next.modelLabel,
                 sessionModeId: next.sessionModeId,
                 configOverrides: next.configOverrides,
+                // The detail pane owns model/mode/config only. The account chosen for the armed
+                // Agent is not its to drop, so it is carried through unchanged (absent stays absent).
+                ...(params.selection.connectedServices ? { connectedServices: params.selection.connectedServices } : {}),
             })}
         />
     );

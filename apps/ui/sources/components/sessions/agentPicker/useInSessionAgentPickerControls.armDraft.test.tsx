@@ -641,6 +641,31 @@ describe('useInSessionAgentPickerControls arm draft', () => {
             expect(hook.getCurrent().armedContinuation).not.toBeNull();
         });
 
+        it('leaves an already-issued submission reconcilable instead of re-arming under a new identity', async () => {
+            const hook = await renderControls();
+            await armTarget(hook, 'agent:codex');
+            const submittedLocalId = hook.getCurrent().armedContinuationLocalId as string;
+            await act(async () => {
+                expect(hook.getCurrent().recordArmedContinuationSubmission({
+                    localId: submittedLocalId,
+                    input: { localId: submittedLocalId, text: 'switch and send this', meta: {} },
+                    currentness: { text: 'switch and send this', mentions: [], attachmentDraftIds: [] },
+                })).toBe(true);
+            });
+
+            await act(async () => {
+                hook.getCurrent().setArmedContinuationConnectedServices(CHOSEN);
+            });
+            await act(async () => { await Promise.resolve(); });
+
+            // The account is part of the arm's identity; changing it here would mint a new localId and
+            // drop the issued input, so custody could no longer spend or retry the transition it issued.
+            expect(hook.getCurrent().armedContinuationLocalId).toBe(submittedLocalId);
+            expect(hook.getCurrent().armedContinuationSubmission).toMatchObject({ localId: submittedLocalId });
+            expect(readPersistedArm()?.submission?.input).toMatchObject({ text: 'switch and send this' });
+            expect(readPersistedArm()?.intent.selection.connectedServices).toBeUndefined();
+        });
+
         it('restores the chosen account with the arm after a remount', async () => {
             existingSessionDraftSemanticValues.write(SCOPE, 'session-1', 'routing.agentContinuation', {
                 backendTargetKey: 'agent:codex',
