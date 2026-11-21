@@ -1,5 +1,5 @@
 import type { AuthCredentials } from '@/auth/storage/tokenStorage';
-import { serverFetch } from '@/sync/http/client';
+import { connectedServiceFetch } from './connectedServiceNetworkError';
 import { HappyError } from '@/utils/errors/errors';
 import { backoff } from '@/utils/timing/time';
 
@@ -36,7 +36,8 @@ export async function getProviderAccountUsageSnapshotSealed(
 } | null>> {
   const recordId = ProviderAccountUsageRecordIdSchema.parse(params.recordId);
   return await backoff(async () => {
-    const response = await serverFetch(
+    const response = await connectedServiceFetch(
+      'getProviderAccountUsageSnapshotSealed',
       `/v2/connect/provider-account-usage/${encodeURIComponent(recordId)}`,
       {
         method: 'GET',
@@ -81,7 +82,8 @@ export async function requestProviderAccountUsageRefreshSealed(
 ): Promise<boolean> {
   const recordId = ProviderAccountUsageRecordIdSchema.parse(params.recordId);
   return await backoff(async () => {
-    const response = await serverFetch(
+    const response = await connectedServiceFetch(
+      'requestProviderAccountUsageRefreshSealed',
       `/v2/connect/provider-account-usage/${encodeURIComponent(recordId)}/refresh`,
       {
         method: 'POST',
