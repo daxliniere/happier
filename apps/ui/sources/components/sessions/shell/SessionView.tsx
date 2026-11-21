@@ -242,8 +242,6 @@ import { useSessionMachineReachability } from '@/components/sessions/model/useSe
 import { useCLIDetection } from '@/hooks/auth/useCLIDetection';
 import {
     computeConnectedServiceQuotaGaugeViewModel,
-    type ConnectedServiceQuotaGaugeLabelFormatter,
-    type ConnectedServiceQuotaGaugeWindowMode,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
 import { resolveConnectedServiceQuotaRecoveryCreditReceiptNoticeKey } from '@/sync/domains/connectedServices/connectedServiceQuotaRecoveryCreditReceiptPresentation';
 import { useConnectedServiceQuotaSnapshots } from '@/hooks/server/connectedServices/useConnectedServiceQuotaSnapshots';
@@ -257,6 +255,8 @@ import {
 } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceProjectionSignature } from '@/sync/domains/connectedServices/resolveConnectedServiceProjectionSignature';
 import { useProviderUsageSources } from '@/hooks/server/connectedServices/useProviderUsageSources';
+import { connectedServiceQuotaGaugeFormatter } from '@/components/sessions/usage/connectedServiceQuotaGaugeFormatter';
+import { resolveProviderUsageGaugeWindowMode } from '@/components/sessions/usage/resolveProviderUsageGaugeWindowMode';
 import { resolveConnectedServiceQuotaProfileRefForSession } from './resolveConnectedServiceQuotaProfileRefForSession';
 import { usePathname, useRouter } from 'expo-router';
 import * as React from 'react';
@@ -593,23 +593,6 @@ function resolveConnectedServiceProviderDisplayName(serviceId: string): string |
     if (!parsed.success) return null;
     return resolveConnectedServiceDisplayName(parsed.data, t);
 }
-
-const connectedServiceQuotaGaugeFormatter: ConnectedServiceQuotaGaugeLabelFormatter = {
-    unavailable: () => t('common.unavailable'),
-    remaining: ({ percent }) => t('agentInput.providerUsage.remaining', { percent }),
-    remainingWithReset: ({ percent, reset }) => t('agentInput.providerUsage.remainingWithReset', { percent, reset }),
-    used: ({ used, limit }) => t('agentInput.providerUsage.usedCount', { used, limit }),
-    durationNow: () => t('agentInput.providerUsage.duration.now'),
-    durationOutdated: () => t('agentInput.providerUsage.duration.outdated'),
-    durationDaysHours: ({ days, hours }) => t('agentInput.providerUsage.duration.daysHours', { days, hours }),
-    durationHoursMinutes: ({ hours, minutes }) => t('agentInput.providerUsage.duration.hoursMinutes', { hours, minutes }),
-    durationHours: ({ hours }) => t('agentInput.providerUsage.duration.hours', { hours }),
-    durationMinutes: ({ minutes }) => t('agentInput.providerUsage.duration.minutes', { minutes }),
-    subscriptionEnds: ({ date }) => t('connectedServices.subscription.ends', { date }),
-    subscriptionEndsInDays: ({ days }) => t('connectedServices.subscription.endsInDays', { days }),
-    subscriptionRenews: ({ date }) => t('connectedServices.subscription.renews', { date }),
-    subscriptionRenewsInDays: ({ days }) => t('connectedServices.subscription.renewsInDays', { days }),
-};
 
 function readSessionUsageLimitRecovery(metadata: unknown): SessionUsageLimitRecoveryV1 | null {
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
@@ -3785,14 +3768,7 @@ function SessionViewLoaded({
     const pinnedQuotaMeterIdsByKey = useSetting('connectedServicesQuotaPinnedMeterIdsByKey');
     const sessionProviderUsageGaugeMode = useSetting('sessionProviderUsageGaugeMode');
     const sessionProviderUsageGaugeWindowModeSetting = useSetting('sessionProviderUsageGaugeWindowMode');
-    const sessionProviderUsageGaugeWindowMode: ConnectedServiceQuotaGaugeWindowMode =
-        sessionProviderUsageGaugeWindowModeSetting === 'daily'
-        || sessionProviderUsageGaugeWindowModeSetting === 'weekly'
-        || sessionProviderUsageGaugeWindowModeSetting === 'primary'
-        || sessionProviderUsageGaugeWindowModeSetting === 'secondary'
-        || sessionProviderUsageGaugeWindowModeSetting === 'session'
-            ? sessionProviderUsageGaugeWindowModeSetting
-            : 'most_constrained';
+    const sessionProviderUsageGaugeWindowMode = resolveProviderUsageGaugeWindowMode(sessionProviderUsageGaugeWindowModeSetting);
     const connectedServiceQuotaProfileRef = React.useMemo(() => (
         resolveConnectedServiceQuotaProfileRefForSession({
             metadata: session.metadata,

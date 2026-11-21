@@ -1,0 +1,322 @@
+import * as React from 'react';
+import { Pressable, View } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
+
+import { MeterBar, type MeterTone } from '@/components/ui/lists/MeterBar';
+import { Text } from '@/components/ui/text/Text';
+import { Typography } from '@/constants/Typography';
+import { t } from '@/text';
+import {
+    resolveConnectedServiceSubscriptionStatusLabel,
+    resolveConnectedServiceSubscriptionStatusTone,
+} from '@/sync/domains/connectedServices/subscriptionStatus';
+import type { ConnectedServiceQuotaGaugeViewModel } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
+
+function mapGaugeToneToMeterTone(tone: ConnectedServiceQuotaGaugeViewModel['tone']): MeterTone {
+    if (tone === 'critical') return 'danger';
+    if (tone === 'warning') return 'warning';
+    return 'success';
+}
+
+/**
+ * One provider account's usage details: title, account, subscription, limit windows and recovery
+ * credits. Shared by the composer's usage badge and the sessions-pane usage panel.
+ */
+export function ProviderUsageDetails(props: Readonly<{
+    viewModel: ConnectedServiceQuotaGaugeViewModel;
+    onRecoveryCreditPress?: () => void;
+    recoveryCreditActionPending?: boolean;
+}>) {
+    const styles = stylesheet;
+    const viewModel = props.viewModel;
+    const subscriptionTone = viewModel.subscription
+        ? resolveConnectedServiceSubscriptionStatusTone(viewModel.subscription.status) : null;
+    const title = viewModel.providerDisplayName
+        ? t('agentInput.providerUsage.titleForProvider', { provider: viewModel.providerDisplayName })
+        : t('agentInput.providerUsage.title');
+    const recoveryCreditSummary = viewModel.recoveryCreditSummary;
+    return (
+        <View style={styles.popoverContent}>
+            <Text style={styles.popoverTitle}>
+                {title}
+            </Text>
+            {viewModel.activeAccountDisplayLabel ? (
+                <Text style={styles.popoverAccount}>
+                    {t('agentInput.providerUsage.activeAccount', { account: viewModel.activeAccountDisplayLabel })}
+                </Text>
+            ) : null}
+            {viewModel.subscription ? (
+                <View testID="agent-input-provider-usage-subscription" style={styles.subscription}>
+                    <View style={styles.subscriptionHeader}>
+                        <Text style={styles.subscriptionLabel}>{t('connectedServices.subscription.title')}</Text>
+                        <View style={styles.subscriptionStatus}>
+                            <View style={[
+                                styles.subscriptionStatusDot,
+                                subscriptionTone === 'on'
+                                    ? styles.subscriptionStatusDotOn
+                                    : subscriptionTone === 'off'
+                                        ? styles.subscriptionStatusDotOff
+                                        : styles.subscriptionStatusDotUnknown,
+                            ]} />
+                            <Text
+                                testID="agent-input-provider-usage-subscription:renewal"
+                                style={styles.subscriptionRenewal}
+                            >
+                                {resolveConnectedServiceSubscriptionStatusLabel(viewModel.subscription.status)}
+                            </Text>
+                        </View>
+                    </View>
+                    {viewModel.subscription.summary ? (
+                        <Text
+                            testID="agent-input-provider-usage-subscription:summary"
+                            style={styles.subscriptionSummary}
+                        >
+                            {viewModel.subscription.summary}
+                        </Text>
+                    ) : null}
+                    {viewModel.subscription.period ? (
+                        <Text style={styles.subscriptionMeta}>{viewModel.subscription.period}</Text>
+                    ) : null}
+                    <Text style={styles.subscriptionMeta}>{viewModel.subscription.checkedLabel}</Text>
+                    {viewModel.subscription.notice ? (
+                        <Text style={styles.subscriptionNotice}>{viewModel.subscription.notice}</Text>
+                    ) : null}
+                </View>
+            ) : null}
+            {viewModel.allMeterRows.map((row, index) => (
+                <View
+                    key={row.meterId}
+                    testID={`agent-input-provider-usage-meter:${row.meterId}`}
+                    style={[
+                        styles.meterRow,
+                        index === 0
+                            ? viewModel.subscription ? styles.meterRowAfterSubscription : null
+                            : styles.meterRowGap,
+                    ]}
+                >
+                    <View style={styles.meterHeader}>
+                        <Text style={styles.meterLabel} numberOfLines={1}>
+                            {row.label}
+                        </Text>
+                        <Text style={styles.meterRight} numberOfLines={1}>
+                            {row.detailRightLabel}
+                        </Text>
+                    </View>
+                    {row.remainingPct !== null ? <MeterBar
+                        testID={`agent-input-provider-usage-meter-bar:${row.meterId}`}
+                        tone={mapGaugeToneToMeterTone(row.tone)}
+                        // Remaining-first fill: the adjacent label says "% left" and the
+                        // tone derives from remaining — the fill must match that language
+                        // (battery model; user decision 2026-07-10, reverting 5ad4d06be).
+                        fillFraction={row.remainingPct / 100}
+                        height={5}
+                    /> : null}
+                    {row.usedLimitLabel ? (
+                        <Text style={styles.meterUsage}>
+                            {row.usedLimitLabel}
+                        </Text>
+                    ) : null}
+                </View>
+            ))}
+            {recoveryCreditSummary ? (
+                <View
+                    testID="agent-input-provider-usage-recovery-credit"
+                    style={styles.recoveryCredit}
+                >
+                    <View style={styles.recoveryCreditInfo}>
+                        <Text style={styles.recoveryCreditTitle}>
+                            {t('connectedServices.quota.recoveryCreditTitle', { count: recoveryCreditSummary.availableCount })}
+                        </Text>
+                        <Text style={styles.recoveryCreditSubtitle}>
+                            {typeof recoveryCreditSummary.nextExpiresAtMs === 'number'
+                                ? t('connectedServices.quota.recoveryCreditExpires', { time: new Date(recoveryCreditSummary.nextExpiresAtMs).toLocaleString() })
+                                : t('connectedServices.quota.recoveryCreditSubtitle')}
+                        </Text>
+                    </View>
+                    {props.onRecoveryCreditPress ? (
+                        <Pressable
+                            testID="agent-input-provider-usage-recovery-credit-action"
+                            accessibilityRole="button"
+                            disabled={props.recoveryCreditActionPending === true}
+                            onPress={props.onRecoveryCreditPress}
+                            style={({ pressed }) => [
+                                styles.recoveryCreditAction,
+                                pressed ? styles.recoveryCreditActionPressed : null,
+                                props.recoveryCreditActionPending === true ? styles.recoveryCreditActionDisabled : null,
+                            ]}
+                        >
+                            <Text style={styles.recoveryCreditActionText}>
+                                {props.recoveryCreditActionPending === true
+                                    ? t('connectedServices.quota.recoveryCreditApplying')
+                                    : t('session.usageLimitRecovery.consumeResetCreditAction')}
+                            </Text>
+                        </Pressable>
+                    ) : null}
+                </View>
+            ) : null}
+        </View>
+    );
+}
+
+const stylesheet = StyleSheet.create((theme) => ({
+    popoverContent: {
+        paddingHorizontal: 18,
+        paddingVertical: 16,
+        gap: 0,
+    },
+    popoverTitle: {
+        fontSize: 12,
+        letterSpacing: 1.6,
+        textTransform: 'uppercase',
+        color: theme.colors.text.secondary,
+        marginBottom: 3,
+        ...Typography.header(),
+    },
+    popoverAccount: {
+        fontSize: 13,
+        color: theme.colors.text.secondary,
+        marginBottom: 12,
+        ...Typography.default(),
+    },
+    subscription: {
+        gap: 0,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border.subtle,
+    },
+    subscriptionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 8,
+    },
+    subscriptionLabel: {
+        fontSize: 10,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+        color: theme.colors.text.tertiary,
+        ...Typography.header(),
+    },
+    subscriptionStatus: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    subscriptionStatusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    subscriptionStatusDotOn: {
+        backgroundColor: theme.colors.state.success.foreground,
+    },
+    subscriptionStatusDotOff: {
+        backgroundColor: theme.colors.text.tertiary,
+    },
+    subscriptionStatusDotUnknown: {
+        backgroundColor: theme.colors.state.warning.foreground,
+    },
+    subscriptionRenewal: {
+        fontSize: 12,
+        color: theme.colors.text.secondary,
+        ...Typography.default('semiBold'),
+    },
+    subscriptionSummary: {
+        fontSize: 13,
+        lineHeight: 18,
+        color: theme.colors.text.primary,
+        ...Typography.default('semiBold'),
+    },
+    subscriptionMeta: {
+        fontSize: 12,
+        lineHeight: 17,
+        color: theme.colors.text.secondary,
+        ...Typography.default(),
+    },
+    subscriptionNotice: {
+        fontSize: 11,
+        lineHeight: 15,
+        color: theme.colors.state.warning.foreground,
+        ...Typography.default(),
+    },
+    meterRow: {
+        gap: 6,
+    },
+    meterRowAfterSubscription: {
+        marginTop: 12,
+    },
+    meterRowGap: {
+        marginTop: 12,
+    },
+    meterHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    meterLabel: {
+        flex: 1,
+        minWidth: 0,
+        fontSize: 12,
+        color: theme.colors.text.primary,
+        ...Typography.default('semiBold'),
+    },
+    meterRight: {
+        flexShrink: 0,
+        fontSize: 12,
+        color: theme.colors.text.secondary,
+        ...Typography.default(),
+    },
+    meterUsage: {
+        fontSize: 12,
+        color: theme.colors.text.secondary,
+        ...Typography.default(),
+    },
+    recoveryCredit: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 6,
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border.subtle,
+    },
+    recoveryCreditInfo: {
+        flex: 1,
+        gap: 4,
+        minWidth: 0,
+    },
+    recoveryCreditTitle: {
+        fontSize: 12,
+        color: theme.colors.text.primary,
+        ...Typography.default('semiBold'),
+    },
+    recoveryCreditSubtitle: {
+        fontSize: 12,
+        color: theme.colors.text.secondary,
+        ...Typography.default(),
+    },
+    recoveryCreditAction: {
+        alignSelf: 'flex-start',
+        marginTop: 2,
+        minHeight: 32,
+        justifyContent: 'center',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        backgroundColor: theme.colors.surface.selected,
+        borderWidth: 1,
+        borderColor: theme.colors.border.default,
+    },
+    recoveryCreditActionPressed: {
+        opacity: 0.82,
+        transform: [{ scale: 0.96 }],
+    },
+    recoveryCreditActionDisabled: {
+        opacity: 0.58,
+    },
+    recoveryCreditActionText: {
+        fontSize: 12,
+        color: theme.colors.text.primary,
+        ...Typography.default('semiBold'),
+    },
+}));
