@@ -102,6 +102,33 @@ describe('OptionPickerOverlay', () => {
         expect(onSelect).toHaveBeenCalledWith('fast');
     });
 
+    it('keeps controls for a hidden current model without opening a custom editor or changing the model', async () => {
+        const { OptionPickerOverlay } = await import('./OptionPickerOverlay');
+        const onSelect = vi.fn();
+        const screen = await renderScreen(
+            <OptionPickerOverlay
+                title="Model"
+                options={[{ value: 'default', label: 'Use CLI settings' }]}
+                selectedValue="existing"
+                selectedValueHidden
+                emptyText="empty"
+                canEnterCustomValue
+                selectedOptionControls={[{
+                    option: { id: 'context', name: 'Context', type: 'boolean', currentValue: 'true' },
+                    effectiveValue: 'true',
+                    isPending: false,
+                }]}
+                onSelect={onSelect}
+            />,
+        );
+
+        expect(screen.findByTestId('model-picker-overlay-option:existing')).toBeNull();
+        expect(screen.findByTestId('model-picker-overlay-custom-input')).toBeNull();
+        expect(screen.findByTestId('model-picker-overlay-selected-option-control:context')).toBeTruthy();
+        await screen.unmount();
+        expect(onSelect).not.toHaveBeenCalled();
+    });
+
     it('hides search input when option count is below threshold', async () => {
         const onSelect = vi.fn();
         const { OptionPickerOverlay } = await import('./OptionPickerOverlay');

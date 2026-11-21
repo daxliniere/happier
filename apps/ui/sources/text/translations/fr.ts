@@ -3815,6 +3815,21 @@ export const fr: TranslationStructure = {
         },
     },
 
+    modelVisibility: {
+        title: "Visibilité des modèles",
+        entrySubtitle: "Choisissez les modèles affichés dans les sélecteurs",
+        description: "Masquer un modèle le retire uniquement des listes de sélection. Le fournisseur peut toujours l’utiliser et les sessions existantes conservent leurs modèles.",
+        provider: "Fournisseur",
+        selectProvider: "Choisir un fournisseur",
+        showAll: "Afficher tous les modèles",
+        hideById: "Masquer un modèle par ID",
+        exactId: "Saisissez l’identifiant exact du modèle utilisé par ce fournisseur.",
+        empty: "Aucun modèle à afficher.",
+        noResults: "Aucun modèle correspondant.",
+        noOnlineMachine: "Aucune machine en ligne pour rechercher des modèles",
+        currentModel: ({ model }: { model: string }) => `Le modèle sélectionné est ${model}`,
+        showModel: ({ model }: { model: string }) => `Afficher ${model} dans les sélecteurs de modèles`,
+    },
     settingsProviders: {
         sessionRetention: {
             invalidSettings: "Corrige le JSON invalide des réglages Claude, puis reconnecte cette machine pour réessayer.",

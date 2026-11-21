@@ -3902,6 +3902,21 @@ export const ca: TranslationStructure = {
         },
     },
 
+    modelVisibility: {
+        title: "Visibilitat dels models",
+        entrySubtitle: "Tria quins models apareixen als selectors",
+        description: "Amagar un model només el treu de les llistes de selecció. El proveïdor encara el pot fer servir i les sessions existents conserven els seus models.",
+        provider: "Proveïdor",
+        selectProvider: "Tria un proveïdor",
+        showAll: "Mostra tots els models",
+        hideById: "Amaga un model per ID",
+        exactId: "Introdueix l’ID exacte del model que fa servir aquest proveïdor.",
+        empty: "No hi ha models per mostrar.",
+        noResults: "No hi ha cap model que coincideixi.",
+        noOnlineMachine: "No hi ha cap màquina connectada per cercar models",
+        currentModel: ({ model }: { model: string }) => `El model seleccionat és ${model}`,
+        showModel: ({ model }: { model: string }) => `Mostra ${model} als selectors de models`,
+    },
     settingsProviders: {
         sessionRetention: {
             invalidSettings: "Repara el JSON dels ajustos de Claude i torna a connectar aquest equip per reintentar-ho.",

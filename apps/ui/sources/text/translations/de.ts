@@ -3815,6 +3815,21 @@ export const de: TranslationStructure = {
         },
     },
 
+    modelVisibility: {
+        title: "Modellsichtbarkeit",
+        entrySubtitle: "Lege fest, welche Modelle in Auswahllisten erscheinen",
+        description: "Ausgeblendete Modelle verschwinden nur aus den Auswahllisten. Der Anbieter kann sie weiterhin verwenden, und bestehende Sitzungen behalten ihre Modelle.",
+        provider: "Anbieter",
+        selectProvider: "Anbieter auswählen",
+        showAll: "Alle Modelle anzeigen",
+        hideById: "Modell per ID ausblenden",
+        exactId: "Gib die genaue Modell-ID dieses Anbieters ein.",
+        empty: "Keine Modelle zum Anzeigen.",
+        noResults: "Keine passenden Modelle.",
+        noOnlineMachine: "Kein Online-Rechner zur Modellsuche verfügbar",
+        currentModel: ({ model }: { model: string }) => `Aktuell ausgewählt ist ${model}`,
+        showModel: ({ model }: { model: string }) => `${model} in Modellauswahllisten anzeigen`,
+    },
     settingsProviders: {
         sessionRetention: {
             invalidSettings: "Ungültiges JSON der Claude-Einstellungen reparieren und den Rechner zum Wiederholen neu verbinden.",

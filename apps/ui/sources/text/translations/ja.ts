@@ -4402,6 +4402,21 @@ localTailscale: {
     },
   },
 
+  modelVisibility: {
+    title: "モデルの表示設定",
+    entrySubtitle: "選択リストに表示するモデルを指定します",
+    description: "モデルを非表示にすると、選択リストからだけ除外されます。プロバイダーは引き続き使用でき、既存のセッションのモデルも維持されます。",
+    provider: "プロバイダー",
+    selectProvider: "プロバイダーを選択",
+    showAll: "すべてのモデルを表示",
+    hideById: "ID を指定してモデルを非表示",
+    exactId: "このプロバイダーが使用する正確なモデル ID を入力してください。",
+    empty: "表示するモデルがありません。",
+    noResults: "一致するモデルがありません。",
+    noOnlineMachine: "モデルを検索できるオンラインのマシンがありません",
+    currentModel: ({ model }: { model: string }) => `選択中のモデルは ${model} です`,
+    showModel: ({ model }: { model: string }) => `${model} をモデルの選択リストに表示`,
+  },
   settingsProviders: {
         sessionRetention: {
             invalidSettings: "Claude設定の無効なJSONを修正し、マシンを再接続して再試行してください。",

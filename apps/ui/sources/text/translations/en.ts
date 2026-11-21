@@ -3816,6 +3816,21 @@ export const en = {
         },
     },
 
+    modelVisibility: {
+        title: "Model visibility",
+        entrySubtitle: "Choose which models appear in pickers",
+        description: "Hiding a model only removes it from selection lists. The provider can still use it, and existing sessions keep their models.",
+        provider: "Provider",
+        selectProvider: "Choose a provider",
+        showAll: "Show all models",
+        hideById: "Hide a model by ID",
+        exactId: "Enter the exact model ID used by this provider.",
+        empty: "No models to show.",
+        noResults: "No matching models.",
+        noOnlineMachine: "No online machine for model discovery",
+        currentModel: ({ model }: { model: string }) => `Current selection is ${model}`,
+        showModel: ({ model }: { model: string }) => `Show ${model} in model pickers`,
+    },
     settingsProviders: {
         sessionRetention: {
             invalidSettings: "Repair the invalid Claude settings JSON, then reconnect this machine to retry.",

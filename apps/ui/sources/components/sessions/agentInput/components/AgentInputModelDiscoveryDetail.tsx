@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { buildBackendTargetKey } from '@happier-dev/protocol';
 import type { AgentId } from '@/agents/catalog/catalog';
 import type { Metadata } from '@/sync/domains/state/storageTypes';
 import { supportsFreeformModelSelectionForSession, getModelOptionsForSession, type ModelOption, type SessionModelOptionsContext } from '@/sync/domains/models/modelOptions';
@@ -8,6 +9,7 @@ import { useNewSessionPreflightModelsState } from '@/components/sessions/new/hoo
 export type SessionModelDiscoveryContext = Parameters<typeof useNewSessionPreflightModelsState>[0];
 export type AgentInputModelDetailState = Readonly<{
     modelOptions: readonly ModelOption[];
+    backendTargetKey: string;
     modelOptionsContext?: SessionModelOptionsContext;
     canEnterCustomModel: boolean;
     probe?: OptionPickerProbeState;
@@ -18,13 +20,15 @@ export function AgentInputModelDiscoveryDetail(props: Readonly<{
     agentId: AgentId;
     metadata: Metadata | null;
     modelOptions: readonly ModelOption[];
+    modelOptionsBackendTargetKey?: string;
     discovery?: () => SessionModelDiscoveryContext;
     selectedModelId?: string;
     renderDetail: (state: AgentInputModelDetailState) => React.ReactNode;
 }>) {
     const discovery = React.useMemo(() => props.discovery?.(), [props.discovery]);
+    const backendTarget = discovery?.backendTarget ?? { kind: 'builtInAgent' as const, agentId: props.agentId };
     const { preflightModels, probe } = useNewSessionPreflightModelsState({
-        backendTarget: discovery?.backendTarget ?? { kind: 'builtInAgent', agentId: props.agentId },
+        backendTarget,
         selectedMachineId: discovery?.selectedMachineId ?? null,
         capabilityServerId: discovery?.capabilityServerId ?? '',
         cwd: discovery?.cwd,
@@ -42,5 +46,11 @@ export function AgentInputModelDiscoveryDetail(props: Readonly<{
         ? getModelOptionsForSession(props.agentId, props.metadata, modelOptionsContext)
         : props.modelOptions,
     [modelOptionsContext, props.agentId, props.metadata, props.modelOptions]);
-    return props.renderDetail({ modelOptions, modelOptionsContext, canEnterCustomModel: supportsFreeformModelSelectionForSession(props.agentId, props.metadata, modelOptionsContext), probe: discovery ? probe : undefined });
+    return props.renderDetail({
+        modelOptions,
+        backendTargetKey: props.modelOptionsBackendTargetKey ?? buildBackendTargetKey(backendTarget),
+        modelOptionsContext,
+        canEnterCustomModel: supportsFreeformModelSelectionForSession(props.agentId, props.metadata, modelOptionsContext),
+        probe: discovery ? probe : undefined,
+    });
 }

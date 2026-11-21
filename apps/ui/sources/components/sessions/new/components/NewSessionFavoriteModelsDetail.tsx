@@ -30,6 +30,8 @@ import {
     type FavoriteModelBackendIdentity,
     type FavoriteModelSelectionV1,
 } from '@/sync/domains/models/favoriteModelSelections';
+import { useSetting } from '@/sync/domains/state/storage';
+import { getHiddenModelIds } from '@/sync/domains/models/modelVisibility';
 import { t } from '@/text';
 
 type FavoriteModelTogglePayload = Readonly<{
@@ -182,6 +184,7 @@ function FavoriteBackendModelsCollector(props: Readonly<{
     settings: Settings;
     connectedServices?: ConnectedServiceBindingsV1 | null;
     refreshProbe?: OptionPickerProbeState | null;
+    hiddenModelIds: ReadonlySet<string>;
     onSnapshot: (targetKey: string, snapshot: FavoriteModelSnapshot) => void;
 }>) {
     const backendIdentity = React.useMemo(() => buildFavoriteBackendIdentity(props.entry), [props.entry]);
@@ -208,8 +211,12 @@ function FavoriteBackendModelsCollector(props: Readonly<{
         preflightModels,
     }), [modelOptions, preflightModels, providerCore.model.dynamicProbe]);
 
+    const matchingFavorites = React.useMemo(() => props.favoriteModelSelections.filter((favorite) => (
+        favoriteModelSelectionMatchesBackend(favorite, backendIdentity) && !props.hiddenModelIds.has(favorite.modelId)
+    )), [backendIdentity, props.favoriteModelSelections, props.hiddenModelIds]);
+
     const availableFavorites = React.useMemo(() => resolveAvailableFavoriteModelsForBackend({
-        favorites: props.favoriteModelSelections,
+        favorites: matchingFavorites,
         backend: backendIdentity,
         availabilityById,
         backendLabel: props.entry.title,
@@ -217,12 +224,8 @@ function FavoriteBackendModelsCollector(props: Readonly<{
         availabilityById,
         backendIdentity,
         props.entry.title,
-        props.favoriteModelSelections,
+        matchingFavorites,
     ]);
-
-    const matchingFavorites = React.useMemo(() => props.favoriteModelSelections.filter((favorite) => (
-        favoriteModelSelectionMatchesBackend(favorite, backendIdentity)
-    )), [backendIdentity, props.favoriteModelSelections]);
 
     const provisionalFavorites = React.useMemo((): readonly AvailableFavoriteModel[] => {
         const hasResolvedDynamicModels = (preflightModels?.availableModels.length ?? 0) > 0;
@@ -363,15 +366,20 @@ function FavoriteBackendModelsCollector(props: Readonly<{
 }
 
 export function NewSessionFavoriteModelsDetail(props: NewSessionFavoriteModelsDetailProps) {
-    const favoriteBackendEntries = React.useMemo(() => props.resolvedBackendEntries.filter((entry) => {
+    const hiddenModels = useSetting('hiddenModelSelectionsV1');
+    const favoriteBackends = React.useMemo(() => props.resolvedBackendEntries.flatMap((entry) => {
         const backendIdentity = buildFavoriteBackendIdentity(entry);
-        return props.favoriteModelSelections.some((favorite) => favoriteModelSelectionMatchesBackend(favorite, backendIdentity));
-    }), [props.favoriteModelSelections, props.resolvedBackendEntries]);
+        const hiddenModelIds = getHiddenModelIds(hiddenModels, entry.targetKey);
+        const hasVisibleFavorites = props.favoriteModelSelections.some((favorite) => (
+            favoriteModelSelectionMatchesBackend(favorite, backendIdentity) && !hiddenModelIds.has(favorite.modelId)
+        ));
+        return hasVisibleFavorites ? [{ entry, hiddenModelIds }] : [];
+    }), [hiddenModels, props.favoriteModelSelections, props.resolvedBackendEntries]);
 
     const [snapshotsByTargetKey, setSnapshotsByTargetKey] = React.useState<ReadonlyMap<string, FavoriteModelSnapshot>>(() => new Map());
 
     React.useEffect(() => {
-        const allowedTargetKeys = new Set(favoriteBackendEntries.map((entry) => entry.targetKey));
+        const allowedTargetKeys = new Set(favoriteBackends.map(({ entry }) => entry.targetKey));
         setSnapshotsByTargetKey((current) => {
             let changed = false;
             const next = new Map<string, FavoriteModelSnapshot>();
@@ -384,7 +392,7 @@ export function NewSessionFavoriteModelsDetail(props: NewSessionFavoriteModelsDe
             }
             return changed ? next : current;
         });
-    }, [favoriteBackendEntries]);
+    }, [favoriteBackends]);
 
     const handleSnapshot = React.useCallback((targetKey: string, snapshot: FavoriteModelSnapshot) => {
         setSnapshotsByTargetKey((current) => {
@@ -398,10 +406,10 @@ export function NewSessionFavoriteModelsDetail(props: NewSessionFavoriteModelsDe
         });
     }, []);
 
-    const orderedSnapshots = React.useMemo(() => favoriteBackendEntries
-        .map((entry) => snapshotsByTargetKey.get(entry.targetKey) ?? null)
+    const orderedSnapshots = React.useMemo(() => favoriteBackends
+        .map(({ entry }) => snapshotsByTargetKey.get(entry.targetKey) ?? null)
         .filter((snapshot): snapshot is FavoriteModelSnapshot => Boolean(snapshot)), [
-        favoriteBackendEntries,
+        favoriteBackends,
         snapshotsByTargetKey,
     ]);
     const options = React.useMemo(() => orderedSnapshots.flatMap((snapshot) => snapshot.options), [orderedSnapshots]);
@@ -425,10 +433,11 @@ export function NewSessionFavoriteModelsDetail(props: NewSessionFavoriteModelsDe
 
     return (
         <View style={styles.container}>
-            {favoriteBackendEntries.map((entry) => (
+            {favoriteBackends.map(({ entry, hiddenModelIds }) => (
                 <FavoriteBackendModelsCollector
                     key={entry.targetKey}
                     entry={entry}
+                    hiddenModelIds={hiddenModelIds}
                     favoriteModelSelections={props.favoriteModelSelections}
                     selectedBackendTargetKey={props.selectedBackendTargetKey}
                     selectedModelId={props.selectedModelId}

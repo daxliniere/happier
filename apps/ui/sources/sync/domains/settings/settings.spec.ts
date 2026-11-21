@@ -53,6 +53,16 @@ describe('settings', () => {
             expect(settingsParse({})).toEqual(parsedSettingsDefaults);
         });
 
+        it('preserves provider-scoped opaque model visibility across settings round trips', () => {
+            expect(settingsParse({}).hiddenModelSelectionsV1).toEqual([]);
+            const hiddenModelSelectionsV1 = [
+                { backendTargetKey: 'agent:codex', modelId: ' vendor/__proto__ ' },
+                { backendTargetKey: 'acpBackend:custom', modelId: ' vendor/__proto__ ' },
+            ];
+            const settings = applySettings(settingsDefaults, { hiddenModelSelectionsV1 });
+            expect(settingsParse(JSON.parse(JSON.stringify(settings))).hiddenModelSelectionsV1).toEqual(hiddenModelSelectionsV1);
+        });
+
         it('defaults Happier run instructions on while retaining an explicit false', () => {
             expect(settingsParse({}).executionRunsGuidanceEnabled).toBe(true);
             expect(settingsParse({ executionRunsGuidanceEnabled: false }).executionRunsGuidanceEnabled).toBe(false);

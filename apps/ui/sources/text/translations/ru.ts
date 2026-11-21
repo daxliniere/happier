@@ -4052,6 +4052,21 @@ export const ru: TranslationStructure = {
       },
     },
 
+  modelVisibility: {
+    title: "Видимость моделей",
+    entrySubtitle: "Выберите модели, которые будут видны в списках выбора",
+    description: "Скрытая модель исчезает только из списков выбора. Провайдер по-прежнему может использовать её, а существующие сеансы сохраняют свои модели.",
+    provider: "Провайдер",
+    selectProvider: "Выберите провайдера",
+    showAll: "Показать все модели",
+    hideById: "Скрыть модель по ID",
+    exactId: "Введите точный идентификатор модели у этого провайдера.",
+    empty: "Нет моделей для отображения.",
+    noResults: "Подходящие модели не найдены.",
+    noOnlineMachine: "Нет подключённого компьютера для поиска моделей",
+    currentModel: ({ model }: { model: string }) => `Выбранная модель — ${model}`,
+    showModel: ({ model }: { model: string }) => `Показывать ${model} в списках выбора моделей`,
+  },
   settingsProviders: {
         sessionRetention: {
             invalidSettings: "Исправьте JSON настроек Claude и переподключите компьютер для повторной попытки.",

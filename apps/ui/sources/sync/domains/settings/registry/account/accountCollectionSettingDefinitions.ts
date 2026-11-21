@@ -2,6 +2,7 @@ import { buildSettingArtifacts, defineSettingDefinitions } from '@happier-dev/pr
 import { z } from 'zod';
 
 import { FavoriteModelSelectionV1Schema } from '@/sync/domains/models/favoriteModelSelections';
+import { HiddenModelSelectionV1Schema } from '@/sync/domains/models/modelVisibility';
 import { FavoriteBackendTargetKeysV1Schema } from '@/sync/domains/sessionAuthoring/favoriteBackendTargets';
 
 function arrayCount(value: unknown): number {
@@ -101,6 +102,12 @@ export const ACCOUNT_COLLECTION_SETTING_DEFINITIONS = defineSettingDefinitions({
             identityScope: 'person',
             serializeCurrent: arrayCount,
         },
+    },
+    hiddenModelSelectionsV1: {
+        schema: z.array(HiddenModelSelectionV1Schema),
+        default: [],
+        description: 'Model choices hidden from pickers, scoped by backend target',
+        storageScope: 'account',
     },
     favoriteBackendTargetKeysV1: {
         schema: FavoriteBackendTargetKeysV1Schema,

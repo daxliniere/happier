@@ -310,6 +310,7 @@ interface AgentInputProps {
      * Used by new-session flows to display preflight/probed model lists before a session exists.
      */
     modelOptionsOverride?: readonly ModelOption[];
+    modelOptionsBackendTargetKey?: string;
     /**
      * Optional: show a probe/loading state + refresh control in the model picker.
      * Intended for preflight (no-session) flows that dynamically probe models.
@@ -2177,7 +2178,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         sessionModeOptionsOverrideProbe,
     ]);
 
-    const renderResolvedEngineDetail = React.useCallback(({ modelOptions, modelOptionsContext, probe, canEnterCustomModel }: AgentInputModelDetailState) => {
+    const renderResolvedEngineDetail = React.useCallback(({ modelOptions, backendTargetKey, modelOptionsContext, probe, canEnterCustomModel }: AgentInputModelDetailState) => {
         const selectModel = (value: string) => {
             if (modelOptionsContext) props.onModelModeChange?.(value, modelOptionsContext);
             else props.onModelModeChange?.(value);
@@ -2237,8 +2238,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
         return (
             <AgentInputEngineDetail
+                backendTargetKey={backendTargetKey}
                 modelOptions={modelOptions.map((option) => ({
                     value: option.value,
+                    extendedContextModelId: option.extendedContextModelId,
                     label: option.label,
                     ...(appliedModelPresentation?.optionValue === option.value
                         ? {
@@ -2346,6 +2349,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                     agentId={agentId}
                     metadata={props.metadata ?? null}
                     modelOptions={modelOptions}
+                    modelOptionsBackendTargetKey={props.modelOptionsBackendTargetKey}
                     selectedModelId={effectiveModelPolicy.selectedModelId}
                     discovery={props.modelOptionsOverride ? undefined : props.modelDiscoveryContext}
                     renderDetail={renderResolvedEngineDetail}
@@ -2357,6 +2361,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         effectiveModelPolicy.selectedModelId,
         modelOptions,
         props.metadata,
+        props.modelOptionsBackendTargetKey,
         props.modelOptionsOverride,
         props.modelDiscoveryContext,
         currentAgentPickerRow,

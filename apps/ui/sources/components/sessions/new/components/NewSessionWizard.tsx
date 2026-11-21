@@ -607,6 +607,7 @@ export const NewSessionWizard = React.memo(function NewSessionWizard(props: NewS
                                         modelMode={modelMode}
                                         onModelModeChange={setModelMode}
                                         modelOptionsOverride={modelOptions}
+                                        modelOptionsBackendTargetKey={selectedBackendEntry?.targetKey}
                                         modelOptionsOverrideProbe={modelOptionsProbe}
                                         acpSessionModeOptionsOverride={props.agent.acpSessionModeOptions}
                                         acpSessionModeSelectedIdOverride={props.agent.acpSessionModeId ?? null}

@@ -14,11 +14,15 @@ import type {
   SessionConfigOptionValueId,
 } from "@/sync/domains/sessionControl/configOptionsControl";
 import { t } from "@/text";
+import { useHiddenModelIds } from "@/hooks/models/useHiddenModelIds";
+import { findModelOptionForEffectiveModelId } from "@/sync/domains/models/modelOptions";
+import { filterVisibleModelOptions } from "@/sync/domains/models/modelVisibility";
 
 import { AgentInputSessionConfigOptionsSection } from "./AgentInputSessionConfigOptionsSection";
 
 type AgentInputEngineModelOption = Readonly<{
   value: string;
+  extendedContextModelId?: string;
   label: string;
   icon?: React.ReactNode;
   trailingStatusIcon?: React.ReactNode;
@@ -29,6 +33,7 @@ type AgentInputEngineModelOption = Readonly<{
 
 type AgentInputEngineDetailProps = Readonly<{
   modelOptions?: ReadonlyArray<AgentInputEngineModelOption>;
+  backendTargetKey?: string;
   selectedModelId?: string;
   modelSummary?: React.ReactNode;
   modelNotes?: ReadonlyArray<string>;
@@ -95,6 +100,13 @@ function orderFavoriteModelOptionsFirst(
 }
 
 export function AgentInputEngineDetail(props: AgentInputEngineDetailProps) {
+  const hiddenModelIds = useHiddenModelIds(props.backendTargetKey);
+  const selectedModelId = props.selectedModelId ?? "default";
+  const selectedOption = hiddenModelIds.size > 0 && props.modelOptions
+    ? findModelOptionForEffectiveModelId(props.modelOptions, selectedModelId)
+    : null;
+  const isSelectionHidden = hiddenModelIds.has(selectedModelId)
+    || Boolean(selectedOption && hiddenModelIds.has(selectedOption.value));
   const sectionOrder = props.sectionOrder ?? ["model", "config"];
   const surfaceVariant = props.surfaceVariant ?? "carded";
   const hasModelSection =
@@ -102,7 +114,7 @@ export function AgentInputEngineDetail(props: AgentInputEngineDetailProps) {
   const hasConfigSection = (props.configControls?.length ?? 0) > 0;
 
   const resolvedModelOptions = React.useMemo(() => {
-    const options = props.modelOptions ?? [];
+    const options = filterVisibleModelOptions(props.modelOptions ?? [], hiddenModelIds);
     const shouldShowDescriptions = options.some(
       (option) =>
         option.value !== "default" &&
@@ -119,7 +131,7 @@ export function AgentInputEngineDetail(props: AgentInputEngineDetailProps) {
     }) : options;
 
     return orderFavoriteModelOptionsFirst(describedOptions, props.favoriteModelValues);
-  }, [props.favoriteModelValues, props.modelOptions]);
+  }, [hiddenModelIds, props.favoriteModelValues, props.modelOptions]);
 
   const favoriteOptions = React.useMemo<OptionPickerFavoriteOptions | undefined>(() => {
     if (!props.onToggleFavoriteModel || !props.favoriteModelValues) {
@@ -162,9 +174,14 @@ export function AgentInputEngineDetail(props: AgentInputEngineDetailProps) {
             <OptionPickerOverlay
               title={t("agentInput.model.title")}
               summary={props.modelSummary}
-              notes={props.modelProbe?.error ? [...(props.modelNotes ?? []), t("errors.unknownError")] : props.modelNotes ?? []}
+              notes={[
+                ...(isSelectionHidden ? [t("modelVisibility.currentModel", { model: selectedOption?.label ?? selectedModelId })] : []),
+                ...(props.modelNotes ?? []),
+                ...(props.modelProbe?.error ? [t("errors.unknownError")] : []),
+              ]}
               options={resolvedModelOptions}
-              selectedValue={props.selectedModelId ?? "default"}
+              selectedValue={selectedModelId}
+              selectedValueHidden={isSelectionHidden}
               emptyText={
                 props.modelEmptyText ?? t("agentInput.model.configureInCli")
               }

@@ -125,6 +125,7 @@ export type NewSessionSimplePanelProps = Readonly<{
     modelMode: React.ComponentProps<typeof AgentInput>['modelMode'];
     setModelMode: React.ComponentProps<typeof AgentInput>['onModelModeChange'];
     modelOptions: ReadonlyArray<{ value: string; label: string; description: string }>;
+    modelOptionsBackendTargetKey?: string;
     modelOptionsProbe?: React.ComponentProps<typeof AgentInput>['modelOptionsOverrideProbe'];
     acpSessionModeOptions?: ReadonlyArray<Readonly<{ id: string; name: string; description?: string }>>;
     acpSessionModeProbe?: React.ComponentProps<typeof AgentInput>['acpSessionModeOptionsOverrideProbe'];
@@ -545,6 +546,7 @@ function NewSessionSimplePanelComposer({
                         modelMode={props.modelMode}
                         onModelModeChange={props.setModelMode}
                         modelOptionsOverride={props.modelOptions}
+                        modelOptionsBackendTargetKey={props.modelOptionsBackendTargetKey}
                         modelOptionsOverrideProbe={props.modelOptionsProbe}
                         acpSessionModeOptionsOverride={props.acpSessionModeOptions}
                         acpSessionModeSelectedIdOverride={props.acpSessionModeId ?? null}

@@ -4131,6 +4131,21 @@ export const pl: TranslationStructure = {
       },
     },
 
+  modelVisibility: {
+    title: "Widoczność modeli",
+    entrySubtitle: "Wybierz modele wyświetlane na listach wyboru",
+    description: "Ukrycie modelu usuwa go tylko z list wyboru. Dostawca nadal może go używać, a istniejące sesje zachowują swoje modele.",
+    provider: "Dostawca",
+    selectProvider: "Wybierz dostawcę",
+    showAll: "Pokaż wszystkie modele",
+    hideById: "Ukryj model według ID",
+    exactId: "Wpisz dokładny identyfikator modelu używany przez tego dostawcę.",
+    empty: "Brak modeli do wyświetlenia.",
+    noResults: "Brak pasujących modeli.",
+    noOnlineMachine: "Brak komputera online do wyszukania modeli",
+    currentModel: ({ model }: { model: string }) => `Wybrany model to ${model}`,
+    showModel: ({ model }: { model: string }) => `Pokaż ${model} na listach wyboru modeli`,
+  },
   settingsProviders: {
         sessionRetention: {
             invalidSettings: "Napraw nieprawidłowy JSON ustawień Claude i połącz komputer ponownie.",

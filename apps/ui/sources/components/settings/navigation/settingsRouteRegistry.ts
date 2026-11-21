@@ -77,6 +77,7 @@ const SETTINGS_ROUTE_CHROME_DEFINITIONS: readonly SettingsRouteChromeDefinition[
     { name: 'mcp-server', titleKey: 'settings.mcpServersEditorTitle' },
     { name: 'mcp', titleKey: 'settings.mcpServers' },
     { name: 'memory', titleKey: 'settings.memorySearch' },
+    { name: 'model-visibility', titleKey: 'modelVisibility.title' },
     { name: 'notifications', titleKey: 'settings.notifications' },
     { name: 'notifications/push', titleKey: 'settingsNotifications.push.troubleshootTitle' },
     { name: 'pets', titleKey: 'settingsPets.title' },

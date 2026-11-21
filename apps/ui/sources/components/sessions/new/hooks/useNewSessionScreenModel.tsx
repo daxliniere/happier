@@ -2129,6 +2129,7 @@ export function useNewSessionScreenModel(params?: Readonly<{ draftId?: string; o
         modelMode,
         setModelMode: setRememberedModelMode,
         modelOptions,
+        modelOptionsBackendTargetKey: selectedBackendEntry?.targetKey ?? selectedBackendTargetKey,
         modelOptionsProbe,
         acpSessionModeOptions,
         acpSessionModeProbe,

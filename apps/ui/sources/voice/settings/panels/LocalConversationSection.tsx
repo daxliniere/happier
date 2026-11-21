@@ -1,10 +1,13 @@
 import * as React from 'react';
+import { buildBackendTargetKey } from '@happier-dev/protocol';
 
 import { useUnistyles } from 'react-native-unistyles';
 
 import { DEFAULT_AGENT_ID, getAgentCore, isAgentId } from '@/agents/catalog/catalog';
 import { useEnabledAgentIds } from '@/agents/hooks/useEnabledAgentIds';
 import { getAgentDropdownMenuItems } from '@/components/settings/pickers/agentDropdownItems';
+import { useHiddenModelIds } from '@/hooks/models/useHiddenModelIds';
+import { filterVisibleModelOptions } from '@/sync/domains/models/modelVisibility';
 import { getModelDropdownMenuItems, REFRESH_MODELS_DROPDOWN_ITEM_ID } from '@/components/settings/pickers/modelDropdownItems';
 import { getMachineDropdownMenuItems } from '@/components/settings/pickers/machineDropdownItems';
 import { renderDropdownItemIcon } from '@/components/settings/pickers/renderDropdownItemIcon';
@@ -119,6 +122,7 @@ export function LocalConversationSection(props: {
     });
   }, [cfg.agent.machineTargetId, cfg.agent.machineTargetMode, machines, recentMachinePaths]);
 
+  const hiddenModelIds = useHiddenModelIds(selectedAgentIdForModelOptions ? buildBackendTargetKey({ kind: 'builtInAgent', agentId: selectedAgentIdForModelOptions }) : null);
   const preflightModels = useNewSessionPreflightModelsState({
     backendTarget: { kind: 'builtInAgent', agentId: (selectedAgentIdForModelOptions ?? DEFAULT_AGENT_ID) as any },
     selectedMachineId: preflightMachineId,
@@ -128,14 +132,14 @@ export function LocalConversationSection(props: {
   const selectableModelMenuItems = React.useMemo(() => {
     if (!selectedAgentIdForModelOptions) return [];
     return getModelDropdownMenuItems({
-      modelOptions: preflightModels.modelOptions,
+      modelOptions: filterVisibleModelOptions(preflightModels.modelOptions, hiddenModelIds),
       iconColor: theme.colors.text.secondary,
       probe: {
         phase: preflightModels.probe.phase,
         onRefresh: preflightModels.probe.onRefresh,
       },
     });
-  }, [preflightModels.modelOptions, preflightModels.probe.onRefresh, preflightModels.probe.phase, selectedAgentIdForModelOptions, theme.colors.text.secondary]);
+  }, [hiddenModelIds, preflightModels.modelOptions, preflightModels.probe.onRefresh, preflightModels.probe.phase, selectedAgentIdForModelOptions, theme.colors.text.secondary]);
 
   const modelIdMenuItems = React.useMemo(() => {
     return [
@@ -829,11 +833,11 @@ export function LocalConversationSection(props: {
               itemTrigger={{
                 title: t('settingsVoice.local.conversation.chatModelId.title'),
                 subtitleFormatter: () => (
-                  modelIdMenuItems.find((it) => it.id === String(cfg.agent.chatModelId ?? '').trim())?.subtitle
+                  preflightModels.modelOptions.find((option) => option.value === String(cfg.agent.chatModelId ?? '').trim())?.description
                   ?? t('settingsVoice.local.conversation.chatModelId.subtitle')
                 ),
                 detailFormatter: () => (
-                  modelIdMenuItems.find((it) => it.id === String(cfg.agent.chatModelId ?? '').trim())?.title
+                  preflightModels.modelOptions.find((option) => option.value === String(cfg.agent.chatModelId ?? '').trim())?.label
                   ?? String(cfg.agent.chatModelId)
                 ),
               }}
@@ -922,11 +926,11 @@ export function LocalConversationSection(props: {
               itemTrigger={{
                 title: t('settingsVoice.local.conversation.commitModelId.title'),
                 subtitleFormatter: () => (
-                  modelIdMenuItems.find((it) => it.id === String(cfg.agent.commitModelId ?? '').trim())?.subtitle
+                  preflightModels.modelOptions.find((option) => option.value === String(cfg.agent.commitModelId ?? '').trim())?.description
                   ?? t('settingsVoice.local.conversation.commitModelId.subtitle')
                 ),
                 detailFormatter: () => (
-                  modelIdMenuItems.find((it) => it.id === String(cfg.agent.commitModelId ?? '').trim())?.title
+                  preflightModels.modelOptions.find((option) => option.value === String(cfg.agent.commitModelId ?? '').trim())?.label
                   ?? String(cfg.agent.commitModelId)
                 ),
               }}

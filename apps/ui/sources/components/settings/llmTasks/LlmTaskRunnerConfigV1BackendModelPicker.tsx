@@ -9,6 +9,8 @@ import { getResolvedBackendCatalogEntries } from '@/agents/backendCatalog/getRes
 import { DEFAULT_AGENT_ID } from '@/agents/catalog/catalog';
 import { useEnabledAgentIds } from '@/agents/hooks/useEnabledAgentIds';
 import { getAgentDropdownMenuItems } from '@/components/settings/pickers/agentDropdownItems';
+import { useHiddenModelIds } from '@/hooks/models/useHiddenModelIds';
+import { filterVisibleModelOptions } from '@/sync/domains/models/modelVisibility';
 import { getModelDropdownMenuItems, REFRESH_MODELS_DROPDOWN_ITEM_ID } from '@/components/settings/pickers/modelDropdownItems';
 import { resolvePreferredMachineId } from '@/components/settings/pickers/resolvePreferredMachineId';
 import { useNewSessionPreflightModelsState } from '@/components/sessions/new/hooks/screenModel/useNewSessionPreflightModelsState';
@@ -71,6 +73,7 @@ export function LlmTaskRunnerConfigV1BackendModelPicker(props: Readonly<{
     });
   }, [machines, recentMachinePaths]);
 
+  const hiddenModelIds = useHiddenModelIds(selectedBackendEntry?.targetKey);
   const preflightModels = useNewSessionPreflightModelsState({
     backendTarget: selectedBackendTargetForModelOptions,
     selectedMachineId: preflightMachineId,
@@ -107,14 +110,14 @@ export function LlmTaskRunnerConfigV1BackendModelPicker(props: Readonly<{
 
   const selectableModelMenuItems = React.useMemo(() => {
     return getModelDropdownMenuItems({
-      modelOptions: preflightModels.modelOptions,
+      modelOptions: filterVisibleModelOptions(preflightModels.modelOptions, hiddenModelIds),
       iconColor: theme.colors.text.secondary,
       probe: {
         phase: preflightModels.probe.phase,
         onRefresh: preflightModels.probe.onRefresh,
       },
     });
-  }, [preflightModels.modelOptions, preflightModels.probe.onRefresh, preflightModels.probe.phase, theme.colors.text.secondary]);
+  }, [hiddenModelIds, preflightModels.modelOptions, preflightModels.probe.onRefresh, preflightModels.probe.phase, theme.colors.text.secondary]);
 
   const modelMenuItems = React.useMemo(() => {
     return [
@@ -135,9 +138,9 @@ export function LlmTaskRunnerConfigV1BackendModelPicker(props: Readonly<{
   const selectedModelLabel = React.useMemo(() => {
     const trimmed = modelId.trim();
     if (!trimmed) return t('settingsSession.replayResume.summaryRunner.notSet');
-    const opt = selectableModelMenuItems.find((it) => it.id === trimmed);
-    return opt?.title ?? trimmed;
-  }, [modelId, selectableModelMenuItems]);
+    const opt = preflightModels.modelOptions.find((option) => option.value === trimmed);
+    return opt?.label ?? trimmed;
+  }, [modelId, preflightModels.modelOptions]);
 
   return (
     <>

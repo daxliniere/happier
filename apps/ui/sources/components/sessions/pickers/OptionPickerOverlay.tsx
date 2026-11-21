@@ -62,6 +62,7 @@ export type OptionPickerOverlayProps = Readonly<{
     headerAccessory?: React.ReactNode;
     options: ReadonlyArray<OptionPickerOption>;
     selectedValue: string;
+    selectedValueHidden?: boolean;
     emptyText: string;
     canEnterCustomValue: boolean;
     customLabel?: string;
@@ -108,7 +109,7 @@ export function OptionPickerOverlay(props: OptionPickerOverlayProps) {
     const refreshTestID = props.refreshTestID ?? 'model-picker-overlay-refresh';
     const selectedIndicatorColor = theme.dark ? theme.colors.text.primary : theme.colors.button.primary.background;
     const selectedValue = readNonBlankSessionControlIdentifier(props.selectedValue) ?? '';
-    const selectedCustomValue = props.canEnterCustomValue && selectedValue.length > 0 && !optionValues.has(selectedValue)
+    const selectedCustomValue = !props.selectedValueHidden && props.canEnterCustomValue && selectedValue.length > 0 && !optionValues.has(selectedValue)
         ? selectedValue
         : '';
     const [customValue, setCustomValue] = React.useState(selectedCustomValue);
@@ -171,6 +172,12 @@ export function OptionPickerOverlay(props: OptionPickerOverlayProps) {
             lastCommittedCustomValueRef.current = selectedCustomValue;
             return;
         }
+        if (props.selectedValueHidden && customEditorOpenReasonRef.current === 'selected-custom') {
+            customEditorOpenReasonRef.current = null;
+            setCustomEditorVisible(false);
+            abandonCustomDraft();
+            return;
+        }
         if (optionValues.has(selectedValue)) {
             if (customEditorOpenReasonRef.current === 'selected-custom') {
                 customEditorOpenReasonRef.current = null;
@@ -184,7 +191,7 @@ export function OptionPickerOverlay(props: OptionPickerOverlayProps) {
             setCustomEditorVisible(false);
             abandonCustomDraft();
         }
-    }, [abandonCustomDraft, customEditorVisible, optionValues, selectedCustomValue, selectedValue]);
+    }, [abandonCustomDraft, customEditorVisible, optionValues, props.selectedValueHidden, selectedCustomValue, selectedValue]);
 
     const filteredOptions = React.useMemo(() => {
         if (!showSearch || !normalizedQuery) return props.options;
@@ -410,6 +417,7 @@ export function OptionPickerOverlay(props: OptionPickerOverlayProps) {
                     </View>
                 ) : null}
             </View>
+            {props.selectedValueHidden ? renderSelectedOptionControls() : null}
             {(filteredOptions.length > 0 || props.canEnterCustomValue) ? (
                 <>
                         {showSearch ? (

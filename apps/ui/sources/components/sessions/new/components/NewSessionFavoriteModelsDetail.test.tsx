@@ -6,6 +6,7 @@ import type { ResolvedBackendCatalogEntry } from '@/agents/backendCatalog/getRes
 import type { AgentId } from '@/agents/catalog/catalog';
 import { renderScreen } from '@/dev/testkit';
 import { createReactNativeWebMock } from '@/dev/testkit/mocks/reactNative';
+import { createStorageModuleStub } from '@/dev/testkit/mocks/storage';
 import { createTextModuleMock } from '@/dev/testkit/mocks/text';
 import { createUnistylesMock } from '@/dev/testkit/mocks/unistyles';
 import type { OptionPickerOverlayProps } from '@/components/sessions/pickers/OptionPickerOverlay';
@@ -16,6 +17,8 @@ import type { BackendTargetRefV1, ConnectedServiceBindingsV1 } from '@happier-de
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let optionPickerOverlayProps: OptionPickerOverlayProps[] = [];
+
+const hiddenModels = vi.hoisted(() => ({ value: [] as { backendTargetKey: string; modelId: string }[] }));
 
 function getOptionIconAgentId(icon: React.ReactNode): string | null {
     return React.isValidElement<{ agentId?: string }>(icon)
@@ -33,6 +36,9 @@ installNewSessionComponentsCommonModuleMocks({
     reactNative: () => createReactNativeWebMock({
         View: 'View',
         Pressable: 'Pressable',
+    }),
+    storage: () => createStorageModuleStub({
+        useSetting: (key: string) => key === 'hiddenModelSelectionsV1' ? hiddenModels.value : undefined,
     }),
     text: () => createTextModuleMock({ translate: (key) => key }),
     unistyles: () => createUnistylesMock(),
@@ -111,6 +117,7 @@ vi.mock('@/components/sessions/new/hooks/screenModel/useNewSessionPreflightModel
 describe('NewSessionFavoriteModelsDetail', () => {
     beforeEach(() => {
         optionPickerOverlayProps = [];
+        hiddenModels.value = [];
         for (const key of Object.keys(preflightModelsByTargetKey)) {
             delete preflightModelsByTargetKey[key];
         }
@@ -174,6 +181,51 @@ describe('NewSessionFavoriteModelsDetail', () => {
             expect.objectContaining({ targetKey: 'agent:claude', connectedServices }),
             expect.objectContaining({ targetKey: 'agent:codex', connectedServices }),
         ]));
+    });
+
+    it('filters hidden available and provisional favorites for only the matching provider', async () => {
+        const { NewSessionFavoriteModelsDetail } = await import('./NewSessionFavoriteModelsDetail');
+        const claude = createBuiltInEntry('claude', 'Claude');
+        const codex = createBuiltInEntry('codex', 'Codex');
+        hiddenModels.value = [
+            { backendTargetKey: codex.targetKey, modelId: 'shared' },
+            { backendTargetKey: codex.targetKey, modelId: 'provisional' },
+        ];
+        preflightModelsByTargetKey[claude.targetKey] = {
+            modelOptions: [],
+            preflightModels: { availableModels: [{ id: 'shared', name: 'Claude shared' }], supportsFreeform: false },
+        };
+        preflightModelsByTargetKey[codex.targetKey] = {
+            modelOptions: [
+                { value: 'shared', label: 'Codex shared', description: '' },
+                { value: 'visible', label: 'Codex visible', description: '' },
+            ],
+            preflightModels: null,
+            probePhase: 'loading',
+        };
+        await renderScreen(
+            <NewSessionFavoriteModelsDetail
+                favoriteModelSelections={[
+                    { backendTargetKey: codex.targetKey, modelId: 'shared' },
+                    { backendTargetKey: codex.targetKey, modelId: 'provisional' },
+                    { backendTargetKey: codex.targetKey, modelId: 'visible' },
+                    { backendTargetKey: claude.targetKey, modelId: 'shared' },
+                ]}
+                resolvedBackendEntries={[codex, claude]}
+                selectedBackendTargetKey={codex.targetKey}
+                selectedModelId="shared"
+                selectedMachineId="machine-1"
+                capabilityServerId="server-1"
+                settings={settings}
+                onSelectFavoriteModel={vi.fn()}
+                onToggleFavoriteModel={vi.fn()}
+            />,
+        );
+
+        expect(optionPickerOverlayProps.at(-1)?.options.map((option) => option.label)).toEqual([
+            'Codex visible',
+            'Claude shared',
+        ]);
     });
 
     it('renders all available favorite models in one shared favorites group', async () => {

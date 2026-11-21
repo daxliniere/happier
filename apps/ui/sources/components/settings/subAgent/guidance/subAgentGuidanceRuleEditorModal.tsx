@@ -5,6 +5,8 @@ import { buildBackendTargetKey, type BackendTargetRefV1 } from '@happier-dev/pro
 
 import { DEFAULT_AGENT_ID } from '@/agents/catalog/catalog';
 import { useEnabledAgentIds } from '@/agents/hooks/useEnabledAgentIds';
+import { useHiddenModelIds } from '@/hooks/models/useHiddenModelIds';
+import { filterVisibleModelOptions } from '@/sync/domains/models/modelVisibility';
 import { getModelDropdownMenuItems, REFRESH_MODELS_DROPDOWN_ITEM_ID } from '@/components/settings/pickers/modelDropdownItems';
 import { Item } from '@/components/ui/lists/Item';
 import { RoundButton } from '@/components/ui/buttons/RoundButton';
@@ -91,6 +93,7 @@ export function SubAgentGuidanceRuleEditorModal(props: Readonly<{
         return backendEntries.find((entry) => entry.targetKey === buildBackendTargetKey(backendTarget)) ?? null;
     }, [backendEntries, backendTarget]);
 
+    const hiddenModelIds = useHiddenModelIds(backendTarget ? buildBackendTargetKey(backendTarget) : null);
     const preflightModels = useNewSessionPreflightModelsState({
         backendTarget: backendTarget ?? { kind: 'builtInAgent', agentId: DEFAULT_AGENT_ID },
         selectedMachineId: backendTarget ? preflightMachineId : null,
@@ -364,7 +367,7 @@ export function SubAgentGuidanceRuleEditorModal(props: Readonly<{
                                   ),
                               },
                               ...getModelDropdownMenuItems({
-                                    modelOptions: preflightModels.modelOptions,
+                                    modelOptions: filterVisibleModelOptions(preflightModels.modelOptions, hiddenModelIds),
                                     iconColor: theme.colors.text.secondary,
                                     probe: {
                                         phase: preflightModels.probe.phase,

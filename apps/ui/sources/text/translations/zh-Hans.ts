@@ -3995,6 +3995,21 @@ export const zhHans: TranslationStructure = {
     },
   },
 
+  modelVisibility: {
+    title: "模型可见性",
+    entrySubtitle: "选择模型选择器中显示的模型",
+    description: "隐藏模型只会将其从选择列表中移除。提供商仍可使用它，现有会话也会保留原有模型。",
+    provider: "提供商",
+    selectProvider: "选择提供商",
+    showAll: "显示所有模型",
+    hideById: "按 ID 隐藏模型",
+    exactId: "输入此提供商使用的确切模型 ID。",
+    empty: "没有可显示的模型。",
+    noResults: "没有匹配的模型。",
+    noOnlineMachine: "没有在线设备可用于发现模型",
+    currentModel: ({ model }: { model: string }) => `当前选中的是 ${model}`,
+    showModel: ({ model }: { model: string }) => `在模型选择器中显示 ${model}`,
+  },
   settingsProviders: {
         sessionRetention: {
             invalidSettings: "修复 Claude 设置中无效的 JSON，然后重新连接此机器以重试。",

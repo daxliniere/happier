@@ -7,6 +7,9 @@ import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/forms/dropd
 import { Item } from '@/components/ui/lists/Item';
 import { ItemGroup } from '@/components/ui/lists/ItemGroup';
 import { normalizeNodeForView } from '@/components/ui/rendering/normalizeNodeForView';
+import { useHiddenModelIds } from '@/hooks/models/useHiddenModelIds';
+import { findModelOptionForEffectiveModelId } from '@/sync/domains/models/modelOptions';
+import { filterVisibleModelOptions } from '@/sync/domains/models/modelVisibility';
 import type { ModelMode } from '@/sync/domains/permissions/permissionTypes';
 import {
     favoriteModelSelectionMatchesBackend,
@@ -60,6 +63,7 @@ function buildRows(params: Readonly<{
     modelOptions: readonly NewSessionModelOption[];
     selectedBackendEntry?: ResolvedBackendCatalogEntry | null;
     favoriteModelSelections?: readonly FavoriteModelSelectionV1[];
+    hiddenModelIds: ReadonlySet<string>;
 }>): Readonly<{
     favoriteRows: readonly ModelSelectionRow[];
     allRows: readonly ModelSelectionRow[];
@@ -82,7 +86,7 @@ function buildRows(params: Readonly<{
     const favoriteRows: ModelSelectionRow[] = [];
     for (const favorite of matchingFavorites) {
         const modelId = normalizeFavoriteModelId(favorite.modelId);
-        if (!isFavoriteModelSelectableId(modelId) || favoriteIds.has(modelId)) continue;
+        if (!isFavoriteModelSelectableId(modelId) || params.hiddenModelIds.has(modelId) || favoriteIds.has(modelId)) continue;
         favoriteIds.add(modelId);
         const option = optionById.get(modelId) ?? null;
         favoriteRows.push({
@@ -96,7 +100,7 @@ function buildRows(params: Readonly<{
         });
     }
 
-    const allRows = params.modelOptions.flatMap((option): ModelSelectionRow[] => {
+    const allRows = filterVisibleModelOptions(params.modelOptions, params.hiddenModelIds).flatMap((option): ModelSelectionRow[] => {
         const modelId = normalizeFavoriteModelId(option.value);
         if (!modelId || favoriteIds.has(modelId)) return [];
         return [{
@@ -173,12 +177,15 @@ function ModelRightElement(props: Readonly<{
 export function NewSessionModelSelectionContent(props: NewSessionModelSelectionContentProps) {
     const { theme } = useUnistyles();
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
+    const hiddenModelIds = useHiddenModelIds(props.selectedBackendEntry?.targetKey);
 
     const rows = React.useMemo(() => buildRows({
         modelOptions: props.modelOptions,
         selectedBackendEntry: props.selectedBackendEntry,
         favoriteModelSelections: props.favoriteModelSelections,
+        hiddenModelIds,
     }), [
+        hiddenModelIds,
         props.favoriteModelSelections,
         props.modelOptions,
         props.selectedBackendEntry,
@@ -189,6 +196,9 @@ export function NewSessionModelSelectionContent(props: NewSessionModelSelectionC
         const allRows = [...rows.favoriteRows, ...rows.allRows];
         return allRows.find((row) => row.id === selectedModelId) ?? null;
     }, [rows.allRows, rows.favoriteRows, selectedModelId]);
+
+    const selectedOption = findModelOptionForEffectiveModelId(props.modelOptions, selectedModelId);
+    const selectedLabel = selectedRow?.title ?? selectedOption?.label ?? (hiddenModelIds.has(selectedModelId) ? selectedModelId : undefined);
 
     const toggleFavorite = React.useCallback((row: ModelSelectionRow) => {
         if (!props.selectedBackendEntry || !props.onFavoriteModelSelectionsChange) return;
@@ -306,7 +316,7 @@ export function NewSessionModelSelectionContent(props: NewSessionModelSelectionC
                     popoverBoundaryRef={props.popoverBoundaryRef}
                     itemTrigger={{
                         title: t('newSession.selectModelTitle'),
-                        subtitle: selectedRow?.title ?? t('newSession.selectModelDescription'),
+                        subtitle: selectedLabel ?? t('newSession.selectModelDescription'),
                         showSelectedDetail: false,
                         showSelectedSubtitle: false,
                         icon: normalizeNodeForView(<Icon name="sparkle" size={24} color={theme.colors.text.secondary} />),

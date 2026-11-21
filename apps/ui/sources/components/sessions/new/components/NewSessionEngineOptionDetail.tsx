@@ -346,6 +346,7 @@ export function NewSessionEngineOptionDetail(props: NewSessionEngineOptionDetail
     return (
         <AgentInputEngineDetail
             modelOptions={modelOptions}
+            backendTargetKey={favoriteBackendIdentity.backendTargetKey}
             selectedModelId={canonicalSelectedModelId}
             modelNotes={props.modelSummary ? [props.modelSummary] : []}
             modelEmptyText={t('agentInput.model.configureInCli')}

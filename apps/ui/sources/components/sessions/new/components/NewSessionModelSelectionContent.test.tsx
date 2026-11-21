@@ -2,6 +2,12 @@ import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderScreen } from '@/dev/testkit';
+import { installStorageModuleStub } from '@/dev/testkit/mocks/storage';
+
+const visibility = vi.hoisted(() => ({ hidden: [] as { backendTargetKey: string; modelId: string }[] }));
+vi.mock('@/sync/domains/state/storage', () => installStorageModuleStub({
+    useSetting: () => visibility.hidden,
+})());
 
 vi.mock('react-native', async (importOriginal) => {
     const actual = await importOriginal<typeof import('react-native')>();
@@ -45,6 +51,7 @@ const codexEntry = {
 describe('NewSessionModelSelectionContent', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        visibility.hidden = [];
     });
 
     it('renders favorite models first and does not duplicate them in all models', async () => {
@@ -83,6 +90,47 @@ describe('NewSessionModelSelectionContent', () => {
         const items = screen.findAllByType('Item' as any);
         expect(items.filter((item) => item.props.testID === 'new-session-model:gpt-5.5')).toHaveLength(1);
         expect(items.filter((item) => item.props.testID === 'new-session-model:gpt-5.4')).toHaveLength(1);
+    });
+
+    it('hides a discovered favorite only for its provider and keeps the current selection', async () => {
+        const { NewSessionModelSelectionContent } = await import('./NewSessionModelSelectionContent');
+        const modelId = ' vendor/__proto__ ';
+        const modelOptions = [
+            { value: 'default', label: 'Default', description: '' },
+            { value: modelId, label: 'Current model', description: '' },
+        ];
+        const onSelectModel = vi.fn();
+        visibility.hidden = [{ backendTargetKey: 'agent:codex', modelId }];
+        const codex = await renderScreen(
+            <NewSessionModelSelectionContent
+                presentation="compact"
+                modelOptions={modelOptions}
+                selectedModelId={modelId}
+                selectedIndicatorColor="#0af"
+                selectedBackendEntry={codexEntry as any}
+                favoriteModelSelections={[{ backendTargetKey: 'agent:codex', modelId }]}
+                onSelectModel={onSelectModel}
+            />,
+        );
+        const dropdown = codex.root.findByType('DropdownMenu' as any);
+        expect(dropdown.props.items.map((item: { id: string }) => item.id)).toEqual(['default']);
+        expect(dropdown.props.itemTrigger.subtitle).toBe('Current model');
+        expect(onSelectModel).not.toHaveBeenCalled();
+
+        const otherProvider = await renderScreen(
+            <NewSessionModelSelectionContent
+                modelOptions={modelOptions}
+                selectedModelId="default"
+                selectedIndicatorColor="#0af"
+                selectedBackendEntry={{
+                    ...codexEntry,
+                    targetKey: 'agent:claude',
+                    target: { kind: 'builtInAgent', agentId: 'claude' },
+                } as any}
+                onSelectModel={onSelectModel}
+            />,
+        );
+        expect(otherProvider.findAllByProps({ testID: `new-session-model:${modelId}` })).not.toHaveLength(0);
     });
 
     it('keeps stale favorite models removable without making them selectable', async () => {

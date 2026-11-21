@@ -32,6 +32,7 @@ import {
     type FavoriteModelBackendIdentity,
     type FavoriteModelSelectionV1,
 } from '@/sync/domains/models/favoriteModelSelections';
+import { getHiddenModelIds } from '@/sync/domains/models/modelVisibility';
 import { resolveNewSessionConnectedServicesBindingsForAgent } from '@/components/sessions/new/modules/connectedServicesNewSessionBindings';
 import { stableJsonStringify } from '@/utils/json/stableJsonStringify';
 import { Icon } from '@/components/ui/icons/Icon';
@@ -550,11 +551,14 @@ export function useNewSessionAgentPickerControls(rawParams: Readonly<{
         const favoriteBackendEntries = params.resolvedBackendEntries.filter((entry) => (
             !profileForAgentSelection || compatibleBackendTargetKeys.has(entry.targetKey)
         ));
-        const favoriteModelSelectionsForVisibleBackends = favoriteModelSelections.filter((favorite) => (
-            favoriteBackendEntries.some((entry) => (
-                favoriteModelSelectionMatchesBackend(favorite, buildFavoriteBackendIdentity(entry))
-            ))
-        ));
+        const hiddenModelIdsByTarget = new Map(favoriteBackendEntries.map((entry) => [
+            entry.targetKey,
+            getHiddenModelIds(params.settings.hiddenModelSelectionsV1, entry.targetKey),
+        ]));
+        const hasVisibleFavorites = favoriteModelSelections.some((favorite) => favoriteBackendEntries.some((entry) => (
+            favoriteModelSelectionMatchesBackend(favorite, buildFavoriteBackendIdentity(entry))
+            && !hiddenModelIdsByTarget.get(entry.targetKey)?.has(favorite.modelId)
+        )));
         const favoriteConnectedServicesByTargetKey = Object.fromEntries(
             favoriteBackendEntries.map((entry) => [
                 entry.targetKey,
@@ -562,7 +566,7 @@ export function useNewSessionAgentPickerControls(rawParams: Readonly<{
             ]),
         );
         const favoriteConnectedServicesCacheKeyPart = stableJsonStringify(favoriteConnectedServicesByTargetKey);
-        const favoriteModelsOption: AgentInputChipPickerOption[] = favoriteModelSelectionsForVisibleBackends.length > 0
+        const favoriteModelsOption: AgentInputChipPickerOption[] = hasVisibleFavorites
             ? [{
                 id: FAVORITE_MODELS_AGENT_PICKER_OPTION_ID,
                 label: t('profiles.groups.favorites'),
@@ -585,7 +589,7 @@ export function useNewSessionAgentPickerControls(rawParams: Readonly<{
                     const selection = favoriteModelsDetailSelectionRef.current;
                     return (
                         <NewSessionFavoriteModelsDetail
-                            favoriteModelSelections={favoriteModelSelectionsForVisibleBackends}
+                            favoriteModelSelections={favoriteModelSelections}
                             resolvedBackendEntries={favoriteBackendEntries}
                             selectedBackendTargetKey={selection.selectedBackendTargetKey}
                             selectedModelId={selection.selectedModelId}

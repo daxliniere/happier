@@ -3,11 +3,17 @@ import { act } from 'react-test-renderer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushHookEffects, renderScreen } from '@/dev/testkit';
 import { installCapabilitiesOpsModuleMock } from '@/dev/testkit/mocks/capabilities';
+import { installStorageModuleStub } from '@/dev/testkit/mocks/storage';
 import { resetDynamicModelProbeCacheForTests } from '@/sync/domains/models/dynamicModelProbeCache';
 import { getModelOptionsForSession, isModelSelectableForSession } from '@/sync/domains/models/modelOptions';
+import { AgentInputEngineDetail } from './AgentInputEngineDetail';
 import { AgentInputModelDiscoveryDetail, type AgentInputModelDetailState } from './AgentInputModelDiscoveryDetail';
 
 const invoke = vi.hoisted(() => vi.fn());
+const hiddenModels = vi.hoisted(() => ({ value: [] as { backendTargetKey: string; modelId: string }[] }));
+vi.mock('@/sync/domains/state/storage', () => installStorageModuleStub({
+    useSetting: () => hiddenModels.value,
+})());
 vi.mock('@/sync/ops/capabilities', (importOriginal) => installCapabilitiesOpsModuleMock({ machineCapabilitiesInvoke: invoke })(importOriginal));
 
 const discovery = {
@@ -22,7 +28,50 @@ const models = getModelOptionsForSession('codex', null);
 const result = (id: string) => ({ supported: true, response: { ok: true, result: { availableModels: [{ id, name: id }], supportsFreeform: false } } });
 
 describe('AgentInputModelDiscoveryDetail', () => {
-    beforeEach(() => { invoke.mockReset(); resetDynamicModelProbeCacheForTests(); });
+    beforeEach(() => {
+        invoke.mockReset();
+        hiddenModels.value = [];
+        resetDynamicModelProbeCacheForTests();
+    });
+
+    it('keeps the requested model applicable while removing it from the refreshed running-session picker', async () => {
+        const modelId = 'vendor/legacy-model';
+        const onSelect = vi.fn();
+        hiddenModels.value = [{ backendTargetKey: 'agent:codex', modelId }];
+        invoke.mockResolvedValueOnce(result(modelId)).mockResolvedValueOnce(result('replacement'));
+        let state: AgentInputModelDetailState | undefined;
+        const screen = await renderScreen(
+            <AgentInputModelDiscoveryDetail
+                agentId="codex"
+                metadata={null}
+                modelOptions={models}
+                selectedModelId={modelId}
+                discovery={() => discovery}
+                renderDetail={(next) => {
+                    state = next;
+                    return <AgentInputEngineDetail
+                        backendTargetKey={next.backendTargetKey}
+                        modelOptions={next.modelOptions}
+                        modelProbe={next.probe}
+                        selectedModelId={modelId}
+                        canEnterCustomModel
+                        onSelectModel={onSelect}
+                    />;
+                }}
+            />,
+        );
+        await flushHookEffects();
+        expect(isModelSelectableForSession('codex', null, modelId, state?.modelOptionsContext)).toBe(true);
+        expect(screen.findByTestId(`model-picker-overlay-option:${modelId}`)).toBeNull();
+        expect(screen.findByTestId('model-picker-overlay-custom-input')).toBeNull();
+
+        await act(async () => { state?.probe?.onRefresh?.(); });
+        expect(screen.findByTestId('model-picker-overlay-option:replacement')).toBeTruthy();
+        expect(screen.findByTestId(`model-picker-overlay-option:${modelId}`)).toBeNull();
+        expect(isModelSelectableForSession('codex', null, modelId, state?.modelOptionsContext)).toBe(true);
+        await screen.unmount();
+        expect(onSelect).not.toHaveBeenCalled();
+    });
 
     it('discovers only while mounted, keeps rows during forced refresh and passes the same catalog to selection validation', async () => {
         let state: AgentInputModelDetailState | undefined;

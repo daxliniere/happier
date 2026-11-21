@@ -3807,6 +3807,21 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         },
     },
 
+    modelVisibility: {
+        title: "模型顯示設定",
+        entrySubtitle: "選擇模型選擇器中顯示的模型",
+        description: "隱藏模型只會將它從選擇清單中移除。供應商仍可使用它，現有工作階段也會保留原有模型。",
+        provider: "供應商",
+        selectProvider: "選擇供應商",
+        showAll: "顯示所有模型",
+        hideById: "依 ID 隱藏模型",
+        exactId: "輸入此供應商使用的確切模型 ID。",
+        empty: "沒有可顯示的模型。",
+        noResults: "沒有相符的模型。",
+        noOnlineMachine: "沒有上線的裝置可用於探索模型",
+        currentModel: ({ model }: { model: string }) => `目前選取的是 ${model}`,
+        showModel: ({ model }: { model: string }) => `在模型選擇器中顯示 ${model}`,
+    },
     settingsProviders: {
         sessionRetention: {
             invalidSettings: "修復 Claude 設定中無效的 JSON，然後重新連接此機器以重試。",
