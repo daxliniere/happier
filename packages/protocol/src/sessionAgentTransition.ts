@@ -170,6 +170,12 @@ export const SESSION_AGENT_TRANSITION_REJECTED_CODES_V1 = [
   'target_unavailable',
   'source_not_idle',
   'source_stop_failed',
+  /**
+   * The owner chose a connected account for the target Agent that the target cannot use (it names
+   * a service the Agent does not support). Refused before any effect, so the owner can pick
+   * another account, rather than being told the Agent itself is unavailable.
+   */
+  'connected_account_unsupported',
 ] as const;
 
 /**
