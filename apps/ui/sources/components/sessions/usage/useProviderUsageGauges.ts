@@ -15,6 +15,7 @@ import { useSetting } from '@/sync/domains/state/storage';
 import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { t } from '@/text';
 
+import { resolveProviderUsageAccountIdentity, selectDistinctProviderUsageAccounts } from './providerUsageAccountIdentity';
 import { resolveProviderUsageServiceIds } from './resolveDefaultProviderUsageProfileRef';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
@@ -138,10 +139,24 @@ export function useProviderUsageGauges(params: Readonly<{
     const previousAccountsRef = React.useRef<ReadonlyMap<string, ProviderUsageAccount>>(new Map());
     const computedAccounts = React.useMemo(() => {
         const nowMs = nowServerMs();
+        // A provider without an identified account is only listed when it has evidence of its own:
+        // figures, a limit report, or sessions that used it.
+        const listed = accountRequests.map((request, index) => ({ request, index })).filter(({ request, index }) => (
+            request.identified
+            || (resolved[index]?.gaugeSource ?? null) !== null
+            || latestRuntimeIssuesByAgent.has(request.agentId)
+            || latestRecordIdsByAgent.has(request.agentId)
+        ));
+        // One entry per login: a native login that is the same person as a connected profile (for
+        // example when the default account is that profile) would otherwise show its usage twice.
+        const distinct = selectDistinctProviderUsageAccounts(listed.map(({ request, index }) => ({
+            agentId: request.agentId,
+            identity: resolveProviderUsageAccountIdentity(resolved[index]?.displaySnapshotSource?.snapshot),
+        }))).map((position) => listed[position]!);
         const countByAgent = new Map<AgentId, number>();
-        for (const request of accountRequests) countByAgent.set(request.agentId, (countByAgent.get(request.agentId) ?? 0) + 1);
+        for (const { request } of distinct) countByAgent.set(request.agentId, (countByAgent.get(request.agentId) ?? 0) + 1);
         const seenByAgent = new Map<AgentId, number>();
-        return accountRequests.map((request, index): ProviderUsageAccount => {
+        return distinct.map(({ request, index }): ProviderUsageAccount => {
             const accountNumber = (seenByAgent.get(request.agentId) ?? 0) + 1;
             seenByAgent.set(request.agentId, accountNumber);
             const accountCount = countByAgent.get(request.agentId) ?? 1;
@@ -159,14 +174,7 @@ export function useProviderUsageGauges(params: Readonly<{
                 providerDisplayName: label,
             }) : null;
             return { key: request.key, agentId: request.agentId, profileRef: request.profileRef, accountNumber, accountCount, label, gauge };
-        // A provider without an identified account is only listed when it has evidence of its own:
-        // figures, a limit report, or sessions that used it.
-        }).filter((account, index) => (
-            accountRequests[index]?.identified
-            || account.gauge !== null
-            || latestRuntimeIssuesByAgent.has(account.agentId)
-            || latestRecordIdsByAgent.has(account.agentId)
-        ));
+        });
     }, [accountRequests, resolved, params.windowMode, windowModes, numberWindowMode, latestRuntimeIssuesByAgent, latestRecordIdsByAgent]);
     // Reuse each unchanged account (and its gauge) by identity, so one account's update does not
     // re-render every other account's consumers.
