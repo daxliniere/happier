@@ -91,11 +91,11 @@ From `apps/ui/android`, run through the checkout's `hstack-exec` with a configur
 
 Use `gradlew.bat` on Windows. The vendor patch preserves the renderer's span index through measurement and view adoption, adapting [upstream's ordered no-copy buffer change](https://github.com/software-mansion/enriched-markdown/commit/7bcab4e4ac63bac876802b1603b058e0d625d765) to the 0.5.0 measurement and table consumers. This unit lane compiles the native module without installing an app; device validation still requires a client attributed to the current source.
 
-## Known native fullscreen menu limitation
+## Native fullscreen menu safe-area regression
 
-The owner's supplied Android screenshot shows the session action menu extending into the status-bar and system navigation-bar regions in fullscreen mode. Record this as an unresolved safe-area issue; the owner requested a note only, with no behavior change. iOS may also be affected, but has not been verified.
+The owner's supplied Android screenshot shows the session action menu extending into the status-bar and system navigation-bar regions in fullscreen mode. The fork's source correction intersects the native Popover boundary with the safe-area provider's frame and insets, converting them into portal coordinates. It preserves already-inset portal space and combines keyboard and safe-area bounds without deducting the navigation bar twice. Web keeps its viewport boundary.
 
-When this issue is scheduled for a fix, check that the menu's usable bounds exclude system bars, display cutouts and the home-indicator region. Exercise both top and bottom placement on Android and iOS, including a portal root that is already inset, so safe-area space is not deducted twice. Verify that all actions remain reachable by scrolling when the usable height is insufficient.
+`apps/ui/sources/components/ui/popover/Popover.native.safeArea.test.tsx` exercises Android and iOS geometry for top, bottom and side placement, view and rect anchors, inset and contained portals, offset safe-area providers, keyboard overlap and missing context. These host tests do not establish device verification: replay the fullscreen session menu on Android and iOS, confirming that system bars, display cutouts and the home-indicator region stay clear and that all actions remain reachable by scrolling when usable height is insufficient.
 
 ## UI e2e authoring
 
