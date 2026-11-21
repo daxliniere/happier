@@ -310,13 +310,16 @@ vi.mock('./components/PermissionModePicker', () => ({
 const { AgentInput } = await import('./AgentInput');
 
 describe('AgentInput (modelOptionsOverride)', () => {
-    it('offers OpenCode model continuation with an empty draft and clears it when the model is applied', async () => {
+    it.each([
+        ['opencode', 'anthropic/old', 'openai/new'],
+        ['claude', 'claude-sonnet-4-5', 'claude-opus-4-6'],
+    ] as const)('offers %s model continuation with an empty draft and clears it when the model is applied', async (provider, oldModel, newModel) => {
         const onSend = vi.fn();
         const metadata = {
             path: '/tmp',
             host: 'host',
-            flavor: 'opencode',
-            sessionAppliedModelV1: { v: 1, provider: 'opencode', modelId: 'anthropic/old', updatedAt: 1 },
+            flavor: provider,
+            sessionAppliedModelV1: { v: 1, provider, modelId: oldModel, updatedAt: 1 },
         } as const;
         const props: React.ComponentProps<typeof AgentInput> = {
             sessionId: 'session-1',
@@ -324,10 +327,11 @@ describe('AgentInput (modelOptionsOverride)', () => {
             placeholder: 'Type',
             onChangeText: () => {},
             onSend,
-            agentType: 'opencode',
+            agentType: provider,
+            modelContinuationEnabled: true,
             metadata,
-            modelMode: 'openai/new',
-            modelOptionsOverride: [{ value: 'openai/new', label: 'New Model', description: '' }],
+            modelMode: newModel,
+            modelOptionsOverride: [{ value: newModel, label: 'New Model', description: '' }],
             sendMenuModes: ['agent_queue', 'server_pending', 'interrupt'],
             autocompleteKinds: [],
             autocompleteSuggestions: async () => [],
@@ -337,7 +341,10 @@ describe('AgentInput (modelOptionsOverride)', () => {
         expect(send?.props.disabled).toBe(false);
         expect(send?.props.accessibilityLabel).toBe('Continue with New Model');
         await screen.pressByTestIdAsync('session-composer-send');
-        expect(onSend).toHaveBeenCalledWith({ inputTextOverride: 'common.continue' });
+        expect(onSend).toHaveBeenCalledWith({
+            inputTextOverride: 'common.continue',
+            deliveryIntent: 'server_pending',
+        });
 
         onSend.mockClear();
         await act(async () => {
@@ -361,15 +368,20 @@ describe('AgentInput (modelOptionsOverride)', () => {
         }
 
         await act(async () => {
-            screen.tree.update(<AgentInput {...props} modelMode="anthropic/old" />);
+            screen.tree.update(<AgentInput {...props} modelMode={oldModel} />);
         });
         expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel)
             .not.toBe('Continue with New Model');
 
         await act(async () => {
+            screen.tree.update(<AgentInput {...props} modelContinuationEnabled={false} />);
+        });
+        expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel).toBe('common.send');
+
+        await act(async () => {
             screen.tree.update(<AgentInput {...props} metadata={{
                 ...metadata,
-                sessionAppliedModelV1: { ...metadata.sessionAppliedModelV1, modelId: 'openai/new', updatedAt: 2 },
+                sessionAppliedModelV1: { ...metadata.sessionAppliedModelV1, modelId: newModel, updatedAt: 2 },
             }} />);
         });
         expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel)
@@ -384,6 +396,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
         const renderComposer = (label: string) => <AgentInput
                 sessionId="session-1" value="" placeholder="Type" onChangeText={() => {}} onSend={() => {}}
                 agentType="opencode"
+                modelContinuationEnabled
                 metadata={{ path: '/tmp', host: 'host', flavor: 'opencode',
                     sessionAppliedModelV1: { v: 1, provider: 'opencode', modelId: 'old', updatedAt: 1 } }}
                 modelMode="new"

@@ -70,9 +70,6 @@ function buildOpenCodeEnvironmentVariables(opts: {
 }
 
 export const OPENCODE_UI_BEHAVIOR_OVERRIDE: AgentUiBehavior = {
-    sessionComposer: {
-        offerModelContinuation: true,
-    },
     guidance: {
         includeInSessionGettingStartedCliExamples: true,
     },

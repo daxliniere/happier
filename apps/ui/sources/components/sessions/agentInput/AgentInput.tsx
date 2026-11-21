@@ -391,6 +391,13 @@ interface AgentInputProps {
     resumeIsChecking?: boolean;
     isSendDisabled?: boolean;
     /**
+     * The live session composer offers "Continue with <model>" on an empty draft
+     * once a different model is selected than the one the session last applied.
+     * Other composers that reuse AgentInput for a session (automations,
+     * participants) leave it off: their send does not start a session turn.
+     */
+    modelContinuationEnabled?: boolean;
+    /**
      * The Agent the in-session picker has armed for the next message, or null.
      *
      * The composer does not act on it — the session's send owner does — but the
@@ -1330,8 +1337,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             metadata: props.metadata ?? null,
         });
     }, [agentId, props.metadata, props.modelMode]);
-    const hasModelContinuation = Boolean(props.sessionId && !armedComposerTarget
-        && getAgentBehavior(agentId).sessionComposer?.offerModelContinuation
+    const hasModelContinuation = Boolean(props.modelContinuationEnabled && props.sessionId && !armedComposerTarget
         && effectiveModelPolicy.pendingModelId);
 
     // Profile data
@@ -1689,15 +1695,19 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             text: liveInputText,
         });
         const hasStructuredInputMeta = Object.keys(structuredInputMetaOverrides).length > 0;
-        const submittedInputText = hasModelContinuation && liveInputText.trim().length === 0
-            && !props.hasSendableAttachments
-            ? t('common.continue') : liveInputText;
+        const isModelContinuationSend = hasModelContinuation && liveInputText.trim().length === 0
+            && !props.hasSendableAttachments;
+        const submittedInputText = isModelContinuationSend ? t('common.continue') : liveInputText;
+        // The continuation must start a new turn so the newly selected model applies;
+        // steering it into a running turn would answer it on the old model.
+        const deliveryIntent = options?.deliveryIntent
+            ?? (isModelContinuationSend && options?.forceImmediate !== true ? 'server_pending' : undefined);
         const shouldCarryLiveInputText = !props.sessionId || submittedInputText !== props.value;
         props.onSend(
-            options?.forceImmediate === true || options?.deliveryIntent != null || options?.afterSend != null || hasStructuredInputMeta
+            options?.forceImmediate === true || deliveryIntent != null || options?.afterSend != null || hasStructuredInputMeta
                 ? {
                     ...(options?.forceImmediate === true ? { forceImmediate: true } : {}),
-                    ...(options?.deliveryIntent != null ? { deliveryIntent: options.deliveryIntent } : {}),
+                    ...(deliveryIntent != null ? { deliveryIntent } : {}),
                     ...(options?.afterSend != null ? { afterSend: options.afterSend } : {}),
                     ...(hasStructuredInputMeta ? { structuredInputMetaOverrides } : {}),
                     ...(shouldCarryLiveInputText ? { inputTextOverride: submittedInputText } : {}),
