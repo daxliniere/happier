@@ -225,4 +225,44 @@ describe('provider usage configuration visibility', () => {
             } finally { await hook.unmount(); }
         } finally { storage.setState(previous); }
     });
+
+    it('orders a provider\'s accounts like Settings and names each account', async () => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const issueFor = (profileId: string, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: nowMs,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'claude-subscription', profileId, fetchedAtMs: nowMs },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        storage.setState({ isDataReady: true, sessions: {
+            one: createSessionFixture({ id: 'one', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude1', 90) }),
+            two: createSessionFixture({ id: 'two', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude2', 0) }),
+        } });
+        // The server may list profiles in any order; Settings shows them by profile id.
+        const connectedServices = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription',
+            profiles: [
+                { profileId: 'Claude2', status: 'connected', providerEmail: 'claude2@example.com' },
+                { profileId: 'Claude1', status: 'connected', providerEmail: 'claude@example.com' },
+            ],
+        }] }).connectedServicesV2;
+        try {
+            const hook = await renderHook(() => useProviderUsageGauges({
+                agentIds: ['claude'], accountProfileConnectedServicesV2: connectedServices,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }));
+            try {
+                const accounts = hook.getCurrent().accounts;
+                expect(accounts.map((account) => [account.label, account.profileRef?.profileId])).toEqual([
+                    ['Claude 1', 'Claude1'],
+                    ['Claude 2', 'Claude2'],
+                ]);
+                expect(accounts.map((account) => account.gauge?.activeAccountDisplayLabel))
+                    .toEqual(['claude@example.com', 'claude2@example.com']);
+                expect(accounts[1]?.gauge?.remainingPct).toBe(0);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
 });

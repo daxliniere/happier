@@ -10,6 +10,7 @@ import {
     type ConnectedServiceQuotaGaugeViewModel,
     type ConnectedServiceQuotaGaugeWindowMode,
 } from '@/sync/domains/connectedServices/connectedServiceQuotaGauge';
+import { resolveConnectedServiceProfileLabel } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { nowServerMs } from '@/sync/runtime/time';
 import { useSetting } from '@/sync/domains/state/storage';
 import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
@@ -43,6 +44,8 @@ type AccountRequest = Readonly<{
     metadataRecordIds?: readonly string[];
     /** False for the placeholder entry of a provider with no account of its own. */
     identified: boolean;
+    /** The connected login's email, when the account profile records it. */
+    providerEmail?: string | null;
 }>;
 
 /** A provider's own accounts, in display order: its connected logins as listed, then its native login. */
@@ -56,10 +59,20 @@ function buildAccountRequests(params: Readonly<{
         const own: AccountRequest[] = [];
         for (const serviceId of resolveProviderUsageServiceIds(agentId)) {
             const service = params.connectedServices.find((candidate) => candidate.serviceId === serviceId);
-            for (const profile of service?.profiles ?? []) {
-                const profileId = profile.profileId.trim();
-                if (!profileId) continue;
-                own.push({ key: `${agentId}:${serviceId}/${profileId}`, agentId, profileRef: { serviceId, profileId }, identified: true });
+            // The order Settings shows (by profile id), not the server's list order, so "Claude 1"
+            // is the same account the owner sees first there.
+            const profiles = [...(service?.profiles ?? [])]
+                .map((profile) => ({ profile, profileId: profile.profileId.trim() }))
+                .filter(({ profileId }) => profileId.length > 0)
+                .sort((left, right) => left.profileId.localeCompare(right.profileId, undefined, { numeric: true }));
+            for (const { profile, profileId } of profiles) {
+                own.push({
+                    key: `${agentId}:${serviceId}/${profileId}`,
+                    agentId,
+                    profileRef: { serviceId, profileId },
+                    identified: true,
+                    providerEmail: profile.providerEmail ?? null,
+                });
             }
         }
         const nativeRecordIds = params.nativeRecordIdsByAgent.get(agentId);
@@ -107,6 +120,7 @@ export function useProviderUsageGauges(params: Readonly<{
 }> {
     const windowModes = useSetting('sessionProviderUsageGaugeWindowModes');
     const numberWindowMode = useSetting('sessionProviderUsageGaugeNumberWindowMode');
+    const profileLabelByKey = useSetting('connectedServicesProfileLabelByKey');
     const latestRecordIdsByAgent = useLatestProviderUsageRecordIdsByAgent();
     const latestRuntimeIssuesByAgent = useLatestProviderUsageRuntimeIssuesByAgent();
     const accountRequests = React.useMemo(() => buildAccountRequests({
@@ -172,10 +186,21 @@ export function useProviderUsageGauges(params: Readonly<{
                 nowMs,
                 formatter: connectedServiceQuotaGaugeFormatter,
                 providerDisplayName: label,
+                // Name the login so accounts of one provider can be told apart.
+                activeAccountDisplayLabel: request.profileRef
+                    ? request.providerEmail
+                        ?? resolveConnectedServiceProfileLabel({
+                            labelsByKey: profileLabelByKey,
+                            serviceId: request.profileRef.serviceId,
+                            profileId: request.profileRef.profileId,
+                        })
+                        ?? gaugeSource.snapshot.accountLabel
+                        ?? request.profileRef.profileId
+                    : gaugeSource.snapshot.accountLabel ?? null,
             }) : null;
             return { key: request.key, agentId: request.agentId, profileRef: request.profileRef, accountNumber, accountCount, label, gauge };
         });
-    }, [accountRequests, resolved, params.windowMode, windowModes, numberWindowMode, latestRuntimeIssuesByAgent, latestRecordIdsByAgent]);
+    }, [accountRequests, resolved, params.windowMode, windowModes, numberWindowMode, latestRuntimeIssuesByAgent, latestRecordIdsByAgent, profileLabelByKey]);
     // Reuse each unchanged account (and its gauge) by identity, so one account's update does not
     // re-render every other account's consumers.
     const accounts = React.useMemo(() => {
