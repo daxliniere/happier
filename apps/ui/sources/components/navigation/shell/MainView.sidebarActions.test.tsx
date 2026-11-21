@@ -129,6 +129,11 @@ vi.mock('@/hooks/session/useVisibleSessionListViewData', () => ({
     ),
 }));
 
+// The usage strip reads the signed-in account's live usage; it has its own tests.
+vi.mock('@/components/sessions/usage/ProviderUsageStrip', () => ({
+    ProviderUsageStrip: () => null,
+}));
+
 vi.mock('@/utils/platform/responsive', () => ({
     useIsTablet: () => platformState.isTablet,
 }));

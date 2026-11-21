@@ -1712,23 +1712,58 @@ export function useAllSessions(): Session[] {
 const providerUsageRecordIdsCache = new WeakMap<Record<string, Session>, readonly string[]>();
 const providerUsageRuntimeIssueCache = new WeakMap<Record<string, Session>, Map<string, SessionRuntimeIssueV1 | null>>();
 
+const providerUsageRecordIdsByAgentCache = new WeakMap<Record<string, Session>, ReadonlyMap<string, readonly string[]>>();
+let lastProviderUsageRecordIdsByAgent: ReadonlyMap<string, readonly string[]> = new Map();
+
+function areRecordIdsByAgentEqual(
+  left: ReadonlyMap<string, readonly string[]>,
+  right: ReadonlyMap<string, readonly string[]>,
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [agentId, ids] of left) {
+    const other = right.get(agentId);
+    if (!other || other.length !== ids.length || other.some((id, index) => id !== ids[index])) return false;
+  }
+  return true;
+}
+
+/**
+ * The account usage record ids of each provider's most recent session that recorded any: that
+ * session's native login. Equal results keep one reference, so subscribers re-render only when a
+ * provider's native login changes.
+ */
+export function selectProviderUsageRecordIdsByAgent(sessions: Record<string, Session>): ReadonlyMap<string, readonly string[]> {
+  const cached = providerUsageRecordIdsByAgentCache.get(sessions);
+  if (cached) return cached;
+  const byAgent = new Map<string, readonly string[]>();
+  for (const session of sortValuesByUpdatedAtDescending(sessions)) {
+    const providerId = resolveAgentIdFromSessionMetadata(session.metadata);
+    if (!providerId || byAgent.has(providerId)) continue;
+    const recordIds = readProviderAccountUsageRecordIdsFromMetadata(session.metadata);
+    if (recordIds.length === 0) continue;
+    byAgent.set(providerId, [...new Set(recordIds)].sort());
+  }
+  const result = areRecordIdsByAgentEqual(byAgent, lastProviderUsageRecordIdsByAgent) ? lastProviderUsageRecordIdsByAgent : byAgent;
+  lastProviderUsageRecordIdsByAgent = result;
+  providerUsageRecordIdsByAgentCache.set(sessions, result);
+  return result;
+}
+
 /** Native record discovery retains the most recent account refs for each provider. */
 export function selectProviderUsageRecordIds(sessions: Record<string, Session>): readonly string[] {
   const cached = providerUsageRecordIdsCache.get(sessions);
   if (cached) return cached;
-  const seen = new Set<string>();
   const ids = new Set<string>();
-  for (const session of sortValuesByUpdatedAtDescending(sessions)) {
-    const providerId = resolveAgentIdFromSessionMetadata(session.metadata);
-    if (!providerId || seen.has(providerId)) continue;
-    const recordIds = readProviderAccountUsageRecordIdsFromMetadata(session.metadata);
-    if (recordIds.length === 0) continue;
-    seen.add(providerId);
+  for (const recordIds of selectProviderUsageRecordIdsByAgent(sessions).values()) {
     for (const recordId of recordIds) ids.add(recordId);
   }
   const result = [...ids].sort();
   providerUsageRecordIdsCache.set(sessions, result);
   return result;
+}
+
+export function useProviderUsageRecordIdsByAgent(): ReadonlyMap<string, readonly string[]> {
+  return getStorage()((state) => selectProviderUsageRecordIdsByAgent(state.sessions));
 }
 
 function shouldReplaceLatestProviderUsageRuntimeIssue(

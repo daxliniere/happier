@@ -20,6 +20,11 @@ vi.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
 }));
 
+// The usage strip reads the signed-in account's live usage; it has its own tests.
+vi.mock('@/components/sessions/usage/ProviderUsageStrip', () => ({
+    ProviderUsageStrip: () => null,
+}));
+
 vi.mock('@/components/sessions/shell/SessionListStorageTabsBar', () => ({
     SessionListStorageTabsBar: (props: Record<string, unknown>) =>
         React.createElement('SessionListStorageTabsBar', props),

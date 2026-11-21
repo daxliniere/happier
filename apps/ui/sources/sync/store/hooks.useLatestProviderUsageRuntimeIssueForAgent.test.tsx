@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createSessionFixture, standardCleanup } from '@/dev/testkit';
-import { selectProviderUsageRecordIds, selectProviderUsageRuntimeIssuesForAccounts } from './hooks';
+import { selectProviderUsageRecordIds, selectProviderUsageRecordIdsByAgent, selectProviderUsageRuntimeIssuesForAccounts } from './hooks';
 
 afterEach(() => standardCleanup());
 
@@ -81,5 +81,25 @@ describe('selectProviderUsageRuntimeIssuesForAccounts', () => {
         const sessions = { mine: session('mine', 'codex', limitIssue('codex', 1_000)) };
         const [issue] = selectProviderUsageRuntimeIssuesForAccounts(sessions, [{ providerId: 'claude', sessionId: 'mine' }]);
         expect(issue).toBeNull();
+    });
+});
+
+describe('selectProviderUsageRecordIdsByAgent', () => {
+    it('keeps each provider\'s native login separate, from its most recent session', () => {
+        const sessions = {
+            codexOld: { ...session('codexOld', 'codex', null, ['paug_v1_oldaaaaa']), updatedAt: 1 },
+            codexNew: { ...session('codexNew', 'codex', null, ['paug_v1_newbbbbb']), updatedAt: 3 },
+            claude: { ...session('claude', 'claude', null, ['paug_v1_claudecc']), updatedAt: 2 },
+            plain: { ...session('plain', 'opencode', null), updatedAt: 4 },
+        };
+        const byAgent = selectProviderUsageRecordIdsByAgent(sessions);
+        expect([...byAgent]).toEqual([['codex', ['paug_v1_newbbbbb']], ['claude', ['paug_v1_claudecc']]]);
+        expect(selectProviderUsageRecordIds(sessions)).toEqual(['paug_v1_claudecc', 'paug_v1_newbbbbb']);
+    });
+
+    it('returns the same map for a new sessions record with the same logins', () => {
+        const first = selectProviderUsageRecordIdsByAgent({ a: session('a', 'codex', null, ['paug_v1_mineaaaa']) });
+        const second = selectProviderUsageRecordIdsByAgent({ a: session('a', 'codex', null, ['paug_v1_mineaaaa']) });
+        expect(second).toBe(first);
     });
 });

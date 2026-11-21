@@ -8,6 +8,7 @@ import type { SessionStorageKind } from '@/sync/domains/session/sessionStorageKi
 import { t } from '@/text';
 import { SessionListStorageTabsBar } from './SessionListStorageTabsBar';
 import { Icon } from '@/components/ui/icons/Icon';
+import { ProviderUsageStrip } from '@/components/sessions/usage/ProviderUsageStrip';
 
 const stylesheet = StyleSheet.create(() => ({
     browseActionContainer: {
@@ -36,6 +37,7 @@ export const SessionsListStorageChrome = React.memo((props: SessionsListStorageC
 
     return (
         <>
+            <ProviderUsageStrip />
             {props.directSessionsEnabled ? (
                 <SessionListStorageTabsBar
                     activeTabId={props.storageKind}
