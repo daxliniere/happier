@@ -81,15 +81,17 @@ function canDeleteCurrentSession(target: SessionActionTarget): boolean {
     return target.canDelete && readCurrentSessionActionTarget(target)?.canDelete === true;
 }
 
-async function executeDeleteAction(target: SessionActionTarget, context?: SessionActionExecutionContext): Promise<void | false> {
+async function executeDeleteAction(target: SessionActionTarget, context?: SessionActionExecutionContext, alreadyConfirmed = false): Promise<void | false> {
     if (!target.canDelete && !target.canStopAndDelete) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
-    const confirmed = await Modal.confirm(
-        t('sessionInfo.deleteSession'),
-        // Name the session so the person can see which one they are about to delete.
-        `${getSessionName(target.session)}\n\n${t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSessionWarning' : 'sessionInfo.deleteSessionWarning')}`,
-        { cancelText: t('common.cancel'), confirmText: t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSession' : 'sessionInfo.deleteSession'), destructive: true },
-    );
-    if (!confirmed) return false;
+    if (!alreadyConfirmed) {
+        const confirmed = await Modal.confirm(
+            t('sessionInfo.deleteSession'),
+            // Name the session so the person can see which one they are about to delete.
+            `${getSessionName(target.session)}\n\n${t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSessionWarning' : 'sessionInfo.deleteSessionWarning')}`,
+            { cancelText: t('common.cancel'), confirmText: t(target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSession' : 'sessionInfo.deleteSession'), destructive: true },
+        );
+        if (!confirmed) return false;
+    }
     const deleteSession = resolveDeleteSession(context);
     if (target.canStopAndDelete) {
         let sessionMissing = false;
@@ -228,6 +230,22 @@ export async function confirmSessionStop(): Promise<boolean> {
         confirmText: t('sessionInfo.stopSession'),
         destructive: true,
     });
+}
+
+/** Row-menu deletion is opt-in, but it uses the same current-state lifecycle guards as Delete elsewhere. */
+export async function executeDirectSessionDelete(params: Readonly<{
+    target: SessionActionTarget;
+    sessionName: string;
+    context?: SessionActionExecutionContext;
+}>): Promise<void | false> {
+    if (!params.target.isOwnedByCurrentUser) throw new HappyError(t('sessionInfo.failedToDeleteSession'), false);
+    const confirmed = await Modal.confirm(
+        t('sessionInfo.deleteSession'),
+        `${params.sessionName}\n\n${t(params.target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSessionWarning' : 'sessionInfo.deleteSessionWarning')}`,
+        { cancelText: t('common.cancel'), confirmText: t(params.target.canStopAndDelete ? 'sessionInfo.stopAndDeleteSession' : 'sessionInfo.deleteSession'), destructive: true },
+    );
+    if (!confirmed) return false;
+    return await executeDeleteAction(params.target, params.context, true);
 }
 
 async function executeArchiveAction(target: SessionActionTarget, context?: SessionActionExecutionContext): Promise<void | false> {

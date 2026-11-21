@@ -5,7 +5,7 @@ import { t } from '@/text';
 import { useHappyAction } from '@/hooks/ui/useHappyAction';
 import { HappyError } from '@/utils/errors/errors';
 import type { DropdownMenuItem } from '@/components/ui/forms/dropdown/DropdownMenu';
-import { confirmSessionStop, executeSessionAction } from '@/components/sessions/actions/sessionActionExecution';
+import { confirmSessionStop, executeDirectSessionDelete, executeSessionAction } from '@/components/sessions/actions/sessionActionExecution';
 import {
     SESSION_ACTION_ARCHIVE_ID,
     SESSION_ACTION_CLEAR_ATTENTION_STANDING_ID,
@@ -38,7 +38,7 @@ import {
     resolveSessionAttentionReminderSelection,
     SESSION_ATTENTION_REMINDER_MENU_ID,
 } from './sessionAttentionReminderAction';
-import { useSettingMutable } from '@/sync/domains/state/storage';
+import { useSetting, useSettingMutable } from '@/sync/domains/state/storage';
 import {
     resolveSessionReminderPresetRule,
     sessionReminderPresetRuleKey,
@@ -134,6 +134,7 @@ export function useSessionRowActionMenu(params: Readonly<{
 }>): SessionRowActionMenuState {
     const target = params.target;
     const [customColorPickerLoading, setCustomColorPickerLoading] = React.useState(false);
+    const directDeleteEnabled = useSetting('sessionListDirectDeleteEnabled');
     const appearanceMenu = React.useMemo(
         () => (params.appearance ? { ...params.appearance, customPickerLoading: customColorPickerLoading } : null),
         [customColorPickerLoading, params.appearance],
@@ -192,6 +193,10 @@ export function useSessionRowActionMenu(params: Readonly<{
                 hideInactiveSessions: params.hideInactiveSessions,
             },
         });
+    });
+
+    const [deletingSession, performDeleteMutation] = useHappyAction(async () => {
+        await executeDirectSessionDelete({ target, sessionName: params.sessionName });
     });
 
     const confirmStopSession = React.useCallback(async () => {
@@ -258,6 +263,7 @@ export function useSessionRowActionMenu(params: Readonly<{
             trailingItems: params.trailingMenuItems,
             canMoveToFolder: typeof params.onMoveToFolder === 'function',
             canMoveToProject: typeof params.onMoveToProject === 'function',
+            directDeleteEnabled,
             reminderPresets,
             reminder: params.reminder,
             reminderNowMs: Date.now(),
@@ -281,6 +287,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         return items;
     }, [
         appearanceMenu,
+        directDeleteEnabled,
         params.iconColor,
         params.isNativeMobile,
         params.leadingMenuItems,
@@ -391,16 +398,13 @@ export function useSessionRowActionMenu(params: Readonly<{
                 await confirmArchiveSession();
                 break;
             case SESSION_ACTION_DELETE_ID:
-                try {
-                    await executeSessionAction({ actionId: SESSION_ACTION_DELETE_ID, target });
-                } catch (error) {
-                    showActionError(error);
-                }
+                performDeleteMutation();
                 break;
         }
     }, [
         confirmArchiveSession,
         confirmStopSession,
+        performDeleteMutation,
         handleAttentionStandingAction,
         handleReadStateAction,
         handleRenameSession,
@@ -496,6 +500,6 @@ export function useSessionRowActionMenu(params: Readonly<{
         handleMoreMenuSelect,
         contextMenuItems,
         handleContextMenuSelect,
-        mutatingSession: stoppingSession || archivingSession || params.archiving === true,
+        mutatingSession: stoppingSession || archivingSession || deletingSession || params.archiving === true,
     };
 }

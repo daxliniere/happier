@@ -43,16 +43,14 @@ function createOwnedRawSession(overrides: Partial<Session> = {}): Session {
 }
 
 describe('session action availability', () => {
-    it('offers the existing Delete action for an owned running session across single-session surfaces', () => {
-        const session = createOwnedRawSession({ active: true });
-        const target = createSessionActionTarget({ session, currentUserId: 'current_user', isConnected: true });
-        expect(target.canDelete).toBe(false);
-        expect(target.canStopAndDelete).toBe(true);
-        for (const surface of ['sessionInfo', 'sessionHeader', 'rowMenu', 'nativeContextMenu'] as const) {
-            expect(listVisibleSessionActionIds({ target, surface })).toContain(SESSION_ACTION_DELETE_ID);
-            expect(listVisibleSessionActionIds({ target: { ...target, canStopAndDelete: false }, surface })).not.toContain(SESSION_ACTION_DELETE_ID);
+    it('offers direct deletion in row menus only when enabled and owned', () => {
+        const owned = createSessionActionTarget({ session: createOwnedRawSession({ active: true }), currentUserId: 'current_user' });
+        const shared = createSessionActionTarget({ session: createOwnedRawSession({ owner: 'other_user', accessLevel: 'admin' }), currentUserId: 'current_user' });
+        for (const surface of ['rowMenu', 'nativeContextMenu'] as const) {
+            expect(listVisibleSessionActionIds({ target: owned, surface })).not.toContain(SESSION_ACTION_DELETE_ID);
+            expect(listVisibleSessionActionIds({ target: owned, surface, directDeleteEnabled: true })).toContain(SESSION_ACTION_DELETE_ID);
+            expect(listVisibleSessionActionIds({ target: shared, surface, directDeleteEnabled: true })).not.toContain(SESSION_ACTION_DELETE_ID);
         }
-        expect(listVisibleSessionActionIds({ target, surface: 'selectionActionBar' })).not.toContain(SESSION_ACTION_DELETE_ID);
     });
     it.each(['rowMenu', 'nativeContextMenu'] as const)('offers folder assignment for direct sessions on %s', (surface) => {
         const session: SessionListRenderableSession = {
@@ -134,7 +132,6 @@ describe('session action availability', () => {
             SESSION_ACTION_SET_ATTENTION_STANDING_ID,
             SESSION_ACTION_RENAME_ID,
             SESSION_ACTION_ARCHIVE_ID,
-            SESSION_ACTION_DELETE_ID,
         ]);
         expect(listVisibleSessionActionIds({ target: clearStandingTarget, surface: 'sessionInfo' }))
             .toContain(SESSION_ACTION_CLEAR_ATTENTION_STANDING_ID);
@@ -215,12 +212,11 @@ describe('session action availability', () => {
             SESSION_ACTION_RENAME_ID,
             SESSION_ACTION_STOP_ID,
             SESSION_ACTION_ARCHIVE_ID,
-            SESSION_ACTION_DELETE_ID,
         ]);
         expect(infoActionIds).toEqual(expect.arrayContaining(rowLifecycleActionIds));
     });
 
-    it('offers deletion only to the owner, including sessions that need stopping', () => {
+    it('shows session-info delete only for inactive sessions owned by the current user', () => {
         const sharedSession: SessionListRenderableSession = {
             id: 'shared_session',
             active: false,
@@ -281,8 +277,8 @@ describe('session action availability', () => {
         expect(listVisibleSessionActionIds({ target: sharedTarget, surface: 'sessionInfo' })).not.toContain(SESSION_ACTION_DELETE_ID);
         expect(listVisibleSessionActionIds({ target: ownedTarget, surface: 'sessionInfo' })).toContain(SESSION_ACTION_DELETE_ID);
         expect(listVisibleSessionActionIds({ target: adminTarget, surface: 'sessionInfo' })).not.toContain(SESSION_ACTION_DELETE_ID);
-        expect(listVisibleSessionActionIds({ target: activeTarget, surface: 'sessionInfo' })).toContain(SESSION_ACTION_DELETE_ID);
-        expect(listVisibleSessionActionIds({ target: connectedTarget, surface: 'sessionInfo' })).toContain(SESSION_ACTION_DELETE_ID);
+        expect(listVisibleSessionActionIds({ target: activeTarget, surface: 'sessionInfo' })).not.toContain(SESSION_ACTION_DELETE_ID);
+        expect(listVisibleSessionActionIds({ target: connectedTarget, surface: 'sessionInfo' })).not.toContain(SESSION_ACTION_DELETE_ID);
     });
 
     it('keeps missing Activity quiet while offering Stop for an exact control-serviceable host', () => {
