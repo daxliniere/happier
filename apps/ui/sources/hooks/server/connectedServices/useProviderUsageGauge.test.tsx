@@ -15,7 +15,7 @@ vi.mock('@/hooks/server/useFeatureEnabled', () => ({ useFeatureEnabled: () => tr
 afterEach(() => { standardCleanup(); __resetProviderAccountUsageSnapshotCache(); });
 
 describe('useProviderUsageGauge native usage discovery', () => {
-    it('does not show cached native account usage for the default connected profile without its own quota snapshot', async () => {
+    it('keeps a native login and a connected profile as separate accounts, never lending one\'s figures to the other', async () => {
         const previous = storage.getState();
         const connectedServicesV2 = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
             serviceId: 'openai-codex', profiles: [{ profileId: 'work', status: 'connected' }],
@@ -40,7 +40,14 @@ describe('useProviderUsageGauge native usage discovery', () => {
                 windowMode: 'most_constrained', fetchEnabled: false,
             }));
             try {
-                expect(hook.getCurrent().gauges.get('codex')).toBeUndefined();
+                const accounts = hook.getCurrent().accounts;
+                expect(accounts.map((account) => [account.profileRef?.profileId ?? 'native', account.label])).toEqual([
+                    ['work', 'Codex 1'],
+                    ['native', 'Codex 2'],
+                ]);
+                // The connected profile has no quota snapshot of its own, so it stays without figures.
+                expect(accounts[0]?.gauge).toBeNull();
+                expect(accounts[1]?.gauge?.remainingPct).toBe(0);
             } finally { await hook.unmount(); }
         } finally { storage.setState(previous); }
     });

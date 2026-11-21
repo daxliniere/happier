@@ -359,17 +359,17 @@ describe('MainView sidebar actions', () => {
         const header = screen.tree.findByType('Header');
         const headerLeft = await renderScreen(<>{header.props.headerLeft()}{header.props.title}</>);
         try {
-            expect(headerLeft.findByTestId('sessions-provider-usage-item:claude')).toBeTruthy();
-            expect(headerLeft.findByTestId('sessions-provider-usage-item:codex')).toBeNull();
-            expect(headerLeft.findByTestId('sessions-provider-usage-item:opencode')).toBeTruthy();
+            expect(headerLeft.findByTestId('sessions-provider-usage-item:claude:default')).toBeTruthy();
+            expect(headerLeft.findByTestId('sessions-provider-usage-item:codex:default')).toBeNull();
+            expect(headerLeft.findByTestId('sessions-provider-usage-item:opencode:default')).toBeTruthy();
             expect(headerLeft.findAllByType('HeaderLogo')).toHaveLength(1);
             expect(headerLeft.getTextContent()).toContain('0');
-            const ring = headerLeft.findAll((node) => node.props?.testID === 'sessions-provider-usage:claude'
+            const ring = headerLeft.findAll((node) => node.props?.testID === 'sessions-provider-usage:claude:default'
                 && node.props.label != null)[0];
             expect(ring?.props.remainingPct).toBe(0);
             expect(ring?.props.tone).toBe('critical');
             await headerLeft.pressByTestIdAsync('sessions-provider-usage-strip');
-            expect(headerLeft.findByTestId('sessions-provider-usage-section:claude')).toBeTruthy();
+            expect(headerLeft.findByTestId('sessions-provider-usage-section:claude:default')).toBeTruthy();
         } finally {
             await headerLeft.unmount();
             await screen.unmount();

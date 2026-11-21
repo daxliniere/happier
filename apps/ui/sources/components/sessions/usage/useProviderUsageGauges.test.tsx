@@ -149,4 +149,80 @@ describe('provider usage configuration visibility', () => {
             expect(hook.getCurrent().configuredAgentIds.has('codex')).toBe(false);
         } finally { await hook.unmount(); }
     });
+
+    it('lists every account of a provider separately, numbered in order, and lends none to other providers', async () => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const issueFor = (profileId: string, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: nowMs,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'claude-subscription', profileId, fetchedAtMs: nowMs },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        storage.setState({ isDataReady: true, sessions: {
+            one: createSessionFixture({ id: 'one', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-1', 40) }),
+            two: createSessionFixture({ id: 'two', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-2', 0) }),
+        } });
+        const connectedServices = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription',
+            profiles: [{ profileId: 'Claude-1', status: 'connected' }, { profileId: 'Claude-2', status: 'connected' }],
+        }] }).connectedServicesV2;
+        try {
+            const hook = await renderHook(() => useProviderUsageGauges({
+                agentIds: ['claude', 'opencode', 'pi'], accountProfileConnectedServicesV2: connectedServices,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }));
+            try {
+                const accounts = hook.getCurrent().accounts;
+                expect(accounts.map((account) => [account.agentId, account.profileRef?.profileId ?? null])).toEqual([
+                    ['claude', 'Claude-1'],
+                    ['claude', 'Claude-2'],
+                ]);
+                expect(accounts.map((account) => account.gauge?.providerDisplayName)).toEqual(['Claude 1', 'Claude 2']);
+                expect(accounts.map((account) => account.gauge?.remainingPct)).toEqual([40, 0]);
+                expect(hook.getCurrent().configuredAgentIds.has('opencode')).toBe(false);
+                expect(hook.getCurrent().configuredAgentIds.has('pi')).toBe(false);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
+    it('keys accounts by identity and keeps unchanged accounts referentially stable', async () => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const issueFor = (profileId: string, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: nowMs,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'claude-subscription', profileId, fetchedAtMs: nowMs },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        const one = createSessionFixture({ id: 'one', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-1', 40) });
+        const two = createSessionFixture({ id: 'two', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-2', 10) });
+        storage.setState({ isDataReady: true, sessions: { one, two } });
+        const both = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription',
+            profiles: [{ profileId: 'Claude-1', status: 'connected' }, { profileId: 'Claude-2', status: 'connected' }],
+        }] }).connectedServicesV2;
+        const onlySecond = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription', profiles: [{ profileId: 'Claude-2', status: 'connected' }],
+        }] }).connectedServicesV2;
+        try {
+            const hook = await renderHook((connectedServices: typeof both) => useProviderUsageGauges({
+                agentIds: ['claude'], accountProfileConnectedServicesV2: connectedServices,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }), { initialProps: both });
+            try {
+                const [first, second] = hook.getCurrent().accounts;
+                // Another account's change must not rebuild this one.
+                await act(async () => storage.setState({ sessions: { one: { ...one, lastRuntimeIssue: issueFor('Claude-1', 20) }, two } }));
+                expect(hook.getCurrent().accounts[0]).not.toBe(first);
+                expect(hook.getCurrent().accounts[1]).toBe(second);
+                // Removing the first account must not hand its identity to the second.
+                const secondKey = second?.key;
+                await hook.rerender(onlySecond);
+                expect(hook.getCurrent().accounts.map((account) => account.key)).toEqual([secondKey]);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
 });
