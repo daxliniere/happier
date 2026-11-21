@@ -180,13 +180,15 @@ export function useProviderUsageGauges(params: Readonly<{
     // re-render every other account's consumers.
     const accounts = React.useMemo(() => {
         const previous = previousAccountsRef.current;
-        const next = computedAccounts.map((account) => {
+        return computedAccounts.map((account) => {
             const prior = previous.get(account.key);
             return prior && isSameProviderUsageAccount(prior, account) ? prior : account;
         });
-        previousAccountsRef.current = new Map(next.map((account) => [account.key, account]));
-        return next;
     }, [computedAccounts]);
+    // The reuse baseline is the committed result only; a discarded render must not replace it.
+    React.useEffect(() => {
+        previousAccountsRef.current = new Map(accounts.map((account) => [account.key, account]));
+    }, [accounts]);
 
     const previousGaugesRef = React.useRef<ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>>(new Map());
     const gauges = React.useMemo(() => {
@@ -197,10 +199,11 @@ export function useProviderUsageGauges(params: Readonly<{
         const previous = previousGaugesRef.current;
         const unchanged = previous.size === byAgent.size
             && [...byAgent].every(([agentId, gauge]) => previous.get(agentId) === gauge);
-        if (unchanged) return previous;
-        previousGaugesRef.current = byAgent;
-        return byAgent;
+        return unchanged ? previous : byAgent;
     }, [accounts]);
+    React.useEffect(() => {
+        previousGaugesRef.current = gauges;
+    }, [gauges]);
 
     const configuredAgentIds = React.useMemo(() => new Set(
         params.agentIds.filter((agentId) => (
