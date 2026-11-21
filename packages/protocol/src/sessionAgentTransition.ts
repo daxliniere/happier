@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BackendTargetRefSchema, matchesBackendTargetAgentId } from './backendTargets/backendTargetRef.js';
 
+import { ConnectedServiceBindingsV1Schema } from './connect/connectedServiceBindings.js';
 import { AcpConfigOptionOverridesV1Schema } from './sessionMetadata/metadataOverridesV1.js';
 import { isSessionAgentTransitionDividerLocalId } from './sessionAgentTransitionDivider.js';
 import { PendingLocalIdSchema } from './sessionMessages/pendingLocalId.js';
@@ -74,6 +75,13 @@ export const SessionAgentTransitionSelectionV1Schema = lazySchema(() => z
     providerConnectionId: z.string().trim().min(1).max(128).nullable().optional(),
     acpSessionModeId: z.string().trim().min(1).max(128).nullable().optional(),
     sessionConfigOptionOverrides: AcpConfigOptionOverridesV1Schema.optional(),
+    /**
+     * Connected-service account the TARGET Agent continues under, chosen before the
+     * switch. Absent means the target's account default, exactly as before. A tree
+     * or daemon that cannot honor an explicit choice MUST reject the transition
+     * rather than silently continue under a different account.
+     */
+    connectedServices: ConnectedServiceBindingsV1Schema.optional(),
   })
   .strict()
   .superRefine((selection, ctx) => {

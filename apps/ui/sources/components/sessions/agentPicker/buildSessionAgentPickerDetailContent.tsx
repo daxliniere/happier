@@ -24,6 +24,11 @@ export type SessionAgentPickerSelection = Readonly<{
     modelLabel: string | null;
     sessionModeId: string | null;
     configOverrides: Readonly<Record<string, string>>;
+    /**
+     * The connected account the owner chose for this Agent before continuing, or absent for its
+     * account default. Only the in-session continuation uses it; New Session keeps its own bindings.
+     */
+    connectedServices?: ConnectedServiceBindingsV1;
 }>;
 
 /**

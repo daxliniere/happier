@@ -600,6 +600,59 @@ describe('useInSessionAgentPickerControls arm draft', () => {
         expect(hook.getCurrent().armedContinuationModelLabel).toBe('GPT-5');
     });
 
+    describe('account chosen for the armed Agent before Continue', () => {
+        const CHOSEN = {
+            v: 1 as const,
+            bindingsByServiceId: {
+                anthropic: { source: 'connected' as const, selection: 'profile' as const, profileId: 'claude1' },
+            },
+        };
+
+        it('records the chosen account on the armed intent and keeps the Agent armed', async () => {
+            const hook = await renderControls();
+            await armTarget(hook, 'agent:codex');
+            expect(hook.getCurrent().armedContinuation).toEqual(armedIntentFor('codex'));
+
+            await act(async () => {
+                hook.getCurrent().setArmedContinuationConnectedServices(CHOSEN);
+            });
+            await act(async () => { await Promise.resolve(); });
+
+            expect(hook.getCurrent().armedContinuation).toEqual({
+                ...armedIntentFor('codex'),
+                selection: { v: 1, agentId: 'codex', connectedServices: CHOSEN },
+            });
+            expect(readPersistedArm()?.intent.selection.connectedServices).toEqual(CHOSEN);
+        });
+
+        it('does not ask the machine to re-inspect the target because the account changed', async () => {
+            const hook = await renderControls();
+            await armTarget(hook, 'agent:codex');
+            const callsBefore = machineRpcWithServerScope.mock.calls.length;
+
+            await act(async () => {
+                hook.getCurrent().setArmedContinuationConnectedServices(CHOSEN);
+            });
+            await act(async () => { await Promise.resolve(); });
+
+            // Eligibility is about the target, not its account. Re-asking would also drop the arm
+            // while the new answer is pending, so choosing an account would un-arm the switch.
+            expect(machineRpcWithServerScope.mock.calls.length).toBe(callsBefore);
+            expect(hook.getCurrent().armedContinuation).not.toBeNull();
+        });
+
+        it('restores the chosen account with the arm after a remount', async () => {
+            existingSessionDraftSemanticValues.write(SCOPE, 'session-1', 'routing.agentContinuation', {
+                backendTargetKey: 'agent:codex',
+                intent: { ...armedIntentFor('codex'), selection: { v: 1, agentId: 'codex', connectedServices: CHOSEN } },
+            });
+
+            const hook = await renderControls();
+
+            expect(hook.getCurrent().armedContinuation?.selection.connectedServices).toEqual(CHOSEN);
+        });
+    });
+
     it('keeps an arm through a daemon reinspection that remains eligible', async () => {
         const hook = await renderControls();
         await armTarget(hook, 'agent:codex');
