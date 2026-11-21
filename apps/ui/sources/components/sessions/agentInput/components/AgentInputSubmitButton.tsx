@@ -142,7 +142,8 @@ export const AgentInputSubmitButton = React.memo(function AgentInputSubmitButton
      * says so, at the moment of consequence.
      */
     armedContinuationTarget?: Readonly<{ agentId: string; label: string }> | null;
-    modelContinuationLabel?: string | null;
+    /** Model or account the session continues under when an empty draft is sent. */
+    continuationLabel?: string | null;
     onSend: (options?: AgentInputSendIntentOptions) => void;
     sendMenuItems?: readonly AgentInputSendMenuItem[];
     onStop?: () => void;
@@ -151,8 +152,8 @@ export const AgentInputSubmitButton = React.memo(function AgentInputSubmitButton
     const sendMenuAnchorRef = React.useRef<View>(null);
     const [sendMenuOpen, setSendMenuOpen] = React.useState(false);
     const [sendTooltipOpen, setSendTooltipOpen] = React.useState(false);
-    const pendingModelLabel = props.hasSendableContent ? null : props.modelContinuationLabel;
-    const hasSendIntent = props.hasSendableContent || props.armedContinuationTarget != null || pendingModelLabel != null;
+    const pendingContinuationLabel = props.hasSendableContent ? null : props.continuationLabel;
+    const hasSendIntent = props.hasSendableContent || props.armedContinuationTarget != null || pendingContinuationLabel != null;
     const sendMenuEnabled = props.hasSendableContent && !props.disabled && !props.isSending
         && !props.armedContinuationTarget && Boolean(props.sendMenuItems?.length);
     const openSendMenu = () => {
@@ -200,8 +201,8 @@ export const AgentInputSubmitButton = React.memo(function AgentInputSubmitButton
         }
     }, [hasSendIntent, props.micPressHandler, props.onSend, props.onStop, showStopWhenEmpty]);
 
-    const modelContinuationLabel = !armedContinuation && pendingModelLabel
-        ? t('session.agentContinuation.sendLabel', { agent: pendingModelLabel })
+    const modelContinuationLabel = !armedContinuation && pendingContinuationLabel
+        ? t('session.agentContinuation.sendLabel', { agent: pendingContinuationLabel })
         : null;
     const continuationLabel = armedContinuation?.label ?? modelContinuationLabel;
     if (continuationLabel) {

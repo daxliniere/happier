@@ -390,6 +390,16 @@ interface AgentInputProps {
     resumeIsChecking?: boolean;
     isSendDisabled?: boolean;
     /**
+     * The live session composer offers "Continue with <model or account>" on an
+     * empty draft: once a different model is selected than the one the session
+     * last applied, or once the session was switched to another account. Other
+     * composers that reuse AgentInput for a session (automations, participants)
+     * leave it off: their send does not start a session turn.
+     */
+    sessionContinuationEnabled?: boolean;
+    /** The account the session was just switched to, until a turn is sent under it. */
+    accountContinuationLabel?: string | null;
+    /**
      * The Agent the in-session picker has armed for the next message, or null.
      *
      * The composer does not act on it — the session's send owner does — but the
@@ -1329,9 +1339,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             metadata: props.metadata ?? null,
         });
     }, [agentId, props.metadata, props.modelMode]);
-    const hasModelContinuation = Boolean(props.sessionId && !armedComposerTarget
-        && getAgentBehavior(agentId).sessionComposer?.offerModelContinuation
-        && effectiveModelPolicy.pendingModelId);
+    const sessionContinuationEnabled = Boolean(props.sessionContinuationEnabled && props.sessionId && !armedComposerTarget);
+    const hasModelContinuation = sessionContinuationEnabled && Boolean(effectiveModelPolicy.pendingModelId);
+    const accountContinuationLabel = sessionContinuationEnabled ? props.accountContinuationLabel?.trim() || null : null;
+    const hasSessionContinuation = hasModelContinuation || accountContinuationLabel !== null;
 
     // Profile data
     const profiles = useSetting('profiles');
@@ -1688,15 +1699,19 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             text: liveInputText,
         });
         const hasStructuredInputMeta = Object.keys(structuredInputMetaOverrides).length > 0;
-        const submittedInputText = hasModelContinuation && liveInputText.trim().length === 0
-            && !props.hasSendableAttachments
-            ? t('common.continue') : liveInputText;
+        const isSessionContinuationSend = hasSessionContinuation && liveInputText.trim().length === 0
+            && !props.hasSendableAttachments;
+        const submittedInputText = isSessionContinuationSend ? t('common.continue') : liveInputText;
+        // The continuation must start a new turn so the newly selected model applies;
+        // steering it into a running turn would answer it on the old model.
+        const deliveryIntent = options?.deliveryIntent
+            ?? (isSessionContinuationSend && options?.forceImmediate !== true ? 'server_pending' : undefined);
         const shouldCarryLiveInputText = !props.sessionId || submittedInputText !== props.value;
         props.onSend(
-            options?.forceImmediate === true || options?.deliveryIntent != null || options?.afterSend != null || hasStructuredInputMeta
+            options?.forceImmediate === true || deliveryIntent != null || options?.afterSend != null || hasStructuredInputMeta
                 ? {
                     ...(options?.forceImmediate === true ? { forceImmediate: true } : {}),
-                    ...(options?.deliveryIntent != null ? { deliveryIntent: options.deliveryIntent } : {}),
+                    ...(deliveryIntent != null ? { deliveryIntent } : {}),
                     ...(options?.afterSend != null ? { afterSend: options.afterSend } : {}),
                     ...(hasStructuredInputMeta ? { structuredInputMetaOverrides } : {}),
                     ...(shouldCarryLiveInputText ? { inputTextOverride: submittedInputText } : {}),
@@ -1704,7 +1719,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 : (shouldCarryLiveInputText ? { inputTextOverride: submittedInputText } : undefined),
         );
     }, [
-        hasModelContinuation,
+        hasSessionContinuation,
         keepFocusAfterSend,
         messageHistory,
         props.onSend,
@@ -2937,7 +2952,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const handleKeyPress = React.useCallback((event: KeyPressEvent): boolean => {
         const eventInputText = event.inputState?.text ?? inputRef.current?.getText?.() ?? inputStateRef.current.text;
         const hasSendableInput = resolveLiveInputTextStatus(eventInputText).hasText
-            || props.hasSendableAttachments === true || props.armedContinuationTarget != null || hasModelContinuation;
+            || props.hasSendableAttachments === true || props.armedContinuationTarget != null || hasSessionContinuation;
         const sendShortcutAction = resolveComposerSendShortcutAction(event, {
             newSessionComposer: props.newSessionAfterSendMode != null,
             keyboardShortcutsV2Enabled,
@@ -3027,17 +3042,17 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             }
         }
         return false; // Key was not handled
-    }, [handleCommandMenuKey, props.disabled, props.hasSendableAttachments, props.armedContinuationTarget, hasModelContinuation, props.canSendNextQueued, props.alternateSendMode, props.onSend, handleSend, props.onPermissionModeChange, keyboardShortcutsV2Enabled, keyboardSingleKeyShortcutsEnabled, keyboardShortcutOverridesV1, keyboardShortcutDisabledCommandIdsV1, permissionModeOrder, effectivePermissionPolicy.effectiveMode, messageHistory, stepMessageHistory, props.newSessionAfterSendMode, sendActionDisabled, enterToSendEnabled, canStopFromComposer, isAborting, runAbortShortcutAction]);
+    }, [handleCommandMenuKey, props.disabled, props.hasSendableAttachments, props.armedContinuationTarget, hasSessionContinuation, props.canSendNextQueued, props.alternateSendMode, props.onSend, handleSend, props.onPermissionModeChange, keyboardShortcutsV2Enabled, keyboardSingleKeyShortcutsEnabled, keyboardShortcutOverridesV1, keyboardShortcutDisabledCommandIdsV1, permissionModeOrder, effectivePermissionPolicy.effectiveMode, messageHistory, stepMessageHistory, props.newSessionAfterSendMode, sendActionDisabled, enterToSendEnabled, canStopFromComposer, isAborting, runAbortShortcutAction]);
 
     const handleSubmitEditing = React.useCallback(() => {
         if (Platform.OS === 'web') return;
         if (!enterToSendEnabled) return;
         if (sendActionDisabled) return;
         const hasSendableInput = liveTextStatus.hasText || props.hasSendableAttachments === true
-            || props.armedContinuationTarget != null || hasModelContinuation;
+            || props.armedContinuationTarget != null || hasSessionContinuation;
         if (!hasSendableInput) return;
         handleSend();
-    }, [enterToSendEnabled, handleSend, liveTextStatus.hasText, props.hasSendableAttachments, props.armedContinuationTarget, hasModelContinuation, sendActionDisabled]);
+    }, [enterToSendEnabled, handleSend, liveTextStatus.hasText, props.hasSendableAttachments, props.armedContinuationTarget, hasSessionContinuation, sendActionDisabled]);
 
     const submitBehavior = React.useMemo<MultiTextInputSubmitBehavior | undefined>(() => {
         if (Platform.OS === 'web') return undefined;
@@ -3267,7 +3282,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                         micPressHandler={micPressHandler}
                         micActive={micActive}
                         armedContinuationTarget={props.armedContinuationTarget ?? null}
-                        modelContinuationLabel={hasModelContinuation ? selectedModelLabel : null}
+                        continuationLabel={hasModelContinuation ? selectedModelLabel : accountContinuationLabel}
                         onSend={handleSend}
                         sendMenuItems={sendMenuItems}
                         onStop={handleAbortPress}

@@ -79,6 +79,9 @@ export type SessionConnectedServicesAuthSwitchResult = Readonly<{
     statusBadges: ReadonlyArray<AgentInputStatusBadge>;
     restartState: SessionConnectedServicesAuthSwitchRestartState;
     actionableState: SessionConnectedServicesAuthSwitchActionableState;
+    /** The account the session was just switched to; null once a turn has been sent under it. */
+    accountContinuationLabel: string | null;
+    clearAccountContinuation: () => void;
 }>;
 
 export const CONNECTED_SERVICES_AUTH_SWITCH_RESTART_FAILSAFE_MS = SESSION_INTENTIONAL_RESTART_FAILSAFE_MS;
@@ -436,6 +439,9 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
     const [providerSessionDiagnosticActionState, setProviderSessionDiagnosticActionState] =
         React.useState<ProviderSessionUnavailableDiagnosticActionState>(null);
     const [metadataUpdatedNoticeVisible, setMetadataUpdatedNoticeVisible] = React.useState(false);
+    // Keyed by session so a switch recorded for one session never offers a continuation in another.
+    const [accountContinuationSessionId, setAccountContinuationSessionId] = React.useState<string | null>(null);
+    const clearAccountContinuation = React.useCallback(() => setAccountContinuationSessionId(null), []);
     const [partialApplicationNotice, setPartialApplicationNotice] = React.useState<PartialAuthSwitchApplicationNotice | null>(null);
 
     const supportedConnectedServiceIds = React.useMemo<ReadonlyArray<ConnectedServiceId>>(() => {
@@ -552,6 +558,7 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
             setProviderSessionDiagnosticActionState(null);
             setMetadataUpdatedNoticeVisible(false);
             setPartialApplicationNotice(null);
+            setAccountContinuationSessionId(null);
             setOptimisticBindingsByServiceId(nextBindings);
 
             const bindings = buildSessionConnectedServicesBindings({
@@ -584,6 +591,7 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
                         ? nextBindings
                         : null);
                     setMetadataUpdatedNoticeVisible(result.action === 'metadata_updated');
+                    setAccountContinuationSessionId(params.sessionId);
                 }
                 return;
             }
@@ -871,6 +879,29 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
         supportedConnectedServiceIds,
     ]);
 
+    const sessionAuthLabel = React.useMemo(() => {
+        if (supportedConnectedServiceIds.length === 0) return null;
+        return resolveConnectedServicesAuthLabel({
+            supportedServiceIds: supportedConnectedServiceIds,
+            bindingsByServiceId: optimisticBindingsByServiceId,
+            profileOptionsByServiceId: labelProfileOptionsByServiceId,
+            accountGroupOptionsByServiceId,
+            defaultProfileIdByServiceId: params.settings.connectedServicesDefaultProfileByServiceId,
+            resolveServiceTitle: (serviceId) => resolveConnectedServiceShortName(serviceId as ConnectedServiceId, t),
+            nativeLabel: t('connectedServices.authChip.nativeLabel'),
+            formatConnectedCountLabel: (count) => t('connectedServices.authChip.connectedCountLabel', { count }),
+        });
+    }, [
+        accountGroupOptionsByServiceId,
+        labelProfileOptionsByServiceId,
+        optimisticBindingsByServiceId,
+        params.settings.connectedServicesDefaultProfileByServiceId,
+        supportedConnectedServiceIds,
+    ]);
+    const accountContinuationLabel = accountContinuationSessionId === params.sessionId
+        ? sessionAuthLabel?.label ?? null
+        : null;
+
     const connectedServicesAuthChip = React.useMemo<AgentInputExtraActionChip | null>(() => {
         if (params.armedContinuationAgent) {
             const defaults = resolveNewSessionConnectedServicesBindingsForAgent({
@@ -911,17 +942,8 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
                 maxWidthCap: 560,
             });
         }
-        if (supportedConnectedServiceIds.length === 0) return null;
-        const label = resolveConnectedServicesAuthLabel({
-            supportedServiceIds: supportedConnectedServiceIds,
-            bindingsByServiceId: optimisticBindingsByServiceId,
-            profileOptionsByServiceId: labelProfileOptionsByServiceId,
-            accountGroupOptionsByServiceId,
-            defaultProfileIdByServiceId: params.settings.connectedServicesDefaultProfileByServiceId,
-            resolveServiceTitle: (serviceId) => resolveConnectedServiceShortName(serviceId as ConnectedServiceId, t),
-            nativeLabel: t('connectedServices.authChip.nativeLabel'),
-            formatConnectedCountLabel: (count) => t('connectedServices.authChip.connectedCountLabel', { count }),
-        });
+        if (!sessionAuthLabel) return null;
+        const label = sessionAuthLabel;
 
         return createConnectedServicesAuthActionChip({
             key: 'session-connected-services-auth',
@@ -947,6 +969,7 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
         optimisticBindingsByServiceId,
         params.settings.connectedServicesDefaultProfileByServiceId,
         popoverContent,
+        sessionAuthLabel,
         supportedConnectedServiceIds,
     ]);
 
@@ -1080,5 +1103,12 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
         setBindingForService,
     ]);
 
-    return { connectedServicesAuthChip, statusBadges, restartState, actionableState };
+    return {
+        connectedServicesAuthChip,
+        statusBadges,
+        restartState,
+        actionableState,
+        accountContinuationLabel,
+        clearAccountContinuation,
+    };
 }
