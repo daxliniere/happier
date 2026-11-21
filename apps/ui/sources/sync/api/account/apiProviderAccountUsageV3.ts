@@ -1,5 +1,5 @@
 import type { AuthCredentials } from '@/auth/storage/tokenStorage';
-import { serverFetch } from '@/sync/http/client';
+import { connectedServiceFetch } from './connectedServiceNetworkError';
 import { HappyError } from '@/utils/errors/errors';
 import { backoff } from '@/utils/timing/time';
 
@@ -36,7 +36,8 @@ export async function getProviderAccountUsageSnapshotPlain(
 ): Promise<Readonly<{ snapshot: ProviderAccountUsageSnapshotV1; metadata: ConnectedServiceQuotaReadMetadata }> | null> {
   const recordId = ProviderAccountUsageRecordIdSchema.parse(params.recordId);
   return await backoff(async () => {
-    const response = await serverFetch(
+    const response = await connectedServiceFetch(
+      'getProviderAccountUsageSnapshotPlain',
       `/v3/connect/provider-account-usage/${encodeURIComponent(recordId)}`,
       {
         method: 'GET',
@@ -95,7 +96,8 @@ export async function requestProviderAccountUsageRefreshPlain(
 ): Promise<boolean> {
   const recordId = ProviderAccountUsageRecordIdSchema.parse(params.recordId);
   return await backoff(async () => {
-    const response = await serverFetch(
+    const response = await connectedServiceFetch(
+      'requestProviderAccountUsageRefreshPlain',
       `/v3/connect/provider-account-usage/${encodeURIComponent(recordId)}/refresh`,
       {
         method: 'POST',
