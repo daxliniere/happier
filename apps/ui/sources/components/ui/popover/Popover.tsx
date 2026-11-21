@@ -2,6 +2,7 @@ import * as React from 'react';
 import { usePathname } from 'expo-router';
 import { Keyboard, Platform, View, type StyleProp, type ViewProps, type ViewStyle, useWindowDimensions } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
+import { SafeAreaFrameContext, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { usePopoverBoundaryRef } from './PopoverBoundary';
 import { usePopoverScrollSourceRef } from './PopoverScrollSource';
 import { requireRadixDismissableLayer } from '@/utils/web/radixCjs';
@@ -278,6 +279,8 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
     const boundaryRef = boundaryRefProp === undefined ? boundaryFromContext : boundaryRefProp;
     const followScrollRef = followScrollRefProp === undefined ? scrollSourceFromContext : followScrollRefProp;
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const safeAreaInsets = React.useContext(SafeAreaInsetsContext);
+    const safeAreaFrame = React.useContext(SafeAreaFrameContext);
     const overlayPortal = useOverlayPortal();
     const modalPortalTarget = useModalPortalTarget();
     const portalTarget = usePopoverPortalTarget();
@@ -538,6 +541,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
                 Platform.OS !== 'web' && shouldPortalNative
                     ? (portalTarget?.rootRef?.current as any)
                     : null;
+            const portalRootWindowRect = portalRootNode ? await measureInWindow(portalRootNode) : null;
             // On web, if boundary is a ScrollView ref, measure the real scrollable node to match
             // the element we attach scroll listeners to. This reduces coordinate mismatches.
             const boundaryNode =
@@ -566,7 +570,6 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
                     const portalLayoutHeight = portalLayout?.height ?? 0;
                     const hasPortalLayout = portalLayoutWidth > 0 && portalLayoutHeight > 0;
 
-                    const portalRootWindowRect = await measureInWindow(portalRootNode);
                     if (portalRootWindowRect) {
                         const deltaRect: WindowRect = {
                             x: anchorRectFromProp.x - portalRootWindowRect.x,
@@ -635,7 +638,6 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
                     anchorWindowRect: WindowRect;
                 }> | null> => {
                     if (Platform.OS === 'web') return null;
-                    const portalRootWindowRect = await measureInWindow(portalRootNode);
                     const anchorWindowRect = await measureInWindow(anchorNode);
                     if (!portalRootWindowRect || !anchorWindowRect) return null;
                     const deltaRect: WindowRect = {
@@ -714,7 +716,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
                         return { x: 0, y: 0, width: targetLayout.width, height: targetLayout.height };
                     }
 
-                    const rootRect = await measureInWindow(portalRootNode);
+                    const rootRect = portalRootWindowRect;
                     if (rootRect?.width && rootRect?.height) {
                         return { x: 0, y: 0, width: rootRect.width, height: rootRect.height };
                     }
@@ -765,13 +767,31 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
             // Treat the on-screen keyboard as reducing the usable bottom viewport. Without this,
             // `placement="auto"` can flip a menu into the region covered by the keyboard, making it
             // look like the popover disappeared.
-            const boundaryRect: WindowRect =
+            let boundaryRect: WindowRect =
                 keyboardHeight > 0
                     ? {
                         ...boundaryRectBase,
                         height: Math.max(0, boundaryRectBase.height - keyboardHeight),
                     }
                     : boundaryRectBase;
+
+            if (Platform.OS !== 'web' && safeAreaInsets) {
+                // Intersect in the anchor's coordinate space rather than subtracting insets from
+                // every portal. A contained/already-inset portal must not lose that space twice.
+                const frame = safeAreaFrame ?? getFallbackBoundaryRect({ windowWidth, windowHeight });
+                const origin = anchorIsPortalRelative ? portalRootWindowRect : null;
+                const left = Math.max(boundaryRect.x, frame.x + safeAreaInsets.left - (origin?.x ?? 0));
+                const top = Math.max(boundaryRect.y, frame.y + safeAreaInsets.top - (origin?.y ?? 0));
+                const right = Math.min(
+                    boundaryRect.x + boundaryRect.width,
+                    frame.x + frame.width - safeAreaInsets.right - (origin?.x ?? 0),
+                );
+                const bottom = Math.min(
+                    boundaryRect.y + boundaryRect.height,
+                    frame.y + frame.height - safeAreaInsets.bottom - (origin?.y ?? 0),
+                );
+                boundaryRect = { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+            }
 
             // Shrink the usable boundary so the popover doesn't sit flush to the container edges.
             // (This also makes maxHeight/maxWidth clamping respect the margin.)
@@ -871,7 +891,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         // nothing to wait for. The retry ladder above still yields a frame BETWEEN attempts, which
         // is what actually handles the "layout settles late" case this used to cover.
         void measureWithRetries(0);
-    }, [anchorRef, anchorRectFromProp, boundaryRef, edgeInsets.horizontal, edgeInsets.vertical, gap, keyboardBottomInsetProp, maxHeightCap, maxWidthCap, open, placement, placementMinSpace, resolvedAnchorMode, shouldPortalNative, shouldPortalWeb, windowHeight, windowWidth, portalTarget]);
+    }, [anchorRef, anchorRectFromProp, boundaryRef, edgeInsets.horizontal, edgeInsets.vertical, gap, keyboardBottomInsetProp, maxHeightCap, maxWidthCap, open, placement, placementMinSpace, resolvedAnchorMode, safeAreaFrame, safeAreaInsets, shouldPortalNative, shouldPortalWeb, windowHeight, windowWidth, portalTarget]);
 
     React.useLayoutEffect(() => {
         if (!open) return;
