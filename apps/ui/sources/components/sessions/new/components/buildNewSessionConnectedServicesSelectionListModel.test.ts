@@ -375,6 +375,27 @@ describe('buildNewSessionConnectedServicesSelectionListModel', () => {
         expect(model.selectedOptionId).toBe(createNativeServiceOptionId('anthropic'));
     });
 
+    it('selects native auth, not the default account, when the explicitly bound profile is unavailable', () => {
+        // The auth chip resolves this binding to native ("using native auth"), so the list must agree:
+        // ticking the default account here showed an account the session is not using.
+        const model = buildModel({
+            profileOptionsByServiceId: {
+                anthropic: [{ profileId: 'claude2', status: 'connected', providerEmail: 'claude2@example.com' }],
+            },
+            bindingsByServiceId: { anthropic: { source: 'connected', selection: 'profile', profileId: 'claude1' } },
+            defaultProfileIdByServiceId: { anthropic: 'claude2' },
+            renderSelectionIcon: ({ selected }) => selected ? 'selected-icon' : 'unselected-icon',
+        });
+
+        const options = firstStaticSection(model).options;
+        const accountOption = options.find((option) => option.id === createConnectedServiceOptionId('anthropic', 'claude2'));
+        const nativeOption = options.find((option) => option.id === createNativeServiceOptionId('anthropic'));
+
+        expect(accountOption?.icon).toBe('unselected-icon');
+        expect(nativeOption?.icon).toBe('selected-icon');
+        expect(model.selectedOptionId).toBe(createNativeServiceOptionId('anthropic'));
+    });
+
     it('keeps a stored group default visible and disabled when it is not ready', () => {
         const model = buildModel({
             bindingsByServiceId: {

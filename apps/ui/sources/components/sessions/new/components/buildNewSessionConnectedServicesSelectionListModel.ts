@@ -204,8 +204,14 @@ export function buildNewSessionConnectedServicesSelectionListModel(
         const effectiveProfileId = binding?.source === 'connected' && !unresolvedGroupBinding
             ? selectedGroup
                 ? resolveConnectedServiceAccountGroupViableProfileId({ group: selectedGroup, connectedProfileIds: selectableProfileIds })
-                : explicitProfileId && selectableProfileIds.includes(explicitProfileId)
-                ? explicitProfileId
+                // Same rule as resolveConnectedServicesAuthLabel: a binding that names a specific profile
+                // is only effective while that profile is selectable. If it is not, the session runs on
+                // native auth, so falling back to the default account here would tick an account the
+                // chip says is not in use. Only a binding with no named profile follows the default.
+                : explicitProfileId
+                ? selectableProfileIds.includes(explicitProfileId)
+                    ? explicitProfileId
+                    : null
                 : resolveConnectedServiceDefaultProfileId({
                     serviceId,
                     connectedProfileIds: selectableProfileIds,
