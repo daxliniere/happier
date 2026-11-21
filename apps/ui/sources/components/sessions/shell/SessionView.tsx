@@ -5421,13 +5421,13 @@ function SessionViewLoaded({
             let semanticDraftCurrentnessAfterHandoffClear: SessionDraftCurrentness | null = null;
             let outboundHandoffLocalId: string | null = null;
             let didRecordOutboundAccepted = false;
-            const recordOutboundAccepted = () => {
+            const recordOutboundAccepted = (acceptedDestination: SessionComposerSendDestination) => {
                 if (didRecordOutboundAccepted) return;
                 didRecordOutboundAccepted = true;
                 trackMessageSent();
                 requestMountedTranscriptFollow();
                 // A turn under the newly switched account has started; stop offering to continue.
-                if (sessionAgentSendDestination.kind === 'sessionAgent') {
+                if (acceptedDestination.kind === 'sessionAgent') {
                     clearAccountContinuation();
                 }
             };
@@ -5743,7 +5743,7 @@ function SessionViewLoaded({
                                     if (shouldSendReviewComments) {
                                         clearSentReviewCommentDrafts();
                                     }
-                                    recordOutboundAccepted();
+                                    recordOutboundAccepted(attachmentSendDestination);
                                 },
                             );
                             return;
@@ -5784,7 +5784,7 @@ function SessionViewLoaded({
                                 outboundHandoffLocalId = handoff.localId ?? outboundHandoffLocalId;
                                 clearAttachmentsAfterProjectionHandoff();
                                 if (handoff.persistence === 'pending') {
-                                    recordOutboundAccepted();
+                                    recordOutboundAccepted(attachmentSendDestination);
                                 }
                             },
                         });
@@ -5801,7 +5801,7 @@ function SessionViewLoaded({
                         if (!didClearForAttachmentHandoff) {
                             clearAttachmentsAfterProjectionHandoff();
                         }
-                        recordOutboundAccepted();
+                        recordOutboundAccepted(attachmentSendDestination);
                     } catch (e) {
                         if (canRestoreFailedAttachmentHandoffSnapshot()) {
                             restoreAfterFailedOutboundHandoff(attachmentDraftsForRestore);
@@ -5873,7 +5873,7 @@ function SessionViewLoaded({
                             return;
                         }
                         clearAfterOutboundHandoff();
-                        recordOutboundAccepted();
+                        recordOutboundAccepted(voiceDestination);
                         if (shouldSendReviewComments) {
                             clearSentReviewCommentDrafts();
                         }
@@ -5940,7 +5940,7 @@ function SessionViewLoaded({
                             return;
                         }
                         clearAfterOutboundHandoff();
-                        recordOutboundAccepted();
+                        recordOutboundAccepted(executionRunDestination);
                     } finally {
                         setIsComposerSendPending(false);
                     }
@@ -5976,7 +5976,7 @@ function SessionViewLoaded({
                                 if (shouldSendReviewComments) {
                                     clearSentReviewCommentDrafts();
                                 }
-                                recordOutboundAccepted();
+                                recordOutboundAccepted(sendDestination);
                             },
                         );
                         return;
@@ -6018,7 +6018,7 @@ function SessionViewLoaded({
                             outboundHandoffLocalId = handoff.localId ?? outboundHandoffLocalId;
                             clearAfterOutboundHandoff();
                             if (handoff.persistence === 'pending') {
-                                recordOutboundAccepted();
+                                recordOutboundAccepted(sendDestination);
                             }
                         },
                     });
@@ -6031,7 +6031,7 @@ function SessionViewLoaded({
                         return;
                     }
 
-                    recordOutboundAccepted();
+                    recordOutboundAccepted(sendDestination);
 
 
                     if (shouldSendReviewComments) {
