@@ -148,8 +148,9 @@ export function ProviderUsageDetails(props: Readonly<{
                         testID={`agent-input-provider-usage-meter-bar:${row.meterId}`}
                         tone={mapGaugeToneToMeterTone(row.tone)}
                         remainingPct={row.remainingPct}
-                        // The bar shows quota consumed while its label and colour describe quota remaining.
-                        fillFraction={(100 - row.remainingPct) / 100}
+                        // Remaining-first fill, matching the "% left" label; an exhausted limit
+                        // draws a full bar in its danger colour rather than an empty track.
+                        fillFraction={row.remainingPct <= 0 ? 1 : row.remainingPct / 100}
                         height={5}
                     /> : null}
                     {row.usedLimitLabel ? (
