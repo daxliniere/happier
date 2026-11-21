@@ -91,6 +91,12 @@ From `apps/ui/android`, run through the checkout's `hstack-exec` with a configur
 
 Use `gradlew.bat` on Windows. The vendor patch preserves the renderer's span index through measurement and view adoption, adapting [upstream's ordered no-copy buffer change](https://github.com/software-mansion/enriched-markdown/commit/7bcab4e4ac63bac876802b1603b058e0d625d765) to the 0.5.0 measurement and table consumers. This unit lane compiles the native module without installing an app; device validation still requires a client attributed to the current source.
 
+## Known native fullscreen menu limitation
+
+The owner's supplied Android screenshot shows the session action menu extending into the status-bar and system navigation-bar regions in fullscreen mode. Record this as an unresolved safe-area issue; the owner requested a note only, with no behavior change. iOS may also be affected, but has not been verified.
+
+When this issue is scheduled for a fix, check that the menu's usable bounds exclude system bars, display cutouts and the home-indicator region. Exercise both top and bottom placement on Android and iOS, including a portal root that is already inset, so safe-area space is not deducted twice. Verify that all actions remain reachable by scrolling when the usable height is insufficient.
+
 ## UI e2e authoring
 
 - Prefer stable React Native `testID` selectors, queried in Playwright with `getByTestId(...)`.
