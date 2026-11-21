@@ -218,13 +218,6 @@ export const ACCOUNT_DISPLAY_SETTING_DEFINITIONS = defineSettingDefinitions({
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
     },
-    sessionListDirectDeleteEnabled: {
-        schema: z.boolean(),
-        default: false,
-        description: 'Show delete in session row menus',
-        storageScope: 'account',
-        analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'boolean', privacy: 'safe', identityScope: 'person' },
-    },
     sessionListWorkingStatusAnimatedTextEnabled: {
         schema: z.boolean(),
         default: true,
