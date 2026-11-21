@@ -963,7 +963,7 @@ describe('runSessionAgentTransition', () => {
             }),
           });
 
-          expect(result).toEqual({ type: 'rejected', code: 'target_unavailable', sourceEffect: 'none' });
+          expect(result).toEqual({ type: 'rejected', code: 'connected_account_unsupported', sourceEffect: 'none' });
           expect(mocks.requestSessionStop).not.toHaveBeenCalled();
           expect(mocks.commitSessionAgentTransitionCutover).not.toHaveBeenCalled();
         });

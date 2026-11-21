@@ -661,7 +661,7 @@ export async function runSessionAgentTransition(params: Readonly<{
   if (
     request.selection.connectedServices
     && !isExplicitConnectedServicesChoiceSupported(targetAgentId, request.selection.connectedServices)
-  ) return effects.rejected('target_unavailable');
+  ) return effects.rejected('connected_account_unsupported');
   const configuredBackend = targetBackendTarget.kind === 'configuredAcpBackend' && accountSettings
     ? resolveConfiguredAcpBackendFromAccountSettings(accountSettings, targetBackendTarget.backendId) : null;
   if (configuredBackend && accountSettings) {
