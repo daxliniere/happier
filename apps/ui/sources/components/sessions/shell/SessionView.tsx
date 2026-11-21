@@ -6317,7 +6317,7 @@ function SessionViewLoaded({
                 acpConfigOptionOverridesOverride={optimisticSessionConfigOptionOverrides}
                 modelMode={modelMode}
                 onModelModeChange={updateModelMode}
-                modelContinuationEnabled={!pendingMessageEdit}
+                modelContinuationEnabled={canChooseComposerSendActions}
                 modelDiscoveryContext={resolveSessionModelDiscoveryContext}
                 metadata={session.metadata}
                 profileId={liveComposerState.profileId ?? undefined}
