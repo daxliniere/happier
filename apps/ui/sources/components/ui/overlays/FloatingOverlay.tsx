@@ -110,8 +110,8 @@ interface FloatingOverlayProps {
     /** Optional arrow that points back to the anchor (useful for context menus). */
     arrow?: FloatingOverlayArrow;
     /**
-     * Defaults to legacy modal chrome; bounded popovers can opt into theme surface chrome.
-     * `menu` is theme surface chrome plus the 2px strong-border outline shared by menus and pickers.
+     * Controls the surface treatment; every floating popup receives the shared 2px outline.
+     * `menu` uses theme surface chrome for menus and pickers.
      */
     surfaceChrome?: 'modal' | 'theme' | 'menu';
     /**
@@ -242,7 +242,7 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
         <Animated.View style={[
             themedChrome ? styles.themedSurfaceShadowFrame : styles.modalShadowFrame,
             { maxHeight },
-            surfaceChrome === 'menu' ? styles.menuOutline : null,
+            styles.menuOutline,
             containerStyle,
         ]}>
             <Animated.View style={[

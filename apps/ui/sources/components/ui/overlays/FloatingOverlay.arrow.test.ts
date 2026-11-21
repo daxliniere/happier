@@ -286,11 +286,25 @@ describe('FloatingOverlay', () => {
         expect(frameStyle.borderTopWidth).toBe(0);
     });
 
-    it('does not outline plain theme or modal chrome', async () => {
-        for (const surfaceChrome of ['modal', 'theme'] as const) {
+    it('outlines every floating popup surface with the same strong theme border', async () => {
+        shared.themeOverride = {
+            colors: {
+                border: { strong: 'rgba(0,0,0,0.5)' },
+            },
+        };
+
+        for (const props of [
+            { maxHeight: 200 },
+            { maxHeight: 200, surfaceChrome: 'modal' },
+            { maxHeight: 200, surfaceChrome: 'theme' },
+            { maxHeight: 200, surfaceChrome: 'menu' },
+        ]) {
             vi.resetModules();
-            const screen = await renderOverlay({ maxHeight: 200, surfaceChrome });
-            expect(findOverlayFrameStyle(screen).borderWidth).toBeUndefined();
+            const screen = await renderOverlay(props);
+            expect(findOverlayFrameStyle(screen)).toMatchObject({
+                borderWidth: 2,
+                borderColor: 'rgba(0,0,0,0.5)',
+            });
         }
     });
 
