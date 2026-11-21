@@ -15,26 +15,38 @@ export function resolveProviderUsageAccountIdentity(snapshot: Readonly<{
 }
 
 /**
- * Indices of the entries to show: one per provider login. The same login can appear twice, for
- * example as a connected profile and as the native login a default account resolves to; the first
- * (connected) entry is kept so its usage is not shown twice. Two entries are the same login when
- * they share any identity form, so one known by id and one known only by email still match.
+ * Indices of the entries to show: one per provider login, in their original order. The same login
+ * can appear more than once, for example as a connected profile and as the native login a default
+ * account resolves to. Entries of one provider that share any identity form, directly or through
+ * other entries, are one login; its earliest (connected) entry is kept. Entries with no identity
+ * are never merged.
  */
 export function selectDistinctProviderUsageAccounts(entries: ReadonlyArray<Readonly<{
     agentId: string;
     identity: readonly string[];
 }>>): number[] {
-    const seen = new Set<string>();
-    const kept: number[] = [];
-    entries.forEach((entry, index) => {
-        const keys = entry.identity.map((key) => `${entry.agentId}\u0000${key}`);
-        if (keys.some((key) => seen.has(key))) {
-            // Remember this duplicate's other forms too, so a third entry known only by them still matches.
-            for (const key of keys) seen.add(key);
-            return;
+    // Union entries that share an identity key (scoped to their provider).
+    const parent = entries.map((_, index) => index);
+    const find = (index: number): number => {
+        while (parent[index] !== index) {
+            parent[index] = parent[parent[index]!]!;
+            index = parent[index]!;
         }
-        for (const key of keys) seen.add(key);
-        kept.push(index);
+        return index;
+    };
+    const ownerByKey = new Map<string, number>();
+    entries.forEach((entry, index) => {
+        for (const key of entry.identity) {
+            const scoped = `${entry.agentId}\u0000${key}`;
+            const owner = ownerByKey.get(scoped);
+            if (owner === undefined) {
+                ownerByKey.set(scoped, index);
+                continue;
+            }
+            const [left, right] = [find(owner), find(index)];
+            if (left !== right) parent[Math.max(left, right)] = Math.min(left, right);
+        }
     });
-    return kept;
+    // The root of each group is its earliest entry.
+    return entries.map((_, index) => index).filter((index) => find(index) === index);
 }

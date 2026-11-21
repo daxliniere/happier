@@ -32,4 +32,14 @@ describe('provider usage account identity', () => {
             { agentId: 'claude', identity: ['id:acct-2'] },
         ])).toEqual([0]);
     });
+
+    it('merges earlier entries that a later entry shows to be the same login', () => {
+        expect(selectDistinctProviderUsageAccounts([
+            { agentId: 'claude', identity: ['id:acct-2'] },
+            { agentId: 'claude', identity: ['label:claude2@example.com'] },
+            { agentId: 'claude', identity: ['id:acct-2', 'label:claude2@example.com'] },
+            { agentId: 'claude', identity: [] },
+            { agentId: 'codex', identity: ['id:acct-2'] },
+        ])).toEqual([0, 3, 4]);
+    });
 });
