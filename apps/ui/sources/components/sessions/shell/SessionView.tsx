@@ -5129,7 +5129,14 @@ function SessionViewLoaded({
             serverId: capabilityServerId,
             agentCore: getAgentCore(liveComposerState.agentId),
             armedContinuationAgent: armedContinuationAgentId
-                ? { agentId: armedContinuationAgentId, agentCore: getAgentCore(armedContinuationAgentId) }
+                ? {
+                    agentId: armedContinuationAgentId,
+                    agentCore: getAgentCore(armedContinuationAgentId),
+                    // The account is chosen before Continue and rides the armed intent; nothing
+                    // about the running session's own binding changes until the switch is sent.
+                    connectedServices: inSessionAgentPicker.armedContinuation?.selection.connectedServices ?? null,
+                    onConnectedServicesChange: inSessionAgentPicker.setArmedContinuationConnectedServices,
+                }
                 : null,
             sessionMetadata: session.metadata,
             settings: {
