@@ -46,6 +46,15 @@ describe('usage refresh indicator', () => {
         await screen.unmount();
     });
 
+    it('keeps a partly used quota as a remaining-first bar', async () => {
+        const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work', 30)} />);
+        const fill = screen.findByTestId('agent-input-provider-usage-meter-bar:weekly:fill');
+        if (!fill) throw new Error('Expected the weekly quota meter fill');
+
+        expect(fill.props.style).toContainEqual(expect.objectContaining({ width: '70%' }));
+        await screen.unmount();
+    });
+
     it('appears only for the queried native account and disappears when fresh usage arrives', async () => {
         api.request.mockResolvedValue(true);
         api.get.mockResolvedValue({
