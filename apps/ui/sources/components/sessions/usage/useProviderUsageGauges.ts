@@ -22,6 +22,7 @@ type ConnectedProfileRef = Readonly<{ serviceId: string; profileId: string }>;
 
 /** One provider account (a connected login or the native login) and its usage. */
 export type ProviderUsageAccount = Readonly<{
+    /** The account's identity (provider + login), stable when other accounts come and go. */
     key: string;
     agentId: AgentId;
     /** The connected login, or null for the provider's native login / an unidentified account. */
@@ -69,6 +70,14 @@ function buildAccountRequests(params: Readonly<{
         requests.push(...(own.length > 0 ? own : [{ key: `${agentId}:default`, agentId, profileRef: null, identified: false }]));
     }
     return requests;
+}
+
+function isSameProviderUsageAccount(left: ProviderUsageAccount, right: ProviderUsageAccount): boolean {
+    return left.key === right.key
+        && left.accountNumber === right.accountNumber
+        && left.accountCount === right.accountCount
+        && left.label === right.label
+        && JSON.stringify(left.gauge) === JSON.stringify(right.gauge);
 }
 
 /**
@@ -126,7 +135,8 @@ export function useProviderUsageGauges(params: Readonly<{
         });
     }, [accountRequests, latestRecordIdsByAgent, refreshContext]);
 
-    const accounts = React.useMemo(() => {
+    const previousAccountsRef = React.useRef<ReadonlyMap<string, ProviderUsageAccount>>(new Map());
+    const computedAccounts = React.useMemo(() => {
         const nowMs = nowServerMs();
         const countByAgent = new Map<AgentId, number>();
         for (const request of accountRequests) countByAgent.set(request.agentId, (countByAgent.get(request.agentId) ?? 0) + 1);
@@ -148,9 +158,7 @@ export function useProviderUsageGauges(params: Readonly<{
                 formatter: connectedServiceQuotaGaugeFormatter,
                 providerDisplayName: label,
             }) : null;
-            // Stable per provider position: the provider id alone while it has one account.
-            const key = accountCount > 1 ? `${request.agentId}:${accountNumber}` : request.agentId;
-            return { key, agentId: request.agentId, profileRef: request.profileRef, accountNumber, accountCount, label, gauge };
+            return { key: request.key, agentId: request.agentId, profileRef: request.profileRef, accountNumber, accountCount, label, gauge };
         // A provider without an identified account is only listed when it has evidence of its own:
         // figures, a limit report, or sessions that used it.
         }).filter((account, index) => (
@@ -160,12 +168,29 @@ export function useProviderUsageGauges(params: Readonly<{
             || latestRecordIdsByAgent.has(account.agentId)
         ));
     }, [accountRequests, resolved, params.windowMode, windowModes, numberWindowMode, latestRuntimeIssuesByAgent, latestRecordIdsByAgent]);
+    // Reuse each unchanged account (and its gauge) by identity, so one account's update does not
+    // re-render every other account's consumers.
+    const accounts = React.useMemo(() => {
+        const previous = previousAccountsRef.current;
+        const next = computedAccounts.map((account) => {
+            const prior = previous.get(account.key);
+            return prior && isSameProviderUsageAccount(prior, account) ? prior : account;
+        });
+        previousAccountsRef.current = new Map(next.map((account) => [account.key, account]));
+        return next;
+    }, [computedAccounts]);
 
+    const previousGaugesRef = React.useRef<ReadonlyMap<AgentId, ConnectedServiceQuotaGaugeViewModel>>(new Map());
     const gauges = React.useMemo(() => {
         const byAgent = new Map<AgentId, ConnectedServiceQuotaGaugeViewModel>();
         for (const account of accounts) {
             if (account.gauge && !byAgent.has(account.agentId)) byAgent.set(account.agentId, account.gauge);
         }
+        const previous = previousGaugesRef.current;
+        const unchanged = previous.size === byAgent.size
+            && [...byAgent].every(([agentId, gauge]) => previous.get(agentId) === gauge);
+        if (unchanged) return previous;
+        previousGaugesRef.current = byAgent;
         return byAgent;
     }, [accounts]);
 
