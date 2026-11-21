@@ -148,10 +148,9 @@ export function ProviderUsageDetails(props: Readonly<{
                         testID={`agent-input-provider-usage-meter-bar:${row.meterId}`}
                         tone={mapGaugeToneToMeterTone(row.tone)}
                         remainingPct={row.remainingPct}
-                        // Remaining-first fill: the adjacent label says "% left" and the
-                        // tone derives from remaining — the fill must match that language
-                        // (battery model; user decision 2026-07-10, reverting 5ad4d06be).
-                        fillFraction={row.remainingPct / 100}
+                        // Remaining-first fill, matching the "% left" label; an exhausted limit
+                        // draws a full bar in its danger colour rather than an empty track.
+                        fillFraction={row.remainingPct <= 0 ? 1 : row.remainingPct / 100}
                         height={5}
                     /> : null}
                     {row.usedLimitLabel ? (

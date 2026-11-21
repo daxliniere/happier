@@ -21,11 +21,11 @@ vi.mock('@/sync/api/account/apiConnectedServicesQuotasV3', () => ({ requestConne
 
 const recordId = 'paug_v1_abcdefgh';
 const credentialScope = resolveAuthCredentialsScopeKey(auth.credentials);
-function gauge(profileId: string) {
+function gauge(profileId: string, used = 30) {
     const result = computeConnectedServiceQuotaGaugeViewModel({
         snapshot: { v: 1, serviceId: 'openai-codex', profileId, fetchedAt: 1_000, staleAfterMs: 60_000,
             planLabel: null, accountLabel: null,
-            meters: [{ meterId: 'weekly', label: 'Weekly', used: 30, limit: 100, unit: 'count',
+            meters: [{ meterId: 'weekly', label: 'Weekly', used, limit: 100, unit: 'count',
                 utilizationPct: null, resetsAt: null, status: 'ok', details: {} }] },
         windowMode: 'most_constrained', nowMs: 1_000, formatter: connectedServiceQuotaGaugeFormatter,
     });
@@ -37,6 +37,24 @@ beforeEach(() => { vi.useFakeTimers(); vi.clearAllMocks(); });
 afterEach(() => vi.useRealTimers());
 
 describe('usage refresh indicator', () => {
+    it('shows an exhausted quota as a full danger bar', async () => {
+        const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work', 100)} />);
+        const fill = screen.findByTestId('agent-input-provider-usage-meter-bar:weekly:fill');
+        if (!fill) throw new Error('Expected the weekly quota meter fill');
+
+        expect(fill.props.style).toContainEqual(expect.objectContaining({ width: '100%' }));
+        await screen.unmount();
+    });
+
+    it('keeps a partly used quota as a remaining-first bar', async () => {
+        const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work', 30)} />);
+        const fill = screen.findByTestId('agent-input-provider-usage-meter-bar:weekly:fill');
+        if (!fill) throw new Error('Expected the weekly quota meter fill');
+
+        expect(fill.props.style).toContainEqual(expect.objectContaining({ width: '70%' }));
+        await screen.unmount();
+    });
+
     it('appears only for the queried native account and disappears when fresh usage arrives', async () => {
         api.request.mockResolvedValue(true);
         api.get.mockResolvedValue({
