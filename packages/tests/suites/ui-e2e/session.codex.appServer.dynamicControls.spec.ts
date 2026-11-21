@@ -875,13 +875,11 @@ test.describe('ui e2e: Codex app-server dynamic controls', () => {
 
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('session-composer-input')).toHaveCount(1, { timeout: 120_000 });
-        await fillAndClickComposerSend({
-            page,
-            inputTestId: 'session-composer-input',
-            sendTestId: 'session-composer-send',
-            prompt: `codex app-server live controls ${run.runId}`,
-        });
+        const continueWithMini = page.getByTestId('session-composer-send');
+        await expect(continueWithMini).toHaveAccessibleName('Continue with GPT-5.4 mini');
+        await continueWithMini.click();
         await expect(page.getByText('FAKE_CODEX_DYNAMIC_OK_2_plan_gpt-5.4-mini_high_standard')).toHaveCount(1, { timeout: 180_000 });
+        await expect(continueWithMini).not.toHaveAccessibleName('Continue with GPT-5.4 mini');
 
         await ensureSessionMode(page, 'default');
 

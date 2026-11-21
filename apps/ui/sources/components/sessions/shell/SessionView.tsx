@@ -6317,6 +6317,7 @@ function SessionViewLoaded({
                 acpConfigOptionOverridesOverride={optimisticSessionConfigOptionOverrides}
                 modelMode={modelMode}
                 onModelModeChange={updateModelMode}
+                modelContinuationEnabled
                 modelDiscoveryContext={resolveSessionModelDiscoveryContext}
                 metadata={session.metadata}
                 profileId={liveComposerState.profileId ?? undefined}
