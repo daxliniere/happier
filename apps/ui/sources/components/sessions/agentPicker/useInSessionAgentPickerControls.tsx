@@ -828,9 +828,12 @@ export function useInSessionAgentPickerControls(
     }, [cliAvailabilityByAgentId, persistArmedContinuation, readInspection, source]);
 
     // The owner's pre-Continue choice of which connected account the armed Agent continues under.
-    // It rides the same armed intent (and so the same draft) as the model, and is re-armed through
-    // the one arming path; the account is not part of the machine inspection, so this never
-    // re-asks the machine and never un-arms the switch.
+    // It rides the same armed intent (and so the same draft) as the model. The account is not part
+    // of the machine inspection, so the existing arm stays valid for the same target: it is updated
+    // in place rather than re-evaluated, which means this never re-asks the machine and never
+    // un-arms the switch, even while a re-inspection of that same target is still in flight (an
+    // unarmed window would send the next message to the source Agent). If the target later turns
+    // out to be unavailable, the existing reconciliation clears the arm exactly as it does today.
     const setArmedContinuationConnectedServices = React.useCallback((connectedServices: ConnectedServiceBindingsV1) => {
         if (armed === null) return;
         // The account is part of the arm's identity. Once a submission is issued, re-arming would
@@ -845,8 +848,9 @@ export function useInSessionAgentPickerControls(
             nextMap.set(entry.targetKey, next);
             return nextMap;
         });
-        armExactSelection(entry, armed.intent.sourceAgentId, next);
-    }, [armExactSelection, armed, targetEntries]);
+        pendingArmRef.current = null;
+        persistArmedContinuation(buildArmedContinuation(entry, armed.intent.sourceAgentId, next, source.currentBackendTargetKey));
+    }, [armed, persistArmedContinuation, source.currentBackendTargetKey, targetEntries]);
 
     React.useEffect(() => {
         const pending = pendingArmRef.current;

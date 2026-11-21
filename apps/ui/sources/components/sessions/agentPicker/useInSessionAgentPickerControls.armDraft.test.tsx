@@ -641,6 +641,26 @@ describe('useInSessionAgentPickerControls arm draft', () => {
             expect(hook.getCurrent().armedContinuation).not.toBeNull();
         });
 
+        it('keeps the Agent armed when the account changes while the machine is being re-inspected', async () => {
+            const hook = await renderControls();
+            await armTarget(hook, 'agent:codex');
+            const reinspection = createDeferred<{ v: 1; inspections: readonly (typeof AVAILABLE)[] }>();
+            machineRpcWithServerScope.mockImplementationOnce(() => reinspection.promise);
+            await hook.rerender({ machine: { ...onlineMachine, daemonGeneration: 2 } });
+            await act(async () => { await Promise.resolve(); });
+            expect(hook.getCurrent().armedContinuation).not.toBeNull();
+
+            await act(async () => {
+                hook.getCurrent().setArmedContinuationConnectedServices(CHOSEN);
+            });
+            await act(async () => { await Promise.resolve(); });
+
+            // The inspection target is unchanged (the account is not part of it), so a pending answer
+            // must not un-arm the switch: a send in that window would otherwise go to the source Agent.
+            expect(hook.getCurrent().armedContinuation?.selection.connectedServices).toEqual(CHOSEN);
+            expect(readPersistedArm()?.intent.selection.connectedServices).toEqual(CHOSEN);
+        });
+
         it('leaves an already-issued submission reconcilable instead of re-arming under a new identity', async () => {
             const hook = await renderControls();
             await armTarget(hook, 'agent:codex');
