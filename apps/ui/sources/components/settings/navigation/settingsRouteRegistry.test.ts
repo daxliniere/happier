@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSettingsBreadcrumbs, getSettingsStackScreenDefinitions } from './settingsRouteRegistry';
+import {
+    getSettingsBreadcrumbs,
+    getSettingsStackScreenDefinitions,
+    resolveSettingsBreadcrumbs,
+} from './settingsRouteRegistry';
 
 describe('settingsRouteRegistry', () => {
     it('gives the prompts navigator ownership of its screen headers', () => {
@@ -49,7 +53,7 @@ describe('settingsRouteRegistry', () => {
         ]);
     });
 
-    it('roots prompts breadcrumbs under the prompts navigator and skips routes that need params', () => {
+    it('roots prompts breadcrumbs under the prompts navigator and templates parents that need params', () => {
         const crumbs = getSettingsBreadcrumbs(
             (key) => key,
             'docs/[id]/export',
@@ -64,8 +68,41 @@ describe('settingsRouteRegistry', () => {
             { title: 'settings.title', href: '/settings' },
             { title: 'settings.prompts', href: '/settings/prompts' },
             { title: 'promptLibrary.prompts', href: '/settings/prompts/docs' },
-            { title: 'promptLibrary.editPrompt' },
+            { title: 'promptLibrary.editPrompt', href: '/settings/prompts/docs/[id]' },
             { title: 'promptLibrary.externalAssetsExportTitle' },
+        ]);
+    });
+
+    it('fills parent links from route params and leaves them plain when params are missing', () => {
+        const crumbs = [
+            { title: 'Prompts', href: '/settings/prompts/docs' },
+            { title: 'Edit prompt', href: '/settings/prompts/docs/[id]' },
+            { title: 'Export' },
+        ];
+        expect(resolveSettingsBreadcrumbs(crumbs, { id: 'a b/c' })).toEqual([
+            { title: 'Prompts', href: '/settings/prompts/docs' },
+            { title: 'Edit prompt', href: '/settings/prompts/docs/a%20b%2Fc' },
+            { title: 'Export' },
+        ]);
+        expect(resolveSettingsBreadcrumbs(crumbs, undefined)).toEqual([
+            { title: 'Prompts', href: '/settings/prompts/docs' },
+            { title: 'Edit prompt' },
+            { title: 'Export' },
+        ]);
+    });
+
+    it('keeps the parent link when a detail screen shares its parent title', () => {
+        const definitions = getSettingsStackScreenDefinitions((key) => key);
+        expect(definitions.find((entry) => entry.name === 'actions/[actionId]')?.breadcrumbs).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'common.actions', href: '/settings/actions' },
+        ]);
+        expect(definitions.find((entry) => entry.name === 'actions')?.breadcrumbs).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'common.actions' },
+        ]);
+        expect(definitions.find((entry) => entry.name === 'index')?.breadcrumbs).toEqual([
+            { title: 'settings.title' },
         ]);
     });
 });

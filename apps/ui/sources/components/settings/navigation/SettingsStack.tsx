@@ -7,7 +7,13 @@ import { createAppStackScreenOptions } from '@/components/navigation/createAppSt
 import { composeAppStackScreenLayout } from '@/components/navigation/appStackScreenLayout';
 import { NavigatorSafeAreaBleed } from '@/components/navigation/safeArea/HorizontalSafeArea';
 import { ItemSubtitleWrappingContext } from '@/components/ui/lists/Item';
-import { getSettingsStackScreenDefinitions, type SettingsStackScope } from './settingsRouteRegistry';
+import {
+    createSettingsBreadcrumbHeaderTitle,
+    getSettingsStackScreenDefinitions,
+    type SettingsRouteParams,
+    type SettingsStackScope,
+    type SettingsStackScreenDefinition,
+} from './settingsRouteRegistry';
 import { t } from '@/text';
 import { isRunningOnMac } from '@/utils/platform/platform';
 
@@ -33,11 +39,21 @@ export function SettingsStack({ scope = 'settings', screenLayout }: Readonly<{
                         <Stack.Screen
                             key={definition.name}
                             name={definition.name}
-                            options={definition.options}
+                            options={getSettingsScreenOptions(definition)}
                         />
                     ))}
                 </Stack>
             </NavigatorSafeAreaBleed>
         </ItemSubtitleWrappingContext.Provider>
     );
+}
+
+/** Fills parent breadcrumb links that need route params (e.g. the prompt editor) from the screen's own params. */
+function getSettingsScreenOptions(definition: SettingsStackScreenDefinition) {
+    const breadcrumbs = definition.breadcrumbs;
+    if (!breadcrumbs?.some((crumb) => crumb.href?.includes('['))) return definition.options;
+    return ({ route }: { route: { params?: object } }) => ({
+        ...definition.options,
+        headerTitle: createSettingsBreadcrumbHeaderTitle(breadcrumbs, route.params as SettingsRouteParams),
+    });
 }
