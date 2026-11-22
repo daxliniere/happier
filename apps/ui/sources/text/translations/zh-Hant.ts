@@ -3822,6 +3822,7 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
         provider: "供應商",
         selectProvider: "選擇供應商",
         showAll: "顯示所有模型",
+        hideOutdated: "隱藏舊版本",
         hideById: "依 ID 隱藏模型",
         exactId: "輸入此供應商使用的確切模型 ID。",
         empty: "沒有可顯示的模型。",

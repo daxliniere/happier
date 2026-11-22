@@ -1,9 +1,7 @@
 import React from 'react';
 import { useRouter } from 'expo-router';
-import { useUnistyles } from 'react-native-unistyles';
 
 import { AgentIcon } from '@/agents/registry/AgentIcon';
-import { Icon } from '@/components/ui/icons/Icon';
 import { Item } from '@/components/ui/lists/Item';
 import { ItemGroup } from '@/components/ui/lists/ItemGroup';
 import { ItemList } from '@/components/ui/lists/ItemList';
@@ -19,7 +17,6 @@ const PROVIDER_SETTINGS_AGENT_IDS = AGENT_IDS.filter((agentId) => agentId !== 'c
 export default React.memo(function ProviderSettingsIndexScreen() {
     const router = useRouter();
     const backendEnabledByTargetKey = useSetting('backendEnabledByTargetKey');
-    const { theme } = useUnistyles();
 
     return (
         <ItemList style={{ paddingTop: 0 }}>
@@ -43,15 +40,6 @@ export default React.memo(function ProviderSettingsIndexScreen() {
                         />
                     );
                 })}
-            </ItemGroup>
-            <ItemGroup>
-                <Item
-                    testID="settings-model-visibility"
-                    title={t('modelVisibility.title')}
-                    subtitle={t('modelVisibility.entrySubtitle')}
-                    icon={<Icon name="eye-slash" size={29} color={theme.colors.text.secondary} />}
-                    onPress={() => router.push('/settings/model-visibility')}
-                />
             </ItemGroup>
             <ProviderSetupFlow providerIds={PROVIDER_SETTINGS_AGENT_IDS} />
             <AcpCatalogSettingsSections />

@@ -4010,6 +4010,7 @@ export const zhHans: TranslationStructure = {
     provider: "提供商",
     selectProvider: "选择提供商",
     showAll: "显示所有模型",
+    hideOutdated: "隐藏旧版本",
     hideById: "按 ID 隐藏模型",
     exactId: "输入此提供商使用的确切模型 ID。",
     empty: "没有可显示的模型。",

@@ -31,10 +31,8 @@ test('restores a hidden provider model after reopening Settings and can reset vi
                 await ensureAccountReadyForConnect({ page, timeoutMs: 120_000 });
 
                 const openGeminiModels = async () => {
-                    await gotoDomContentLoadedWithRetries(page, `${base}/settings/providers?happier_hmr=0`, 90_000);
+                    await gotoDomContentLoadedWithRetries(page, `${base}/settings/providers/gemini?happier_hmr=0`, 90_000);
                     await page.getByTestId('settings-model-visibility').click();
-                    await page.getByTestId('model-visibility-provider').click();
-                    await page.getByTestId('model-visibility-provider:agent:gemini').click();
                 };
                 const model = page.getByTestId('model-visibility-switch:gemini-2.5-pro');
 

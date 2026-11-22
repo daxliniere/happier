@@ -3831,6 +3831,7 @@ export const en = {
         provider: "Provider",
         selectProvider: "Choose a provider",
         showAll: "Show all models",
+        hideOutdated: "Hide outdated",
         hideById: "Hide a model by ID",
         exactId: "Enter the exact model ID used by this provider.",
         empty: "No models to show.",

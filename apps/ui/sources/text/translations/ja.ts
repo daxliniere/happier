@@ -4417,6 +4417,7 @@ localTailscale: {
     provider: "プロバイダー",
     selectProvider: "プロバイダーを選択",
     showAll: "すべてのモデルを表示",
+    hideOutdated: "古いモデルを非表示",
     hideById: "ID を指定してモデルを非表示",
     exactId: "このプロバイダーが使用する正確なモデル ID を入力してください。",
     empty: "表示するモデルがありません。",

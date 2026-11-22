@@ -4146,6 +4146,7 @@ export const pl: TranslationStructure = {
     provider: "Dostawca",
     selectProvider: "Wybierz dostawcę",
     showAll: "Pokaż wszystkie modele",
+    hideOutdated: "Ukryj nieaktualne",
     hideById: "Ukryj model według ID",
     exactId: "Wpisz dokładny identyfikator modelu używany przez tego dostawcę.",
     empty: "Brak modeli do wyświetlenia.",

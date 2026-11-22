@@ -1,7 +1,9 @@
 import * as React from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet } from 'react-native-unistyles';
+import { buildBackendTargetKey } from '@happier-dev/protocol';
 
 import { getResolvedBackendCatalogEntries } from '@/agents/backendCatalog/getResolvedBackendCatalogEntries';
 import { AGENT_IDS, DEFAULT_AGENT_ID, getAgentCore } from '@/agents/catalog/catalog';
@@ -16,18 +18,25 @@ import { Item } from '@/components/ui/lists/Item';
 import { ItemGroup } from '@/components/ui/lists/ItemGroup';
 import { TextInput } from '@/components/ui/text/Text';
 import { Modal } from '@/modal';
-import { buildModelVisibilityRows, setModelHidden, type HiddenModelSelectionV1 } from '@/sync/domains/models/modelVisibility';
+import {
+    buildModelVisibilityRows,
+    collectObservedModelOptionsForProvider,
+    selectOutdatedModelIds,
+    setModelHidden,
+    type HiddenModelSelectionV1,
+} from '@/sync/domains/models/modelVisibility';
 import { getActiveServerSnapshot } from '@/sync/domains/server/serverRuntime';
 import { readNonBlankSessionControlIdentifier } from '@/sync/domains/sessionControl/opaqueIdentifiers';
 import { useSettingMutable, useSettings } from '@/sync/domains/state/storage';
 import { getStorage } from '@/sync/domains/state/storageStore';
-import { useAllMachines } from '@/sync/store/hooks';
+import { useAllMachines, useSessions } from '@/sync/store/hooks';
 import { t } from '@/text';
 import { getMachineDisplayName } from '@/utils/sessions/machineUtils';
 import { fireAndForget } from '@/utils/system/fireAndForget';
 
 const FALLBACK_TARGET = { kind: 'builtInAgent', agentId: DEFAULT_AGENT_ID } as const;
 const EMPTY_MODELS = Object.freeze([]);
+const EMPTY_SESSIONS = Object.freeze([]);
 
 type VisibilityRow = ReturnType<typeof buildModelVisibilityRows>[number];
 
@@ -41,7 +50,12 @@ export function ModelVisibilitySettingsView() {
     const settings = useSettings();
     const [hiddenModels, updateHiddenModels] = useSettingMutable('hiddenModelSelectionsV1');
     const machines = useAllMachines();
-    const [providerKey, setProviderKey] = React.useState('');
+    const sessions = useSessions() ?? EMPTY_SESSIONS;
+    const params = useLocalSearchParams<{ agentId?: string }>();
+    const fixedAgentId = AGENT_IDS.find((agentId) => agentId === params.agentId);
+    const fixedTargetKey = fixedAgentId ? buildBackendTargetKey({ kind: 'builtInAgent', agentId: fixedAgentId }) : null;
+    const [selectedProviderKey, setProviderKey] = React.useState('');
+    const providerKey = fixedTargetKey ?? selectedProviderKey;
     const [machineId, setMachineId] = React.useState<string | null>(null);
     const [openMenu, setOpenMenu] = React.useState<'provider' | 'machine' | null>(null);
     const [query, setQuery] = React.useState('');
@@ -81,17 +95,35 @@ export function ModelVisibilitySettingsView() {
         probeContext,
     });
 
+    const observedModels = React.useMemo(
+        () => (provider ? collectObservedModelOptionsForProvider(sessions, provider.providerAgentId) : EMPTY_MODELS),
+        [provider?.providerAgentId, sessions],
+    );
+    const allRows = React.useMemo(() => {
+        const known = provider ? [...modelOptions, ...observedModels] : EMPTY_MODELS;
+        return buildModelVisibilityRows(known, hiddenModels.filter((model) => model.backendTargetKey === providerKey));
+    }, [hiddenModels, modelOptions, observedModels, provider, providerKey]);
+    const outdatedModelIds = React.useMemo(() => selectOutdatedModelIds(allRows.map((row) => ({ value: row.modelId })))
+        .filter((modelId) => allRows.some((row) => row.modelId === modelId && !row.hidden)), [allRows]);
     const rows = React.useMemo(() => {
-        const models = buildModelVisibilityRows(provider ? modelOptions : EMPTY_MODELS, hiddenModels.filter((model) => model.backendTargetKey === providerKey));
         const search = query.trim().toLowerCase();
-        if (!search) return models;
-        return models.filter(({ modelId, modelLabel }) => modelId.toLowerCase().includes(search) || modelLabel.toLowerCase().includes(search));
-    }, [hiddenModels, modelOptions, provider, providerKey, query]);
+        if (!search) return allRows;
+        return allRows.filter(({ modelId, modelLabel }) => modelId.toLowerCase().includes(search) || modelLabel.toLowerCase().includes(search));
+    }, [allRows, query]);
 
     const changeVisibility = React.useCallback((model: Pick<HiddenModelSelectionV1, 'modelId' | 'modelLabel'>, hidden: boolean) => {
         const current = getStorage().getState().settings.hiddenModelSelectionsV1;
         updateHiddenModels(setModelHidden(current, { ...model, backendTargetKey: providerKey, backendLabel: providerLabel }, hidden));
     }, [providerKey, providerLabel, updateHiddenModels]);
+
+    const hideOutdated = React.useCallback(() => {
+        let current = getStorage().getState().settings.hiddenModelSelectionsV1;
+        for (const row of allRows) {
+            if (!outdatedModelIds.includes(row.modelId)) continue;
+            current = setModelHidden(current, { backendTargetKey: providerKey, backendLabel: providerLabel, modelId: row.modelId, modelLabel: row.modelLabel }, true);
+        }
+        updateHiddenModels(current);
+    }, [allRows, outdatedModelIds, providerKey, providerLabel, updateHiddenModels]);
 
     const renderRow = React.useCallback(({ item }: { item: VisibilityRow }) => (
         <Item
@@ -120,7 +152,7 @@ export function ModelVisibilitySettingsView() {
                 ListHeaderComponent={(
                     <>
                         <ItemGroup footer={t('modelVisibility.description')}>
-                            <DropdownMenu
+                            {fixedAgentId ? null : <DropdownMenu
                                 open={openMenu === 'provider'}
                                 onOpenChange={(open) => setOpenMenu(open ? 'provider' : null)}
                                 items={providerItems}
@@ -141,7 +173,7 @@ export function ModelVisibilitySettingsView() {
                                     showSelectedSubtitle: false,
                                     itemProps: { testID: 'model-visibility-provider' },
                                 }}
-                            />
+                            />}
                             {canDiscover ? (
                                 <DropdownMenu
                                     open={openMenu === 'machine'}
@@ -195,6 +227,13 @@ export function ModelVisibilitySettingsView() {
                                     showChevron={false}
                                 />
                             ) : null}
+                            <Item
+                                testID="model-visibility-hide-outdated"
+                                title={t('modelVisibility.hideOutdated')}
+                                disabled={outdatedModelIds.length === 0}
+                                onPress={hideOutdated}
+                                showChevron={false}
+                            />
                             <Item
                                 testID="model-visibility-show-all"
                                 title={t('modelVisibility.showAll')}

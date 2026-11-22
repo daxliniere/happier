@@ -697,6 +697,13 @@ const ProviderSettingsScreenInner = React.memo(function ProviderSettingsScreenIn
 
                 <ItemGroup title={t('settingsProviders.models')}>
                     <Item
+                        testID="settings-model-visibility"
+                        title={t('modelVisibility.title')}
+                        subtitle={t('modelVisibility.entrySubtitle')}
+                        icon={<Icon name="eye-slash" size={29} color={theme.colors.text.secondary} />}
+                        onPress={() => router.push({ pathname: '/settings/model-visibility', params: { agentId: providerId } })}
+                    />
+                    <Item
                         title={t('settingsProviders.modelSelectionTitle')}
                         subtitle={core.model.supportsSelection ? t('settingsProviders.supported') : t('settingsProviders.notSupported')}
                         icon={<Icon name="list" size={29} color={theme.colors.text.secondary} />}

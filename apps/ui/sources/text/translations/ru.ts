@@ -4067,6 +4067,7 @@ export const ru: TranslationStructure = {
     provider: "Провайдер",
     selectProvider: "Выберите провайдера",
     showAll: "Показать все модели",
+    hideOutdated: "Скрыть устаревшие",
     hideById: "Скрыть модель по ID",
     exactId: "Введите точный идентификатор модели у этого провайдера.",
     empty: "Нет моделей для отображения.",

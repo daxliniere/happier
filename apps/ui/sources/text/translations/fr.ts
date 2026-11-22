@@ -3830,6 +3830,7 @@ export const fr: TranslationStructure = {
         provider: "Fournisseur",
         selectProvider: "Choisir un fournisseur",
         showAll: "Afficher tous les modèles",
+        hideOutdated: "Masquer les anciens",
         hideById: "Masquer un modèle par ID",
         exactId: "Saisissez l’identifiant exact du modèle utilisé par ce fournisseur.",
         empty: "Aucun modèle à afficher.",

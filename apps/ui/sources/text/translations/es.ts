@@ -4118,6 +4118,7 @@ export const es: TranslationStructure = {
     provider: "Proveedor",
     selectProvider: "Elige un proveedor",
     showAll: "Mostrar todos los modelos",
+    hideOutdated: "Ocultar obsoletos",
     hideById: "Ocultar un modelo por ID",
     exactId: "Introduce el ID exacto del modelo que usa este proveedor.",
     empty: "No hay modelos para mostrar.",
