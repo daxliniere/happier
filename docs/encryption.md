@@ -344,8 +344,9 @@ cannot be silently classified as a local key-loading condition.
 
 ## Device app lock (local credential sealing)
 
-The lock state, password wrapping and recovery key remain local to each device. The recovery email
-and SMTP settings are stored by the relay server and shared across devices. The local record
+The lock is turned on per device, but its key and password are account-wide (see "Account-wide lock"
+below). Each device keeps its own local record and recovery key; the recovery email and SMTP settings are
+stored by the relay server and shared across devices. The local record
 (`app_lock_v1`, SecureStore on native, localStorage on web/desktop) holds only wrapped keys and
 preferences:
 
@@ -371,6 +372,27 @@ credential still in plain form while the lock is on.
 Before the first unlock the data key is not in memory, so credentials cannot be read or written and the
 app does not boot. Re-locking a running app is a presentation gate only; the data key stays in memory.
 Cached sync data and other local persistence are not sealed.
+
+### Account-wide lock
+
+One data key is shared by every device of the account. The relay stores it only in password-wrapped form
+(`AppLockAccountLock`: `kdf` and `passwordWrappedKey`, plus `version` and `required`; routes in
+`packages/protocol/src/appLock/accountLock.ts`). A device turns the lock on by unwrapping the key with the
+password (`joinAppLock`), generating its own recovery key and escrow, and sealing its credentials.
+
+- The first device creates the row with `expectedVersion: null`; every re-wrap is a conditional write that
+  succeeds only from the current `version`, so a device that missed a password change is refused
+  (`version_conflict`) instead of overwriting it.
+- Each local record stores the `accountKeyVersion` it is in step with and an `accountKeyPending` flag for a
+  password change that could not be sent (offline, or after an email reset). `syncAppLockAccountLock` runs
+  after boot and on foreground: it adopts a newer wrapping (same data key, so sealed sign-ins are
+  unaffected), pushes a pending change, and migrates a lock created before this existed into the account lock.
+- `required` decides the gate: a signed-in device without a lock shows `AppLockAccountGate` unless it was
+  exempted by turning its lock off. The last `required` value and the exemption are plain local flags
+  (`app_lock_account_v1`); they gate a device that has no sealed sign-in anyway, and tampering with a
+  device that does have a lock leaves it signed out, not open.
+- The relay holds a guessable wrapping of the data key, so password strength is the only protection
+  against offline guessing by someone with account access. Real enforcement needs revocable device tokens.
 
 ## On-wire formats (encrypted fields)
 

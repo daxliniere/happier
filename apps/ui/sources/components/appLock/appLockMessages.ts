@@ -21,6 +21,10 @@ export function describeAppLockRecoveryFailure(failure: AppLockRecoveryFailure):
             return t('appLock.errors.notFound');
         case 'email_failed':
             return t('appLock.errors.emailFailed');
+        case 'version_conflict':
+            return t('appLock.errors.versionConflict');
+        case 'wrong_password':
+            return t('appLock.wrongPassword');
         case 'network':
             return t('appLock.errors.network');
         case 'server':

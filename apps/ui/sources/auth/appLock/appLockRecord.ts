@@ -1,12 +1,6 @@
-import { Platform } from 'react-native';
 import { z } from 'zod';
 
-import {
-    readNativeSecureStoreString,
-    removeNativeSecureStoreString,
-    writeNativeSecureStoreString,
-} from '@/auth/storage/nativeSecureStoreWithDevFallback';
-import { readStorageScopeFromEnv, scopedStorageId } from '@/utils/system/storageScope';
+import { readAppLockStoredString, removeAppLockStoredString, writeAppLockStoredString } from './appLockStorage';
 
 /**
  * The device-local app-lock record. It is never synced: the lock is a per-device setting.
@@ -37,6 +31,13 @@ export const AppLockRecordSchema = z.object({
     autoLockMinutes: z.number().int().min(0).nullable(),
     /** Fingerprint unlock is set up on this device (Android). */
     biometric: z.boolean(),
+    /**
+     * Version of the account-wide lock this record's password wrapping was last in step with. Absent
+     * on a lock turned on before the account-wide lock existed.
+     */
+    accountKeyVersion: z.number().int().positive().optional(),
+    /** A password change that has not reached the relay yet (made offline or after an email reset). */
+    accountKeyPending: z.boolean().optional(),
 });
 
 export type AppLockRecord = z.infer<typeof AppLockRecordSchema>;
@@ -46,18 +47,8 @@ export const APP_LOCK_AUTO_LOCK_CHOICES: readonly (number | null)[] = [0, 1, 5, 
 
 const RECORD_BASE_KEY = 'app_lock_v1';
 
-function recordStorageKey(): string {
-    return scopedStorageId(RECORD_BASE_KEY, readStorageScopeFromEnv());
-}
-
 export async function readAppLockRecord(): Promise<AppLockRecord | null> {
-    const key = recordStorageKey();
-    let raw: string | null;
-    if (Platform.OS === 'web') {
-        raw = globalThis.localStorage?.getItem(key) ?? null;
-    } else {
-        raw = await readNativeSecureStoreString(key);
-    }
+    const raw = await readAppLockStoredString(RECORD_BASE_KEY);
     if (!raw) return null;
     let json: unknown;
     try {
@@ -75,18 +66,9 @@ export async function readAppLockRecord(): Promise<AppLockRecord | null> {
 }
 
 export async function writeAppLockRecord(record: AppLockRecord): Promise<void> {
-    const raw = JSON.stringify(AppLockRecordSchema.parse(record));
-    if (Platform.OS === 'web') {
-        globalThis.localStorage.setItem(recordStorageKey(), raw);
-        return;
-    }
-    await writeNativeSecureStoreString(recordStorageKey(), raw);
+    await writeAppLockStoredString(RECORD_BASE_KEY, JSON.stringify(AppLockRecordSchema.parse(record)));
 }
 
 export async function removeAppLockRecord(): Promise<void> {
-    if (Platform.OS === 'web') {
-        globalThis.localStorage?.removeItem(recordStorageKey());
-        return;
-    }
-    await removeNativeSecureStoreString(recordStorageKey());
+    await removeAppLockStoredString(RECORD_BASE_KEY);
 }

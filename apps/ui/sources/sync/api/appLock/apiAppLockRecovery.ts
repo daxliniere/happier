@@ -3,6 +3,11 @@ import {
     AppLockRecoveryErrorResponseSchema,
     AppLockRecoveryRedeemResponseSchema,
     AppLockMailSettingsResponseSchema,
+    APP_LOCK_ACCOUNT_LOCK_ROUTES,
+    AppLockAccountLockPutResponseSchema,
+    AppLockAccountLockResponseSchema,
+    type AppLockAccountLock,
+    type AppLockAccountLockPutRequest,
     type AppLockMailSettings,
     type AppLockMailSettingsInput,
     type AppLockRecoveryCodeRequest,
@@ -15,8 +20,11 @@ import { serverFetch } from '@/sync/http/client';
 
 export type AppLockRecoveryFailure = Readonly<{
     ok: false;
-    /** `network`: no response; `server`: the relay answered with an unexpected error or payload. */
-    error: AppLockRecoveryErrorCode | 'network' | 'server';
+    /**
+     * `network`: no response; `server`: the relay answered with an unexpected error or payload;
+     * `wrong_password`: the password did not open the account lock (decided on this device).
+     */
+    error: AppLockRecoveryErrorCode | 'network' | 'server' | 'wrong_password';
     retryAfterSeconds?: number;
 }>;
 
@@ -109,6 +117,37 @@ export async function apiAppLockMailSettingsSave(settings: AppLockMailSettingsIn
 /** Authenticated (active server): send a test email to the saved account-wide recovery address. */
 export async function apiAppLockMailSettingsSendTest(): Promise<AppLockRecoveryResult> {
     const response = await post(APP_LOCK_RECOVERY_ROUTES.mailSettingsTest, {}, {});
+    if (!response) return { ok: false, error: 'network' };
+    return response.ok ? { ok: true } : await readFailure(response);
+}
+
+/** Authenticated (active server): the account-wide lock, or null when the account has none (or the relay predates it). */
+export async function apiAppLockAccountLockGet(): Promise<AppLockRecoveryResult<{ lock: AppLockAccountLock | null }>> {
+    let response: Response;
+    try {
+        response = await serverFetch(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLock, { method: 'GET' }, {});
+    } catch (error) {
+        console.error('[appLock] Relay request failed:', error instanceof Error ? error.message : String(error));
+        return { ok: false, error: 'network' };
+    }
+    if (response.status === 404) return { ok: true, lock: null };
+    if (!response.ok) return await readFailure(response);
+    const parsed = AppLockAccountLockResponseSchema.safeParse(await response.json().catch(() => null));
+    return parsed.success ? { ok: true, lock: parsed.data.lock } : { ok: false, error: 'server' };
+}
+
+/** Authenticated (active server): create (`expectedVersion: null`) or re-wrap the account-wide lock. */
+export async function apiAppLockAccountLockPut(request: AppLockAccountLockPutRequest): Promise<AppLockRecoveryResult<{ version: number }>> {
+    const response = await post(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLock, request, {}, 'PUT');
+    if (!response) return { ok: false, error: 'network' };
+    if (!response.ok) return await readFailure(response);
+    const parsed = AppLockAccountLockPutResponseSchema.safeParse(await response.json().catch(() => null));
+    return parsed.success ? { ok: true, version: parsed.data.version } : { ok: false, error: 'server' };
+}
+
+/** Authenticated (active server): whether devices without the lock must set it up. */
+export async function apiAppLockAccountLockSetRequired(required: boolean): Promise<AppLockRecoveryResult> {
+    const response = await post(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLockRequired, { required }, {}, 'PUT');
     if (!response) return { ok: false, error: 'network' };
     return response.ok ? { ok: true } : await readFailure(response);
 }

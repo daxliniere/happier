@@ -26,12 +26,12 @@ function AppLockDesktopWindowControls() {
  * The lock screen as a window surface. On the desktop app the main window has no system title
  * bar, so the lock screen keeps the window draggable and keeps its minimise/maximise/close buttons.
  */
-export function AppLockSurface(props: Readonly<{ onSignedOut: () => void }>) {
+export function AppLockSurface(props: Readonly<{ onSignedOut: () => void; children?: React.ReactNode }>) {
     const desktop = Platform.OS === 'web' && isTauriDesktop();
     return (
         <DesktopMainContentDragSurface enabled={desktop} leftOffsetPx={0} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
-                <AppLockScreen onSignedOut={props.onSignedOut} />
+                {props.children ?? <AppLockScreen onSignedOut={props.onSignedOut} />}
                 {desktop ? <AppLockDesktopWindowControls /> : null}
             </View>
         </DesktopMainContentDragSurface>

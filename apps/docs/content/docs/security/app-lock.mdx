@@ -1,11 +1,12 @@
 ---
 title: App lock
-description: Require a password before Happier shows anything on a device, with email-based password reset.
+description: Require a password before Happier shows anything on your devices, with email-based password reset.
 ---
 
-The app lock asks for a password before Happier shows anything on **one device**. It is a
-per-device setting: turning it on for a shared computer does not affect your phone or your own laptop.
-It is available in the desktop, Android and web apps.
+The app lock asks for a password before Happier shows anything. It is turned on **per device**, but the
+password belongs to your **account**: once it exists, every other device you are signed in on asks you to
+set the lock up before it shows anything, using the same password. It is available in the desktop,
+Android and web apps.
 
 ## Turning it on
 
@@ -18,6 +19,15 @@ Open **Settings → App lock**.
 2. Choose a password, typing it twice. Any 4 to 30 characters work; a mix of
    upper and lower case letters, numbers and symbols is harder to guess.
 3. Choose **Turn on app lock**.
+
+On your other devices the page shows **Turn on** with a single password field: enter the account's lock
+password and that device is locked too. A signed-in device that has no lock shows a full-screen notice
+("Your account requires an app lock") until you do that, or sign out.
+
+Changing the password on one device changes it for all of them. A device that is offline keeps
+accepting the old password until it next connects. **Require on all my devices** (in the same page)
+switches the notice on or off, and **Turn off app lock** turns the lock off for that one device only,
+after you enter the password; your other devices keep theirs.
 
 Once it is on:
 
@@ -41,6 +51,14 @@ or with your secret key.
 While the lock is on, the device's stored sign-in is encrypted with a key that only the password (or
 your fingerprint, or a reset code) can unlock. Uninstalling the app, or installing an older version
 without the app lock, therefore leaves the device signed out rather than opening your sessions.
+
+The relay stores the shared key only in password-wrapped form so a new device can set up the lock.
+Anyone with access to your account can therefore fetch it and guess the password offline, and a short
+password such as `1111` falls quickly. Passwords can be 4 to 30 characters; longer is stronger.
+
+The notice on a device that has no lock is a screen, not protection: that device keeps its sign-in in
+plain form until the lock is set up. Real enforcement would need the relay to issue sign-in tokens that
+expire and can be revoked per device, which Happier does not do today.
 
 The lock is meant to keep colleagues and other people using the same computer out of your sessions.
 It does not encrypt everything Happier caches on disk, so it is not a defence against someone who can

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { act } from 'react-test-renderer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { APP_LOCK_RECOVERY_ROUTES } from '@happier-dev/protocol';
+import { APP_LOCK_ACCOUNT_LOCK_ROUTES, APP_LOCK_RECOVERY_ROUTES } from '@happier-dev/protocol';
 
 import { renderScreen } from '@/dev/testkit';
 import { installSettingsViewCommonModuleMocks } from '../settingsViewTestHelpers';
@@ -168,5 +168,30 @@ describe('App lock test email recipient', () => {
         });
         const screen = await renderScreen(<AppLockSettingsView />);
         expect(screen.findByTestId('app-lock-mail-test')?.props.disabled).toBe(true);
+    });
+    function relayWithAccountLock(lock: unknown) {
+        boundary.serverFetch.mockImplementation(async (path: string) => {
+            if (path === '/v1/features') return Response.json({ features: { appLock: { emailRecovery: { enabled: true } } } });
+            if (path === APP_LOCK_RECOVERY_ROUTES.mailSettings) return Response.json({ settings: savedMail });
+            if (path === APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLock) return Response.json({ lock });
+            throw new Error(`Unexpected request: ${path}`);
+        });
+    }
+
+    it('offers to turn the lock on with the account password when the account already has an app lock', async () => {
+        relayWithAccountLock({
+            version: 2, required: true,
+            kdf: { alg: 'scrypt', N: 1024, r: 8, p: 1, salt: 'c2FsdHNhbHRzYWx0' }, passwordWrappedKey: 'd3JhcHBlZA',
+        });
+        const screen = await renderScreen(<AppLockSettingsView />);
+        expect(screen.findByTestId('app-lock-join-password')).toBeTruthy();
+        expect(screen.findByTestId('app-lock-settings-password')).toBeFalsy();
+    });
+
+    it('asks for a new password when the account has no app lock yet', async () => {
+        relayWithAccountLock(null);
+        const screen = await renderScreen(<AppLockSettingsView />);
+        expect(screen.findByTestId('app-lock-settings-password')).toBeTruthy();
+        expect(screen.findByTestId('app-lock-join-password')).toBeFalsy();
     });
 });

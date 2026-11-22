@@ -4,6 +4,10 @@ import { encodeBase64 } from '@/encryption/base64';
 import { getRandomBytes } from '@/platform/cryptoRandom';
 import { getActiveServerUrl } from '@/sync/domains/server/serverProfiles';
 import {
+    apiAppLockAccountLockGet,
+    apiAppLockAccountLockPut,
+    apiAppLockAccountLockSetRequired,
+    apiAppLockMailSettingsGet,
     apiAppLockRecoveryRedeem,
     apiAppLockRecoveryRegister,
     apiAppLockRecoveryRemove,
@@ -16,7 +20,9 @@ import {
     generateAppLockRecoveryKey,
     rewrapAppLockPassword,
     rewrapAppLockRecoveryKey,
+    unwrapAppLockKeyWithPassword,
 } from './appLockCrypto';
+import { setAppLockAccountRequired, setAppLockDeviceExempt } from './appLockAccountState';
 import { APP_LOCK_AUTO_LOCK_DEFAULT_MINUTES, type AppLockRecord } from './appLockRecord';
 import {
     activateAppLock,
@@ -81,8 +87,65 @@ export async function enableAppLock(params: Readonly<{ email: string; password: 
     };
     const registered = await apiAppLockRecoveryRegister({ lockId: record.lockId, email: record.email, recoveryKey: keys.recoveryKey });
     if (!registered.ok) return registered;
-    await enableAppLockLocally(record, keys.dataKey);
+    // The first device creates the account-wide lock; a device that loses that race is left without a lock.
+    const created = await apiAppLockAccountLockPut({
+        kdf: keys.wrapped.kdf,
+        passwordWrappedKey: keys.wrapped.passwordWrappedKey,
+        expectedVersion: null,
+    });
+    if (!created.ok) {
+        await apiAppLockRecoveryRemove({ lockId: record.lockId });
+        return created;
+    }
+    await enableAppLockLocally({ ...record, accountKeyVersion: created.version }, keys.dataKey);
+    await setAppLockDeviceExempt(false);
+    await setAppLockAccountRequired(true);
     return { ok: true };
+}
+
+/**
+ * Turns the lock on for this device with the account's existing lock password: the shared data key is
+ * unwrapped on this device, this device gets its own recovery escrow, and its sign-in is sealed.
+ * Nothing changes if the password is wrong or the relay refuses.
+ */
+export async function joinAppLock(password: string): Promise<AppLockRecoveryResult> {
+    const fetched = await apiAppLockAccountLockGet();
+    if (!fetched.ok) return fetched;
+    const { lock } = fetched;
+    if (!lock) return { ok: false, error: 'not_found' };
+    const accountWrapped = { kdf: lock.kdf, passwordWrappedKey: lock.passwordWrappedKey, recoveryWrappedKey: '' };
+    const dataKey = await unwrapAppLockKeyWithPassword(accountWrapped, password);
+    if (!dataKey) return { ok: false, error: 'wrong_password' };
+
+    const mail = await apiAppLockMailSettingsGet();
+    if (!mail.ok) return mail;
+    const email = mail.settings?.recoveryEmail?.trim();
+    if (!email) return { ok: false, error: 'mail_not_configured' };
+
+    const recoveryKey = generateAppLockRecoveryKey();
+    const record: AppLockRecord = {
+        v: 1,
+        lockId: newLockId(),
+        email,
+        serverUrl: getActiveServerUrl(),
+        wrapped: await rewrapAppLockRecoveryKey(accountWrapped, dataKey, recoveryKey),
+        autoLockMinutes: APP_LOCK_AUTO_LOCK_DEFAULT_MINUTES,
+        biometric: false,
+        accountKeyVersion: lock.version,
+    };
+    const registered = await apiAppLockRecoveryRegister({ lockId: record.lockId, email, recoveryKey });
+    if (!registered.ok) return registered;
+    await enableAppLockLocally(record, dataKey);
+    await setAppLockDeviceExempt(false);
+    await setAppLockAccountRequired(lock.required);
+    return { ok: true };
+}
+
+/** Whether devices without the lock must set it up before showing anything (the caller checks the password). */
+export async function setAppLockAccountLockRequired(required: boolean): Promise<AppLockRecoveryResult> {
+    const result = await apiAppLockAccountLockSetRequired(required);
+    if (result.ok) await setAppLockAccountRequired(required);
+    return result;
 }
 
 /**
@@ -112,12 +175,30 @@ export async function changeAppLockEmail(email: string): Promise<AppLockRecovery
     return { ok: true };
 }
 
-export async function changeAppLockPassword(currentPassword: string, newPassword: string): Promise<boolean> {
+/**
+ * Changes the password everywhere: the same data key is re-wrapped and sent to the relay from the
+ * version this device last saw, so other devices adopt it when they next connect. A change based on
+ * a version another device already replaced is refused (`version_conflict`) and nothing changes. If
+ * the relay cannot be reached, the change is kept on this device and sent later.
+ */
+export async function changeAppLockPassword(currentPassword: string, newPassword: string): Promise<AppLockRecoveryResult> {
     const record = getAppLockSnapshot().record;
     const dataKey = getAppLockDataKey();
-    if (!record || !dataKey || !(await verifyAppLockPassword(currentPassword))) return false;
-    await updateAppLockRecord({ ...record, wrapped: await rewrapAppLockPassword(record.wrapped, dataKey, newPassword) });
-    return true;
+    if (!record || !dataKey || !(await verifyAppLockPassword(currentPassword))) return { ok: false, error: 'wrong_password' };
+    const wrapped = await rewrapAppLockPassword(record.wrapped, dataKey, newPassword);
+    let next: AppLockRecord = { ...record, wrapped };
+    if (record.accountKeyVersion !== undefined) {
+        const pushed = await apiAppLockAccountLockPut({
+            kdf: wrapped.kdf,
+            passwordWrappedKey: wrapped.passwordWrappedKey,
+            expectedVersion: record.accountKeyVersion,
+        });
+        if (pushed.ok) next = { ...next, accountKeyVersion: pushed.version, accountKeyPending: false };
+        else if (pushed.error === 'version_conflict') return pushed;
+        else next = { ...next, accountKeyPending: true };
+    }
+    await updateAppLockRecord(next);
+    return { ok: true };
 }
 
 /** Turns the lock off after checking the password. The relay escrow is removed when reachable. */
@@ -130,6 +211,8 @@ export async function turnOffAppLock(password: string): Promise<boolean> {
     }
     await removeAppLockBiometricKey();
     await disableAppLockLocally();
+    // This device is now an exception to the account's requirement; other devices keep their lock.
+    await setAppLockDeviceExempt(true);
     return true;
 }
 
@@ -169,7 +252,12 @@ export async function completeAppLockReset(code: string, newPassword: string): P
     if (!redeemed.ok) return redeemed;
     const dataKey = await unwrapAppLockDataKeyWithRecoveryKey(redeemed.recoveryKey);
     if (!dataKey) return { ok: false, error: 'invalid_code' };
-    await updateAppLockRecord({ ...record, wrapped: await rewrapAppLockPassword(record.wrapped, dataKey, newPassword) });
+    // Sent to the relay by the account sync once this device has booted and can sign in.
+    await updateAppLockRecord({
+        ...record,
+        wrapped: await rewrapAppLockPassword(record.wrapped, dataKey, newPassword),
+        ...(record.accountKeyVersion !== undefined ? { accountKeyPending: true } : {}),
+    });
     unlockAppLockWithDataKey(dataKey);
     return { ok: true };
 }
