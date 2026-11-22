@@ -289,6 +289,7 @@ import {
   buildConnectedServiceCredentialSpawnErrorResult,
   buildConnectedServiceDiagnosticSpawnValidationErrorResult,
   buildConnectedServiceMaterializationSpawnErrorResult,
+  readConnectedServiceSpawnFailureLogFields,
 } from './connectedServices/diagnostics/buildConnectedServiceDiagnosticSpawnErrorResult';
 import { buildConnectedServiceUxDiagnostic } from './connectedServices/diagnostics/connectedServiceUxDiagnostics';
 import { shouldResolveConnectedServiceAuthForSpawn } from './connectedServices/shouldResolveConnectedServiceAuthForSpawn';
@@ -3833,6 +3834,8 @@ export async function startDaemon(options: Readonly<{ takeover?: boolean }> = {}
                       logger.warn('[DAEMON RUN] Connected services credential preflight failed; failing closed before spawn', {
                         agentId: catalogAgentId,
                         code: credentialRefreshErrorResult.errorMessage,
+                        // Which account refused the spawn: the code alone cannot say.
+                        ...readConnectedServiceSpawnFailureLogFields(credentialRefreshErrorResult),
                       });
                       return credentialRefreshErrorResult;
                     }
