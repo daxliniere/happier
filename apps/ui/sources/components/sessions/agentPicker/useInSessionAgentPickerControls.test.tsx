@@ -728,14 +728,11 @@ describe('useInSessionAgentPickerControls', () => {
         expect(hook.getCurrent().agentPickerSelectedOptionId).toBeNull();
     });
 
-    it('drops an armed choice once the rail that could cancel it is gone', async () => {
-        // Selection IS arming and there is no confirm step, so re-selecting the
-        // running Agent's row is the only cancel gesture. That row only carries it
-        // while the rail is offered — `composeAgentPickerOptions` returns the
-        // composer's own rows untouched otherwise — so an arm that outlives the
-        // rail is an arm with no way out: every ordinary send is re-routed into a
-        // transition the machine will refuse, the refusal keeps the arm, and the
-        // reader's only escape is to leave the Session.
+    it('clears an armed choice as soon as the machine refuses its target, and the rail goes with it', async () => {
+        // The arm follows its own target. A choice whose switch the machine will now reject must not
+        // stay armed: the send control would keep promising "Continue with {Agent}" and every ordinary
+        // send would be re-routed into a transition that cannot happen. (This replaces the earlier
+        // rule that kept such an arm until the cancel gesture left the screen.)
         const hook = await renderControls();
         await openPicker(hook);
 
@@ -748,31 +745,39 @@ describe('useInSessionAgentPickerControls', () => {
         // `isMachineOnline(...)` goes false and every target becomes unavailable.
         await hook.rerender({ source: { ...supportedSource, machinePresence: 'offline' } });
 
-        // The open popover keeps the shape it opened with, so the cancel gesture is
-        // still on screen and the arm is still reachable — the invariant is that an
-        // arm never outlives its way out, not that it dies the instant its target
-        // does.
+        // The arm is gone at once; the open popover still keeps the shape it opened with.
+        expect(hook.getCurrent().armedContinuation).toBeNull();
         expect(optionsOf(hook.getCurrent())[0]?.onSelectImmediate).toBeTypeOf('function');
-        expect(hook.getCurrent().armedContinuation).not.toBeNull();
+        // The submit path reads the identity too; a surviving localId would keep
+        // naming a switch that no longer exists.
+        expect(hook.getCurrent().armedContinuationLocalId).toBeNull();
 
-        // Closing it is where the rail decision is taken again, and the arm goes
-        // with the rail.
+        // Closing it is where the rail decision is taken again.
         await act(async () => {
             hook.getCurrent().onAgentPickerVisibilityChange(false);
         });
 
         expect(optionsOf(hook.getCurrent())).toEqual([CURRENT_AGENT_ROW]);
         expect(hook.getCurrent().armedContinuation).toBeNull();
-        // The submit path reads the identity too; a surviving localId would keep
-        // naming a switch that no longer exists.
         expect(hook.getCurrent().armedContinuationLocalId).toBeNull();
     });
 
-    it('keeps an armed choice while the rail \u2014 and therefore the cancel gesture \u2014 is still there', async () => {
-        // The control for the rule above: the arm is bounded by the CANCEL GESTURE's
-        // reachability, not by its own target's eligibility. One blocked target
-        // inside a live rail keeps that gesture on screen, so the arm survives and
-        // the reader can still take it back.
+    it('keeps an armed choice while its own target is eligible, even when a sibling is refused', async () => {
+        // The control for the rule above: only the ARMED target's own eligibility decides its arm. A
+        // refused sibling inside the same rail leaves it alone, and the reader can still take it back.
+        machineRpcWithServerScope.mockImplementation((params: {
+            method: string;
+            payload: { selections?: readonly { agentId?: string }[] };
+        }) => Promise.resolve(
+            ['session.continuation.inspectBatch', 'session.continuation.inspectBackendTargets'].includes(params.method)
+                ? {
+                    v: 1,
+                    inspections: (params.payload.selections ?? []).map((selection) => (
+                        selection.agentId === 'gemini' ? { ...AVAILABLE, sameSessionTransition: false } : AVAILABLE
+                    )),
+                }
+                : AVAILABLE,
+        ));
         const hook = await renderControls({
             entries: [entry('claude'), entry('codex'), entry('gemini')],
         });
@@ -782,14 +787,8 @@ describe('useInSessionAgentPickerControls', () => {
             optionsOf(hook.getCurrent())[1]?.onSelectImmediate?.();
         });
         expect(hook.getCurrent().armedContinuation).not.toBeNull();
-
-        await hook.rerender({
-            entries: [
-                entry('claude'),
-                entry('codex', { family: 'configuredAcpBackend' }),
-                entry('gemini'),
-            ],
-        });
+        expect(optionsOf(hook.getCurrent()).find((option) => option.id === 'builtInAgent:gemini'))
+            .toMatchObject({ disabled: true });
 
         expect(hook.getCurrent().armedContinuation).not.toBeNull();
         await act(async () => {

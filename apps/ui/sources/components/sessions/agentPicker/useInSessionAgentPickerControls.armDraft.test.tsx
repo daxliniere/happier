@@ -755,6 +755,63 @@ describe('useInSessionAgentPickerControls arm draft', () => {
         expect(readPersistedArm()).toBeUndefined();
     });
 
+    it('clears an armed target that settles unavailable even while an eligible sibling keeps the rail visible', async () => {
+        const hook = await renderControls({ entries: [entry('claude'), entry('codex'), entry('gemini')] });
+        await armTarget(hook, 'agent:codex');
+        expect(hook.getCurrent().armedContinuation).toEqual(armedIntentFor('codex'));
+        const reinspection = createDeferred<{ v: 1; inspections: readonly (typeof AVAILABLE | typeof UNSUPPORTED)[] }>();
+        machineRpcWithServerScope.mockImplementationOnce(() => reinspection.promise);
+
+        await hook.rerender({
+            entries: [entry('claude'), entry('codex'), entry('gemini')],
+            machine: { ...onlineMachine, connectionGeneration: 2 },
+        });
+        await act(async () => { await Promise.resolve(); });
+
+        // While the answer is pending the choice is kept: `checking` is not evidence it went stale.
+        expect(hook.getCurrent().armedContinuation).toEqual(armedIntentFor('codex'));
+
+        await act(async () => {
+            // Codex is refused; Gemini stays eligible, so the rail (and its scope key) does not change.
+            reinspection.resolve({ v: 1, inspections: [UNSUPPORTED, AVAILABLE] });
+            await Promise.resolve();
+        });
+        await act(async () => { await Promise.resolve(); });
+
+        expect(readTargetOptionIds(hook)).toContain('agent:gemini');
+        expect(hook.getCurrent().armedContinuation).toBeNull();
+        expect(hook.getCurrent().armedContinuationLocalId).toBeNull();
+        expect(readPersistedArm()).toBeUndefined();
+    });
+
+    it('keeps an issued submission in custody when its armed target settles unavailable', async () => {
+        const hook = await renderControls({ entries: [entry('claude'), entry('codex'), entry('gemini')] });
+        await armTarget(hook, 'agent:codex');
+        const submittedLocalId = hook.getCurrent().armedContinuationLocalId as string;
+        await act(async () => {
+            expect(hook.getCurrent().recordArmedContinuationSubmission({
+                localId: submittedLocalId,
+                input: { localId: submittedLocalId, text: 'switch and send this', meta: {} },
+                currentness: { text: 'switch and send this', mentions: [], attachmentDraftIds: [] },
+            })).toBe(true);
+        });
+        const reinspection = createDeferred<{ v: 1; inspections: readonly (typeof AVAILABLE | typeof UNSUPPORTED)[] }>();
+        machineRpcWithServerScope.mockImplementationOnce(() => reinspection.promise);
+        await hook.rerender({
+            entries: [entry('claude'), entry('codex'), entry('gemini')],
+            machine: { ...onlineMachine, connectionGeneration: 2 },
+        });
+
+        await act(async () => {
+            reinspection.resolve({ v: 1, inspections: [UNSUPPORTED, AVAILABLE] });
+            await Promise.resolve();
+        });
+        await act(async () => { await Promise.resolve(); });
+
+        // The issued input is custody's to spend or retry; a refusal of the target must not erase it.
+        expect(readPersistedArm()?.submission).toMatchObject({ localId: submittedLocalId });
+    });
+
     it('drops the persisted arm with the live one when the rail that could cancel it goes', async () => {
         const hook = await renderControls({ entries: [entry('claude'), entry('codex'), entry('gemini')] });
         await armTarget(hook, 'agent:codex');
