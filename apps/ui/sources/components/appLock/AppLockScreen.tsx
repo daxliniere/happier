@@ -9,6 +9,7 @@ import { unlockAppLockWithDataKey, unlockAppLockWithPassword, useAppLockSnapshot
 import { completeAppLockReset, requestAppLockResetCode, signOutLockedDevice } from '@/auth/appLock/appLockSetup';
 import { BrandWordmark } from '@/components/onboarding/unauthShell/BrandWordmark';
 import { RoundButton } from '@/components/ui/buttons/RoundButton';
+import { AppLockVersionLabel } from './AppLockVersionLabel';
 import { Icon } from '@/components/ui/icons/Icon';
 import { Text, TextInput } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
@@ -116,6 +117,11 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     dangerAction: {
         backgroundColor: theme.colors.state.danger.foreground,
+    },
+    versionCorner: {
+        position: 'absolute',
+        right: 16,
+        bottom: 12,
     },
 }));
 
@@ -354,6 +360,9 @@ export function AppLockScreen(props: Readonly<{ onSignedOut: () => void }>) {
                     ) : null}
                 </View>
             </ScrollView>
+            <View style={[styles.versionCorner, { bottom: insets.bottom + 12 }]} pointerEvents="none">
+                <AppLockVersionLabel />
+            </View>
         </View>
     );
 }
