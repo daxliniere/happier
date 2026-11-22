@@ -969,6 +969,58 @@ describe('runSessionAgentTransition', () => {
         });
       });
 
+      describe('target account readiness (checked before the source is stopped)', () => {
+        const settingsWithCodexDefault = {
+          connectedServicesDefaultAuthByAgentIdV1: {
+            v: 1,
+            bindingsByAgentId: {
+              codex: {
+                v: 1,
+                bindingsByServiceId: {
+                  'openai-codex': { source: 'connected', selection: 'profile', profileId: 'codex-main' },
+                },
+              },
+            },
+          },
+        };
+        const profilesApi = (status: string) => ({
+          listConnectedServiceProfiles: async () => ({
+            serviceId: 'openai-codex',
+            profiles: [{ profileId: 'codex-main', status }],
+          }),
+        });
+
+        it('refuses the switch without stopping the source when the target account needs to be reconnected', async () => {
+          // A switch whose target cannot start used to stop the working session first and strand it
+          // on an Agent that could never run. The account is judged up front instead.
+          primeHappyPath(sourceMetadata({ ...SOURCE_BOUND }));
+          mocks.bootstrapAccountSettingsContext.mockResolvedValue({ settings: settingsWithCodexDefault });
+
+          const result = await runSessionAgentTransition({
+            credentials,
+            request: request(),
+            deps: { createConnectedServicesApi: async () => profilesApi('needs_reauth') },
+          });
+
+          expect(result).toEqual({ type: 'rejected', code: 'connected_account_unsupported', sourceEffect: 'none' });
+          expect(mocks.requestSessionStop).not.toHaveBeenCalled();
+          expect(mocks.commitSessionAgentTransitionCutover).not.toHaveBeenCalled();
+        });
+
+        it('proceeds when the target account is healthy', async () => {
+          primeHappyPath(sourceMetadata({ ...SOURCE_BOUND }));
+          mocks.bootstrapAccountSettingsContext.mockResolvedValue({ settings: settingsWithCodexDefault });
+
+          const result = await runSessionAgentTransition({
+            credentials,
+            request: request(),
+            deps: { createConnectedServicesApi: async () => profilesApi('connected') },
+          });
+
+          expect(result).toEqual({ type: 'accepted', localId: LOCAL_ID });
+        });
+      });
+
       it('leaves the target on native auth when the account configures no default for it', async () => {
         primeHappyPath(sourceMetadata({ ...SOURCE_BOUND }));
         mocks.bootstrapAccountSettingsContext.mockResolvedValue({ settings: {} });
