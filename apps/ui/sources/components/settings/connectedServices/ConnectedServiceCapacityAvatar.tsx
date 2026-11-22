@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { CapacityRing } from '@/components/ui/progress/CapacityRing';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 import { Text } from '@/components/ui/text/Text';
+import { resolveUsageArc, useRemainingUsageColor } from '@/components/sessions/usage/useRemainingUsageColor';
 import { Typography } from '@/constants/Typography';
 import { resolveQuotaToneColor } from '@/sync/domains/connectedServices/resolveQuotaToneColor';
 
@@ -50,7 +51,15 @@ export function ConnectedServiceCapacityAvatar(props: ConnectedServiceCapacityAv
     const { theme } = useUnistyles();
     const styles = stylesheet;
     const size = props.size ?? CONNECTED_SERVICE_GAUGE_SIZE;
-    const arcs = props.rings.map((ring) => ({ ratio: ring.ratio, color: resolveQuotaToneColor(theme, ring.tone) }));
+    // Same colour owner as every other usage ring: by remaining usage, else by tone.
+    const remainingUsageColor = useRemainingUsageColor();
+    const arcs = props.rings.map((ring) => {
+        const remainingPct = ring.ratio * 100;
+        return {
+            ratio: ring.ratio,
+            ...resolveUsageArc(remainingPct, remainingUsageColor(remainingPct) ?? resolveQuotaToneColor(theme, ring.tone)),
+        };
+    });
     // Neutral high-contrast center number so it stays readable regardless of ring
     // count/tone (the rings already carry the health color; a tone-matched number
     // disappears against same-colored rings, e.g. a Claude account with 3 green rings).
