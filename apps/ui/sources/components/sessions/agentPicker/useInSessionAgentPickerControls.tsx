@@ -6,6 +6,7 @@ import {
     buildBackendTargetKey,
     parseBackendTargetKey,
     type AccountProfile,
+    type ConnectedServiceBindingsV1,
     type FeatureDecision,
     type SessionAgentTransitionSelectionV1,
 } from '@happier-dev/protocol';
@@ -216,7 +217,21 @@ function buildTargetSelection(
         ...(selection.modelId !== 'default' ? { modelId: selection.modelId } : {}),
         ...(selection.sessionModeId ? { acpSessionModeId: selection.sessionModeId } : {}),
         ...(overrides ? { sessionConfigOptionOverrides: overrides } : {}),
+        ...(selection.connectedServices ? { connectedServices: selection.connectedServices } : {}),
     };
+}
+
+/**
+ * The selection a machine inspection is asked about. Eligibility depends on the target, not on
+ * which of the owner's accounts it will continue under; keeping the account out of this request
+ * means choosing one neither re-asks the machine nor un-arms the switch while it answers.
+ */
+function buildInspectionSelection(
+    entry: ResolvedBackendCatalogEntry,
+    selection: SessionAgentPickerSelection,
+): SessionAgentTransitionSelectionV1 {
+    const { connectedServices: _connectedServices, ...rest } = selection;
+    return buildTargetSelection(entry, rest);
 }
 
 function projectPersistedArmSelection(arm: ArmedAgentContinuation): SessionAgentPickerSelection {
@@ -225,6 +240,7 @@ function projectPersistedArmSelection(arm: ArmedAgentContinuation): SessionAgent
         modelId: selection.modelId ?? 'default',
         modelLabel: arm.modelLabel ?? null,
         sessionModeId: selection.acpSessionModeId ?? null,
+        ...(selection.connectedServices ? { connectedServices: selection.connectedServices } : {}),
         configOverrides: Object.fromEntries(
             Object.entries(selection.sessionConfigOptionOverrides?.overrides ?? {})
                 .flatMap(([configId, override]) => (
@@ -302,6 +318,11 @@ export type InSessionAgentPickerControls = Readonly<{
      */
     armedContinuationSubmissionIntent: ArmedAgentContinuation['intent'] | null;
     clearArmedContinuation: () => void;
+    /**
+     * Records which connected account the armed Agent continues under. Does nothing while no
+     * Agent is armed; the account is carried by the armed intent, so it lives and dies with it.
+     */
+    setArmedContinuationConnectedServices: (connectedServices: ConnectedServiceBindingsV1) => void;
     /** Spends the matching live and persisted submission once canonical custody consumes it. */
     clearArmedContinuationSubmissionIfCurrent: (submission: SessionArmedAgentContinuationSubmission) => boolean;
     /** Captures the exact canonical user-message request before transition dispatch. */
@@ -452,7 +473,7 @@ export function useInSessionAgentPickerControls(
     const targetSelectionByTargetKey = React.useMemo(() => new Map(
         targetEntries.map((entry) => [
             entry.targetKey,
-            buildTargetSelection(entry, readTargetSelection(entry.targetKey)),
+            buildInspectionSelection(entry, readTargetSelection(entry.targetKey)),
         ] as const),
     ), [readTargetSelection, targetEntries]);
 
@@ -486,7 +507,7 @@ export function useInSessionAgentPickerControls(
             eligibility: resolveSessionAgentContinuationEligibility({
                 entry,
                 source,
-                inspection: readInspection(buildTargetSelection(entry, readTargetSelection(entry.targetKey))),
+                inspection: readInspection(buildInspectionSelection(entry, readTargetSelection(entry.targetKey))),
                 cliAvailable: entry.builtInAgentId ? cliAvailabilityByAgentId?.[entry.builtInAgentId] : null,
             }),
         }))
@@ -707,9 +728,16 @@ export function useInSessionAgentPickerControls(
         const persistedTargetSelection = projectPersistedArmSelection(persisted);
         const inspectedSelection = targetSelectionByTargetKey.get(persisted.backendTargetKey);
         const entryForPersistedArm = targetEntries.find((entry) => entry.targetKey === persisted.backendTargetKey);
+        // The account is not part of what was inspected, so a restored arm that carries one must
+        // still be projected into the picker selection or the next model change would drop it.
+        const restoredAccountDiffers = JSON.stringify(readTargetSelection(persisted.backendTargetKey).connectedServices ?? null)
+            !== JSON.stringify(persistedTargetSelection.connectedServices ?? null);
         if (
             entryForPersistedArm !== undefined
-            && JSON.stringify(inspectedSelection) !== JSON.stringify(buildTargetSelection(entryForPersistedArm, persistedTargetSelection))
+            && (
+                restoredAccountDiffers
+                || JSON.stringify(inspectedSelection) !== JSON.stringify(buildInspectionSelection(entryForPersistedArm, persistedTargetSelection))
+            )
         ) {
             setSelectionByTargetKey((current) => {
                 const next = new Map(current);
@@ -755,6 +783,7 @@ export function useInSessionAgentPickerControls(
         featureDefinitelyDisabled,
         persistedArmedContinuation,
         railDecisionSettled,
+        readTargetSelection,
         targetEntries,
         targetRows,
         targetSelectionByTargetKey,
@@ -773,6 +802,22 @@ export function useInSessionAgentPickerControls(
         selection: SessionAgentPickerSelection;
     }> | null>(null);
 
+    // An armed target's OWN settled eligibility. The scope key above only notices the whole rail
+    // going away, so a target the machine now refuses would otherwise stay armed whenever a sibling
+    // keeps the rail visible, and the send control would keep promising "Continue with {Agent}" for a
+    // switch the machine will reject. Owner decision (PR #15): the arm follows its own target, so it
+    // clears as soon as that target settles unavailable, whether or not the popover is open and
+    // whether or not the rail survives. `checking` is deliberately not a reason to clear (a changed
+    // runtime pair turns every cached answer into `checking` without making the choice stale), and an
+    // issued submission is custody's to spend or retry, never erased by a refusal of its target.
+    React.useEffect(() => {
+        if (!featureEnabled || armed === null || armed.submission !== undefined) return;
+        const row = targetRows.find(({ entry }) => entry.targetKey === armed.backendTargetKey);
+        if (row?.eligibility.status !== 'unavailable') return;
+        pendingArmRef.current = null;
+        persistArmedContinuation(null);
+    }, [armed, featureEnabled, persistArmedContinuation, targetRows]);
+
     const armExactSelection = React.useCallback((
         entry: ResolvedBackendCatalogEntry,
         sourceAgentId: string,
@@ -781,7 +826,7 @@ export function useInSessionAgentPickerControls(
         const eligibility = resolveSessionAgentContinuationEligibility({
             entry,
             source,
-            inspection: readInspection(buildTargetSelection(entry, selection)),
+            inspection: readInspection(buildInspectionSelection(entry, selection)),
             cliAvailable: entry.builtInAgentId ? cliAvailabilityByAgentId?.[entry.builtInAgentId] : null,
         });
         if (eligibility.status === 'eligible') {
@@ -798,6 +843,31 @@ export function useInSessionAgentPickerControls(
             : null;
     }, [cliAvailabilityByAgentId, persistArmedContinuation, readInspection, source]);
 
+    // The owner's pre-Continue choice of which connected account the armed Agent continues under.
+    // It rides the same armed intent (and so the same draft) as the model. The account is not part
+    // of the machine inspection, so the existing arm stays valid for the same target: it is updated
+    // in place rather than re-evaluated, which means this never re-asks the machine and never
+    // un-arms the switch, even while a re-inspection of that same target is still in flight (an
+    // unarmed window would send the next message to the source Agent). Whether an armed target is
+    // later refused is decided exactly as it is for a model change; this does not alter that.
+    const setArmedContinuationConnectedServices = React.useCallback((connectedServices: ConnectedServiceBindingsV1) => {
+        if (armed === null) return;
+        // The account is part of the arm's identity. Once a submission is issued, re-arming would
+        // mint a new localId and drop the issued input, so custody could no longer spend or retry
+        // the transition it issued. The choice is final until that submission is resolved.
+        if (armed.submission !== undefined) return;
+        const entry = targetEntries.find((candidate) => candidate.targetKey === armed.backendTargetKey);
+        if (!entry) return;
+        const next: SessionAgentPickerSelection = { ...projectPersistedArmSelection(armed), connectedServices };
+        setSelectionByTargetKey((current) => {
+            const nextMap = new Map(current);
+            nextMap.set(entry.targetKey, next);
+            return nextMap;
+        });
+        pendingArmRef.current = null;
+        persistArmedContinuation(buildArmedContinuation(entry, armed.intent.sourceAgentId, next, source.currentBackendTargetKey));
+    }, [armed, persistArmedContinuation, source.currentBackendTargetKey, targetEntries]);
+
     React.useEffect(() => {
         const pending = pendingArmRef.current;
         if (pending === null) return;
@@ -813,7 +883,7 @@ export function useInSessionAgentPickerControls(
         const eligibility = resolveSessionAgentContinuationEligibility({
             entry,
             source,
-            inspection: readInspection(buildTargetSelection(entry, pending.selection)),
+            inspection: readInspection(buildInspectionSelection(entry, pending.selection)),
             cliAvailable: entry.builtInAgentId ? cliAvailabilityByAgentId?.[entry.builtInAgentId] : null,
         });
         if (eligibility.status === 'checking') return;
@@ -1026,6 +1096,7 @@ export function useInSessionAgentPickerControls(
         armedContinuationSubmissionIntent: submissionArm?.intent ?? null,
         clearArmedContinuationSubmissionIfCurrent,
         clearArmedContinuation,
+        setArmedContinuationConnectedServices,
         recordArmedContinuationSubmission,
         onAgentPickerIntent: signalAgentPickerIntent,
         onAgentPickerVisibilityChange,
