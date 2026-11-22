@@ -8,7 +8,6 @@ import { composeAppStackScreenLayout } from '@/components/navigation/appStackScr
 import { NavigatorSafeAreaBleed } from '@/components/navigation/safeArea/HorizontalSafeArea';
 import { ItemSubtitleWrappingContext } from '@/components/ui/lists/Item';
 import {
-    createSettingsBreadcrumbHeaderTitle,
     getSettingsStackScreenDefinitions,
     type SettingsRouteParams,
     type SettingsStackScope,
@@ -48,12 +47,9 @@ export function SettingsStack({ scope = 'settings', screenLayout }: Readonly<{
     );
 }
 
-/** Fills parent breadcrumb links that need route params (e.g. the prompt editor) from the screen's own params. */
+/** Screens whose breadcrumbs depend on route params (service names, the prompt editor link) build options per route. */
 function getSettingsScreenOptions(definition: SettingsStackScreenDefinition) {
-    const breadcrumbs = definition.breadcrumbs;
-    if (!breadcrumbs?.some((crumb) => crumb.href?.includes('['))) return definition.options;
-    return ({ route }: { route: { params?: object } }) => ({
-        ...definition.options,
-        headerTitle: createSettingsBreadcrumbHeaderTitle(breadcrumbs, route.params as SettingsRouteParams),
-    });
+    const routeOptions = definition.routeOptions;
+    if (!routeOptions) return definition.options;
+    return ({ route }: { route: { params?: object } }) => routeOptions(route.params as SettingsRouteParams);
 }

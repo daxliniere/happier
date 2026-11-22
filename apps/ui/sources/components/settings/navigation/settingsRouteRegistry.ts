@@ -1,6 +1,9 @@
 import * as React from 'react';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
+import { ConnectedServiceIdSchema } from '@happier-dev/protocol';
+
+import { resolveConnectedServiceDisplayName } from '@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName';
 import type { TranslationKeyNoParams } from '@/text';
 
 import { SettingsBreadcrumbHeaderTitle } from './SettingsBreadcrumbHeaderTitle';
@@ -14,6 +17,8 @@ export type SettingsStackScreenDefinition = Readonly<{
     options: NativeStackNavigationOptions;
     /** Breadcrumb trail for titled screens; links may hold `[param]` segments to resolve per route. */
     breadcrumbs?: readonly SettingsBreadcrumb[];
+    /** Present when the breadcrumbs depend on route params: builds the screen options for a route's params. */
+    routeOptions?: (params: SettingsRouteParams) => NativeStackNavigationOptions;
 }>;
 
 /** Header title rendering the breadcrumb trail, with `[param]` links filled from the given route params. */
@@ -32,6 +37,8 @@ export type SettingsBreadcrumb = Readonly<{
      * May hold `[param]` segments, filled from the current route's params by `resolveSettingsBreadcrumbs`.
      */
     href?: string;
+    /** Title derived from the current route's params (e.g. the service name); `title` is the fallback. */
+    resolveTitle?: (params: SettingsRouteParams) => string | undefined;
 }>;
 
 export type SettingsRouteParams = Readonly<Record<string, unknown>> | undefined;
@@ -61,10 +68,33 @@ export function resolveSettingsBreadcrumbs(
     params: SettingsRouteParams,
 ): readonly SettingsBreadcrumb[] {
     return breadcrumbs.map((crumb) => {
-        if (!crumb.href) return crumb;
-        const href = resolveSettingsBreadcrumbHref(crumb.href, params);
-        return href ? { title: crumb.title, href } : { title: crumb.title };
+        const title = crumb.resolveTitle?.(params) ?? crumb.title;
+        const href = crumb.href ? resolveSettingsBreadcrumbHref(crumb.href, params) : undefined;
+        return href ? { title, href } : { title };
     });
+}
+
+function settingsBreadcrumbsNeedRouteParams(breadcrumbs: readonly SettingsBreadcrumb[]): boolean {
+    return breadcrumbs.some((crumb) => crumb.resolveTitle !== undefined || crumb.href?.includes('[') === true);
+}
+
+/**
+ * The screen a route is reached from: its declared `parent`, otherwise the nearest registered route
+ * above it in the URL path (`a/b` or `a/b/index` for `a/b/c`). Top-level routes have none.
+ */
+function getSettingsParentRouteName(
+    name: string,
+    definitions: readonly SettingsRouteChromeDefinition[],
+): string | undefined {
+    const declared = definitions.find((definition) => definition.name === name)?.parent;
+    if (declared) return declared;
+    const segments = name.replace(/\/index$/, '').split('/');
+    for (let length = segments.length - 1; length > 0; length -= 1) {
+        const prefix = segments.slice(0, length).join('/');
+        const match = definitions.find((definition) => definition.name === prefix || definition.name === `${prefix}/index`);
+        if (match) return match.name;
+    }
+    return undefined;
 }
 
 export function getSettingsBreadcrumbs(
@@ -73,54 +103,74 @@ export function getSettingsBreadcrumbs(
     definitions: readonly SettingsRouteChromeDefinition[],
     scope: SettingsStackScope,
 ): readonly SettingsBreadcrumb[] {
-    const crumbs: { titleKey: TranslationKeyNoParams; href: string }[] = [
-        { titleKey: 'settings.title', href: '/settings' },
+    const crumbs: { title: string; href: string; resolveTitle?: SettingsBreadcrumb['resolveTitle'] }[] = [
+        { title: t('settings.title'), href: '/settings' },
     ];
-    if (scope === 'prompts') crumbs.push({ titleKey: 'settings.prompts', href: '/settings/prompts' });
-    const segments = name.split('/');
+    if (scope === 'prompts') crumbs.push({ title: t('settings.prompts'), href: '/settings/prompts' });
 
-    for (let index = 0; index < segments.length; index += 1) {
-        const routePrefix = segments.slice(0, index + 1).join('/');
-        const routeName = index === segments.length - 1
-            ? routePrefix
-            : definitions.some((definition) => definition.name === routePrefix)
-                ? routePrefix
-                : `${routePrefix}/index`;
-        const titleKey = definitions.find((definition) => definition.name === routeName)?.titleKey;
-        if (titleKey) crumbs.push({ titleKey, href: getSettingsBreadcrumbHref(routeName, scope) });
+    const chain: string[] = [];
+    for (
+        let routeName: string | undefined = name;
+        routeName !== undefined && !chain.includes(routeName);
+        routeName = getSettingsParentRouteName(routeName, definitions)
+    ) {
+        chain.unshift(routeName);
+    }
+    for (const routeName of chain) {
+        const definition = definitions.find((entry) => entry.name === routeName);
+        if (!definition?.titleKey) continue;
+        const titleFromParams = definition.titleFromParams;
+        crumbs.push({
+            title: t(definition.titleKey),
+            href: getSettingsBreadcrumbHref(routeName, scope),
+            ...(titleFromParams ? { resolveTitle: (params: SettingsRouteParams) => titleFromParams(params, t) } : {}),
+        });
     }
 
-    const titled = crumbs.map((crumb) => ({ title: t(crumb.titleKey), href: crumb.href }));
     // A parent that shares its title with the next level collapses into one crumb that keeps the parent's link.
-    const deduped: { title: string; href: string; absorbedCurrentHref?: string }[] = [];
-    titled.forEach((crumb, index) => {
+    const deduped: (typeof crumbs[number] & { absorbedCurrentHref?: string })[] = [];
+    crumbs.forEach((crumb, index) => {
         const previous = deduped[deduped.length - 1];
         if (previous && previous.title === crumb.title) {
-            if (index === titled.length - 1) previous.absorbedCurrentHref = crumb.href;
+            if (index === crumbs.length - 1) previous.absorbedCurrentHref = crumb.href;
             return;
         }
         deduped.push({ ...crumb });
     });
+    const withTitle = (crumb: (typeof deduped)[number], href?: string): SettingsBreadcrumb => ({
+        title: crumb.title,
+        ...(href ? { href } : {}),
+        ...(crumb.resolveTitle ? { resolveTitle: crumb.resolveTitle } : {}),
+    });
     // The last crumb is the current screen: show it, but never as a link to itself. When the current screen
     // collapsed into a parent at another route (e.g. an Action detail under "Actions"), keep the parent's link.
     return deduped.map((crumb, index) => {
-        if (index < deduped.length - 1) return { title: crumb.title, href: crumb.href };
+        if (index < deduped.length - 1) return withTitle(crumb, crumb.href);
         const linksElsewhere = crumb.absorbedCurrentHref !== undefined && crumb.absorbedCurrentHref !== crumb.href;
-        return linksElsewhere ? { title: crumb.title, href: crumb.href } : { title: crumb.title };
+        return withTitle(crumb, linksElsewhere ? crumb.href : undefined);
     });
 }
 
 type SettingsRouteChromeDefinition = Readonly<{
     name: string;
     titleKey?: TranslationKeyNoParams;
+    /** Route of the screen this one is opened from, when that is not its URL parent. */
+    parent?: string;
+    /** Title from route params, shown in place of `titleKey` when it resolves. */
+    titleFromParams?: (params: SettingsRouteParams, t: Translate) => string | undefined;
     headerBackTitleKey?: TranslationKeyNoParams;
     headerShown?: boolean;
 }>;
 
+function connectedServiceTitle(params: SettingsRouteParams, t: Translate): string | undefined {
+    const parsed = ConnectedServiceIdSchema.safeParse(params?.serviceId);
+    return parsed.success ? resolveConnectedServiceDisplayName(parsed.data, t) : undefined;
+}
+
 const SETTINGS_ROUTE_CHROME_DEFINITIONS: readonly SettingsRouteChromeDefinition[] = [
     { name: 'index', titleKey: 'settings.title', headerBackTitleKey: 'common.home' },
     { name: 'account', titleKey: 'settings.account' },
-    { name: 'acp-backend', titleKey: 'settings.acpCatalogBackendEditorTitle' },
+    { name: 'acp-backend', titleKey: 'settings.acpCatalogBackendEditorTitle', parent: 'providers/index' },
     { name: 'acp', titleKey: 'settings.acpCatalog' },
     { name: 'actions', titleKey: 'common.actions' },
     { name: 'actions/[actionId]', titleKey: 'common.actions' },
@@ -134,24 +184,24 @@ const SETTINGS_ROUTE_CHROME_DEFINITIONS: readonly SettingsRouteChromeDefinition[
     { name: 'attachments', titleKey: 'settings.attachments' },
     { name: 'connect/claude', headerShown: false },
     { name: 'connected-services/index', titleKey: 'settings.connectedServices' },
-    { name: 'connected-services/[serviceId]', titleKey: 'connectedServices.fallbackName' },
-    { name: 'connected-services/group', titleKey: 'connectedServices.detail.groupDetail.routeTitle' },
-    { name: 'connected-services/import', titleKey: 'connectedServices.importAccounts.title' },
-    { name: 'connected-services/oauth', titleKey: 'connectedServices.detail.addOauthProfileTitle' },
-    { name: 'connected-services/profile', titleKey: 'connectedServices.profile.profileId' },
+    { name: 'connected-services/[serviceId]', titleKey: 'connectedServices.fallbackName', titleFromParams: connectedServiceTitle },
+    { name: 'connected-services/group', titleKey: 'connectedServices.detail.groupDetail.routeTitle', parent: 'connected-services/[serviceId]' },
+    { name: 'connected-services/import', titleKey: 'connectedServices.importAccounts.title', parent: 'connected-services/[serviceId]' },
+    { name: 'connected-services/oauth', titleKey: 'connectedServices.detail.addOauthProfileTitle', parent: 'connected-services/[serviceId]' },
+    { name: 'connected-services/profile', titleKey: 'connectedServices.profile.profileId', parent: 'connected-services/[serviceId]' },
     { name: 'connected-services/provider-state-sharing', titleKey: 'connectedServices.providerStateSharing.title' },
-    { name: 'diagnosis', titleKey: 'diagnosis.title' },
+    { name: 'diagnosis', titleKey: 'diagnosis.title', parent: 'system-status' },
     { name: 'features', titleKey: 'settings.features' },
     { name: 'file-opening', titleKey: 'settingsDesktop.pathMappingsTitle' },
     { name: 'keyboard', titleKey: 'settingsKeyboard.title' },
-    { name: 'language', titleKey: 'settingsLanguage.currentLanguage' },
+    { name: 'language', titleKey: 'settingsLanguage.currentLanguage', parent: 'appearance' },
     { name: 'machines', titleKey: 'settings.machines' },
     { name: 'machines/add', titleKey: 'settings.addMachine' },
     { name: 'machines/this-computer', titleKey: 'settings.machineSetupCurrentMachineTitle' },
-    { name: 'mcp-server', titleKey: 'settings.mcpServersEditorTitle' },
+    { name: 'mcp-server', titleKey: 'settings.mcpServersEditorTitle', parent: 'mcp' },
     { name: 'mcp', titleKey: 'settings.mcpServers' },
     { name: 'memory', titleKey: 'settings.memorySearch' },
-    { name: 'model-visibility', titleKey: 'modelVisibility.title' },
+    { name: 'model-visibility', titleKey: 'modelVisibility.title', parent: 'providers/index' },
     { name: 'notifications', titleKey: 'settings.notifications' },
     { name: 'notifications/push', titleKey: 'settingsNotifications.push.troubleshootTitle' },
     { name: 'pets', titleKey: 'settingsPets.title' },
@@ -211,7 +261,11 @@ export function getSettingsStackScreenDefinitions(
 ): readonly SettingsStackScreenDefinition[] {
     const definitions: readonly SettingsRouteChromeDefinition[] = scope === 'prompts'
         ? SETTINGS_ROUTE_CHROME_DEFINITIONS.filter((definition) => definition.name.startsWith('prompts/'))
-            .map((definition) => ({ ...definition, name: definition.name.slice('prompts/'.length) }))
+            .map((definition) => ({
+                ...definition,
+                name: definition.name.slice('prompts/'.length),
+                parent: definition.parent?.replace(/^prompts\//, ''),
+            }))
         : [
             ...SETTINGS_ROUTE_CHROME_DEFINITIONS.filter((definition) => !definition.name.startsWith('prompts/')),
             { name: 'prompts', headerShown: false },
@@ -224,10 +278,14 @@ export function getSettingsStackScreenDefinitions(
         if (!definition.titleKey) return { name: definition.name, options };
         const breadcrumbs = getSettingsBreadcrumbs(t, definition.name, definitions, scope);
         options.headerTitle = createSettingsBreadcrumbHeaderTitle(breadcrumbs);
+        const routeOptions = settingsBreadcrumbsNeedRouteParams(breadcrumbs)
+            ? (params: SettingsRouteParams) => ({ ...options, headerTitle: createSettingsBreadcrumbHeaderTitle(breadcrumbs, params) })
+            : undefined;
         return {
             name: definition.name,
             options,
             breadcrumbs,
+            ...(routeOptions ? { routeOptions } : {}),
         };
     });
 }

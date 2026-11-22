@@ -105,4 +105,37 @@ describe('settingsRouteRegistry', () => {
             { title: 'settings.title' },
         ]);
     });
+
+    it('follows the navigation parent for screens registered outside their parent route', () => {
+        const definitions = getSettingsStackScreenDefinitions((key) => key);
+        const trail = (name: string) => definitions.find((entry) => entry.name === name)?.breadcrumbs
+            ?.map((crumb) => crumb.title);
+
+        expect(trail('model-visibility')).toEqual(['settings.title', 'settingsProviders.title', 'modelVisibility.title']);
+        expect(trail('acp-backend')).toEqual(['settings.title', 'settingsProviders.title', 'settings.acpCatalogBackendEditorTitle']);
+        expect(trail('language')).toEqual(['settings.title', 'settings.appearance', 'settingsLanguage.currentLanguage']);
+        expect(trail('mcp-server')).toEqual(['settings.title', 'settings.mcpServers', 'settings.mcpServersEditorTitle']);
+        expect(trail('diagnosis')).toEqual(['settings.title', 'settings.systemStatus', 'diagnosis.title']);
+    });
+
+    it('nests connected-service sub-screens under the named service', () => {
+        const definitions = getSettingsStackScreenDefinitions((key) => key);
+        const resolved = (name: string) => resolveSettingsBreadcrumbs(
+            definitions.find((entry) => entry.name === name)?.breadcrumbs ?? [],
+            { serviceId: 'claude-subscription', profileId: 'work' },
+        );
+
+        expect(resolved('connected-services/profile')).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'settings.connectedServices', href: '/settings/connected-services' },
+            { title: 'connectedServices.serviceNames.claudeSubscription', href: '/settings/connected-services/claude-subscription' },
+            { title: 'connectedServices.profile.profileId' },
+        ]);
+        expect(resolved('connected-services/[serviceId]')).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'settings.connectedServices', href: '/settings/connected-services' },
+            { title: 'connectedServices.serviceNames.claudeSubscription' },
+        ]);
+        expect(typeof definitions.find((entry) => entry.name === 'connected-services/oauth')?.routeOptions).toBe('function');
+    });
 });
