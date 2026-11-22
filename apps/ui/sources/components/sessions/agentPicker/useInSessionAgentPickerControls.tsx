@@ -802,6 +802,22 @@ export function useInSessionAgentPickerControls(
         selection: SessionAgentPickerSelection;
     }> | null>(null);
 
+    // An armed target's OWN settled eligibility. The scope key above only notices the whole rail
+    // going away, so a target the machine now refuses would otherwise stay armed whenever a sibling
+    // keeps the rail visible, and the send control would keep promising "Continue with {Agent}" for a
+    // switch the machine will reject. Owner decision (PR #15): the arm follows its own target, so it
+    // clears as soon as that target settles unavailable, whether or not the popover is open and
+    // whether or not the rail survives. `checking` is deliberately not a reason to clear (a changed
+    // runtime pair turns every cached answer into `checking` without making the choice stale), and an
+    // issued submission is custody's to spend or retry, never erased by a refusal of its target.
+    React.useEffect(() => {
+        if (!featureEnabled || armed === null || armed.submission !== undefined) return;
+        const row = targetRows.find(({ entry }) => entry.targetKey === armed.backendTargetKey);
+        if (row?.eligibility.status !== 'unavailable') return;
+        pendingArmRef.current = null;
+        persistArmedContinuation(null);
+    }, [armed, featureEnabled, persistArmedContinuation, targetRows]);
+
     const armExactSelection = React.useCallback((
         entry: ResolvedBackendCatalogEntry,
         sourceAgentId: string,
