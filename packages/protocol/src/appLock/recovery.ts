@@ -103,6 +103,8 @@ export const APP_LOCK_RECOVERY_ERROR_CODES = [
     'cooldown',
     'not_found',
     'email_failed',
+    /** The account lock was changed since the caller read it (for example the password changed on another device). */
+    'version_conflict',
 ] as const;
 export type AppLockRecoveryErrorCode = (typeof APP_LOCK_RECOVERY_ERROR_CODES)[number];
 

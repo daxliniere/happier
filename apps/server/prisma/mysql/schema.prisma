@@ -85,6 +85,7 @@ model Account {
     SessionAppearance      SessionAppearance[]
     AppLockRecovery        AppLockRecovery[]
     AppLockMailSettings    AppLockMailSettings?
+    AppLockAccountLock     AppLockAccountLock?
     ConnectedClientPresence ConnectedClientPresence[]
     SessionOrganizationFolder SessionOrganizationFolder[]
     SessionOrganizationTag SessionOrganizationTag[]
@@ -601,6 +602,21 @@ model AppLockMailSettings {
     fromAddress       String
     createdAt         DateTime @default(now())
     updatedAt         DateTime @updatedAt
+
+    account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+/// The account-wide app lock: one shared data key, stored only in password-wrapped form so a device
+/// that knows the password can turn the lock on locally. `version` increases on every re-wrap and
+/// lets a device refuse a change based on a stale copy. `kdf` is JSON (alg, N, r, p, salt).
+model AppLockAccountLock {
+    accountId          String   @id
+    required           Boolean  @default(true)
+    kdf                String
+    passwordWrappedKey String
+    version            Int      @default(1)
+    createdAt          DateTime @default(now())
+    updatedAt          DateTime @updatedAt
 
     account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }

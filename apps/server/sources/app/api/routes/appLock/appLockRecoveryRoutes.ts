@@ -9,6 +9,11 @@ import {
     AppLockRecoveryRegisterRequestSchema,
     AppLockMailSettingsInputSchema,
     AppLockMailSettingsResponseSchema,
+    APP_LOCK_ACCOUNT_LOCK_ROUTES,
+    AppLockAccountLockPutRequestSchema,
+    AppLockAccountLockPutResponseSchema,
+    AppLockAccountLockRequiredRequestSchema,
+    AppLockAccountLockResponseSchema,
     type AppLockRecoveryErrorCode,
 } from "@happier-dev/protocol";
 import { type Fastify } from "../../types";
@@ -21,9 +26,13 @@ import { appLockRecoveryRedeem } from "@/app/appLock/appLockRecoveryRedeem";
 import { appLockMailSettingsGet } from "@/app/appLock/appLockMailSettingsGet";
 import { appLockMailSettingsSave } from "@/app/appLock/appLockMailSettingsSave";
 import { appLockMailSettingsSendTest } from "@/app/appLock/appLockMailSettingsSendTest";
+import { appLockAccountLockGet } from "@/app/appLock/appLockAccountLockGet";
+import { appLockAccountLockPut } from "@/app/appLock/appLockAccountLockPut";
+import { appLockAccountLockSetRequired } from "@/app/appLock/appLockAccountLockSetRequired";
 
 const STATUS_BY_ERROR: Record<AppLockRecoveryErrorCode, 400 | 404 | 409 | 429 | 502> = {
     mail_not_configured: 409,
+    version_conflict: 409,
     invalid_code: 400,
     code_expired: 400,
     too_many_attempts: 400,
@@ -67,6 +76,40 @@ export function appLockRecoveryRoutes(fastify: Fastify) {
         },
     }, async (request, reply) => {
         const result = await appLockRecoveryRegister({ uid: request.userId }, request.body);
+        return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
+    });
+
+    app.get(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLock, {
+        preHandler: fastify.authenticate,
+        config: { rateLimit: manageRateLimit },
+        schema: {
+            response: { 200: AppLockAccountLockResponseSchema },
+        },
+    }, async (request, reply) => {
+        return reply.send({ lock: await appLockAccountLockGet({ uid: request.userId }) });
+    });
+
+    app.put(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLock, {
+        preHandler: fastify.authenticate,
+        config: { rateLimit: manageRateLimit },
+        schema: {
+            body: AppLockAccountLockPutRequestSchema,
+            response: { 200: AppLockAccountLockPutResponseSchema, ...errorResponses },
+        },
+    }, async (request, reply) => {
+        const result = await appLockAccountLockPut({ uid: request.userId }, request.body);
+        return result.ok ? reply.send({ version: result.version }) : sendFailure(reply, result);
+    });
+
+    app.put(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLockRequired, {
+        preHandler: fastify.authenticate,
+        config: { rateLimit: manageRateLimit },
+        schema: {
+            body: AppLockAccountLockRequiredRequestSchema,
+            response: { 200: AppLockRecoveryOkResponseSchema, ...errorResponses },
+        },
+    }, async (request, reply) => {
+        const result = await appLockAccountLockSetRequired({ uid: request.userId }, request.body.required);
         return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
     });
 
