@@ -28,6 +28,10 @@ import {
 } from '@happier-dev/agents';
 
 import { isAuthenticationError } from '@/api/client/httpStatusError';
+import {
+  checkTargetConnectedServicesReady,
+  type ConnectedServicesProfilesApiFactory,
+} from './checkTargetConnectedServicesReady';
 import { resolveServerHttpBaseUrl } from '@/api/client/serverHttpBaseUrl';
 import { findTranscriptEncryptedMessageByLocalIdV2 } from '@/api/session/transcriptMessageLookup';
 import {
@@ -127,6 +131,8 @@ export type SessionAgentTransitionCoordinatorDeps = Readonly<{
   localAgentNativeResumeRecordStore?: LocalAgentNativeResumeRecordStore;
   /** This Account's settings, for the shared vendor-resume eligibility gates. */
   readAccountSettings?: () => Record<string, unknown> | null;
+  /** The connected-account lookup used to judge the target's account before the source is stopped. */
+  createConnectedServicesApi?: ConnectedServicesProfilesApiFactory;
 }>;
 
 // Result arms are built ONLY through the effect-stage handle threaded down the
@@ -662,6 +668,15 @@ export async function runSessionAgentTransition(params: Readonly<{
     request.selection.connectedServices
     && !isExplicitConnectedServicesChoiceSupported(targetAgentId, request.selection.connectedServices)
   ) return effects.rejected('connected_account_unsupported');
+  // Judge the target's account while the source is still untouched: a spawn refused after the stop
+  // leaves the Session committed to an Agent that can never start.
+  const targetAccount = await checkTargetConnectedServicesReady({
+    credentials: params.credentials,
+    targetBackendTarget,
+    explicitConnectedServices: request.selection.connectedServices,
+    ...(params.deps?.createConnectedServicesApi ? { deps: { createApi: params.deps.createConnectedServicesApi } } : {}),
+  });
+  if (!targetAccount.ready) return effects.rejected('connected_account_unsupported');
   const configuredBackend = targetBackendTarget.kind === 'configuredAcpBackend' && accountSettings
     ? resolveConfiguredAcpBackendFromAccountSettings(accountSettings, targetBackendTarget.backendId) : null;
   if (configuredBackend && accountSettings) {
