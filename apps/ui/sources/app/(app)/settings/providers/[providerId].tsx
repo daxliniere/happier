@@ -59,7 +59,12 @@ import {
     ConnectedServicesProviderStateSharingBackendGroups,
     resolveProviderStateSharingAgentIds,
 } from '@/components/settings/connectedServices/ConnectedServicesProviderStateSharingSettings';
-import { ProviderSettingsFields } from '@/components/settings/providers/ProviderSettingsFields';
+import {
+    ProviderSettingsFieldRows,
+    ProviderSettingsFields,
+    splitProviderSettingsSectionsByPlacement,
+} from '@/components/settings/providers/ProviderSettingsFields';
+import { resolveProviderSettingsText } from '@/components/settings/providers/providerSettingsText';
 import { Icon } from '@/components/ui/icons/Icon';
 import {
     readConnectedServiceProfileKindFromServices,
@@ -445,6 +450,11 @@ const ProviderSettingsScreenInner = React.memo(function ProviderSettingsScreenIn
         };
     }, []);
 
+    const providerUiSections = React.useMemo(
+        () => splitProviderSettingsSectionsByPlacement(plugin?.uiSections ?? []),
+        [plugin?.uiSections],
+    );
+
     return (
         <View
             ref={popoverBoundaryRef}
@@ -582,8 +592,73 @@ const ProviderSettingsScreenInner = React.memo(function ProviderSettingsScreenIn
                         }}
                     />
 
+                <ItemGroup
+                    title={t('settingsProviders.models')}
+                    footer={resolveProviderSettingsText(providerUiSections.modelsGroupSections[0]?.footer)}
+                >
+                    <ProviderSettingsFieldRows
+                        fields={providerUiSections.modelsGroupSections.flatMap((section) => section.fields)}
+                        readFieldValue={readFieldValue}
+                        setFieldValue={setFieldValue}
+                        openMenu={openMenu}
+                        setOpenMenu={setOpenMenu}
+                        localInputs={localInputs}
+                        setLocalInputs={setLocalInputs}
+                        popoverBoundaryRef={popoverBoundaryRef}
+                    />
+                    <Item
+                        testID="settings-model-visibility"
+                        title={t('settingsProviders.catalogModelListTitle')}
+                        subtitle={catalogModelListText}
+                        icon={<Icon name="stack" size={29} color={theme.colors.text.secondary} />}
+                        onPress={() => router.push({ pathname: '/settings/model-visibility', params: { agentId: providerId } })}
+                    />
+                    <Item
+                        title={t('settingsProviders.modelSelectionTitle')}
+                        subtitle={core.model.supportsSelection ? t('settingsProviders.supported') : t('settingsProviders.notSupported')}
+                        icon={<Icon name="list" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                    <Item
+                        title={t('settingsProviders.freeformModelIdsTitle')}
+                        subtitle={core.model.supportsFreeform ? t('settingsProviders.allowed') : t('settingsProviders.notAllowed')}
+                        icon={<Icon name="pencil-simple" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                    <Item
+                        title={t('settingsProviders.defaultModelTitle')}
+                        subtitle={defaultModelLabel}
+                        icon={<Icon name="star" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                    <Item
+                        title={t('settingsProviders.dynamicModelProbeTitle')}
+                        subtitle={dynamicProbe}
+                        icon={<Icon name="pulse" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                    <Item
+                        title={t('settingsProviders.nonAcpApplyScopeTitle')}
+                        subtitle={nonAcpApplyScope}
+                        icon={<Icon name="arrow-right" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                    <Item
+                        title={t('settingsProviders.acpApplyBehaviorTitle')}
+                        subtitle={acpApplyBehavior}
+                        icon={<Icon name="arrows-clockwise" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                    <Item
+                        title={t('settingsProviders.acpConfigOptionTitle')}
+                        subtitle={core.model.acpModelConfigOptionId ?? t('settingsProviders.notAvailable')}
+                        icon={<Icon name="sliders-horizontal" size={29} color={theme.colors.text.secondary} />}
+                        mode="info"
+                    />
+                </ItemGroup>
+
                 <ProviderSettingsFields
-                    sections={plugin?.uiSections ?? []}
+                    sections={providerUiSections.sections}
                     readFieldValue={readFieldValue}
                     setFieldValue={setFieldValue}
                     openMenu={openMenu}
@@ -695,63 +770,6 @@ const ProviderSettingsScreenInner = React.memo(function ProviderSettingsScreenIn
                     <BadgeGrid items={capabilityBadges} columns={2} />
                 </ItemGroup>
 
-                <ItemGroup title={t('settingsProviders.models')}>
-                    <Item
-                        testID="settings-model-visibility"
-                        title={t('modelVisibility.title')}
-                        subtitle={t('modelVisibility.entrySubtitle')}
-                        icon={<Icon name="eye-slash" size={29} color={theme.colors.text.secondary} />}
-                        onPress={() => router.push({ pathname: '/settings/model-visibility', params: { agentId: providerId } })}
-                    />
-                    <Item
-                        title={t('settingsProviders.modelSelectionTitle')}
-                        subtitle={core.model.supportsSelection ? t('settingsProviders.supported') : t('settingsProviders.notSupported')}
-                        icon={<Icon name="list" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.freeformModelIdsTitle')}
-                        subtitle={core.model.supportsFreeform ? t('settingsProviders.allowed') : t('settingsProviders.notAllowed')}
-                        icon={<Icon name="pencil-simple" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.defaultModelTitle')}
-                        subtitle={defaultModelLabel}
-                        icon={<Icon name="star" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.catalogModelListTitle')}
-                        subtitle={catalogModelListText}
-                        icon={<Icon name="stack" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.dynamicModelProbeTitle')}
-                        subtitle={dynamicProbe}
-                        icon={<Icon name="pulse" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.nonAcpApplyScopeTitle')}
-                        subtitle={nonAcpApplyScope}
-                        icon={<Icon name="arrow-right" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.acpApplyBehaviorTitle')}
-                        subtitle={acpApplyBehavior}
-                        icon={<Icon name="arrows-clockwise" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                    <Item
-                        title={t('settingsProviders.acpConfigOptionTitle')}
-                        subtitle={core.model.acpModelConfigOptionId ?? t('settingsProviders.notAvailable')}
-                        icon={<Icon name="sliders-horizontal" size={29} color={theme.colors.text.secondary} />}
-                        mode="info"
-                    />
-                </ItemGroup>
                     </ItemList>
                 )}
                 bottomPane={

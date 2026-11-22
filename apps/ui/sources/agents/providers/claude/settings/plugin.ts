@@ -60,6 +60,7 @@ export const CLAUDE_PROVIDER_SETTINGS_PLUGIN: ProviderSettingsPlugin = {
     uiSections: [
         {
             id: 'claudeModelDiscovery',
+            placement: 'modelsGroup',
             title: { key: 'settingsProviders.plugins.claude.sections.claudeModelDiscovery.title' },
             footer: { key: 'settingsProviders.plugins.claude.sections.claudeModelDiscovery.footer' },
             fields: [

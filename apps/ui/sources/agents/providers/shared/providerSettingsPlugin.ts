@@ -53,6 +53,11 @@ export type ProviderSettingsSectionDef = Readonly<{
     title: TranslatableText;
     footer?: TranslatableText;
     fields: readonly ProviderSettingFieldDef[];
+    /**
+     * `modelsGroup` renders the fields as the leading rows of the provider's Models group
+     * instead of as their own titled group. Such sections must not declare a `featureId`.
+     */
+    placement?: 'modelsGroup';
 }>;
 
 export type ProviderSubagentSettingsItemDef = Readonly<{

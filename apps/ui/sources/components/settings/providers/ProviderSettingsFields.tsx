@@ -24,8 +24,8 @@ type ProviderSettingsFieldsProps = Readonly<{
     popoverBoundaryRef: React.RefObject<unknown>;
 }>;
 
-const ProviderSettingsSection = React.memo(function ProviderSettingsSection(props: Readonly<{
-    section: ProviderSettingsSectionDef;
+type ProviderSettingsFieldRowsProps = Readonly<{
+    fields: readonly ProviderSettingFieldDef[];
     readFieldValue: (field: ProviderSettingFieldDef) => unknown;
     setFieldValue: (field: ProviderSettingFieldDef, value: unknown) => void;
     openMenu: string | null;
@@ -33,17 +33,13 @@ const ProviderSettingsSection = React.memo(function ProviderSettingsSection(prop
     localInputs: Record<string, string>;
     setLocalInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     popoverBoundaryRef: React.RefObject<unknown>;
-}>) {
-    const gatedFeatureEnabled = useFeatureEnabled(props.section.featureId ?? 'app.analytics');
-    const featureEnabled = props.section.featureId ? gatedFeatureEnabled : true;
-    if (!featureEnabled) return null;
+}>;
 
+/** Rows for a section's fields, without a group wrapper; the caller owns the group. */
+export const ProviderSettingsFieldRows = React.memo(function ProviderSettingsFieldRows(props: ProviderSettingsFieldRowsProps) {
     return (
-        <ItemGroup
-            title={resolveProviderSettingsText(props.section.title)}
-            footer={resolveProviderSettingsText(props.section.footer)}
-        >
-            {props.section.fields.map((field) => {
+        <>
+            {props.fields.map((field) => {
                 const value = props.readFieldValue(field);
 
                 if (field.kind === 'boolean') {
@@ -113,6 +109,49 @@ const ProviderSettingsSection = React.memo(function ProviderSettingsSection(prop
 
                 return null;
             })}
+        </>
+    );
+});
+
+export function splitProviderSettingsSectionsByPlacement(sections: readonly ProviderSettingsSectionDef[]): Readonly<{
+    modelsGroupSections: readonly ProviderSettingsSectionDef[];
+    sections: readonly ProviderSettingsSectionDef[];
+}> {
+    return {
+        modelsGroupSections: sections.filter((section) => section.placement === 'modelsGroup'),
+        sections: sections.filter((section) => section.placement !== 'modelsGroup'),
+    };
+}
+
+const ProviderSettingsSection = React.memo(function ProviderSettingsSection(props: Readonly<{
+    section: ProviderSettingsSectionDef;
+    readFieldValue: (field: ProviderSettingFieldDef) => unknown;
+    setFieldValue: (field: ProviderSettingFieldDef, value: unknown) => void;
+    openMenu: string | null;
+    setOpenMenu: (key: string | null) => void;
+    localInputs: Record<string, string>;
+    setLocalInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+    popoverBoundaryRef: React.RefObject<unknown>;
+}>) {
+    const gatedFeatureEnabled = useFeatureEnabled(props.section.featureId ?? 'app.analytics');
+    const featureEnabled = props.section.featureId ? gatedFeatureEnabled : true;
+    if (!featureEnabled) return null;
+
+    return (
+        <ItemGroup
+            title={resolveProviderSettingsText(props.section.title)}
+            footer={resolveProviderSettingsText(props.section.footer)}
+        >
+            <ProviderSettingsFieldRows
+                fields={props.section.fields}
+                readFieldValue={props.readFieldValue}
+                setFieldValue={props.setFieldValue}
+                openMenu={props.openMenu}
+                setOpenMenu={props.setOpenMenu}
+                localInputs={props.localInputs}
+                setLocalInputs={props.setLocalInputs}
+                popoverBoundaryRef={props.popoverBoundaryRef}
+            />
         </ItemGroup>
     );
 });

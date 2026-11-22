@@ -3,13 +3,19 @@ import { useIsFocused } from '@react-navigation/native';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet } from 'react-native-unistyles';
-import { buildBackendTargetKey } from '@happier-dev/protocol';
+import { buildBackendTargetKey, type BackendTargetRefV1 } from '@happier-dev/protocol';
 
 import { getResolvedBackendCatalogEntries } from '@/agents/backendCatalog/getResolvedBackendCatalogEntries';
 import { AGENT_IDS, DEFAULT_AGENT_ID, getAgentCore } from '@/agents/catalog/catalog';
+import { resolveAgentIdFromFlavor } from '@/agents/registry/registryCore';
 import { listPreferredMachineIds } from '@/components/settings/pickers/resolvePreferredMachineId';
 import { useNewSessionPreflightModelsState } from '@/components/sessions/new/hooks/screenModel/useNewSessionPreflightModelsState';
-import { resolveNewSessionCapabilityProbeContext } from '@/components/sessions/new/modules/newSessionCapabilityProbeContext';
+import {
+    buildNewSessionCapabilityProbeContextKey,
+    resolveNewSessionCapabilityProbeContext,
+    type NewSessionCapabilityProbeContext,
+} from '@/components/sessions/new/modules/newSessionCapabilityProbeContext';
+import type { ModelOption } from '@/sync/domains/models/modelOptions';
 import { DropdownMenu } from '@/components/ui/forms/dropdown/DropdownMenu';
 import { Switch } from '@/components/ui/forms/Switch';
 import { useLayoutMaxWidth } from '@/components/ui/layout/layout';
@@ -37,12 +43,40 @@ import { fireAndForget } from '@/utils/system/fireAndForget';
 const FALLBACK_TARGET = { kind: 'builtInAgent', agentId: DEFAULT_AGENT_ID } as const;
 const EMPTY_MODELS = Object.freeze([]);
 const EMPTY_SESSIONS = Object.freeze([]);
+const EMPTY_CONTEXTS: readonly Readonly<{ contextKey: string; context: NewSessionCapabilityProbeContext | null }>[] = Object.freeze([]);
 
 type VisibilityRow = ReturnType<typeof buildModelVisibilityRows>[number];
 
 function modelRowKey(row: VisibilityRow) {
     return row.modelId;
 }
+
+/**
+ * Probes one capability context that the default probe does not cover (a session's runtime
+ * context) and reports its models upward. Renders nothing.
+ */
+const SessionContextModelsProbe = React.memo(function SessionContextModelsProbe(props: Readonly<{
+    contextKey: string;
+    backendTarget: BackendTargetRefV1;
+    probeContext: NewSessionCapabilityProbeContext | null;
+    selectedMachineId: string | null;
+    capabilityServerId: string;
+    enabled: boolean;
+    onModels: (contextKey: string, modelOptions: readonly ModelOption[]) => void;
+}>) {
+    const { modelOptions } = useNewSessionPreflightModelsState({
+        backendTarget: props.backendTarget,
+        selectedMachineId: props.selectedMachineId,
+        capabilityServerId: props.capabilityServerId,
+        enabled: props.enabled,
+        probeContext: props.probeContext,
+    });
+    const { contextKey, onModels } = props;
+    React.useEffect(() => {
+        onModels(contextKey, modelOptions);
+    }, [contextKey, modelOptions, onModels]);
+    return null;
+});
 
 export function ModelVisibilitySettingsView() {
     const maxWidth = useLayoutMaxWidth();
@@ -99,10 +133,30 @@ export function ModelVisibilitySettingsView() {
         () => (provider ? collectObservedModelOptionsForProvider(sessions, provider.providerAgentId) : EMPTY_MODELS),
         [provider?.providerAgentId, sessions],
     );
+    // The composer probes with each session's own runtime context (SessionView), which can list
+    // models the settings context does not. Probe every distinct context this provider's sessions use.
+    const [contextModels, setContextModels] = React.useState<Readonly<Record<string, readonly ModelOption[]>>>({});
+    const handleContextModels = React.useCallback((contextKey: string, options: readonly ModelOption[]) => {
+        setContextModels((previous) => (previous[contextKey] === options ? previous : { ...previous, [contextKey]: options }));
+    }, []);
+    const sessionProbeContexts = React.useMemo(() => {
+        if (!provider) return EMPTY_CONTEXTS;
+        const defaultKey = buildNewSessionCapabilityProbeContextKey(probeContext);
+        const byKey = new Map<string, NewSessionCapabilityProbeContext | null>();
+        for (const session of sessions) {
+            if (resolveAgentIdFromFlavor(session.metadata?.flavor) !== provider.providerAgentId) continue;
+            const context = resolveNewSessionCapabilityProbeContext({ backendTarget, settings, sessionMetadata: session.metadata });
+            const key = buildNewSessionCapabilityProbeContextKey(context);
+            if (key !== defaultKey && !byKey.has(key)) byKey.set(key, context);
+        }
+        return [...byKey].map(([contextKey, context]) => ({ contextKey, context }));
+    }, [backendTarget, probeContext, provider, sessions, settings]);
     const allRows = React.useMemo(() => {
-        const known = provider ? [...modelOptions, ...observedModels] : EMPTY_MODELS;
+        const known = provider
+            ? [...modelOptions, ...Object.values(contextModels).flatMap((options) => options), ...observedModels]
+            : EMPTY_MODELS;
         return buildModelVisibilityRows(known, hiddenModels.filter((model) => model.backendTargetKey === providerKey));
-    }, [hiddenModels, modelOptions, observedModels, provider, providerKey]);
+    }, [contextModels, hiddenModels, modelOptions, observedModels, provider, providerKey]);
     const outdatedModelIds = React.useMemo(() => selectOutdatedModelIds(allRows.map((row) => ({ value: row.modelId })))
         .filter((modelId) => allRows.some((row) => row.modelId === modelId && !row.hidden)), [allRows]);
     const rows = React.useMemo(() => {
@@ -144,6 +198,18 @@ export function ModelVisibilitySettingsView() {
     const canDiscover = provider && getAgentCore(provider.providerAgentId).model.dynamicProbe !== 'static-only';
     return (
         <View style={[styles.container, { maxWidth }]}>
+            {sessionProbeContexts.map(({ contextKey, context }) => (
+                <SessionContextModelsProbe
+                    key={contextKey}
+                    contextKey={contextKey}
+                    backendTarget={backendTarget}
+                    probeContext={context}
+                    selectedMachineId={provider ? selectedMachineId : null}
+                    capabilityServerId={getActiveServerSnapshot().serverId ?? ''}
+                    enabled={focused && Boolean(provider)}
+                    onModels={handleContextModels}
+                />
+            ))}
             <FlashList
                 data={rows}
                 keyExtractor={modelRowKey}
