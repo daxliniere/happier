@@ -29,7 +29,28 @@ export function resolveUsageArc(remainingPct: number | null | undefined, color: 
     color: string;
     trackColor?: string;
 }> {
-    return remainingPct !== null && remainingPct !== undefined && remainingPct <= 0
+    return isUsageLimitExhausted(remainingPct)
         ? { color, trackColor: color }
         : { color };
+}
+
+/** A usage limit with nothing left. */
+export function isUsageLimitExhausted(remainingPct: number | null | undefined): boolean {
+    return remainingPct !== null && remainingPct !== undefined && remainingPct <= 0;
+}
+
+/**
+ * The text colour for a usage limit's name and figures: red once it is exhausted, so a spent limit
+ * stands out while its bar keeps showing what is left (nothing). Undefined keeps the usual colour.
+ */
+export function resolveUsageLimitTextColor(
+    theme: Readonly<{ colors: Readonly<{ state: Readonly<{ danger: Readonly<{ foreground: string }> }> }> }>,
+    remainingPct: number | null | undefined,
+): string | undefined {
+    return isUsageLimitExhausted(remainingPct) ? theme.colors.state.danger.foreground : undefined;
+}
+
+export function useUsageLimitTextColor(remainingPct: number | null | undefined): string | undefined {
+    const { theme } = useUnistyles();
+    return resolveUsageLimitTextColor(theme, remainingPct);
 }
