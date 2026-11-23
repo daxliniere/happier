@@ -5178,6 +5178,7 @@ function SessionViewLoaded({
             },
             switchingDisabledReason: connectedServicesAuthSwitchDisabledReason,
             sessionActive: session.active === true,
+            resumeSession: handleResumeSession,
             intentionalRestartSignals,
         });
         const agentInputStatusBadges = React.useMemo<ReadonlyArray<AgentInputStatusBadge>>(() => [

@@ -763,6 +763,106 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             await hook.unmount();
         });
 
+        describe('resuming after the switch', () => {
+            const NATIVE_METADATA = {
+                connectedServices: { v: 1, bindingsByServiceId: { anthropic: { source: 'native' } } },
+            };
+            const WORK_METADATA = {
+                connectedServices: {
+                    v: 1,
+                    bindingsByServiceId: { anthropic: { source: 'connected', selection: 'profile', profileId: 'work' } },
+                },
+            };
+
+            async function renderWithResume(resumeSession: () => Promise<boolean>) {
+                const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
+                const hook = await renderHook(
+                    (props: { sessionMetadata: unknown; sessionActive: boolean; resumeSession: () => Promise<boolean> }) =>
+                        useSessionConnectedServicesAuthSwitch({
+                            sessionId: 'session-1',
+                            agentId: 'claude',
+                            machineId: 'machine-1',
+                            serverId: 'server-1',
+                            agentCore: {
+                                id: 'claude',
+                                connectedServices: {
+                                    supportedServiceIds: ['anthropic'],
+                                    sessionAuthSwitch: { continuityMode: 'restart_same_home' },
+                                },
+                            },
+                            sessionMetadata: props.sessionMetadata,
+                            settings: {
+                                connectedServicesProfileLabelByKey: { 'anthropic/work': 'Work' },
+                                connectedServicesDefaultProfileByServiceId: {},
+                            },
+                            switchingDisabledReason: null,
+                            sessionActive: props.sessionActive,
+                            resumeSession: props.resumeSession,
+                        }),
+                    { initialProps: { sessionMetadata: NATIVE_METADATA, sessionActive: true, resumeSession } },
+                );
+                const popover = renderChipPopover(
+                    hook.getCurrent().connectedServicesAuthChip?.collapsedContentPopover?.renderContent,
+                ) as React.ReactElement<{ setBindingForService: (serviceId: string, binding: unknown) => void }>;
+                const switchToWork = async () => {
+                    await act(async () => {
+                        popover.props.setBindingForService('anthropic', {
+                            source: 'connected', selection: 'profile', profileId: 'work',
+                        });
+                        await Promise.resolve();
+                        await Promise.resolve();
+                    });
+                };
+                return { hook, switchToWork };
+            }
+
+            it('resumes the session once the new account has reached the session metadata', async () => {
+                authSwitchChoiceMock.mockImplementationOnce(pressAuthSwitchChoice('stop_and_switch'));
+                setSessionConnectedServiceAuthBindingMock.mockResolvedValueOnce({ ok: true, action: 'metadata_updated' });
+                const staleResume = vi.fn(async () => true);
+                const freshResume = vi.fn(async () => true);
+                const { hook, switchToWork } = await renderWithResume(staleResume);
+
+                await switchToWork();
+                // Still the previous account in metadata: resuming now would start the old account again.
+                expect(staleResume).not.toHaveBeenCalled();
+
+                await hook.rerender({ sessionMetadata: WORK_METADATA, sessionActive: false, resumeSession: freshResume });
+                expect(staleResume).not.toHaveBeenCalled();
+                expect(freshResume).toHaveBeenCalledOnce();
+
+                await hook.rerender({ sessionMetadata: WORK_METADATA, sessionActive: false, resumeSession: vi.fn(async () => true) });
+                expect(freshResume).toHaveBeenCalledOnce();
+
+                await hook.unmount();
+            });
+
+            it('does not resume after a plain Switch authentication', async () => {
+                setSessionConnectedServiceAuthBindingMock.mockResolvedValueOnce({ ok: true, action: 'metadata_updated' });
+                const resume = vi.fn(async () => true);
+                const { hook, switchToWork } = await renderWithResume(resume);
+
+                await switchToWork();
+                await hook.rerender({ sessionMetadata: WORK_METADATA, sessionActive: false, resumeSession: resume });
+
+                expect(resume).not.toHaveBeenCalled();
+                await hook.unmount();
+            });
+
+            it('does not resume when the switch itself failed', async () => {
+                authSwitchChoiceMock.mockImplementationOnce(pressAuthSwitchChoice('stop_and_switch'));
+                setSessionConnectedServiceAuthBindingMock.mockResolvedValueOnce({ ok: false, errorCode: 'profile_missing' });
+                const resume = vi.fn(async () => true);
+                const { hook, switchToWork } = await renderWithResume(resume);
+
+                await switchToWork();
+                await hook.rerender({ sessionMetadata: WORK_METADATA, sessionActive: false, resumeSession: resume });
+
+                expect(resume).not.toHaveBeenCalled();
+                await hook.unmount();
+            });
+        });
+
         it('does not switch authentication when the session could not be stopped', async () => {
             authSwitchChoiceMock.mockImplementationOnce(pressAuthSwitchChoice('stop_and_switch'));
             sessionStopMock.mockResolvedValueOnce({ success: false, code: 'session_stop_failed', message: 'boom' });

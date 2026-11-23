@@ -467,6 +467,11 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
     };
     switchingDisabledReason: SessionConnectedServicesAuthSwitchDisabledReason | null;
     sessionActive?: boolean;
+    /**
+     * Starts the stopped session again. "Stop and switch authentication" calls it once the new account
+     * is in the session metadata, so the owner does not have to press Resume after switching.
+     */
+    resumeSession?: () => Promise<boolean>;
     intentionalRestartSignals?: ReadonlyArray<SessionIntentionalRestartSignal>;
 }>): SessionConnectedServicesAuthSwitchResult {
     const router = useRouter();
@@ -491,6 +496,9 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
     const [accountContinuationSessionId, setAccountContinuationSessionId] = React.useState<string | null>(null);
     const clearAccountContinuation = React.useCallback(() => setAccountContinuationSessionId(null), []);
     const [partialApplicationNotice, setPartialApplicationNotice] = React.useState<PartialAuthSwitchApplicationNotice | null>(null);
+    // Set by a successful "Stop and switch"; the effect below resumes once the metadata shows these bindings.
+    const [pendingResumeBindingsByServiceId, setPendingResumeBindingsByServiceId] =
+        React.useState<Readonly<Record<string, ConnectedServicesServiceBinding | undefined>> | null>(null);
 
     const supportedConnectedServiceIds = React.useMemo<ReadonlyArray<ConnectedServiceId>>(() => {
         return resolveAgentSupportedConnectedServiceIds({
@@ -570,6 +578,17 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
         ));
     }, [metadataBindingsByServiceId]);
 
+    const resumeSession = params.resumeSession;
+    React.useEffect(() => {
+        if (!pendingResumeBindingsByServiceId || !resumeSession) return;
+        // Resuming reads the session's metadata, so wait until it carries the new account; resuming
+        // earlier would start the previous one again.
+        if (!areBindingsEqual(metadataBindingsByServiceId, pendingResumeBindingsByServiceId)) return;
+        setPendingResumeBindingsByServiceId(null);
+        // A failed resume reports itself and leaves the session stopped and resumable by hand.
+        void resumeSession();
+    }, [metadataBindingsByServiceId, pendingResumeBindingsByServiceId, resumeSession]);
+
     const setBindingForService = React.useCallback((serviceId: string, binding: ConnectedServicesServiceBinding, options?: SetBindingForServiceOptions) => {
         const machineId = params.machineId;
         const rematerializeServiceId = options?.rematerializeServiceId;
@@ -608,6 +627,7 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
             setMetadataUpdatedNoticeVisible(false);
             setPartialApplicationNotice(null);
             setAccountContinuationSessionId(null);
+            setPendingResumeBindingsByServiceId(null);
             setOptimisticBindingsByServiceId(nextBindings);
 
             const bindings = buildSessionConnectedServicesBindings({
@@ -641,6 +661,7 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
                         : null);
                     setMetadataUpdatedNoticeVisible(result.action === 'metadata_updated');
                     setAccountContinuationSessionId(params.sessionId);
+                    if (stopFirst) setPendingResumeBindingsByServiceId(nextBindings);
                 }
                 return;
             }
