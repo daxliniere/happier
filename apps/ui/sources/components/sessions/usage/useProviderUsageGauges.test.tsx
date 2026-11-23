@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react-test-renderer';
-import { AccountProfileSchema, type SessionRuntimeIssueV1 } from '@happier-dev/protocol';
+import {
+    AccountProfileSchema,
+    ProviderAccountUsageSnapshotV1Schema,
+    buildProviderAccountUsageRecordId,
+    type ProviderAccountUsageSnapshotV1,
+    type SessionRuntimeIssueV1,
+} from '@happier-dev/protocol';
 import { createSessionFixture, renderHook, standardCleanup } from '@/dev/testkit';
 import { storage } from '@/sync/domains/state/storageStore';
 import { useProviderUsageGauge } from '@/hooks/server/connectedServices/useProviderUsageGauge';
@@ -9,8 +15,13 @@ import { useProviderUsageGauges } from './useProviderUsageGauges';
 // Display configuration is independent of sign-in/network activity in this test.
 vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
 vi.mock('@/hooks/server/useFeatureEnabled', () => ({ useFeatureEnabled: () => true }));
+// Native usage records are fetched from the server; tests supply the fetched records directly.
+const nativeUsageRecords: { current: Record<string, ProviderAccountUsageSnapshotV1> } = { current: {} };
+vi.mock('@/hooks/server/connectedServices/useProviderAccountUsageSnapshots', () => ({
+    useProviderAccountUsageSnapshots: () => nativeUsageRecords.current,
+}));
 
-afterEach(() => standardCleanup());
+afterEach(() => { nativeUsageRecords.current = {}; standardCleanup(); });
 
 function services(status: 'connected' | 'refreshing' | 'needs_reauth' | 'refresh_failed_retryable', serviceId = 'openai-codex') {
     return AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
@@ -148,5 +159,184 @@ describe('provider usage configuration visibility', () => {
             await hook.rerender([]);
             expect(hook.getCurrent().configuredAgentIds.has('codex')).toBe(false);
         } finally { await hook.unmount(); }
+    });
+
+    it('lists every account of a provider separately, numbered in order, and lends none to other providers', async () => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const issueFor = (profileId: string, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: nowMs,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'claude-subscription', profileId, fetchedAtMs: nowMs },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        storage.setState({ isDataReady: true, sessions: {
+            one: createSessionFixture({ id: 'one', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-1', 40) }),
+            two: createSessionFixture({ id: 'two', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-2', 0) }),
+        } });
+        const connectedServices = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription',
+            profiles: [{ profileId: 'Claude-1', status: 'connected' }, { profileId: 'Claude-2', status: 'connected' }],
+        }] }).connectedServicesV2;
+        try {
+            const hook = await renderHook(() => useProviderUsageGauges({
+                agentIds: ['claude', 'opencode', 'pi'], accountProfileConnectedServicesV2: connectedServices,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }));
+            try {
+                const accounts = hook.getCurrent().accounts;
+                expect(accounts.map((account) => [account.agentId, account.profileRef?.profileId ?? null])).toEqual([
+                    ['claude', 'Claude-1'],
+                    ['claude', 'Claude-2'],
+                ]);
+                expect(accounts.map((account) => account.gauge?.providerDisplayName)).toEqual(['Claude 1', 'Claude 2']);
+                expect(accounts.map((account) => account.gauge?.remainingPct)).toEqual([40, 0]);
+                expect(hook.getCurrent().configuredAgentIds.has('opencode')).toBe(false);
+                expect(hook.getCurrent().configuredAgentIds.has('pi')).toBe(false);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
+    it('keys accounts by identity and keeps unchanged accounts referentially stable', async () => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const issueFor = (profileId: string, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: nowMs,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'claude-subscription', profileId, fetchedAtMs: nowMs },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        const one = createSessionFixture({ id: 'one', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-1', 40) });
+        const two = createSessionFixture({ id: 'two', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude-2', 10) });
+        storage.setState({ isDataReady: true, sessions: { one, two } });
+        const both = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription',
+            profiles: [{ profileId: 'Claude-1', status: 'connected' }, { profileId: 'Claude-2', status: 'connected' }],
+        }] }).connectedServicesV2;
+        const onlySecond = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription', profiles: [{ profileId: 'Claude-2', status: 'connected' }],
+        }] }).connectedServicesV2;
+        try {
+            const hook = await renderHook((connectedServices: typeof both) => useProviderUsageGauges({
+                agentIds: ['claude'], accountProfileConnectedServicesV2: connectedServices,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }), { initialProps: both });
+            try {
+                const [first, second] = hook.getCurrent().accounts;
+                // Another account's change must not rebuild this one.
+                await act(async () => storage.setState({ sessions: { one: { ...one, lastRuntimeIssue: issueFor('Claude-1', 20) }, two } }));
+                expect(hook.getCurrent().accounts[0]).not.toBe(first);
+                expect(hook.getCurrent().accounts[1]).toBe(second);
+                // Removing the first account must not hand its identity to the second.
+                const secondKey = second?.key;
+                await hook.rerender(onlySecond);
+                expect(hook.getCurrent().accounts.map((account) => account.key)).toEqual([secondKey]);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
+    it('orders a provider\'s accounts like Settings and names each account', async () => {
+        const previous = storage.getState();
+        const nowMs = Date.now();
+        const issueFor = (profileId: string, remainingPct: number): SessionRuntimeIssueV1 => ({
+            v: 1, scope: 'primary_session', status: 'failed', code: 'usage_limit', source: 'usage_limit',
+            provider: 'claude', occurredAt: nowMs,
+            usageLimit: { v: 1, resetAtMs: nowMs + 3_600_000, retryAfterMs: null, quotaScope: 'account', recoverability: 'wait',
+                quotaSnapshotRef: { serviceId: 'claude-subscription', profileId, fetchedAtMs: nowMs },
+                allWindows: [{ meterId: 'five_hour', scope: 'session', remainingPct, status: 'ok' }] },
+        });
+        storage.setState({ isDataReady: true, sessions: {
+            one: createSessionFixture({ id: 'one', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude1', 90) }),
+            two: createSessionFixture({ id: 'two', metadata: { flavor: 'claude', path: '/repo', host: 'test' }, lastRuntimeIssue: issueFor('Claude2', 0) }),
+        } });
+        // The server may list profiles in any order; Settings shows them by profile id.
+        const connectedServices = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+            serviceId: 'claude-subscription',
+            profiles: [
+                { profileId: 'Claude2', status: 'connected', providerEmail: 'claude2@example.com' },
+                { profileId: 'Claude1', status: 'connected', providerEmail: 'claude@example.com' },
+            ],
+        }] }).connectedServicesV2;
+        try {
+            const hook = await renderHook(() => useProviderUsageGauges({
+                agentIds: ['claude'], accountProfileConnectedServicesV2: connectedServices,
+                windowMode: 'most_constrained', fetchEnabled: false,
+            }));
+            try {
+                const accounts = hook.getCurrent().accounts;
+                expect(accounts.map((account) => [account.label, account.profileRef?.profileId])).toEqual([
+                    ['Claude 1', 'Claude1'],
+                    ['Claude 2', 'Claude2'],
+                ]);
+                expect(accounts.map((account) => account.gauge?.activeAccountDisplayLabel))
+                    .toEqual(['claude@example.com', 'claude2@example.com']);
+                expect(accounts[1]?.gauge?.remainingPct).toBe(0);
+            } finally { await hook.unmount(); }
+        } finally { storage.setState(previous); }
+    });
+
+    describe('a native usage record that is really a connected login', () => {
+        // The daemon stores a connected login's reading without a provider account id as a
+        // provisional record that names the profile it came from.
+        function provisionalRecord(subject: Readonly<{ kind: 'providerSubject' | 'provisionalLocalSubject'; id: string; mergeKey?: string }>) {
+            const recordKey = {
+                providerId: 'claude', accountSubjectId: subject.id,
+                subjectKind: subject.kind === 'providerSubject' ? 'account' : 'unknown', quotaScope: 'account',
+            } as const;
+            const nowMs = Date.now();
+            return ProviderAccountUsageSnapshotV1Schema.parse({
+                v: 1, recordId: buildProviderAccountUsageRecordId(recordKey), recordKey, providerId: 'claude',
+                accountSubject: subject, observedAtMs: nowMs, fetchedAtMs: nowMs, staleAfterMs: 600_000,
+                source: 'connectedServiceProbe', confidence: 'confirmed', state: 'loaded_data', accountLabel: null,
+                meters: [{ meterId: 'weekly', label: 'Weekly', used: 80, limit: 100, unit: 'count', utilizationPct: null,
+                    resetsAt: nowMs + 3_600_000, status: 'ok', details: {} }],
+            });
+        }
+        async function listedAccounts(record: ProviderAccountUsageSnapshotV1) {
+            const previous = storage.getState();
+            nativeUsageRecords.current = { [record.recordId]: record };
+            storage.setState({ isDataReady: true, sessions: {
+                latest: createSessionFixture({ id: 'latest', metadata: {
+                    flavor: 'claude', path: '/repo', host: 'test',
+                    providerAccountUsageRefsV1: { v: 1, recordIds: [record.recordId], updatedAtMs: 1 },
+                } as never }),
+            } });
+            const connectedServices = AccountProfileSchema.parse({ id: 'account', connectedServicesV2: [{
+                serviceId: 'claude-subscription',
+                profiles: [{ profileId: 'Claude1', status: 'connected' }, { profileId: 'Claude2', status: 'connected' }],
+            }] }).connectedServicesV2;
+            try {
+                const hook = await renderHook(() => useProviderUsageGauges({
+                    agentIds: ['claude'], accountProfileConnectedServicesV2: connectedServices,
+                    windowMode: 'most_constrained', fetchEnabled: false,
+                }));
+                try {
+                    return hook.getCurrent().accounts.map((account) => account.profileRef?.profileId ?? 'native');
+                } finally { await hook.unmount(); }
+            } finally { storage.setState(previous); }
+        }
+
+        it('is listed once, as the connected login it came from', async () => {
+            expect(await listedAccounts(provisionalRecord({
+                kind: 'provisionalLocalSubject',
+                id: 'legacy-connected-service:claude-subscription:Claude2',
+                mergeKey: 'claude-subscription:Claude2',
+            }))).toEqual(['Claude1', 'Claude2']);
+        });
+
+        it('is not listed when that connected login no longer exists', async () => {
+            expect(await listedAccounts(provisionalRecord({
+                kind: 'provisionalLocalSubject',
+                id: 'legacy-connected-service:claude-subscription:Claude-2',
+                mergeKey: 'claude-subscription:Claude-2',
+            }))).toEqual(['Claude1', 'Claude2']);
+        });
+
+        it('still lists a genuine native login as its own account', async () => {
+            expect(await listedAccounts(provisionalRecord({ kind: 'providerSubject', id: 'provider-account-3' })))
+                .toEqual(['Claude1', 'Claude2', 'native']);
+        });
     });
 });

@@ -3969,6 +3969,12 @@ function SessionViewLoaded({
         () => readProviderAccountUsageRecordIdsFromMetadata(session.metadata),
         [session.metadata],
     );
+    // A session bound to its native login never shows the default connected login's quota.
+    const sessionBoundToNativeLogin = React.useMemo(() => {
+        const bindings = readConnectedServicesBindingsFromMetadata(session.metadata, liveComposerState.agentId);
+        return (getAgentCore(liveComposerState.agentId).connectedServices?.usageServiceIds ?? [])
+            .some((serviceId) => bindings[serviceId]?.source === 'native');
+    }, [session.metadata, liveComposerState.agentId]);
     const {
         gauge: providerUsageGauge,
         gaugeSource: providerUsageGaugeSource,
@@ -3981,7 +3987,7 @@ function SessionViewLoaded({
         profileRef: connectedServiceQuotaProfileRef,
         modelId: modelMode,
         metadataRecordIds: providerAccountUsageRecordIds,
-        nativeAccount: usageLimitRecovery?.selectedAuth?.kind === 'native',
+        nativeAccount: usageLimitRecovery?.selectedAuth?.kind === 'native' || sessionBoundToNativeLogin,
         sessionCheckNowSupported: usageLimitRecoveryCheckNowSupported,
         recoveryCredits: usageLimitRecoveryCredits,
     });
@@ -4021,7 +4027,7 @@ function SessionViewLoaded({
     const providerUsageGaugeConnectedServiceProfileRef =
         providerUsageGaugeSource
         && isConnectedServiceBoundProviderUsageDisplaySource(providerUsageDisplaySnapshotSource)
-            ? connectedServiceQuotaProfileRef
+            ? providerUsageGaugeProfileRef
             : null;
     const [providerUsageRecoveryCreditPending, setProviderUsageRecoveryCreditPending] = React.useState(false);
     const handleProviderUsageRecoveryCreditPress = React.useCallback(async () => {

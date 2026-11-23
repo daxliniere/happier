@@ -1,5 +1,7 @@
 import * as React from 'react';
 
+import { getAgentCore, isAgentId } from '@/agents/catalog/catalog';
+
 import {
     ConnectedServiceIdSchema,
     type ConnectedServiceQuotaRecoveryCreditsV1,
@@ -145,7 +147,15 @@ export function useProviderUsageGauge(params: Readonly<{
             quotaLimitSelection,
             nowMs: nowServerMs(),
             formatter: connectedServiceQuotaGaugeFormatter,
-            providerDisplayName: resolveConnectedServiceProviderDisplayName(gaugeSource.snapshot.serviceId),
+            // A connected login is named by its service; anything else (native login, a runtime
+            // limit report) belongs to the composer's own provider, whatever service keys it.
+            providerDisplayName: displaySnapshotSource?.kind === 'connected_service_quota_view'
+                && gaugeSource.sourceKind !== 'native_runtime_evidence'
+                && profileRef && gaugeSource.snapshot.serviceId === profileRef.serviceId
+                ? resolveConnectedServiceProviderDisplayName(gaugeSource.snapshot.serviceId)
+                : params.providerId && isAgentId(params.providerId)
+                    ? t(getAgentCore(params.providerId).displayNameKey)
+                    : resolveConnectedServiceProviderDisplayName(gaugeSource.snapshot.serviceId),
             activeAccountDisplayLabel: displaySnapshotSource?.kind === 'connected_service_quota_view'
                 && gaugeSource.snapshot === quotaDisplaySnapshot
                 ? activeAccountLabel
@@ -163,6 +173,7 @@ export function useProviderUsageGauge(params: Readonly<{
         windowMode,
         windowModesSetting,
         numberWindowMode,
+        params.providerId,
     ]);
 
     return React.useMemo(() => ({
