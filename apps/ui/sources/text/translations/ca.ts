@@ -5299,6 +5299,8 @@ deps: {
             overloadAttempt: ({ attempt }: { attempt: number }) => `Intent ${attempt}`,
             title: 'S’ha assolit el límit d’ús',
             readyTitle: 'El límit d’ús s’ha restablert',
+            switchedAccountTitle: 'A punt amb un altre compte',
+            switchedAccountBody: 'El límit s’ha assolit en un altre compte. Aquesta sessió està configurada per fer servir un compte que encara té capacitat, així que ja la pots represa.',
             resetBody: ({ time }: { time: string }) => `Aquest proveïdor demana esperar fins a ${time} abans de continuar.`,
             genericBody: 'Aquest proveïdor demana esperar abans de continuar.',
             stoppedBody: 'La recuperació automàtica s’ha aturat i no es tornarà a intentar sola. Torna-ho a provar a sota.',

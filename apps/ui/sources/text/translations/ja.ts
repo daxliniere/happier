@@ -5908,6 +5908,8 @@ localTailscale: {
         overloadAttempt: ({ attempt }: { attempt: number }) => `${attempt}回目`,
       title: "使用制限に達しました",
       readyTitle: "使用制限がリセットされました",
+      switchedAccountTitle: '別のアカウントで再開できます',
+      switchedAccountBody: '上限に達したのは別のアカウントです。このセッションはまだ余裕のあるアカウントを使う設定なので、今すぐ再開できます。',
       resetBody: ({ time }: { time: string }) =>
         `このプロバイダーは、続行する前に ${time} まで待機するよう求めています。`,
       genericBody: "このプロバイダーは、続行する前に待機するよう求めています。",

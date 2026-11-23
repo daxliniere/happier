@@ -5283,6 +5283,8 @@ export const fr: TranslationStructure = {
             overloadAttempt: ({ attempt }: { attempt: number }) => `Tentative ${attempt}`,
             title: 'Limite d’utilisation atteinte',
             readyTitle: 'Limite d’utilisation réinitialisée',
+            switchedAccountTitle: 'Prêt avec un autre compte',
+            switchedAccountBody: 'La limite a été atteinte sur un autre compte. Cette session est réglée sur un compte qui a encore de la capacité, vous pouvez donc la reprendre maintenant.',
             resetBody: ({ time }: { time: string }) => `Ce provider demande à la session d’attendre jusqu’à ${time} avant de continuer.`,
             genericBody: 'Ce provider demande à la session d’attendre avant de continuer.',
             stoppedBody: 'La récupération automatique s’est arrêtée et ne réessaiera pas d’elle-même. Réessayez ci-dessous.',

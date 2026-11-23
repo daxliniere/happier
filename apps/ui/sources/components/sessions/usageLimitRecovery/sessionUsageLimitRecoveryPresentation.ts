@@ -102,6 +102,8 @@ export type SessionUsageLimitRecoveryTranslationKey =
     | 'session.usageLimitRecovery.stopRetrying'
     | 'session.usageLimitRecovery.title'
     | 'session.usageLimitRecovery.readyTitle'
+    | 'session.usageLimitRecovery.switchedAccountTitle'
+    | 'session.usageLimitRecovery.switchedAccountBody'
     | 'session.usageLimitRecovery.resetBody'
     | 'session.usageLimitRecovery.genericBody'
     | 'session.usageLimitRecovery.stoppedBody'
@@ -190,6 +192,12 @@ type PresentationParams = Readonly<{
     recovery: SessionUsageLimitRecoveryV1 | null | undefined;
     recoveryCredits?: ConnectedServiceQuotaRecoveryCreditsV1 | null;
     operationStatus?: UsageLimitRecoveryOperationStatus | null;
+    /**
+     * The stored limit was reached by a different account than the one this session is now set to,
+     * and the selected account is shown to have capacity. The session can resume at once, so the
+     * wait, the limit re-check and the "limit reached" status do not apply.
+     */
+    selectedAccountClearsLimit?: boolean;
     /**
      * Absolute retry-allowed time for a probe rate-limit (`retryAfterMs`)
      * reported by the active operation. Display-only timing: it never feeds
@@ -499,7 +507,8 @@ export function buildSessionUsageLimitRecoveryPresentation(
     }
 
     const resetAtMs = readResetAtMs(params.issue, params.recovery);
-    const ready = isReadyForResume({
+    const switchedAccountReady = params.selectedAccountClearsLimit === true;
+    const ready = switchedAccountReady || isReadyForResume({
         operationStatus: params.operationStatus,
         resetAtMs,
         nowMs: params.nowMs,
@@ -529,6 +538,8 @@ export function buildSessionUsageLimitRecoveryPresentation(
     const waitTimeLabel = ready || waitUntilMs === null ? null : params.formatTime(waitUntilMs);
     const body = stopped
         ? params.translate('session.usageLimitRecovery.stoppedBody')
+        : switchedAccountReady
+        ? params.translate('session.usageLimitRecovery.switchedAccountBody')
         : ready
         ? params.translate('session.usageLimitRecovery.readyBody')
         : waitUntilMs !== null
@@ -551,7 +562,9 @@ export function buildSessionUsageLimitRecoveryPresentation(
             : {}),
         banner: {
             testID: 'session-usageLimit-recovery',
-            title: ready && !stopped
+            title: switchedAccountReady && !stopped
+                ? params.translate('session.usageLimitRecovery.switchedAccountTitle')
+                : ready && !stopped
                 ? params.translate('session.usageLimitRecovery.readyTitle')
                 : params.translate('session.usageLimitRecovery.title'),
             body: bodyWithRecoveryCredits,
@@ -598,7 +611,7 @@ export function buildSessionUsageLimitStatusBadgePresentation(
         operationStatus: params.operationStatus,
         recoveryStatus: params.recovery?.status,
     });
-    const label = isReadyForResume({
+    const label = params.selectedAccountClearsLimit === true || isReadyForResume({
         operationStatus: params.operationStatus,
         resetAtMs,
         nowMs: params.nowMs,

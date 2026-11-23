@@ -199,6 +199,7 @@ import {
 import { isExecutionRunNotRunningSendError, sessionExecutionRunSend } from '@/sync/ops/sessionExecutionRuns';
 import { resolveProviderUsageGaugeWindowMode } from '@/components/sessions/usage/resolveProviderUsageGaugeWindowMode';
 import { useProviderUsageAutoRefresh } from '@/hooks/server/connectedServices/useProviderUsageAutoRefresh';
+import { useSelectedAccountClearsUsageLimit } from '@/components/sessions/usageLimitRecovery/useSelectedAccountClearsUsageLimit';
 import { selectArmedAgentUsageGauge } from '@/components/sessions/usage/selectArmedAgentUsageGauge';
 import { useProviderUsageRefresh } from '@/hooks/server/connectedServices/useProviderUsageRefresh';
 import { useProviderUsageGauges } from '@/components/sessions/usage/useProviderUsageGauges';
@@ -2810,6 +2811,12 @@ function SessionViewLoaded({
         session.active !== true
         || pendingMessages.length > 0
     ), [pendingMessages.length, session.active, session.metadata]);
+    // The stored limit may belong to an account this session is no longer set to use.
+    const selectedAccountClearsUsageLimit = useSelectedAccountClearsUsageLimit({
+        metadata: session.metadata,
+        agentId: usageLimitRecoveryCheckNowAgentId,
+        issue: sessionRuntimeStatusSource.lastRuntimeIssue ?? null,
+    });
     const baseUsageLimitRecoveryPresentation = React.useMemo(() => buildSessionUsageLimitRecoveryPresentation({
         machineReachable: isMachineReachable,
         featureEnabled: usageLimitRecoveryFeatureEnabled,
@@ -2821,6 +2828,7 @@ function SessionViewLoaded({
         runtimeWorking: usageLimitRuntimeState.runtimeActivelyWorking,
         hasActivityAfterRuntimeIssue: hasMeaningfulActivityAfterRuntimeIssue(sessionRuntimeStatusSource),
         hasInterruptedWorkToResume,
+        selectedAccountClearsLimit: selectedAccountClearsUsageLimit,
         rememberedMode: usageLimitRecoveryMode,
         checkNowSupported: usageLimitRecoveryCheckNowSupported,
         nowMs: usageLimitRecoveryNowMs,
@@ -2841,6 +2849,7 @@ function SessionViewLoaded({
         usageLimitRecoveryMode,
         usageLimitRuntimeState.runtimeActivelyWorking,
         usageLimitRecoveryNowMs,
+        selectedAccountClearsUsageLimit,
     ]);
     const usageLimitRecoveryIssueResolved = Boolean(
         resolvedUsageLimitRecoveryIssueFingerprint
@@ -2869,6 +2878,7 @@ function SessionViewLoaded({
         runtimeWorking: usageLimitRuntimeState.runtimeActivelyWorking,
         hasActivityAfterRuntimeIssue: hasMeaningfulActivityAfterRuntimeIssue(sessionRuntimeStatusSource),
         hasInterruptedWorkToResume,
+        selectedAccountClearsLimit: selectedAccountClearsUsageLimit,
         rememberedMode: usageLimitRecoveryMode,
         checkNowSupported: usageLimitRecoveryCheckNowSupported,
         nowMs: usageLimitRecoveryNowMs,
@@ -2892,6 +2902,7 @@ function SessionViewLoaded({
         usageLimitRecoveryMode,
         usageLimitRuntimeState.runtimeActivelyWorking,
         usageLimitRecoveryNowMs,
+        selectedAccountClearsUsageLimit,
     ]);
     const visibleUsageLimitRecoveryPresentation = usageLimitRecoveryBanner.collapsed
         ? null
@@ -2906,6 +2917,7 @@ function SessionViewLoaded({
         runtimeWorking: usageLimitRuntimeState.runtimeActivelyWorking,
         hasActivityAfterRuntimeIssue: hasMeaningfulActivityAfterRuntimeIssue(sessionRuntimeStatusSource),
         hasInterruptedWorkToResume,
+        selectedAccountClearsLimit: selectedAccountClearsUsageLimit,
         nowMs: usageLimitRecoveryNowMs,
         translate: translateSessionUsageLimitRecovery,
         formatTime: formatUsageLimitRecoveryTime,
@@ -2923,6 +2935,7 @@ function SessionViewLoaded({
         usageLimitRecoveryIssueResolved,
         usageLimitRuntimeState.runtimeActivelyWorking,
         usageLimitRecoveryNowMs,
+        selectedAccountClearsUsageLimit,
     ]);
     const markUsageLimitRecoveryIssueResolved = React.useCallback(() => {
         const issueFingerprint = usageLimitRecoveryPresentation?.issueFingerprint
