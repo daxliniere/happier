@@ -330,3 +330,28 @@ describe('useConnectedServiceQuotaBadges', () => {
     await hook.unmount();
   });
 });
+
+describe('useConnectedServiceQuotaGauges', () => {
+  it('gives each readable account the usage gauge its rings draw, and none to an account needing sign-in', async () => {
+    useFeatureEnabledSpy.mockReturnValue(true);
+    fetchAccountEncryptionModeSpy.mockResolvedValue({ mode: 'plain', updatedAt: 0 });
+    getConnectedServiceQuotaSnapshotPlainSpy.mockImplementation(async (_credentials, params) => (
+      ConnectedServiceQuotaSnapshotV1Schema.parse({
+        v: 1, serviceId: 'anthropic', profileId: params.profileId, fetchedAt: 1, staleAfterMs: 60_000,
+        planLabel: 'Pro', accountLabel: null,
+        meters: [{ meterId: 'weekly', label: 'Weekly', used: 82, limit: 100, unit: 'count', utilizationPct: null,
+          resetsAt: null, status: 'ok', details: {} }],
+      })
+    ));
+
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaBadges');
+    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaGauges([
+      { serviceId: 'anthropic', profileId: 'work' },
+      { serviceId: 'anthropic', profileId: 'expired', credentialHealthStatus: 'needs_reauth' },
+    ]));
+
+    const last = seen.at(-1) ?? {};
+    expect(last['anthropic/work']?.remainingPct).toBe(18);
+    expect(last['anthropic/expired']).toBeUndefined();
+  });
+});

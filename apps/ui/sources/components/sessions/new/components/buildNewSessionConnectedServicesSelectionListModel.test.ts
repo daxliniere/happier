@@ -6,6 +6,7 @@ import {
     createConnectedServiceGroupOptionId,
     createNativeServiceOptionId,
     createReauthServiceOptionId,
+    type BuildNewSessionConnectedServicesSelectionListModelParams,
     type ConnectedServicesSelectionOptionAvailability,
     type NewSessionConnectedServicesSelectionListModel,
 } from './buildNewSessionConnectedServicesSelectionListModel';
@@ -18,14 +19,16 @@ function firstStaticSection(model: NewSessionConnectedServicesSelectionListModel
     return section;
 }
 
-function buildModel(overrides: Partial<Parameters<typeof buildNewSessionConnectedServicesSelectionListModel>[0]> = {}) {
-    return buildNewSessionConnectedServicesSelectionListModel({
+type TestUsage = ReadonlyArray<Readonly<{ meterId: string; text: string }>>;
+
+function buildModel(overrides: Partial<BuildNewSessionConnectedServicesSelectionListModelParams<TestUsage>> = {}) {
+    return buildNewSessionConnectedServicesSelectionListModel<TestUsage>({
         supportedServiceIds: ['anthropic'],
         profileOptionsByServiceId: {
             anthropic: [{ profileId: 'work', status: 'connected', providerEmail: 'work@example.com' }],
         },
         bindingsByServiceId: { anthropic: { source: 'native' } },
-        quotaBadgesByKey: {},
+        quotaUsageByKey: {},
         setBindingForService: vi.fn(),
         onOpenSettings: vi.fn(),
         translate: (key: string, params?: { member?: string }) =>
@@ -35,7 +38,7 @@ function buildModel(overrides: Partial<Parameters<typeof buildNewSessionConnecte
         resolveServiceTitle: (serviceId) => `service:${serviceId}`,
         renderSelectionIcon: ({ selected }) => selected ? 'selected-icon' : 'unselected-icon',
         renderSettingsIcon: () => 'settings-icon',
-        renderQuotaBadges: (badges) => `badges:${badges.map((badge) => badge.text).join(',')}`,
+        renderQuotaUsage: (badges) => `badges:${badges.map((badge) => badge.text).join(',')}`,
         renderNeedsReauthPill: () => 'needs-reauth',
         ...overrides,
     });
@@ -147,7 +150,7 @@ describe('buildNewSessionConnectedServicesSelectionListModel', () => {
     it('adds quota accessories to connected account rows', () => {
         const model = buildModel({
             bindingsByServiceId: { anthropic: { source: 'connected', selection: 'profile', profileId: 'work' } },
-            quotaBadgesByKey: {
+            quotaUsageByKey: {
                 'anthropic/work': [{ meterId: 'weekly', text: 'w. 18%' }],
             },
         });
@@ -169,7 +172,7 @@ describe('buildNewSessionConnectedServicesSelectionListModel', () => {
                 }],
             },
             bindingsByServiceId: { anthropic: { source: 'native' } },
-            quotaBadgesByKey: {
+            quotaUsageByKey: {
                 'anthropic/retryable': [{ meterId: 'weekly', text: 'w. 44%' }],
             },
             setBindingForService,
@@ -247,7 +250,7 @@ describe('buildNewSessionConnectedServicesSelectionListModel', () => {
                     status: 'ready',
                 }],
             },
-            quotaBadgesByKey: {
+            quotaUsageByKey: {
                 'anthropic/work': [{ meterId: 'weekly', text: '8%' }],
             },
         } as any);
