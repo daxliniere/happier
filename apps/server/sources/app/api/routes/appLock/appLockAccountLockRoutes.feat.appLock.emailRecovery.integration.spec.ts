@@ -7,6 +7,7 @@ import { appLockRecoveryRoutes } from "./appLockRecoveryRoutes";
 
 const KDF = { alg: "scrypt", N: 1024, r: 8, p: 1, salt: "c2FsdHNhbHRzYWx0" } as const;
 const WRAPPED = "d3JhcHBlZC1rZXktb25l";
+const DEVICE_WRAPPED = "ZGV2aWNlLXdyYXBwZWQ";
 
 describe("app lock account lock routes (integration)", () => {
     let harness: LightSqliteHarness;
@@ -44,16 +45,7 @@ describe("app lock account lock routes (integration)", () => {
             method: "PUT",
             url: "/v1/app-lock/account-lock",
             headers: { "x-test-user-id": userId },
-            payload: { kdf: KDF, passwordWrappedKey, expectedVersion },
-        });
-    }
-
-    function setRequired(app: any, userId: string, required: boolean) {
-        return app.inject({
-            method: "PUT",
-            url: "/v1/app-lock/account-lock/required",
-            headers: { "x-test-user-id": userId },
-            payload: { required },
+            payload: { kdf: KDF, passwordWrappedKey, deviceWrappedKey: DEVICE_WRAPPED, expectedVersion },
         });
     }
 
@@ -66,7 +58,7 @@ describe("app lock account lock routes (integration)", () => {
             expect(created.statusCode).toBe(200);
             expect(created.json()).toEqual({ version: 1 });
             expect((await get(app, userId)).json()).toEqual({
-                lock: { version: 1, required: true, kdf: KDF, passwordWrappedKey: WRAPPED },
+                lock: { version: 1, kdf: KDF, passwordWrappedKey: WRAPPED, deviceWrappedKey: DEVICE_WRAPPED },
             });
 
             // A second device that also thinks it is first must not overwrite the existing lock.
@@ -95,20 +87,15 @@ describe("app lock account lock routes (integration)", () => {
         });
     });
 
-    it("toggles whether devices must have the lock, and keeps accounts separate", async () => {
-        const userId = await createAccount("pk-account-lock-required");
+    it("keeps each account's lock separate", async () => {
+        const userId = await createAccount("pk-account-lock-mine");
         const otherId = await createAccount("pk-account-lock-other");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
-            expect((await setRequired(app, userId, false)).statusCode).toBe(404);
             await put(app, userId, null);
-
-            expect((await setRequired(app, userId, false)).statusCode).toBe(200);
-            expect((await get(app, userId)).json().lock.required).toBe(false);
             expect((await get(app, otherId)).json()).toEqual({ lock: null });
-            expect((await setRequired(app, otherId, true)).statusCode).toBe(404);
-
-            expect((await setRequired(app, userId, true)).statusCode).toBe(200);
-            expect((await get(app, userId)).json().lock.required).toBe(true);
+            // The other account has no lock to re-wrap, so version 1 does not exist for it.
+            expect((await put(app, otherId, 1)).statusCode).toBe(409);
+            expect((await get(app, userId)).json().lock.version).toBe(1);
         });
     });
 

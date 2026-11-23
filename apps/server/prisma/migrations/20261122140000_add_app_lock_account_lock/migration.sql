@@ -1,9 +1,9 @@
 -- CreateTable
 CREATE TABLE "AppLockAccountLock" (
     "accountId" TEXT NOT NULL,
-    "required" BOOLEAN NOT NULL DEFAULT true,
     "kdf" TEXT NOT NULL,
     "passwordWrappedKey" TEXT NOT NULL,
+    "deviceWrappedKey" TEXT NOT NULL,
     "version" INTEGER NOT NULL DEFAULT 1,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

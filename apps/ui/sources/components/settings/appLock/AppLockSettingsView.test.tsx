@@ -180,11 +180,11 @@ describe('App lock test email recipient', () => {
 
     it('offers to turn the lock on with the account password when the account already has an app lock', async () => {
         relayWithAccountLock({
-            version: 2, required: true,
-            kdf: { alg: 'scrypt', N: 1024, r: 8, p: 1, salt: 'c2FsdHNhbHRzYWx0' }, passwordWrappedKey: 'd3JhcHBlZA',
+            version: 2,
+            kdf: { alg: 'scrypt', N: 1024, r: 8, p: 1, salt: 'c2FsdHNhbHRzYWx0' }, passwordWrappedKey: 'd3JhcHBlZA', deviceWrappedKey: 'ZGV2aWNl',
         });
         const screen = await renderScreen(<AppLockSettingsView />);
-        expect(screen.findByTestId('app-lock-join-password')).toBeTruthy();
+        expect(screen.findByTestId('app-lock-join-turn-on')).toBeTruthy();
         expect(screen.findByTestId('app-lock-settings-password')).toBeFalsy();
     });
 
@@ -192,6 +192,6 @@ describe('App lock test email recipient', () => {
         relayWithAccountLock(null);
         const screen = await renderScreen(<AppLockSettingsView />);
         expect(screen.findByTestId('app-lock-settings-password')).toBeTruthy();
-        expect(screen.findByTestId('app-lock-join-password')).toBeFalsy();
+        expect(screen.findByTestId('app-lock-join-turn-on')).toBeFalsy();
     });
 });

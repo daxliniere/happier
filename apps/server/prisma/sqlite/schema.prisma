@@ -606,14 +606,15 @@ model AppLockMailSettings {
     account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }
 
-/// The account-wide app lock: one shared data key, stored only in password-wrapped form so a device
-/// that knows the password can turn the lock on locally. `version` increases on every re-wrap and
+/// The account-wide app lock: one shared data key, stored only in wrapped form: under the lock
+/// password (`passwordWrappedKey`) and under a key derived from the account secret (`deviceWrappedKey`,
+/// so a signed-in device can turn the lock on by itself). `version` increases on every re-wrap and
 /// lets a device refuse a change based on a stale copy. `kdf` is JSON (alg, N, r, p, salt).
 model AppLockAccountLock {
     accountId          String   @id
-    required           Boolean  @default(true)
     kdf                String
     passwordWrappedKey String
+    deviceWrappedKey   String
     version            Int      @default(1)
     createdAt          DateTime @default(now())
     updatedAt          DateTime @updatedAt

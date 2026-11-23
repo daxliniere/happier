@@ -85,9 +85,8 @@ import { loadAppLock, useAppLockSnapshot } from '@/auth/appLock/appLockRuntime';
 import { resealAppLockCredentials } from '@/auth/appLock/appLockSetup';
 import { useAppLockAutoLock } from '@/auth/appLock/appLockAutoLock';
 import { AppLockSurface } from '@/components/appLock/AppLockSurface';
-import { AppLockAccountGate } from '@/components/appLock/AppLockAccountGate';
 import { AppLockAccountSyncRuntime } from '@/components/appLock/AppLockAccountSyncRuntime';
-import { appLockAccountGateActive, loadAppLockAccountState, useAppLockAccountState } from '@/auth/appLock/appLockAccountState';
+import { loadAppLockAccountState } from '@/auth/appLock/appLockAccountState';
 import { Modal } from '@/modal';
 
 initializeSentryOnce();
@@ -843,10 +842,6 @@ function RootAppShell(props: Readonly<{
     const auth = useAuth();
     const tauriDesktop = isTauriDesktop();
     const isAuxiliaryWindow = props.isDesktopPetOverlayWindow || props.isSessionFileWindow;
-    // Re-render when the account-lock flags or this device's lock change; the gate itself is derived.
-    useAppLockAccountState();
-    const appLockStatus = useAppLockSnapshot().status;
-    const needsAccountLock = appLockAccountGateActive({ lockStatus: appLockStatus, signedIn: auth.isAuthenticated });
     const appShellChromeHost = resolveAppShellChromeHost({
         isAuthenticated: auth.isAuthenticated,
         isDesktopPetOverlayWindow: props.isDesktopPetOverlayWindow,
@@ -896,13 +891,6 @@ function RootAppShell(props: Readonly<{
               */}
             {props.isAppLocked ? (
                 props.isDesktopPetOverlayWindow ? null : <AppLockSurface onSignedOut={props.onSignedOutWhileLocked} />
-            ) : needsAccountLock ? (
-                // The account requires an app lock and this device has none: nothing else shows.
-                props.isDesktopPetOverlayWindow ? null : (
-                    <AppLockSurface onSignedOut={props.onSignedOutWhileLocked}>
-                        <AppLockAccountGate onSignedOut={props.onSignedOutWhileLocked} />
-                    </AppLockSurface>
-                )
             ) : (
                 <>
                     {appShellChromeHost === 'narrow-desktop-fallback' || appShellChromeHost === 'unauth-shell' ? (
@@ -918,7 +906,7 @@ function RootAppShell(props: Readonly<{
 
     return (
         <DesktopMainContentDragSurface
-            enabled={shouldUseRootDesktopDragSurface && !props.isAppLocked && !needsAccountLock && Platform.OS === 'web' && tauriDesktop}
+            enabled={shouldUseRootDesktopDragSurface && !props.isAppLocked && Platform.OS === 'web' && tauriDesktop}
             leftOffsetPx={0}
             style={{ flex: 1 }}
         >

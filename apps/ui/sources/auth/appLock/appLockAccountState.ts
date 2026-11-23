@@ -1,36 +1,20 @@
-import * as React from 'react';
 import { z } from 'zod';
 
 import { readAppLockStoredString, writeAppLockStoredString } from './appLockStorage';
-import type { AppLockStatus } from './appLockRuntime';
 
 /**
- * Device-local view of the account-wide lock: whether the account requires the lock on every device
- * (last value the relay reported) and whether this device was exempted by turning its lock off.
+ * Whether the owner turned this device's app lock off. The account-wide lock turns itself on for every
+ * device that signs in, so turning it off here is an exception for this device only; it stays that way
+ * until the owner turns the lock on again from Settings.
  *
- * Both are plain flags. They only decide whether a device that has no lock of its own shows the gate
- * screen; the protection of a device that does have a lock is its sealed sign-in, not these flags.
+ * It is a plain local flag: it only stops the automatic turn-on and protects nothing by itself.
  */
 const STATE_BASE_KEY = 'app_lock_account_v1';
-const StoredStateSchema = z.object({ required: z.boolean(), exempt: z.boolean() });
+const StoredStateSchema = z.object({ exempt: z.boolean() });
 
-export type AppLockAccountState = Readonly<{ required: boolean; exempt: boolean }>;
+export type AppLockAccountState = Readonly<{ exempt: boolean }>;
 
-const DEFAULT_STATE: AppLockAccountState = Object.freeze({ required: false, exempt: false });
-
-let state: AppLockAccountState = DEFAULT_STATE;
-const listeners = new Set<() => void>();
-
-function setState(next: AppLockAccountState): void {
-    if (next.required === state.required && next.exempt === state.exempt) return;
-    state = next;
-    for (const listener of listeners) listener();
-}
-
-async function persist(next: AppLockAccountState): Promise<void> {
-    setState(next);
-    await writeAppLockStoredString(STATE_BASE_KEY, JSON.stringify(next));
-}
+let state: AppLockAccountState = Object.freeze({ exempt: false });
 
 export async function loadAppLockAccountState(): Promise<void> {
     const raw = await readAppLockStoredString(STATE_BASE_KEY);
@@ -42,38 +26,15 @@ export async function loadAppLockAccountState(): Promise<void> {
         json = null;
     }
     const parsed = StoredStateSchema.safeParse(json);
-    if (parsed.success) setState(parsed.data);
+    if (parsed.success) state = parsed.data;
 }
 
 export function getAppLockAccountState(): AppLockAccountState {
     return state;
 }
 
-export function subscribeAppLockAccountState(listener: () => void): () => void {
-    listeners.add(listener);
-    return () => {
-        listeners.delete(listener);
-    };
-}
-
-export function useAppLockAccountState(): AppLockAccountState {
-    return React.useSyncExternalStore(subscribeAppLockAccountState, getAppLockAccountState, getAppLockAccountState);
-}
-
-/** Records what the relay last said about whether the account requires the lock on every device. */
-export async function setAppLockAccountRequired(required: boolean): Promise<void> {
-    await persist({ ...state, required });
-}
-
 /** Marks this device as exempt (its lock was turned off by the owner) or clears that again. */
 export async function setAppLockDeviceExempt(exempt: boolean): Promise<void> {
-    await persist({ ...state, exempt });
-}
-
-/**
- * Whether a signed-in device must show the gate: the account requires the lock, this device has none
- * and was not exempted. A signed-out device never shows it, so sign-in is never blocked.
- */
-export function appLockAccountGateActive(params: Readonly<{ lockStatus: AppLockStatus; signedIn: boolean }>): boolean {
-    return params.signedIn && params.lockStatus === 'disabled' && state.required && !state.exempt;
+    state = { exempt };
+    await writeAppLockStoredString(STATE_BASE_KEY, JSON.stringify(state));
 }

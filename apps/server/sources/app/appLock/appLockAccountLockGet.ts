@@ -7,8 +7,8 @@ export async function appLockAccountLockGet(ctx: { readonly uid: string }): Prom
     if (!row) return null;
     return {
         version: row.version,
-        required: row.required,
         kdf: AppLockKdfSchema.parse(JSON.parse(row.kdf)),
         passwordWrappedKey: row.passwordWrappedKey,
+        deviceWrappedKey: row.deviceWrappedKey,
     };
 }

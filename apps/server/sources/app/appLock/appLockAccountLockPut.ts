@@ -18,7 +18,7 @@ export async function appLockAccountLockPut(
     if (input.expectedVersion === null) {
         try {
             await db.appLockAccountLock.create({
-                data: { accountId: ctx.uid, kdf, passwordWrappedKey: input.passwordWrappedKey },
+                data: { accountId: ctx.uid, kdf, passwordWrappedKey: input.passwordWrappedKey, deviceWrappedKey: input.deviceWrappedKey },
             });
         } catch {
             const existing = await db.appLockAccountLock.findUnique({ where: { accountId: ctx.uid }, select: { accountId: true } });
@@ -29,7 +29,7 @@ export async function appLockAccountLockPut(
     }
     const updated = await db.appLockAccountLock.updateMany({
         where: { accountId: ctx.uid, version: input.expectedVersion },
-        data: { kdf, passwordWrappedKey: input.passwordWrappedKey, version: { increment: 1 } },
+        data: { kdf, passwordWrappedKey: input.passwordWrappedKey, deviceWrappedKey: input.deviceWrappedKey, version: { increment: 1 } },
     });
     if (updated.count === 0) return { ok: false, error: "version_conflict" };
     return { ok: true, version: input.expectedVersion + 1 };

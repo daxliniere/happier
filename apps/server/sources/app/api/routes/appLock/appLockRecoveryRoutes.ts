@@ -12,7 +12,6 @@ import {
     APP_LOCK_ACCOUNT_LOCK_ROUTES,
     AppLockAccountLockPutRequestSchema,
     AppLockAccountLockPutResponseSchema,
-    AppLockAccountLockRequiredRequestSchema,
     AppLockAccountLockResponseSchema,
     type AppLockRecoveryErrorCode,
 } from "@happier-dev/protocol";
@@ -28,7 +27,6 @@ import { appLockMailSettingsSave } from "@/app/appLock/appLockMailSettingsSave";
 import { appLockMailSettingsSendTest } from "@/app/appLock/appLockMailSettingsSendTest";
 import { appLockAccountLockGet } from "@/app/appLock/appLockAccountLockGet";
 import { appLockAccountLockPut } from "@/app/appLock/appLockAccountLockPut";
-import { appLockAccountLockSetRequired } from "@/app/appLock/appLockAccountLockSetRequired";
 
 const STATUS_BY_ERROR: Record<AppLockRecoveryErrorCode, 400 | 404 | 409 | 429 | 502> = {
     mail_not_configured: 409,
@@ -99,18 +97,6 @@ export function appLockRecoveryRoutes(fastify: Fastify) {
     }, async (request, reply) => {
         const result = await appLockAccountLockPut({ uid: request.userId }, request.body);
         return result.ok ? reply.send({ version: result.version }) : sendFailure(reply, result);
-    });
-
-    app.put(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLockRequired, {
-        preHandler: fastify.authenticate,
-        config: { rateLimit: manageRateLimit },
-        schema: {
-            body: AppLockAccountLockRequiredRequestSchema,
-            response: { 200: AppLockRecoveryOkResponseSchema, ...errorResponses },
-        },
-    }, async (request, reply) => {
-        const result = await appLockAccountLockSetRequired({ uid: request.userId }, request.body.required);
-        return result.ok ? reply.send({ ok: true }) : sendFailure(reply, result);
     });
 
     app.post(APP_LOCK_RECOVERY_ROUTES.remove, {

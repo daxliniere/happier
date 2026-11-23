@@ -3,7 +3,6 @@ import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import type { AppLockMailSecurity, AppLockMailSettings } from '@happier-dev/protocol';
 
-import { useAppLockAccountState } from '@/auth/appLock/appLockAccountState';
 import { canUseAppLockBiometrics } from '@/auth/appLock/appLockBiometrics';
 import { APP_LOCK_AUTO_LOCK_CHOICES, type AppLockRecord } from '@/auth/appLock/appLockRecord';
 import { getAppLockSnapshot, lockAppLock, useAppLockSnapshot, verifyAppLockPassword } from '@/auth/appLock/appLockRuntime';
@@ -12,7 +11,6 @@ import {
     changeAppLockPassword,
     enableAppLock,
     joinAppLock,
-    setAppLockAccountLockRequired,
     setAppLockAutoLockMinutes,
     setAppLockBiometricEnabled,
     turnOffAppLock,
@@ -413,34 +411,27 @@ function EnableAppLock(props: Readonly<{ mailReady: boolean; recoveryEmail: stri
 
 function JoinAppLock() {
     const styles = stylesheet;
-    const [password, setPassword] = React.useState('');
     const [error, setError] = React.useState<string | null>(null);
     const [busy, setBusy] = React.useState(false);
 
     const join = React.useCallback(async () => {
-        if (!password || busy) return;
+        if (busy) return;
         setBusy(true);
         setError(null);
-        const result = await joinAppLock(password);
+        const result = await joinAppLock();
         setBusy(false);
         if (!result.ok) {
             setError(describeAppLockRecoveryFailure(result));
-            setPassword('');
             return;
         }
         Modal.alert(t('appLock.settingsTitle'), t('appLock.turnedOn'));
-    }, [busy, password]);
+    }, [busy]);
 
     return (
         <ItemGroup title={t('appLock.turnOnTitle')} footer={t('appLock.joinBody')}>
             <View style={styles.form}>
-                <FieldItem label={t('appLock.passwordLabel')}>
-                    <TextInput testID="app-lock-join-password" style={styles.input} value={password} onChangeText={setPassword}
-                        onSubmitEditing={join} accessibilityLabel={t('appLock.passwordLabel')} secureTextEntry
-                        maxLength={APP_LOCK_MAX_PASSWORD_LENGTH} autoCapitalize="none" autoCorrect={false} autoComplete="current-password" />
-                </FieldItem>
                 {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : null}
-                <RoundButton testID="app-lock-join-turn-on" title={t('appLock.turnOn')} onPress={join} loading={busy} disabled={!password} />
+                <RoundButton testID="app-lock-join-turn-on" title={t('appLock.turnOn')} onPress={join} loading={busy} />
             </View>
         </ItemGroup>
     );
@@ -499,13 +490,6 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord; recoveryEmail: s
         Modal.alert(turnedOff ? t('appLock.settingsTitle') : t('common.error'), turnedOff ? t('appLock.turnedOff') : t('appLock.wrongPassword'));
     }, []);
 
-    const accountState = useAppLockAccountState();
-    const toggleRequireAll = React.useCallback(async (required: boolean) => {
-        if (!(await confirmRecoverySettingsChange(t('appLock.requireAllTitle')))) return;
-        const result = await setAppLockAccountLockRequired(required);
-        if (!result.ok) Modal.alert(t('common.error'), describeAppLockRecoveryFailure(result));
-    }, []);
-
     const toggleFingerprint = React.useCallback(async (enabled: boolean) => {
         const ok = await setAppLockBiometricEnabled(enabled, t('appLock.fingerprintPrompt'));
         if (!ok && enabled) Modal.alert(t('common.error'), t('appLock.fingerprintFailed'));
@@ -533,15 +517,6 @@ function ManageAppLock(props: Readonly<{ record: AppLockRecord; recoveryEmail: s
                     title={t('appLock.changePassword')}
                     icon={<Icon name="key" size={29} color={theme.colors.accent.purple} />}
                     onPress={changePassword}
-                />
-                <Item
-                    testID="app-lock-require-all"
-                    title={t('appLock.requireAllTitle')}
-                    subtitle={t('appLock.requireAllSubtitle')}
-                    subtitleLines={0}
-                    icon={<Icon name="lock" size={29} color={theme.colors.accent.orange} />}
-                    rightElement={<Switch value={accountState.required} onValueChange={(value) => void toggleRequireAll(Boolean(value))} />}
-                    showChevron={false}
                 />
                 {biometricsAvailable ? (
                     <Item

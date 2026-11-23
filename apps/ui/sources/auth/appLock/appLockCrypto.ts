@@ -38,11 +38,12 @@ async function derivePasswordKey(password: string, kdf: AppLockWrappedKeys['kdf'
     });
 }
 
-function wrapKey(dataKey: Uint8Array, wrappingKey: Uint8Array): string {
+/** Wraps `dataKey` (NaCl secretbox) under a 32-byte wrapping key; unwrapped by `unwrapAppLockKey`. */
+export function wrapAppLockKey(dataKey: Uint8Array, wrappingKey: Uint8Array): string {
     return encodeBase64(encryptSecretBox(encodeBase64(dataKey), wrappingKey));
 }
 
-function unwrapKey(wrapped: string, wrappingKey: Uint8Array): Uint8Array | null {
+export function unwrapAppLockKey(wrapped: string, wrappingKey: Uint8Array): Uint8Array | null {
     let opened: unknown;
     try {
         opened = decryptSecretBox(decodeBase64(wrapped), wrappingKey);
@@ -60,7 +61,7 @@ async function wrapWithPassword(
     params: AppLockKdfParams,
 ): Promise<Pick<AppLockWrappedKeys, 'kdf' | 'passwordWrappedKey'>> {
     const kdf = { alg: 'scrypt' as const, N: params.N, r: params.r, p: params.p, salt: encodeBase64(getRandomBytes(SALT_BYTES)) };
-    return { kdf, passwordWrappedKey: wrapKey(dataKey, await derivePasswordKey(password, kdf)) };
+    return { kdf, passwordWrappedKey: wrapAppLockKey(dataKey, await derivePasswordKey(password, kdf)) };
 }
 
 export async function createAppLockKeys(
@@ -74,20 +75,20 @@ export async function createAppLockKeys(
     return {
         dataKey,
         recoveryKey: encodeBase64(recoveryKeyBytes),
-        wrapped: { ...passwordPart, recoveryWrappedKey: wrapKey(dataKey, recoveryKeyBytes) },
+        wrapped: { ...passwordPart, recoveryWrappedKey: wrapAppLockKey(dataKey, recoveryKeyBytes) },
     };
 }
 
 export async function unwrapAppLockKeyWithPassword(wrapped: AppLockWrappedKeys, password: string): Promise<Uint8Array | null> {
     await sodium.ready;
-    return unwrapKey(wrapped.passwordWrappedKey, await derivePasswordKey(password, wrapped.kdf));
+    return unwrapAppLockKey(wrapped.passwordWrappedKey, await derivePasswordKey(password, wrapped.kdf));
 }
 
 export async function unwrapAppLockKeyWithRecoveryKey(wrapped: AppLockWrappedKeys, recoveryKey: string): Promise<Uint8Array | null> {
     await sodium.ready;
     const recoveryKeyBytes = decodeBase64(recoveryKey);
     if (recoveryKeyBytes.length !== DATA_KEY_BYTES) return null;
-    return unwrapKey(wrapped.recoveryWrappedKey, recoveryKeyBytes);
+    return unwrapAppLockKey(wrapped.recoveryWrappedKey, recoveryKeyBytes);
 }
 
 /** Wraps the existing data key under a new password; the recovery wrapping is kept. */
@@ -108,7 +109,7 @@ export async function rewrapAppLockRecoveryKey(
     recoveryKey: string,
 ): Promise<AppLockWrappedKeys> {
     await sodium.ready;
-    return { ...wrapped, recoveryWrappedKey: wrapKey(dataKey, decodeBase64(recoveryKey)) };
+    return { ...wrapped, recoveryWrappedKey: wrapAppLockKey(dataKey, decodeBase64(recoveryKey)) };
 }
 
 export function generateAppLockRecoveryKey(): string {

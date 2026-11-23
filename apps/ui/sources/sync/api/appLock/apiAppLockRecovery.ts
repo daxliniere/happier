@@ -144,10 +144,3 @@ export async function apiAppLockAccountLockPut(request: AppLockAccountLockPutReq
     const parsed = AppLockAccountLockPutResponseSchema.safeParse(await response.json().catch(() => null));
     return parsed.success ? { ok: true, version: parsed.data.version } : { ok: false, error: 'server' };
 }
-
-/** Authenticated (active server): whether devices without the lock must set it up. */
-export async function apiAppLockAccountLockSetRequired(required: boolean): Promise<AppLockRecoveryResult> {
-    const response = await post(APP_LOCK_ACCOUNT_LOCK_ROUTES.accountLockRequired, { required }, {}, 'PUT');
-    if (!response) return { ok: false, error: 'network' };
-    return response.ok ? { ok: true } : await readFailure(response);
-}
