@@ -738,6 +738,32 @@ describe('SessionHeaderActionMenu handoff', () => {
     }
   });
 
+  it('leaves Find out of the menu when the header shows its own Find button', async () => {
+    const session = createSessionFixture({ id: 'header-find-button' });
+    const screen = await renderScreen(<SessionHeaderActionMenu sessionId={session.id} session={session} showFindItem={false} />);
+    const dropdown = screen.findByType('DropdownMenu' as React.ElementType);
+    expect((dropdown.props.items as Array<{ id: string }>).some((item) => item.id === 'header.find')).toBe(false);
+  });
+
+  it('opens Find from the header Find button through the shared find command', async () => {
+    const openFind = vi.fn();
+    vi.stubGlobal('window', { addEventListener: () => undefined, removeEventListener: () => undefined });
+    try {
+      const { KeyboardShortcutProvider } = await import('@/keyboard/KeyboardShortcutProvider');
+      const { SessionHeaderFindButton } = await import('./SessionHeaderFindButton');
+      const screen = await renderScreen(
+        <KeyboardShortcutProvider handlers={{ 'find.open': openFind }}>
+          <SessionHeaderFindButton />
+        </KeyboardShortcutProvider>,
+      );
+      const button = screen.findByProps({ accessibilityRole: 'button' } as any);
+      await act(async () => { button.props.onPress(); });
+      expect(openFind).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('copies session information from the header with developer mode disabled', async () => {
     const session = createSessionFixture({
       id: 'header-copy',

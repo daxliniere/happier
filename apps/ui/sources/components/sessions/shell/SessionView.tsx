@@ -53,6 +53,7 @@ import { SessionHeaderActionMenu } from '@/components/sessions/actions/SessionHe
 import { resolveSessionHeaderActionTargetPx, SESSION_HEADER_ICON_SIZE_PX } from '@/components/sessions/actions/sessionHeaderIconMetrics';
 import { SessionHeaderIconWithCount } from '@/components/sessions/actions/SessionHeaderIconWithCount';
 import { SessionHeaderInfoButton } from '@/components/sessions/actions/SessionHeaderInfoButton';
+import { SessionHeaderFindButton } from '@/components/sessions/actions/SessionHeaderFindButton';
 import { ActionOperationActivityButton } from '@/components/inbox/actionOperations/ActionOperationActivityButton';
 import { PANE_ACTION_RAIL_WIDTH } from '@/components/appShell/panes/PaneActionRailContext';
 import { useAppPaneActionRailVisible } from '@/components/appShell/panes/hooks/useAppPaneActionRailVisible';
@@ -1002,6 +1003,8 @@ const SessionHeaderRightElement = React.memo(function SessionHeaderRightElement(
 
     return (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* Folded (phone) layouts keep Find in the three-dots menu. */}
+            {!props.shouldFoldHeaderIconActions ? <SessionHeaderFindButton /> : null}
             <ActionOperationActivityButton
                 preferredSessionId={props.sessionId}
                 testID="session-header-action-operations"
@@ -1013,6 +1016,7 @@ const SessionHeaderRightElement = React.memo(function SessionHeaderRightElement(
                 session={props.session}
                 extraItems={headerExtraItems.length > 0 ? headerExtraItems : undefined}
                 onSelectExtraItem={handleHeaderExtraItemSelect}
+                showFindItem={props.shouldFoldHeaderIconActions}
             />
             {!props.shouldFoldHeaderIconActions && !actionRailVisible && !cockpitOwnsSession ? (
                 <SessionHeaderTranscriptNavigationButton sessionId={props.sessionId} scopeId={props.paneScopeId} />

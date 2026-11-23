@@ -110,6 +110,11 @@ type SessionHeaderActionMenuProps = Readonly<{
    * opening a pane tab) without adding new cross-cutting dependencies here.
    */
   onSelectExtraItem?: (actionId: string) => boolean;
+  /**
+   * Whether the menu lists Find. Wide layouts show a dedicated header Find button instead, so the
+   * item is only offered where the header folds its icon actions (phones). Defaults to true.
+   */
+  showFindItem?: boolean;
 }>;
 
 function readCurrentSessionForOpenMenu(sessionId: string, fallback: Session): Session {
@@ -189,6 +194,7 @@ function didSessionHeaderActionMenuPropsChange(
   if (prev.sessionId !== next.sessionId) return true;
   if (prev.extraItems !== next.extraItems) return true;
   if (prev.onSelectExtraItem !== next.onSelectExtraItem) return true;
+  if (prev.showFindItem !== next.showFindItem) return true;
   if (!areSessionActionMenuMetadataSemanticallyEqual(prev.session.metadata, next.session.metadata)) return true;
   if (prev.session.active !== next.session.active) return true;
   if (prev.session.owner !== next.session.owner) return true;
@@ -329,8 +335,9 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
         subtitle: spec.description,
       }));
 
-    // Find leads the menu: it is the menu's only way into transcript Find on touch devices.
-    const out: DropdownMenuItem[] = [{
+    // Find leads the menu where the header has no Find button of its own (folded phone layout): it
+    // is then the menu's only way into transcript Find on touch devices.
+    const out: DropdownMenuItem[] = props.showFindItem === false ? [] : [{
       id: SESSION_HEADER_FIND_ITEM_ID,
       title: t('transcript.find.menuTitle'),
       icon: <Icon name="magnifying-glass" size={16} color={theme.colors.chrome.header.foreground} />,
@@ -399,6 +406,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
     return out;
   }, [
     props.extraItems,
+    props.showFindItem,
     tagsAvailable,
     sessionServerId,
     props.sessionId,
