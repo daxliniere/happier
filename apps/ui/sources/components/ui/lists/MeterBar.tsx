@@ -18,6 +18,8 @@ export interface MeterBarProps {
      */
     fillFraction: number;
     caption?: React.ReactNode;
+    /** Colour of a text caption; the default caption colour when omitted. */
+    captionColor?: string;
     /** Track height in px (default 6). */
     height?: number;
     trackColor?: string;
@@ -121,7 +123,7 @@ export const MeterBar = React.memo<MeterBarProps>((props) => {
                 typeof props.caption === 'string' || typeof props.caption === 'number' ? (
                     <Text
                         testID={props.testID ? `${props.testID}:caption` : undefined}
-                        style={styles.caption}
+                        style={[styles.caption, props.captionColor ? { color: props.captionColor } : null]}
                     >
                         {props.caption}
                     </Text>

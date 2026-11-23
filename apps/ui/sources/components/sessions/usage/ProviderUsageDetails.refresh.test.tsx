@@ -9,6 +9,8 @@ import { refreshQuotaSnapshot, buildQuotaSnapshotScopeKey } from '@/sync/domains
 import { connectedServiceQuotaGaugeFormatter } from './connectedServiceQuotaGaugeFormatter';
 import { ProviderUsageDetails } from './ProviderUsageDetails';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
+import { StyleSheet } from 'react-native';
+import { lightTheme } from '@/theme';
 
 const auth = vi.hoisted(() => ({ credentials: { token: 'test', secret: 'test' } }));
 vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => auth }));
@@ -37,13 +39,24 @@ beforeEach(() => { vi.useFakeTimers(); vi.clearAllMocks(); });
 afterEach(() => vi.useRealTimers());
 
 describe('usage refresh indicator', () => {
-    it('shows an exhausted quota as a full danger bar', async () => {
-        const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work', 100)} />);
-        const fill = screen.findByTestId('agent-input-provider-usage-meter-bar:weekly:fill');
-        if (!fill) throw new Error('Expected the weekly quota meter fill');
-
-        expect(fill.props.style).toContainEqual(expect.objectContaining({ width: '100%' }));
-        await screen.unmount();
+    it('shows an exhausted limit as an empty bar, with its name and figures in red', async () => {
+        const textColours = (used: number) => async () => {
+            const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work', used)} />);
+            const row = screen.findByTestId('agent-input-provider-usage-meter:weekly');
+            if (!row) throw new Error('Expected the weekly quota row');
+            const fill = screen.findByTestId('agent-input-provider-usage-meter-bar:weekly:fill');
+            const colours = row.findAll((node) => String(node.type) === 'Text' && typeof node.props.children === 'string')
+                .map((node) => StyleSheet.flatten(node.props.style)?.color);
+            const width = StyleSheet.flatten(fill?.props.style)?.width;
+            await screen.unmount();
+            return { colours, width };
+        };
+        const exhausted = await textColours(100)();
+        expect(exhausted.width).toBe('0%');
+        expect(exhausted.colours.length).toBeGreaterThanOrEqual(2);
+        expect(exhausted.colours.every((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(true);
+        const partlyUsed = await textColours(30)();
+        expect(partlyUsed.colours.some((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(false);
     });
 
     it('keeps a partly used quota as a remaining-first bar', async () => {

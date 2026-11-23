@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { MeterTone } from '@/components/ui/lists/MeterBar';
 import { UsageMeterBar } from './UsageMeterBar';
+import { resolveUsageLimitTextColor, useUsageLimitTextColor } from './useRemainingUsageColor';
 import { Text } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
 import { useNowMs } from '@/hooks/time/useNowMs';
@@ -44,8 +45,9 @@ const ProviderUsageMeterDetailRight = React.memo(function ProviderUsageMeterDeta
     style: React.ComponentProps<typeof Text>['style'];
 }>) {
     const nowMs = useNowMs(METER_RESET_COUNTDOWN_TICK_MS);
+    const exhaustedColor = useUsageLimitTextColor(props.row.remainingPct);
     return (
-        <Text style={props.style} numberOfLines={1}>
+        <Text style={[props.style, exhaustedColor ? { color: exhaustedColor } : null]} numberOfLines={1}>
             {resolveConnectedServiceQuotaMeterDetailLabel({
                 remainingPct: props.row.remainingPct,
                 resetAtMs: props.row.resetAtMs,
@@ -65,10 +67,15 @@ export function ProviderUsageDetails(props: Readonly<{
     recoveryCreditActionPending?: boolean;
 }>) {
     const styles = stylesheet;
+    const { theme } = useUnistyles();
     const title = props.viewModel.providerDisplayName
         ? t('agentInput.providerUsage.titleForProvider', { provider: props.viewModel.providerDisplayName })
         : t('agentInput.providerUsage.title');
     const recoveryCreditSummary = props.viewModel.recoveryCreditSummary;
+    const exhaustedTextStyle = (remainingPct: number | null) => {
+        const color = resolveUsageLimitTextColor(theme, remainingPct);
+        return color ? { color } : null;
+    };
     const subscriptionTone = props.viewModel.subscription
         ? resolveConnectedServiceSubscriptionStatusTone(props.viewModel.subscription.status) : null;
     return (
@@ -139,7 +146,7 @@ export function ProviderUsageDetails(props: Readonly<{
                     ]}
                 >
                     <View style={styles.meterHeader}>
-                        <Text style={styles.meterLabel} numberOfLines={1}>
+                        <Text style={[styles.meterLabel, exhaustedTextStyle(row.remainingPct)]} numberOfLines={1}>
                             {row.label}
                         </Text>
                         <ProviderUsageMeterDetailRight row={row} style={styles.meterRight} />
@@ -148,13 +155,13 @@ export function ProviderUsageDetails(props: Readonly<{
                         testID={`agent-input-provider-usage-meter-bar:${row.meterId}`}
                         tone={mapGaugeToneToMeterTone(row.tone)}
                         remainingPct={row.remainingPct}
-                        // Remaining-first fill, matching the "% left" label; an exhausted limit
-                        // draws a full bar in its danger colour rather than an empty track.
-                        fillFraction={row.remainingPct <= 0 ? 1 : row.remainingPct / 100}
+                        // Remaining-first fill, matching the "% left" label: an exhausted limit has an
+                        // empty bar, and its name and figures turn red instead.
+                        fillFraction={row.remainingPct / 100}
                         height={5}
                     /> : null}
                     {row.usedLimitLabel ? (
-                        <Text style={styles.meterUsage}>
+                        <Text style={[styles.meterUsage, exhaustedTextStyle(row.remainingPct)]}>
                             {row.usedLimitLabel}
                         </Text>
                     ) : null}

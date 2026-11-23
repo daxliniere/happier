@@ -13,6 +13,7 @@ import { ItemGroupColumn } from '@/components/ui/lists/ItemGroupColumns';
 import { ItemRowActions } from '@/components/ui/lists/ItemRowActions';
 import { ItemSection } from '@/components/ui/lists/ItemSection';
 import { UsageMeterBar } from '@/components/sessions/usage/UsageMeterBar';
+import { resolveUsageLimitTextColor } from '@/components/sessions/usage/useRemainingUsageColor';
 import { Switch } from '@/components/ui/forms/Switch';
 import { StatusPill } from '@/components/ui/status/StatusPill';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
@@ -750,7 +751,12 @@ export const AccountBlockView = React.memo<AccountBlockViewProps>((props) => {
                         <ItemGroupColumn key={row.meterId}>
                             <View>
                                 <View style={styles.usageHeaderRow}>
-                                    <Text style={styles.usageLabel} numberOfLines={1}>{row.label}</Text>
+                                    <Text
+                                        style={[styles.usageLabel, resolveUsageLimitTextColor(theme, row.remainingPct) ? { color: resolveUsageLimitTextColor(theme, row.remainingPct) } : null]}
+                                        numberOfLines={1}
+                                    >
+                                        {row.label}
+                                    </Text>
                                     <Pressable
                                         testID={`${testID}:pin:${row.meterId}`}
                                         hitSlop={10}

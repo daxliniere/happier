@@ -2,7 +2,10 @@ import React from 'react';
 import { act } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { StyleSheet } from 'react-native';
+
 import { renderScreen } from '@/dev/testkit';
+import { lightTheme } from '@/theme';
 import {
     ConnectedServiceQuotaSnapshotV1Schema,
     type ConnectedServiceQuotaSnapshotV1,
@@ -239,6 +242,12 @@ describe('AccountBlock', () => {
                 }}
             />);
             expect(screen.getTextContent()).toContain('resets in 2h 0m 0s');
+            // An exhausted limit names itself and its figures in red.
+            const danger = lightTheme.colors.state.danger.foreground;
+            const label = screen.findAll((node) => String(node.type) === 'Text' && node.props.children === 'Weekly');
+            expect(label.map((node) => StyleSheet.flatten(node.props.style)?.color)).toEqual([danger]);
+            const caption = screen.findByTestId('live-acct:meter:weekly:caption');
+            expect(StyleSheet.flatten(caption?.props.style)?.color).toBe(danger);
 
             act(() => { vi.advanceTimersByTime(1_000); });
             expect(screen.getTextContent()).toContain('resets in 1h 59m 59s');
