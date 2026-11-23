@@ -16,7 +16,11 @@ import { useSetting } from '@/sync/domains/state/storage';
 import { useLatestProviderUsageRecordIdsByAgent, useLatestProviderUsageRuntimeIssuesByAgent } from '@/sync/store/hooks';
 import { t } from '@/text';
 
-import { resolveProviderUsageAccountIdentity, selectDistinctProviderUsageAccounts } from './providerUsageAccountIdentity';
+import {
+    resolveProviderUsageAccountIdentity,
+    resolveProvisionalConnectedProfileKey,
+    selectDistinctProviderUsageAccounts,
+} from './providerUsageAccountIdentity';
 import { resolveProviderUsageServiceIds } from './resolveDefaultProviderUsageProfileRef';
 
 type AccountProfileConnectedService = AccountProfile['connectedServicesV2'][number];
@@ -153,19 +157,38 @@ export function useProviderUsageGauges(params: Readonly<{
     const previousAccountsRef = React.useRef<ReadonlyMap<string, ProviderUsageAccount>>(new Map());
     const computedAccounts = React.useMemo(() => {
         const nowMs = nowServerMs();
+        // The connected login each entry is: its own profile, or for the native entry, the profile a
+        // provisional usage record was observed through.
+        const connectedProfileKeyOf = (request: AccountRequest, index: number): string | null => {
+            if (request.profileRef) return `${request.profileRef.serviceId}/${request.profileRef.profileId}`;
+            const source = resolved[index]?.displaySnapshotSource;
+            return source?.kind === 'account_usage'
+                ? resolveProvisionalConnectedProfileKey(source.accountUsageSnapshot.accountSubject)
+                : null;
+        };
+        const configuredProfileKeys = new Set(accountRequests.flatMap((request) => (
+            request.profileRef ? [`${request.profileRef.serviceId}/${request.profileRef.profileId}`] : []
+        )));
         // A provider without an identified account is only listed when it has evidence of its own:
         // figures, a limit report, or sessions that used it.
-        const listed = accountRequests.map((request, index) => ({ request, index })).filter(({ request, index }) => (
-            request.identified
-            || (resolved[index]?.gaugeSource ?? null) !== null
-            || latestRuntimeIssuesByAgent.has(request.agentId)
-            || latestRecordIdsByAgent.has(request.agentId)
-        ));
+        const listed = accountRequests.map((request, index) => ({ request, index })).filter(({ request, index }) => {
+            // A record of a connected login that no longer exists (for example a deleted profile) is
+            // not a native login and has no account to show.
+            const profileKey = request.profileRef ? null : connectedProfileKeyOf(request, index);
+            if (profileKey && !configuredProfileKeys.has(profileKey)) return false;
+            return request.identified
+                || (resolved[index]?.gaugeSource ?? null) !== null
+                || latestRuntimeIssuesByAgent.has(request.agentId)
+                || latestRecordIdsByAgent.has(request.agentId);
+        });
         // One entry per login: a native login that is the same person as a connected profile (for
         // example when the default account is that profile) would otherwise show its usage twice.
         const distinct = selectDistinctProviderUsageAccounts(listed.map(({ request, index }) => ({
             agentId: request.agentId,
-            identity: resolveProviderUsageAccountIdentity(resolved[index]?.displaySnapshotSource?.snapshot),
+            identity: resolveProviderUsageAccountIdentity(
+                resolved[index]?.displaySnapshotSource?.snapshot,
+                connectedProfileKeyOf(request, index),
+            ),
         }))).map((position) => listed[position]!);
         const countByAgent = new Map<AgentId, number>();
         for (const { request } of distinct) countByAgent.set(request.agentId, (countByAgent.get(request.agentId) ?? 0) + 1);
