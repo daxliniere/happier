@@ -5656,6 +5656,8 @@ export const pl: TranslationStructure = {
         overloadAttempt: ({ attempt }: { attempt: number }) => `Próba ${attempt}`,
       title: "Osiągnięto limit użycia",
       readyTitle: "Limit użycia został zresetowany",
+      switchedAccountTitle: 'Gotowe na innym koncie',
+      switchedAccountBody: 'Limit został osiągnięty na innym koncie. Ta sesja jest ustawiona na konto, które nadal ma zapas, więc możesz ją teraz wznowić.',
       resetBody: ({ time }: { time: string }) =>
         `Ten dostawca prosi sesję o czekanie do ${time} przed kontynuacją.`,
       genericBody: "Ten dostawca prosi sesję o czekanie przed kontynuacją.",

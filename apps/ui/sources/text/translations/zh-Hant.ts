@@ -4992,6 +4992,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
               overloadAttempt: ({ attempt }: { attempt: number }) => `第${attempt}次`,
             title: '已達到使用限制',
             readyTitle: '使用限制已重設',
+            switchedAccountTitle: '可用其他帳戶繼續',
+            switchedAccountBody: '另一個帳戶已達到上限。此工作階段設定為使用仍有額度的帳戶，因此現在即可繼續。',
             resetBody: ({ time }: { time: string }) => `此提供者要求工作階段等到 ${time} 後再繼續。`,
             genericBody: '此提供者要求工作階段等待後再繼續。',
             stoppedBody: '自動復原已停止，不會自行重試。請在下方重試。',

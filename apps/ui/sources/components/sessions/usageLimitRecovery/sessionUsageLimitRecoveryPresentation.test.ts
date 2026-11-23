@@ -1096,4 +1096,39 @@ describe('sessionUsageLimitRecoveryPresentation', () => {
             formatTime: (value) => String(value),
         })).toBeNull();
     });
+
+    describe('a session whose selected account is not the one that hit the limit', () => {
+        const claude1Limited = usageIssue('claude', Date.now() + 3_000_000, {
+            connectedService: { serviceId: 'claude-subscription', profileId: 'Claude1', groupId: null },
+        });
+        const base = {
+            featureEnabled: true, latestTurnStatus: 'failed' as const, issue: claude1Limited, recovery: null,
+            rememberedMode: 'ask' as const, checkNowSupported: true, hasInterruptedWorkToResume: true,
+            translate: (key: string) => key, formatTime: String,
+        };
+
+        it('offers to resume now, without a wait or a limit re-check, when the selected account has capacity', () => {
+            const presentation = buildSessionUsageLimitRecoveryPresentation({ ...base, selectedAccountClearsLimit: true } as never);
+
+            expect(presentation?.banner.title).toBe('session.usageLimitRecovery.switchedAccountTitle');
+            expect(presentation?.banner.body).toBe('session.usageLimitRecovery.switchedAccountBody');
+            expect(presentation?.banner.primaryAction.kind).toBe('resume_now');
+            expect(presentation?.banner.resetCountdown).toBeUndefined();
+            expect(presentation?.banner.secondaryActions.map((action) => action.kind)).not.toContain('check_now');
+        });
+
+        it('shows the ready badge instead of "limit reached"', () => {
+            const badge = buildSessionUsageLimitStatusBadgePresentation({ ...base, selectedAccountClearsLimit: true } as never);
+
+            expect(badge?.label).toBe('session.usageLimitRecovery.statusReady');
+        });
+
+        it('keeps waiting on the limit when the selected account was not shown to have capacity', () => {
+            const presentation = buildSessionUsageLimitRecoveryPresentation({ ...base, selectedAccountClearsLimit: false } as never);
+
+            expect(presentation?.banner.title).toBe('session.usageLimitRecovery.title');
+            expect(presentation?.banner.primaryAction.kind).not.toBe('resume_now');
+            expect(presentation?.banner.resetCountdown).toBeDefined();
+        });
+    });
 });

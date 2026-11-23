@@ -5292,6 +5292,8 @@ export const de: TranslationStructure = {
             overloadAttempt: ({ attempt }: { attempt: number }) => `Versuch ${attempt}`,
             title: 'Nutzungslimit erreicht',
             readyTitle: 'Nutzungslimit zurückgesetzt',
+            switchedAccountTitle: 'Bereit mit einem anderen Konto',
+            switchedAccountBody: 'Das Limit wurde bei einem anderen Konto erreicht. Diese Sitzung nutzt ein Konto, das noch Kapazität hat – du kannst sie jetzt fortsetzen.',
             resetBody: ({ time }: { time: string }) => `Dieser Provider bittet die Session zu warten bis ${time} bevor es weitergeht.`,
             genericBody: 'Dieser Provider bittet die Session, vor dem Weitermachen zu warten.',
             stoppedBody: 'Die automatische Wiederherstellung wurde beendet und versucht es nicht selbst erneut. Versuche es unten erneut.',

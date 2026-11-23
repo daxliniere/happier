@@ -5313,6 +5313,8 @@ export const en = {
             overloadAttempt: ({ attempt }: { attempt: number }) => `Attempt ${attempt}`,
             title: 'Usage limit reached',
             readyTitle: 'Usage limit reset',
+            switchedAccountTitle: 'Ready on another account',
+            switchedAccountBody: 'The limit was reached on a different account. This session is set to use an account that still has capacity, so you can resume it now.',
             resetBody: ({ time }: { time: string }) => `This provider is asking the session to wait until ${time} before continuing.`,
             genericBody: 'This provider is asking the session to wait before continuing.',
             stoppedBody: 'Automatic recovery stopped and won’t retry on its own. Try again below.',

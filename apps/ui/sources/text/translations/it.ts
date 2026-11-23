@@ -5990,6 +5990,8 @@ export const it: TranslationStructure = {
         overloadAttempt: ({ attempt }: { attempt: number }) => `Tentativo ${attempt}`,
       title: "Limite di utilizzo raggiunto",
       readyTitle: "Limite di utilizzo reimpostato",
+      switchedAccountTitle: 'Pronto con un altro account',
+      switchedAccountBody: 'Il limite è stato raggiunto su un altro account. Questa sessione è impostata su un account che ha ancora capacità, quindi puoi riprenderla subito.',
       resetBody: ({ time }: { time: string }) =>
         `Questo provider chiede alla sessione di attendere fino a ${time} prima di continuare.`,
       genericBody: "Questo provider chiede alla sessione di attendere prima di continuare.",
