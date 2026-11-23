@@ -15,6 +15,7 @@ import { ScrollEdgeFades } from '@/components/ui/scroll/ScrollEdgeFades';
 import { useScrollEdgeFades, type ScrollEdgeVisibility } from '@/components/ui/scroll/useScrollEdgeFades';
 import { ScrollEdgeIndicators } from '@/components/ui/scroll/ScrollEdgeIndicators';
 import { shadowLevelStyle } from '@/shadowElevation';
+import { popupOutlineStyle } from './popupOutlineStyle';
 import {
     resolveThemeSurfaceChromeStyle,
     type ThemeSurfaceChromeStyle,
@@ -57,10 +58,7 @@ const stylesheet = StyleSheet.create((theme) => {
             ...shadowLevelStyle(theme.colors.shadowLevels[2]),
         },
         // The outline that marks a menu or picker surface against the content behind it.
-        menuOutline: {
-            borderWidth: 2,
-            borderColor: theme.colors.border.strong,
-        },
+        menuOutline: popupOutlineStyle(theme),
         themedSurfaceClip: {
             borderRadius: OVERLAY_BORDER_RADIUS,
             overflow: 'hidden',

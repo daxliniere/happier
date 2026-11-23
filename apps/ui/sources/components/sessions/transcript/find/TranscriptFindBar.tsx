@@ -6,6 +6,7 @@ import { IconAction } from '@/components/ui/buttons/IconAction';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 import { Icon } from '@/components/ui/icons/Icon';
 import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
+import { popupOutlineStyle } from '@/components/ui/overlays/popupOutlineStyle';
 import { Text, TextInput } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
 import { ESCAPE_LAYER_PRIORITIES, useEscapeLayer } from '@/keyboard/escape';
@@ -37,9 +38,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingRight: 4,
         paddingVertical: 4,
         borderRadius: 10,
-        // Same 2px strong outline as every floating popup (FloatingOverlay's menuOutline).
-        borderWidth: 2,
-        borderColor: theme.colors.border.strong,
+        ...popupOutlineStyle(theme),
         backgroundColor: theme.colors.surface.base,
         ...shadowLevelStyle(theme.colors.shadowLevels[2]),
     },
@@ -66,9 +65,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
-        // Same 2px strong outline as every floating popup (FloatingOverlay's menuOutline).
-        borderWidth: 2,
-        borderColor: theme.colors.border.strong,
+        ...popupOutlineStyle(theme),
         backgroundColor: theme.colors.surface.base,
     },
     expandLabel: {
