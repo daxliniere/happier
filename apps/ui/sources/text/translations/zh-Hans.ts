@@ -2662,6 +2662,8 @@ export const zhHans: TranslationStructure = {
       confirmTitle: "切换会话认证？",
       confirmBody: "会话会在下一回合前重启或更新其连接服务凭据。",
       confirmAction: "切换认证",
+      stopAndSwitchAction: "停止并切换认证",
+      stopBeforeSwitchFailed: "切换认证前无法停止会话。请手动停止后重试。",
       status: {
         liveApplied: "已在运行中的会话中切换认证",
         credentialsRefreshed: "认证已刷新",

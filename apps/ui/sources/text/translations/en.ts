@@ -2513,6 +2513,8 @@ export const en = {
             confirmTitle: 'Switch session authentication?',
             confirmBody: 'The session will restart or update its connected-service credentials before the next turn.',
             confirmAction: 'Switch authentication',
+            stopAndSwitchAction: 'Stop and switch authentication',
+            stopBeforeSwitchFailed: 'The session could not be stopped before switching authentication. Stop it manually, then try again.',
             status: {
                 liveApplied: 'Authentication switched in the running session',
                 credentialsRefreshed: 'Authentication refreshed',

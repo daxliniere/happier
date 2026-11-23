@@ -32,6 +32,8 @@ import {
 } from '@/sync/domains/connectedServices/resolveConnectedServiceProfileActionRoute';
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
 import { Modal } from '@/modal';
+import { stopSessionAndRunAction } from '@/components/sessions/sessionStopArchiveFlow';
+import { sessionStopWithServerScope } from '@/sync/ops/sessions';
 import {
     setSessionConnectedServiceAuthBinding,
     type SessionConnectedServiceAuthSwitchResult as DaemonSessionConnectedServiceAuthSwitchResult,
@@ -188,7 +190,43 @@ type SetBindingForServiceOptions = Readonly<{
     skipConfirm?: boolean;
     /** Re-apply even when the target equals the current optimistic binding — used by Revert to reconverge a diverged live session. */
     forceReapply?: boolean;
+    /**
+     * Stop the running session before switching. A stopped session accepts the new binding without a
+     * restart, so this is the way off an account the session cannot continue on (for example a usage
+     * limit) when the daemon refuses to restart a running session.
+     */
+    stopFirst?: boolean;
 }>;
+
+type AuthSwitchConfirmChoice = 'cancel' | 'switch' | 'stop_and_switch';
+
+function askAuthSwitchChoice(): Promise<AuthSwitchConfirmChoice> {
+    return new Promise((resolve) => {
+        Modal.alert(
+            t('connectedServices.authSwitch.confirmTitle'),
+            t('connectedServices.authSwitch.confirmBody'),
+            [
+                { text: t('common.cancel'), style: 'cancel', onPress: () => resolve('cancel') },
+                { text: t('connectedServices.authSwitch.confirmAction'), onPress: () => resolve('switch') },
+                { text: t('connectedServices.authSwitch.stopAndSwitchAction'), onPress: () => resolve('stop_and_switch') },
+            ],
+        );
+    });
+}
+
+/** Stops the session through the canonical stop flow; tells the user and returns false when it cannot. */
+async function stopSessionBeforeAuthSwitch(target: Readonly<{ sessionId: string; serverId?: string | null }>): Promise<boolean> {
+    try {
+        await stopSessionAndRunAction({
+            stopSession: () => sessionStopWithServerScope(target.sessionId, { serverId: target.serverId ?? null }),
+            stopErrorMessage: t('connectedServices.authSwitch.stopBeforeSwitchFailed'),
+        });
+        return true;
+    } catch {
+        Modal.alert(t('common.error'), t('connectedServices.authSwitch.stopBeforeSwitchFailed'));
+        return false;
+    }
+}
 
 function readRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object' && !Array.isArray(value)
@@ -546,13 +584,14 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
             next: binding,
         })) return;
         void (async () => {
+            let stopFirst = options?.stopFirst === true;
             if (!options?.skipConfirm && params.sessionActive !== false) {
-                const confirmed = await Modal.confirm(
-                    t('connectedServices.authSwitch.confirmTitle'),
-                    t('connectedServices.authSwitch.confirmBody'),
-                    { confirmText: t('connectedServices.authSwitch.confirmAction') },
-                );
-                if (!confirmed) return;
+                const choice = await askAuthSwitchChoice();
+                if (choice === 'cancel') return;
+                stopFirst = choice === 'stop_and_switch';
+            }
+            if (stopFirst && !(await stopSessionBeforeAuthSwitch({ sessionId: params.sessionId, serverId: params.serverId }))) {
+                return;
             }
 
             const previousBindings = optimisticBindingsByServiceId;
@@ -753,6 +792,26 @@ export function useSessionConnectedServicesAuthSwitch(params: Readonly<{
             // (the session-scope mirror of the pool divergence surface). Suppress the generic
             // one-shot error alert so the failure is not double-surfaced and stays recoverable.
             if (partialNotice) return;
+            if (
+                result?.errorCode === 'restart_disallowed_by_execution_policy'
+                && !stopFirst
+                && params.sessionActive !== false
+            ) {
+                // The daemon will not restart a running session, but a stopped one accepts the switch:
+                // offer that instead of a dead-end error.
+                Modal.alert(
+                    t('common.error'),
+                    t(resolveSessionConnectedServiceAuthSwitchErrorMessageKey(result.errorCode)),
+                    [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                            text: t('connectedServices.authSwitch.stopAndSwitchAction'),
+                            onPress: () => setBindingForService(serviceId, binding, { skipConfirm: true, stopFirst: true }),
+                        },
+                    ],
+                );
+                return;
+            }
             Modal.alert(
                 t('common.error'),
                 t(resolveSessionConnectedServiceAuthSwitchErrorMessageKey(result?.errorCode)),

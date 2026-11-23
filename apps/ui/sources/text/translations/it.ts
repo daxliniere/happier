@@ -3081,6 +3081,8 @@ export const it: TranslationStructure = {
       confirmBody:
         "La sessione verrà riavviata o aggiornerà le credenziali del servizio collegato prima del prossimo turno.",
       confirmAction: "Cambia autenticazione",
+      stopAndSwitchAction: "Interrompi e cambia autenticazione",
+      stopBeforeSwitchFailed: "Impossibile interrompere la sessione prima di cambiare l'autenticazione. Interrompila manualmente e riprova.",
       status: {
         liveApplied: "Autenticazione cambiata nella sessione in esecuzione",
         credentialsRefreshed: "Autenticazione aggiornata",

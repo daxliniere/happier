@@ -2512,6 +2512,8 @@ export const fr: TranslationStructure = {
             confirmTitle: 'Changer l’authentification de la session ?',
             confirmBody: 'La session va redémarrer ou mettre à jour ses identifiants de service connecté avant le prochain tour.',
             confirmAction: 'Changer l’authentification',
+            stopAndSwitchAction: 'Arrêter et changer l’authentification',
+            stopBeforeSwitchFailed: 'La session n’a pas pu être arrêtée avant le changement d’authentification. Arrêtez-la manuellement, puis réessayez.',
             status: {
                 liveApplied: 'Authentification changée dans la session en cours',
                 credentialsRefreshed: 'Authentification actualisée',

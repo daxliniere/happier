@@ -1416,6 +1416,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
             confirmTitle: '切換工作階段認證？',
             confirmBody: '工作階段會在下一回合前重新啟動或更新其連線服務憑證。',
             confirmAction: '切換認證',
+            stopAndSwitchAction: '停止並切換認證',
+            stopBeforeSwitchFailed: '切換認證前無法停止工作階段。請手動停止後再試一次。',
             status: {
                 liveApplied: '已在執行中的工作階段切換驗證',
                 credentialsRefreshed: '驗證已重新整理',

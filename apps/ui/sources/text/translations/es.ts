@@ -2730,6 +2730,8 @@ export const es: TranslationStructure = {
       confirmBody:
         "La sesión se reiniciará o actualizará sus credenciales del servicio conectado antes del siguiente turno.",
       confirmAction: "Cambiar autenticación",
+      stopAndSwitchAction: "Detener y cambiar autenticación",
+      stopBeforeSwitchFailed: "No se pudo detener la sesión antes de cambiar la autenticación. Detén la sesión manualmente e inténtalo de nuevo.",
       status: {
         liveApplied: "Autenticación cambiada en la sesión en ejecución",
         credentialsRefreshed: "Autenticación actualizada",

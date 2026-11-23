@@ -2598,6 +2598,8 @@ export const ca: TranslationStructure = {
             confirmTitle: 'Vols canviar l’autenticació de la sessió?',
             confirmBody: 'La sessió es reiniciarà o actualitzarà les credencials del servei connectat abans del torn següent.',
             confirmAction: 'Canvia l’autenticació',
+            stopAndSwitchAction: 'Atura i canvia l’autenticació',
+            stopBeforeSwitchFailed: 'No s’ha pogut aturar la sessió abans de canviar l’autenticació. Atura-la manualment i torna-ho a provar.',
             status: {
                 liveApplied: 'Autenticació canviada a la sessió en execució',
                 credentialsRefreshed: 'Autenticació actualitzada',

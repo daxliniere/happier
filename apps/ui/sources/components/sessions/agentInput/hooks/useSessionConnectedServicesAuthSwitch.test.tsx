@@ -12,6 +12,9 @@ const useFeatureEnabledMock = vi.hoisted(() => vi.fn());
 const setSessionConnectedServiceAuthBindingMock = vi.hoisted(() => vi.fn());
 const modalAlertMock = vi.hoisted(() => vi.fn());
 const modalConfirmMock = vi.hoisted(() => vi.fn());
+const authSwitchChoiceMock = vi.hoisted(() => vi.fn());
+const sessionStopMock = vi.hoisted(() => vi.fn());
+const AUTH_SWITCH_CONFIRM_TITLE = 'connectedServices.authSwitch.confirmTitle';
 const routerPushMock = vi.hoisted(() => vi.fn());
 const profileState = vi.hoisted(() => ({
     current: {
@@ -68,7 +71,13 @@ vi.mock('expo-router', async () => {
 installNewSessionModulesCommonModuleMocks({
     modal: () => ({
         Modal: {
-            alert: (...args: unknown[]) => modalAlertMock(...args),
+            // The three-choice "switch authentication" prompt is an alert with buttons; route it to its
+            // own mock so diagnostic-alert assertions keep seeing only their own alerts.
+            alert: (...args: unknown[]) => (
+                args[0] === AUTH_SWITCH_CONFIRM_TITLE
+                    ? authSwitchChoiceMock(...args)
+                    : modalAlertMock(...args)
+            ),
             confirm: (...args: unknown[]) => modalConfirmMock(...args),
         },
     }),
@@ -117,6 +126,11 @@ vi.mock('@/sync/store/hooks', () => ({
     useProfile: () => profileState.current,
 }));
 
+vi.mock('@/sync/ops/sessions', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/sync/ops/sessions')>()),
+    sessionStopWithServerScope: (...args: unknown[]) => sessionStopMock(...args),
+}));
+
 vi.mock('@/sync/ops/connectedServices/sessionAuthSwitch', () => ({
     setSessionConnectedServiceAuthBinding: (...args: unknown[]) => setSessionConnectedServiceAuthBindingMock(...args),
 }));
@@ -133,6 +147,20 @@ function renderChipPopover(
         maxHeight: 420,
         ...overrides,
     });
+}
+
+type AuthSwitchChoice = 'switch' | 'stop_and_switch' | 'cancel';
+const AUTH_SWITCH_CHOICE_BUTTON_TEXT: Record<AuthSwitchChoice, string> = {
+    switch: 'connectedServices.authSwitch.confirmAction',
+    stop_and_switch: 'connectedServices.authSwitch.stopAndSwitchAction',
+    cancel: 'common.cancel',
+};
+
+/** Presses the named button of the "switch session authentication?" alert, like a user would. */
+function pressAuthSwitchChoice(choice: AuthSwitchChoice) {
+    return (_title: string, _message: string, buttons: ReadonlyArray<{ text: string; onPress?: () => void }>) => {
+        buttons.find((button) => button.text === AUTH_SWITCH_CHOICE_BUTTON_TEXT[choice])?.onPress?.();
+    };
 }
 
 const { buildSessionConnectedServicesBindings, useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
@@ -182,6 +210,10 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
         modalAlertMock.mockReset();
         modalConfirmMock.mockReset();
         modalConfirmMock.mockResolvedValue(true);
+        authSwitchChoiceMock.mockReset();
+        authSwitchChoiceMock.mockImplementation(pressAuthSwitchChoice('switch'));
+        sessionStopMock.mockReset();
+        sessionStopMock.mockResolvedValue({ success: true });
         routerPushMock.mockReset();
     });
 
@@ -522,10 +554,14 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             await Promise.resolve();
         });
 
-        expect(modalConfirmMock).toHaveBeenCalledWith(
+        expect(authSwitchChoiceMock).toHaveBeenCalledWith(
             'connectedServices.authSwitch.confirmTitle',
             'connectedServices.authSwitch.confirmBody',
-            { confirmText: 'connectedServices.authSwitch.confirmAction' },
+            [
+                expect.objectContaining({ text: 'common.cancel', style: 'cancel' }),
+                expect.objectContaining({ text: 'connectedServices.authSwitch.confirmAction' }),
+                expect.objectContaining({ text: 'connectedServices.authSwitch.stopAndSwitchAction' }),
+            ],
         );
         expect(setSessionConnectedServiceAuthBindingMock).toHaveBeenCalledWith({
             sessionId: 'session-1',
@@ -659,10 +695,125 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             await Promise.resolve();
         });
 
-        expect(modalConfirmMock).not.toHaveBeenCalled();
+        expect(authSwitchChoiceMock).not.toHaveBeenCalled();
         expect(setSessionConnectedServiceAuthBindingMock).toHaveBeenCalledOnce();
 
         await hook.unmount();
+    });
+
+    describe('stop and switch authentication', () => {
+        async function renderRunningClaudeSession() {
+            const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
+            const hook = await renderHook(() =>
+                useSessionConnectedServicesAuthSwitch({
+                    sessionId: 'session-1',
+                    agentId: 'claude',
+                    machineId: 'machine-1',
+                    serverId: 'server-1',
+                    agentCore: {
+                        id: 'claude',
+                        connectedServices: {
+                            supportedServiceIds: ['anthropic'],
+                            sessionAuthSwitch: { continuityMode: 'restart_same_home' },
+                        },
+                    },
+                    sessionMetadata: {
+                        connectedServices: {
+                            v: 1,
+                            bindingsByServiceId: {
+                                anthropic: { source: 'native' },
+                            },
+                        },
+                    },
+                    settings: {
+                        connectedServicesProfileLabelByKey: { 'anthropic/work': 'Work' },
+                        connectedServicesDefaultProfileByServiceId: {},
+                    },
+                    switchingDisabledReason: null,
+                }),
+            );
+            const popover = renderChipPopover(
+                hook.getCurrent().connectedServicesAuthChip?.collapsedContentPopover?.renderContent,
+            ) as React.ReactElement<{ setBindingForService: (serviceId: string, binding: unknown) => void }>;
+            const switchToWork = async () => {
+                await act(async () => {
+                    popover.props.setBindingForService('anthropic', {
+                        source: 'connected',
+                        selection: 'profile',
+                        profileId: 'work',
+                    });
+                    await Promise.resolve();
+                    await Promise.resolve();
+                });
+            };
+            return { hook, switchToWork };
+        }
+
+        it('stops the running session and then switches authentication when the user chooses Stop and switch', async () => {
+            authSwitchChoiceMock.mockImplementationOnce(pressAuthSwitchChoice('stop_and_switch'));
+            const { hook, switchToWork } = await renderRunningClaudeSession();
+
+            await switchToWork();
+
+            expect(sessionStopMock).toHaveBeenCalledWith('session-1', { serverId: 'server-1' });
+            expect(setSessionConnectedServiceAuthBindingMock).toHaveBeenCalledOnce();
+            expect(sessionStopMock.mock.invocationCallOrder[0])
+                .toBeLessThan(setSessionConnectedServiceAuthBindingMock.mock.invocationCallOrder[0]!);
+
+            await hook.unmount();
+        });
+
+        it('does not switch authentication when the session could not be stopped', async () => {
+            authSwitchChoiceMock.mockImplementationOnce(pressAuthSwitchChoice('stop_and_switch'));
+            sessionStopMock.mockResolvedValueOnce({ success: false, code: 'session_stop_failed', message: 'boom' });
+            const { hook, switchToWork } = await renderRunningClaudeSession();
+
+            await switchToWork();
+
+            expect(setSessionConnectedServiceAuthBindingMock).not.toHaveBeenCalled();
+            expect(modalAlertMock).toHaveBeenCalledWith(
+                'common.error',
+                'connectedServices.authSwitch.stopBeforeSwitchFailed',
+            );
+
+            await hook.unmount();
+        });
+
+        it('offers Stop and switch when the daemon refuses a restart on a running session, then retries without asking again', async () => {
+            setSessionConnectedServiceAuthBindingMock
+                .mockResolvedValueOnce({ ok: false, errorCode: 'restart_disallowed_by_execution_policy' })
+                .mockResolvedValueOnce({ ok: true, action: 'metadata_updated' });
+            const { hook, switchToWork } = await renderRunningClaudeSession();
+
+            await switchToWork();
+
+            expect(sessionStopMock).not.toHaveBeenCalled();
+            expect(modalAlertMock).toHaveBeenCalledWith(
+                'common.error',
+                'connectedServices.authSwitch.errors.restartDisallowedByExecutionPolicy',
+                [
+                    expect.objectContaining({ text: 'common.cancel', style: 'cancel' }),
+                    expect.objectContaining({
+                        text: 'connectedServices.authSwitch.stopAndSwitchAction',
+                        onPress: expect.any(Function),
+                    }),
+                ],
+            );
+
+            const buttons = modalAlertMock.mock.calls.find(([title]) => title === 'common.error')?.[2] as
+                Array<{ text: string; onPress?: () => void }>;
+            await act(async () => {
+                buttons.find((button) => button.text === 'connectedServices.authSwitch.stopAndSwitchAction')?.onPress?.();
+                await Promise.resolve();
+                await Promise.resolve();
+            });
+
+            expect(sessionStopMock).toHaveBeenCalledWith('session-1', { serverId: 'server-1' });
+            expect(setSessionConnectedServiceAuthBindingMock).toHaveBeenCalledTimes(2);
+            expect(authSwitchChoiceMock).toHaveBeenCalledTimes(1);
+
+            await hook.unmount();
+        });
     });
 
     it('uses the latest active-session state after rerendering from inactive to active', async () => {
@@ -723,10 +874,14 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             await Promise.resolve();
         });
 
-        expect(modalConfirmMock).toHaveBeenCalledWith(
+        expect(authSwitchChoiceMock).toHaveBeenCalledWith(
             'connectedServices.authSwitch.confirmTitle',
             'connectedServices.authSwitch.confirmBody',
-            { confirmText: 'connectedServices.authSwitch.confirmAction' },
+            [
+                expect.objectContaining({ text: 'common.cancel', style: 'cancel' }),
+                expect.objectContaining({ text: 'connectedServices.authSwitch.confirmAction' }),
+                expect.objectContaining({ text: 'connectedServices.authSwitch.stopAndSwitchAction' }),
+            ],
         );
         expect(setSessionConnectedServiceAuthBindingMock).toHaveBeenCalledOnce();
 
@@ -1109,7 +1264,7 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             await Promise.resolve();
         });
 
-        expect(modalConfirmMock).not.toHaveBeenCalled();
+        expect(authSwitchChoiceMock).not.toHaveBeenCalled();
         expect(setSessionConnectedServiceAuthBindingMock).toHaveBeenCalledOnce();
         expect(hook.getCurrent().statusBadges).toEqual([expect.objectContaining({
             key: 'connected-services-auth-switch-pending-resume',
@@ -1180,7 +1335,7 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
     });
 
     it('keeps auth selection unchanged when switch confirmation is cancelled', async () => {
-        modalConfirmMock.mockResolvedValueOnce(false);
+        authSwitchChoiceMock.mockImplementationOnce(pressAuthSwitchChoice('cancel'));
         const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
 
         const hook = await renderHook(() =>
@@ -1399,9 +1554,9 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             }),
         );
         const modalOrder: string[] = [];
-        modalConfirmMock.mockImplementationOnce(() => {
+        authSwitchChoiceMock.mockImplementationOnce((...args: Parameters<ReturnType<typeof pressAuthSwitchChoice>>) => {
             modalOrder.push('confirm');
-            return Promise.resolve(true);
+            pressAuthSwitchChoice('switch')(...args);
         });
         const requestClose = vi.fn(() => {
             modalOrder.push('close');
@@ -1620,7 +1775,7 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             errorCode: 'provider_state_sharing_required',
             serviceId: 'openai-codex',
         });
-        modalConfirmMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+        modalConfirmMock.mockResolvedValueOnce(false);
         const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
 
         const hook = await renderHook(() =>
@@ -1812,7 +1967,7 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
             errorCode: 'provider_state_sharing_required',
             serviceId: 'openai-codex',
         });
-        modalConfirmMock.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+        modalConfirmMock.mockResolvedValueOnce(true);
         const { useSessionConnectedServicesAuthSwitch } = await import('./useSessionConnectedServicesAuthSwitch');
 
         const hook = await renderHook(() =>
@@ -2243,6 +2398,10 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
         expect(modalAlertMock).toHaveBeenCalledWith(
             'common.error',
             'connectedServices.authSwitch.errors.restartDisallowedByExecutionPolicy',
+            [
+                expect.objectContaining({ text: 'common.cancel', style: 'cancel' }),
+                expect.objectContaining({ text: 'connectedServices.authSwitch.stopAndSwitchAction' }),
+            ],
         );
         const restoredPopover = renderChipPopover(
             hook.getCurrent().connectedServicesAuthChip?.collapsedContentPopover?.renderContent,
@@ -3030,9 +3189,9 @@ describe('useSessionConnectedServicesAuthSwitch', () => {
         );
 
         const modalOrder: string[] = [];
-        modalConfirmMock.mockImplementationOnce(() => {
+        authSwitchChoiceMock.mockImplementationOnce((...args: Parameters<ReturnType<typeof pressAuthSwitchChoice>>) => {
             modalOrder.push('confirm');
-            return Promise.resolve(true);
+            pressAuthSwitchChoice('switch')(...args);
         });
         const requestClose = vi.fn(() => {
             modalOrder.push('close');

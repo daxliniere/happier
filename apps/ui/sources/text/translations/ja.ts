@@ -3042,6 +3042,8 @@ localTailscale: {
       confirmBody:
         "次のターンの前に、セッションは再起動するか、接続サービスの認証情報を更新します。",
       confirmAction: "認証を切り替える",
+      stopAndSwitchAction: "停止して認証を切り替える",
+      stopBeforeSwitchFailed: "認証を切り替える前にセッションを停止できませんでした。手動で停止してから、もう一度お試しください。",
       status: {
         liveApplied: "実行中のセッションで認証を切り替えました",
         credentialsRefreshed: "認証を更新しました",

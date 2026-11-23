@@ -2512,6 +2512,8 @@ export const de: TranslationStructure = {
             confirmTitle: 'Authentifizierung der Session wechseln?',
             confirmBody: 'Die Session startet neu oder aktualisiert ihre Zugangsdaten für den verbundenen Dienst vor dem nächsten Turn.',
             confirmAction: 'Authentifizierung wechseln',
+            stopAndSwitchAction: 'Stoppen und Authentifizierung wechseln',
+            stopBeforeSwitchFailed: 'Die Session konnte vor dem Wechsel der Authentifizierung nicht gestoppt werden. Stoppe sie manuell und versuche es erneut.',
             status: {
                 liveApplied: 'Authentifizierung in der laufenden Session gewechselt',
                 credentialsRefreshed: 'Authentifizierung aktualisiert',

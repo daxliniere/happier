@@ -2759,6 +2759,8 @@ export const pl: TranslationStructure = {
       confirmBody:
         "Sesja uruchomi się ponownie albo zaktualizuje dane logowania połączonej usługi przed następną turą.",
       confirmAction: "Zmień autoryzację",
+      stopAndSwitchAction: "Zatrzymaj i zmień autoryzację",
+      stopBeforeSwitchFailed: "Nie udało się zatrzymać sesji przed zmianą autoryzacji. Zatrzymaj ją ręcznie i spróbuj ponownie.",
       status: {
         liveApplied: "Uwierzytelnianie przełączone w działającej sesji",
         credentialsRefreshed: "Uwierzytelnianie odświeżone",
