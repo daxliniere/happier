@@ -139,9 +139,18 @@ export function resolveConnectedServiceQuotaProfileRefForSession(params: Readonl
         accountProfileConnectedServicesV2: params.accountProfileConnectedServicesV2,
     });
     const runtimeRef = params.runtimeIssue?.usageLimit?.quotaSnapshotRef;
+    // A binding changed after the limit was reached is newer than the evidence: the owner (or the
+    // daemon) selected that account since, so the stale issue must not pull the session back to the
+    // account that hit the limit. Every binding change stamps connectedServicesUpdatedAt.
+    const bindingUpdatedAt = typeof metadata.connectedServicesUpdatedAt === 'number'
+        && Number.isFinite(metadata.connectedServicesUpdatedAt)
+        ? metadata.connectedServicesUpdatedAt
+        : 0;
+    const issueIsNewerThanBinding = typeof params.runtimeIssue?.occurredAt === 'number'
+        && params.runtimeIssue.occurredAt > bindingUpdatedAt;
     // Runtime auth may have moved off the launch-time member. This chooses identity only;
     // usage values still come from the shared provider/account resolver.
-    if (binding && resolveAgentIdFromFlavor(params.runtimeIssue?.provider) === params.agentId
+    if (binding && issueIsNewerThanBinding && resolveAgentIdFromFlavor(params.runtimeIssue?.provider) === params.agentId
         && runtimeRef?.profileId && supportedServiceIds.some(serviceId => serviceId === runtimeRef.serviceId)) {
         return {
             serviceId: runtimeRef.serviceId,
