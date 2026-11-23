@@ -97,7 +97,7 @@ test('backup checksums a newly completed backup and rejects a no-op backup comma
   assert.match(result.stdout, /BACKUP VERIFIED: .*full-20261105-120000/);
 });
 
-test('a verified backup replaces the earlier full backups but leaves incomplete directories', t => {
+test('a verified backup deletes only the backup immediately before it and keeps every older one and incomplete directories', t => {
   const f = setup(t);
   const older = f.complete('full-20261101-120000');
   const previous = f.complete('full-20261102-120000');
@@ -107,7 +107,7 @@ test('a verified backup replaces the earlier full backups but leaves incomplete 
   const result = f.run('backup');
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.ok(existsSync(join(f.backups, 'full-20261105-120000')));
-  assert.ok(!existsSync(older)); assert.ok(!existsSync(previous));
+  assert.ok(existsSync(older)); assert.ok(!existsSync(previous));
   assert.ok(existsSync(incomplete));
 });
 

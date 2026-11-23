@@ -8,7 +8,7 @@ project=$(cd "$project" && pwd -P)
 usage() {
   cat <<'EOF'
 !backup.sh [--foreground]                  Full Happier + Codex + Claude backup; once
-                                           verified, it deletes the previous full backups
+                                           verified, it deletes only the one backup immediately before it
 !delete-old-backups.sh [--dry-run] [--yes] Keep newest verified full backup
 !install-linux.sh BUILD_DIR [VERSION]     Install server + CLI from a build
 !rollback-linux.sh [BACKUP_DIR]           Restore relay/database + CLI link
@@ -136,14 +136,14 @@ case "$action" in
     [[ -n "$newest" && "$newest" != "$before" ]] || die 'Backup command produced no new completed backup'
     verify "$newest"
     printf 'BACKUP VERIFIED: %s\n' "$newest"
-    # The verified new backup replaces every earlier completed one (owner decision 2026-11-10).
+    # Owner decision 2026-11-23: delete ONLY the completed backup immediately before the new one
+    # (the newest completed backup that existed when this run started). Every older backup stays.
     # Incomplete or symlinked directories were never in full_backups and are left alone.
-    for path in "${full_backups[@]}"; do
-      [[ "$path" == "$newest" ]] && continue
-      [[ "$(dirname "$path")" == "$BACKUP_ROOT" && ! -L "$path" ]] || die 'Backup path changed; refusing deletion'
-      rm -rf -- "$path"
-      printf 'DELETED PREVIOUS BACKUP: %s\n' "$path"
-    done;;
+    if [[ -n "$before" && "$before" != "$newest" ]]; then
+      [[ "$(dirname "$before")" == "$BACKUP_ROOT" && ! -L "$before" ]] || die 'Backup path changed; refusing deletion'
+      rm -rf -- "$before"
+      printf 'DELETED PREVIOUS BACKUP: %s\n' "$before"
+    fi;;
   prune)
     keep=$(latest)
     verify "$keep"
