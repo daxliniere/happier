@@ -3,6 +3,7 @@ import type { AgentInputControlDescriptor } from './agentInputControlTypes';
 export const AGENT_INPUT_CONTROL_REGISTRY = [
     { id: 'engine', line: 'primary' },
     { id: 'mode', line: 'primary' },
+    { id: 'attachments', line: 'primary' },
     { id: 'goal', line: 'primary' },
     { id: 'permission', line: 'primary' },
     { id: 'actionMenu', line: 'primary' },
@@ -16,7 +17,6 @@ export const AGENT_INPUT_CONTROL_REGISTRY = [
     { id: 'stop', line: 'primary' },
     { id: 'recipient', line: 'primary' },
     { id: 'delivery', line: 'primary' },
-    { id: 'attachments', line: 'primary' },
     { id: 'linkedFiles', line: 'primary' },
     { id: 'files', line: 'primary' },
     { id: 'reviewComments', line: 'primary' },
