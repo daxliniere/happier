@@ -37,8 +37,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingRight: 4,
         paddingVertical: 4,
         borderRadius: 10,
-        borderWidth: 1,
-        borderColor: theme.colors.border.default,
+        // Same 2px strong outline as every floating popup (FloatingOverlay's menuOutline).
+        borderWidth: 2,
+        borderColor: theme.colors.border.strong,
         backgroundColor: theme.colors.surface.base,
         ...shadowLevelStyle(theme.colors.shadowLevels[2]),
     },
@@ -65,8 +66,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: theme.colors.border.default,
+        // Same 2px strong outline as every floating popup (FloatingOverlay's menuOutline).
+        borderWidth: 2,
+        borderColor: theme.colors.border.strong,
         backgroundColor: theme.colors.surface.base,
     },
     expandLabel: {
