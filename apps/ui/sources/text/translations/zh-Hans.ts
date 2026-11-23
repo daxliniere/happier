@@ -5450,6 +5450,8 @@ export const zhHans: TranslationStructure = {
         overloadAttempt: ({ attempt }: { attempt: number }) => `第${attempt}次`,
       title: "已达到使用限制",
       readyTitle: "使用限制已重置",
+      switchedAccountTitle: '可用其他账户继续',
+      switchedAccountBody: '另一个账户已达到限额。此会话设置为使用仍有额度的账户，因此现在即可恢复。',
       resetBody: ({ time }: { time: string }) =>
         `此提供方要求会话等到 ${time} 后再继续。`,
       genericBody: "此提供方要求会话等待后再继续。",

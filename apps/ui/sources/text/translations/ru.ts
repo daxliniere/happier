@@ -6190,6 +6190,8 @@ export const ru: TranslationStructure = {
         overloadAttempt: ({ attempt }: { attempt: number }) => `Попытка ${attempt}`,
       title: "Достигнут лимит использования",
       readyTitle: "Лимит использования сброшен",
+      switchedAccountTitle: 'Готово с другим аккаунтом',
+      switchedAccountBody: 'Лимит был достигнут на другом аккаунте. Этот сеанс настроен на аккаунт, у которого ещё есть запас, поэтому его можно возобновить прямо сейчас.',
       resetBody: ({ time }: { time: string }) =>
         `Этот провайдер просит сессию подождать до ${time} перед продолжением.`,
       genericBody: "Этот провайдер просит сессию подождать перед продолжением.",
