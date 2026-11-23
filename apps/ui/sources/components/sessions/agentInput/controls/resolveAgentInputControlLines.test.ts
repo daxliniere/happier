@@ -101,6 +101,7 @@ describe('resolveAgentInputControlLines', () => {
         expect(AGENT_INPUT_CONTROL_REGISTRY.map((control) => control.id)).toEqual([
             'engine',
             'mode',
+            'attachments',
             'goal',
             'permission',
             'actionMenu',
@@ -114,7 +115,6 @@ describe('resolveAgentInputControlLines', () => {
             'stop',
             'recipient',
             'delivery',
-            'attachments',
             'linkedFiles',
             'files',
             'reviewComments',

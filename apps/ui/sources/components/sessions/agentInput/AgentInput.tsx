@@ -1006,7 +1006,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         right: 0,
         top: 0,
         bottom: 0,
-        width: 24,
+        width: 32,
         zIndex: 2,
     },
     actionButtonsLeftNarrow: {

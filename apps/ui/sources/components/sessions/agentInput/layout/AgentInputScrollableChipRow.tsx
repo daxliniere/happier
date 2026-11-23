@@ -8,6 +8,8 @@ import { useScrollEdgeFades } from '@/components/ui/scroll/useScrollEdgeFades';
 import { attachActionBarMouseDragScroll } from './attachActionBarMouseDragScroll';
 
 const ACTION_BAR_SCROLL_END_GUTTER_WIDTH = 24;
+// Solid, click-absorbing strip under the right scroll caret so chips scrolled beneath it stay clear and unclickable.
+const ACTION_BAR_SCROLL_RIGHT_BLOCKER_WIDTH = 32;
 
 const ScrollViewWithWheel = ScrollView as unknown as React.ComponentType<
     React.ComponentPropsWithRef<typeof ScrollView> & {
@@ -215,6 +217,12 @@ export function AgentInputScrollableChipRow(props: AgentInputScrollableChipRowPr
                     {props.children}
                 </View>
             </ScrollViewWithWheel>
+            {showFadeRight ? (
+                <View
+                    testID="agent-input-scroll-right-blocker"
+                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: ACTION_BAR_SCROLL_RIGHT_BLOCKER_WIDTH, zIndex: 1 }}
+                />
+            ) : null}
             <ScrollEdgeFades
                 color={props.fadeColor}
                 size={24}
