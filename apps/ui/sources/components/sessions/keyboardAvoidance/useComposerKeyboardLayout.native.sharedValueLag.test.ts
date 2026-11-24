@@ -682,6 +682,79 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         flushSharedValues();
     });
 
+    // CodeRabbit (e055013): the hide settles while suppressed and is DELIVERED before suppression is
+    // removed. The suppression-release path must restore the held height, not the raw zero the settled
+    // frame recorded.
+    it('restores a held lift when suppression is removed after the settled hide was delivered', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(
+            (props: { keyboardLiftSuppressed: boolean }) => useComposerKeyboardLayout({
+                keyboardLiftSuppressed: props.keyboardLiftSuppressed,
+                safeAreaBottom: 34,
+            }),
+            { initialProps: { keyboardLiftSuppressed: false } },
+        );
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+        const releaseRetention = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+
+        await hook.rerender({ keyboardLiftSuppressed: true });
+        flushSharedValues();
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        await hook.rerender({ keyboardLiftSuppressed: false });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+        releaseRetention?.();
+        flushSharedValues();
+    });
+
+    // CodeRabbit (e055013): on Android the start frame keeps the open height through its own guard
+    // (zero progress, no suppression). The last-open height must follow that same decision, or a
+    // retention taken before the hide's end frame captures zero.
+    it('keeps the open height through an Android zero-progress start frame before retention is taken', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        const releaseRetention = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+        act(() => {
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+        releaseRetention?.();
+        flushSharedValues();
+    });
+
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
     // settles before its writes synchronize'. It claimed to pin the mirror shape (transcript
     // keeps the keyboard-sized gap while the composer docks) and pinned nothing of the kind,
