@@ -380,6 +380,8 @@ export function AgentInputOverlayLayer(props: Readonly<{
                     // don't waste horizontal space.
                     maxWidthCap={shouldShowAgentInputChipPickerRail(agentPickerOptions, props.screenWidth) ? 720 : 570}
                     maxHeightCap={460}
+                    // Transcript scroll can follow composer updates while the picker is open.
+                    closeOnOutsideScroll={false}
                     outsidePointerEventsMode="full"
                 />
             ) : null}
