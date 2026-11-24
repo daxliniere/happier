@@ -181,6 +181,8 @@ type PopoverCommonProps = Readonly<{
      * close handlers run before the anchor's press handler.
      */
     closeOnAnchorPress?: boolean;
+    /** Web only. Dismiss on scrolling outside the popover. Defaults to true. */
+    closeOnOutsideScroll?: boolean;
     /**
      * When closing on an outside pointer-down on web, whether to consume the event by stopping
      * propagation. Defaults to true (safer for nested Radix/Vaul layers), but may be disabled
@@ -1406,7 +1408,9 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         if (shouldAttachPointerDownCapture) {
             document.addEventListener('pointerdown', handlePointerDownCapture, true);
         }
-        document.addEventListener('scroll', handleOutsideScroll, true);
+        if (props.closeOnOutsideScroll !== false) {
+            document.addEventListener('scroll', handleOutsideScroll, true);
+        }
         return () => {
             if (shouldAttachPointerDownCapture) {
                 document.removeEventListener('pointerdown', handlePointerDownCapture, true);
@@ -1421,6 +1425,7 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
         onRequestClose,
         open,
         props.closeOnAnchorPress,
+        props.closeOnOutsideScroll,
     ]);
 
     const content = shouldRender ? (

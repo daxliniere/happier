@@ -152,6 +152,32 @@ describe('Popover nested modal portal target', () => {
         }
     });
 
+    it('can stay open during background scrolling while still dismissing on an outside press', async () => {
+        const { Popover } = await import('./Popover');
+        const anchor = document.createElement('button');
+        const outside = document.createElement('div');
+        const container = document.createElement('div');
+        document.body.append(anchor, outside, container);
+        const close = vi.fn();
+        const root = createRoot(container);
+        try {
+            await act(async () => {
+                root.render(<Popover open anchorRef={{ current: anchor }} closeOnOutsideScroll={false} onRequestClose={close}>
+                    {() => <div />}
+                </Popover>);
+            });
+            await act(async () => { outside.dispatchEvent(new Event('scroll')); });
+            expect(close).not.toHaveBeenCalled();
+            await act(async () => { outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
+            expect(close).toHaveBeenCalledOnce();
+        } finally {
+            await act(async () => { root.unmount(); });
+            anchor.remove();
+            outside.remove();
+            container.remove();
+        }
+    });
+
     it('provides a popover-local modal portal target to portaled popover content', async () => {
         const { Popover } = await import('./Popover');
         const parentModalTarget = document.createElement('div');
