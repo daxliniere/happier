@@ -2751,6 +2751,8 @@ export const zhHans: TranslationStructure = {
         `剩余 ${percent} · ${reset} 后重置`,
       usageCount: ({ used, limit }: { used: number; limit: number }) =>
         `${used}/${limit} 已用`,
+      addToComposer: ({ label }: { label: string }) => `将${label}添加到输入框的用量仪表`,
+      removeFromComposer: ({ label }: { label: string }) => `从输入框的用量仪表中移除${label}`,
       duration: {
         now: "现在",
         outdated: "已过期",

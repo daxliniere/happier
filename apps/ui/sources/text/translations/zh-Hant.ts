@@ -1495,6 +1495,8 @@ const zhHantOverrides: DeepPartial<TranslationStructure> = {
             remainingWithReset: ({ percent, reset }: { percent: string; reset: string }) =>
                 `剩餘 ${percent} · ${reset} 後重置`,
             usageCount: ({ used, limit }: { used: number; limit: number }) => `${used}/${limit} 已用`,
+            addToComposer: ({ label }: { label: string }) => `將${label}加入輸入框的用量儀表`,
+            removeFromComposer: ({ label }: { label: string }) => `從輸入框的用量儀表移除${label}`,
             duration: {
                 now: '現在',
                 outdated: '已過期',

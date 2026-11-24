@@ -12,6 +12,7 @@ import { Item } from '@/components/ui/lists/Item';
 import { ItemGroupColumn } from '@/components/ui/lists/ItemGroupColumns';
 import { ItemRowActions } from '@/components/ui/lists/ItemRowActions';
 import { ItemSection } from '@/components/ui/lists/ItemSection';
+import { PressableSurface } from '@/components/ui/interaction/PressableSurface';
 import { UsageMeterBar } from '@/components/sessions/usage/UsageMeterBar';
 import { resolveUsageLimitTextColor } from '@/components/sessions/usage/useRemainingUsageColor';
 import { Switch } from '@/components/ui/forms/Switch';
@@ -747,8 +748,12 @@ export const AccountBlockView = React.memo<AccountBlockViewProps>((props) => {
 
             {quota.usageRows.length > 0 ? (
                 <ItemSection testID={`${testID}:usage`} caption={t('connectedServices.account.usageCaption')}>
-                    {quota.usageRows.map((row) => (
-                        <ItemGroupColumn key={row.meterId}>
+                    {quota.usageRows.map((row) => {
+                        const pinned = quota.pinnedMeterIds.includes(row.meterId);
+                        const pinActionLabel = pinned
+                            ? t('connectedServices.quota.removeFromComposer', { label: row.label })
+                            : t('connectedServices.quota.addToComposer', { label: row.label });
+                        return <ItemGroupColumn key={row.meterId}>
                             <View>
                                 <View style={styles.usageHeaderRow}>
                                     <Text
@@ -757,21 +762,22 @@ export const AccountBlockView = React.memo<AccountBlockViewProps>((props) => {
                                     >
                                         {row.label}
                                     </Text>
-                                    <Pressable
+                                    <PressableSurface
                                         testID={`${testID}:pin:${row.meterId}`}
                                         hitSlop={10}
                                         onPress={() => quota.togglePinnedMeter(row.meterId)}
                                         accessibilityRole="button"
-                                        accessibilityLabel={row.label}
+                                        accessibilityLabel={pinActionLabel}
+                                        webTooltip={pinActionLabel}
                                     >
                                         <Icon
                                             name="bookmark"
                                             size={16}
-                                            color={quota.pinnedMeterIds.includes(row.meterId)
+                                            color={pinned
                                                 ? theme.colors.text.primary
                                                 : theme.colors.text.secondary}
                                             />
-                                    </Pressable>
+                                    </PressableSurface>
                                 </View>
                                 <AccountUsageMeterDetail
                                     testID={`${testID}:meter:${row.meterId}`}
@@ -780,7 +786,7 @@ export const AccountBlockView = React.memo<AccountBlockViewProps>((props) => {
                                 />
                             </View>
                         </ItemGroupColumn>
-                    ))}
+                    })}
                 </ItemSection>
             ) : null}
 

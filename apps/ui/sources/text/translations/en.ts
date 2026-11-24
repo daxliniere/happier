@@ -2698,6 +2698,8 @@ export const en = {
             remaining: ({ percent }: { percent: string }) => `${percent} left`,
             remainingWithReset: ({ percent, reset }: { percent: string; reset: string }) => `${percent} left · resets in ${reset}`,
             usageCount: ({ used, limit }: { used: number; limit: number }) => `${used}/${limit} used`,
+            addToComposer: ({ label }: { label: string }) => `Add ${label} to composer usage gauges`,
+            removeFromComposer: ({ label }: { label: string }) => `Remove ${label} from composer usage gauges`,
             duration: {
                 now: 'now',
                 outdated: 'outdated',

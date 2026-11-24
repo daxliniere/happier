@@ -2855,6 +2855,8 @@ export const pl: TranslationStructure = {
         `Pozostało ${percent} · reset za ${reset}`,
       usageCount: ({ used, limit }: { used: number; limit: number }) =>
         `${used}/${limit} użyto`,
+      addToComposer: ({ label }: { label: string }) => `Dodaj ${label} do wskaźników użycia w polu wiadomości`,
+      removeFromComposer: ({ label }: { label: string }) => `Usuń ${label} ze wskaźników użycia w polu wiadomości`,
       duration: {
         now: "teraz",
         outdated: "nieaktualne",

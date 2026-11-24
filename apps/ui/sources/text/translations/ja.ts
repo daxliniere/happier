@@ -3235,6 +3235,8 @@ localTailscale: {
         `残り${percent} · ${reset}後にリセット`,
       usageCount: ({ used, limit }: { used: number; limit: number }) =>
         `${used}/${limit} 使用済み`,
+      addToComposer: ({ label }: { label: string }) => `${label}を作成欄の使用量ゲージに追加`,
+      removeFromComposer: ({ label }: { label: string }) => `${label}を作成欄の使用量ゲージから削除`,
       duration: {
         now: "今",
         outdated: "古い",
