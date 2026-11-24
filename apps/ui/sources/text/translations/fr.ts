@@ -2697,6 +2697,8 @@ export const fr: TranslationStructure = {
             remaining: ({ percent }: { percent: string }) => `${percent} restants`,
             remainingWithReset: ({ percent, reset }: { percent: string; reset: string }) => `${percent} restants · réinit. dans ${reset}`,
             usageCount: ({ used, limit }: { used: number; limit: number }) => `${used}/${limit} utilisés`,
+            addToComposer: ({ label }: { label: string }) => `Ajouter ${label} aux jauges d’utilisation du composer`,
+            removeFromComposer: ({ label }: { label: string }) => `Retirer ${label} des jauges d’utilisation du composer`,
             duration: {
                 now: 'maintenant',
                 outdated: 'obsolète',

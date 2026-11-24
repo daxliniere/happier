@@ -2778,6 +2778,8 @@ export const ru: TranslationStructure = {
         `${percent} осталось · сброс через ${reset}`,
       usageCount: ({ used, limit }: { used: number; limit: number }) =>
         `${used}/${limit} использовано`,
+      addToComposer: ({ label }: { label: string }) => `Добавить «${label}» в индикаторы использования у поля ввода`,
+      removeFromComposer: ({ label }: { label: string }) => `Убрать «${label}» из индикаторов использования у поля ввода`,
       duration: {
         now: "сейчас",
         outdated: "устарело",
