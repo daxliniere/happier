@@ -57,6 +57,16 @@ type KeyboardFrameState = Readonly<{
     interactiveDismissActive: boolean;
     lastEventHeight: number;
     liveHeight: number;
+    // The UI thread's last non-zero keyboard height, unaffected by suppression. Held-lift release
+    // reads it, since the shared height reads zero while suppression is active.
+    lastOpenHeight: number;
+    // Set only by `onEnd`: the keyboard has stopped where this frame says. See
+    // `applyKeyboardFrameFromUI` for why the settled frame re-runs the recompute on JS.
+    settled?: boolean;
+    // Settled frames only: the retention epoch the worklet saw when it captured the frame. Each
+    // release advances the epoch, so a frame captured under an earlier retention is stale even if a
+    // new retention is held by the time it is delivered.
+    retentionEpoch?: number;
 }>;
 
 function resolveAndroidFinalFrameKeyboardHeight(
@@ -74,6 +84,14 @@ function resolveAndroidFinalFrameKeyboardHeight(
             : 0;
 
     return Math.max(reportedHeight, heightFromScreenY);
+}
+
+// The last non-zero keyboard height seen while a lift can be held. Suppression zeroes the shared
+// keyboard height, so a held lift must not read it to recover the height the hide started from.
+// A closed frame with no retention clears it; a closed frame under retention keeps it.
+function nextKeyboardLastOpenHeight(rawHeight: number, lastOpenHeight: number, liftRetained: boolean): number {
+    'worklet';
+    return rawHeight > 0 || !liftRetained ? rawHeight : lastOpenHeight;
 }
 
 function resolveKeyboardHeightWithinScaffold(keyboardHeight: number, layoutBottomInset: number): number {
@@ -153,6 +171,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     const isComposerInputFocused = useSharedValue(false);
     const keyboardHeightForInset = useSharedValue(0);
     const keyboardHeightAbsolute = useSharedValue(0);
+    const keyboardLastOpenHeight = useSharedValue(0);
     const keyboardHeightLive = useSharedValue(0);
     const keyboardProgress = useSharedValue(0);
     const listBottomInset = useSharedValue(resolveListBottomInset({
@@ -171,6 +190,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     const keyboardHeightSubscribersRef = React.useRef(new Set<(height: number) => void>());
     const listBottomInsetSubscribersRef = React.useRef(new Set<(height: number) => void>());
     const keyboardRetentionCountRef = React.useRef(0);
+    const retentionEpochRef = React.useRef(0);
+    const retentionEpochValue = useSharedValue(0);
 
     // JS mirror of the last notified panel height: subscribe replay must not read the shared
     // value (guest-runtime writes are async, so `.value` can lag the last computed height).
@@ -248,17 +269,63 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     // release reads it to decide whether the keyboard is genuinely gone, and a stale read there
     // holds the composer at the retained lift for good.
     const lastKeyboardEventHeightAbsoluteRef = React.useRef(0);
+    // JS mirror of the UI thread's last-open height (see `KeyboardFrameState.lastOpenHeight`).
+    const lastOpenHeightRef = React.useRef(0);
+    // `recomputeStaticLayout` is declared below `applyKeyboardFrameFromUI`; the settled-frame
+    // path reaches it through this ref, assigned once the recompute exists.
+    const recomputeStaticLayoutRef = React.useRef<() => void>(() => {});
 
     const applyKeyboardFrameFromUI = React.useCallback((frame: KeyboardFrameState) => {
         lastKeyboardEventHeightAbsoluteRef.current = frame.lastEventHeight;
+        lastOpenHeightRef.current = frame.lastOpenHeight;
+        // `onEnd` substitutes the held lift only while retention is held. If the last retention
+        // was released on JS before this settled frame arrived, the substitution is stale: use
+        // the keyboard's own settled height, or the frame would re-raise the composer the
+        // release just docked.
+        const retentionReleased = frame.settled === true
+            && (keyboardRetentionCountRef.current === 0 || frame.retentionEpoch !== retentionEpochRef.current);
+        // A settled frame's `absoluteHeight` is captured before suppression is applied, so suppression
+        // is decided here from the JS record, which is authoritative and current. A frame captured
+        // while suppressed would otherwise dock the composer behind an open keyboard once the
+        // suppression is removed.
+        const absoluteHeight = frame.settled && staticLayoutInputsRef.current.isKeyboardLiftSuppressed
+            ? 0
+            : retentionReleased
+                ? Math.min(frame.absoluteHeight, frame.lastEventHeight)
+                : frame.absoluteHeight;
+        const liveHeight = frame.settled
+            ? resolveKeyboardHeightWithinScaffold(absoluteHeight, staticLayoutInputsRef.current.layoutBottomInset)
+            : frame.liveHeight;
+        const insetHeight = frame.settled ? liveHeight : frame.insetHeight;
+        if (frame.settled) {
+            // The settled frame is the authority on where the keyboard ended up, so the shared values
+            // the UI thread reads for the lift must follow the reconciled record. A release cannot
+            // clear them when it saw the open height, and a hide listener that cleared them on JS
+            // leaves a held lift reading zero; either way a later retention would restore the wrong
+            // height.
+            keyboardHeightAbsolute.value = absoluteHeight;
+            keyboardHeightLive.value = liveHeight;
+            keyboardHeightForInset.value = insetHeight;
+        }
         staticLayoutInputsRef.current = {
             ...staticLayoutInputsRef.current,
             isInteractiveDismissActive: frame.interactiveDismissActive,
-            keyboardHeightAbsolute: frame.absoluteHeight,
-            keyboardHeightForInset: frame.insetHeight,
+            keyboardHeightAbsolute: absoluteHeight,
+            keyboardHeightForInset: insetHeight,
         };
-        notifyKeyboardHeight(frame.liveHeight);
-    }, [notifyKeyboardHeight]);
+        notifyKeyboardHeight(liveHeight);
+        // A JS recompute that ran while this frame was still queued used the keyboard state of an
+        // earlier frame, and its async writes land on the UI thread AFTER the worklet settled the
+        // layout. On Android `keyboardDidHide` arrives as the hide begins, so the hide `onStart`
+        // frame (which retains the open height) can reach JS after it; a composer or scaffold
+        // measurement in that window re-seats the composer at the keyboard-raised offset over the
+        // transcript, with nothing left to correct it. Reported 2026-11-24 with several sessions
+        // streaming. Re-running the recompute when the settled frame reaches JS makes the last JS
+        // write match the settled keyboard; it re-asserts the values `onEnd` already wrote.
+        if (frame.settled) {
+            recomputeStaticLayoutRef.current();
+        }
+    }, [keyboardHeightAbsolute, keyboardHeightForInset, keyboardHeightLive, notifyKeyboardHeight]);
 
     const recomputeStaticLayout = React.useCallback((overrides: Partial<ComposerStaticLayoutInputs> = {}) => {
         // Guest-runtime (JS-thread) shared-value writes are async in Reanimated 4: a read
@@ -321,6 +388,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         notifyListBottomInset,
         notifyAvailablePanelHeight,
     ]);
+    recomputeStaticLayoutRef.current = recomputeStaticLayout;
 
     // The settled keyboard height reported by the platform's own hide/show event. This is the
     // authority on where the keyboard ended up, so it writes the record and then runs the one
@@ -418,7 +486,13 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         // the composer behind the keyboard over a lifted transcript (issue #893).
         const liftReleased = wasKeyboardLiftSuppressedRef.current && !keyboardLiftSuppressed;
         wasKeyboardLiftSuppressedRef.current = keyboardLiftSuppressed;
-        const releasedKeyboardHeight = liftReleased ? Math.max(0, lastKeyboardEventHeightAbsoluteRef.current) : 0;
+        // A held lift restores the height it was held at; the raw last event may already be the zero
+        // of a hide that settled while suppressed.
+        const releasedKeyboardHeight = liftReleased
+            ? Math.max(0, keyboardRetentionCountRef.current > 0
+                ? lastOpenHeightRef.current
+                : lastKeyboardEventHeightAbsoluteRef.current)
+            : 0;
         if (keyboardLiftSuppressed) {
             isInteractiveDismissActive.value = false;
             keyboardHeightAbsolute.value = 0;
@@ -480,6 +554,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                 && nextHeight === 0
                 && nextProgress <= 0
                 && keyboardHeightAbsolute.value > 0;
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                nextHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value || shouldRetainOpenKeyboardStartFrame,
+            );
             const retainedHeight = !isKeyboardLiftSuppressed.value
                 && (isKeyboardLiftRetained.value || shouldRetainOpenKeyboardStartFrame)
                 && nextHeight === 0
@@ -493,6 +572,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             keyboardHeightLive.value = storedHeight;
             keyboardHeightForInset.value = storedHeight;
             runOnJS(applyKeyboardFrameFromUI)({
+                lastOpenHeight: keyboardLastOpenHeight.value,
                 absoluteHeight,
                 insetHeight: storedHeight,
                 interactiveDismissActive: false,
@@ -536,6 +616,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             const rawAbsoluteLiveHeight = eventReportsClosedFrame
                 ? 0
                 : Math.max(eventHeight, reanimatedHeight);
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                rawAbsoluteLiveHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const absoluteLiveHeight = !keyboardLiftIsSuppressed
                 && isKeyboardLiftRetained.value
                 && rawAbsoluteLiveHeight === 0
@@ -555,6 +640,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                 keyboardHeightForInset.value = insetHeight;
             }
             runOnJS(applyKeyboardFrameFromUI)({
+                lastOpenHeight: keyboardLastOpenHeight.value,
                 absoluteHeight,
                 insetHeight,
                 interactiveDismissActive,
@@ -585,6 +671,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             const interactiveDismissActive = !keyboardLiftIsSuppressed;
             isInteractiveDismissActive.value = interactiveDismissActive;
             const eventHeight = Math.max(0, Math.abs(event.height));
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                eventHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const liveHeight = !keyboardLiftIsSuppressed
                 && isKeyboardLiftRetained.value
                 && eventHeight === 0
@@ -600,6 +691,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                 keyboardHeightForInset.value = 0;
             }
             runOnJS(applyKeyboardFrameFromUI)({
+                lastOpenHeight: keyboardLastOpenHeight.value,
                 absoluteHeight,
                 insetHeight: keyboardLiftIsSuppressed ? 0 : keyboardHeightForInset.value,
                 interactiveDismissActive,
@@ -631,11 +723,14 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             if (shouldIgnoreKeyboardFrame(ignoreKeyboardFramesUntilComposerFocus, isComposerInputFocused)) return;
             isInteractiveDismissActive.value = false;
             const nextHeight = Math.max(0, Math.abs(event.height));
-            const retainedHeight = !isKeyboardLiftSuppressed.value
-                && isKeyboardLiftRetained.value
-                && nextHeight === 0
-                ? keyboardHeightAbsolute.value
+            const retainedHeight = isKeyboardLiftRetained.value && nextHeight === 0
+                ? keyboardLastOpenHeight.value
                 : nextHeight;
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                nextHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const absoluteHeight = isKeyboardLiftSuppressed.value ? 0 : retainedHeight;
             keyboardHeightAbsolute.value = absoluteHeight;
             const effectiveHeight = isKeyboardLiftSuppressed.value
@@ -643,18 +738,24 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                 : resolveKeyboardHeightWithinScaffold(retainedHeight, layoutBottomInsetValue.value);
             keyboardHeightLive.value = effectiveHeight;
             keyboardHeightForInset.value = effectiveHeight;
+            // Subscribers are notified by the settled recompute in `applyKeyboardFrameFromUI`, which
+            // runs before any stale JS payload from this worklet could land. Notifying here would
+            // publish the retained totals after a release has docked the composer.
             runOnJS(applyKeyboardFrameFromUI)({
-                absoluteHeight,
+                lastOpenHeight: keyboardLastOpenHeight.value,
+                // Suppression-independent: the JS settled frame applies the current suppression state.
+                absoluteHeight: retainedHeight,
+                retentionEpoch: retentionEpochValue.value,
                 insetHeight: effectiveHeight,
                 interactiveDismissActive: false,
                 lastEventHeight: nextHeight,
                 liveHeight: effectiveHeight,
+                settled: true,
             });
             keyboardProgress.value = isKeyboardLiftSuppressed.value ? 0 : event.progress;
             bottomInset.value = Math.max(safeAreaBottomValue.value, effectiveHeight);
             const nextListBottomInset = composerHeight.value + Math.max(safeAreaBottomValue.value, effectiveHeight);
             listBottomInset.value = nextListBottomInset;
-            runOnJS(notifyListBottomInset)(nextListBottomInset);
             const effectiveViewportHeight = resolveMeasuredViewportHeight(scaffoldMeasuredHeight.value, viewportHeight.value);
             const effectiveHeaderHeight = resolveMeasuredHeaderHeight(scaffoldMeasuredHeight.value, headerHeightValue.value);
             const nextAvailablePanelHeight = clampAvailablePanelHeightToMax(Math.max(
@@ -665,7 +766,6 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                     - (keyboardHeightAbsolute.value > 0 ? 0 : layoutBottomInsetValue.value),
             ), availablePanelMaxHeightValue.value);
             availablePanelHeight.value = nextAvailablePanelHeight;
-            runOnJS(notifyAvailablePanelHeight)(nextAvailablePanelHeight);
         },
     }, [
         applyKeyboardFrameFromUI,
@@ -673,6 +773,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         keyboardAnimation.height,
         notifyAvailablePanelHeight,
         notifyListBottomInset,
+        keyboardLastOpenHeight,
+        retentionEpochValue,
         scaffoldMeasuredHeight,
         shouldRetainAndroidZeroProgressStartFrame,
     ]);
@@ -725,6 +827,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             released = true;
             keyboardRetentionCountRef.current = Math.max(0, keyboardRetentionCountRef.current - 1);
             isKeyboardLiftRetained.value = keyboardRetentionCountRef.current > 0;
+            if (keyboardRetentionCountRef.current === 0) {
+                // Only a full release ends the held lift; an overlapping retention keeps its frames current.
+                retentionEpochRef.current += 1;
+                retentionEpochValue.value = retentionEpochRef.current;
+            }
             const shouldReleaseKeyboardLift = keyboardRetentionCountRef.current === 0
                 && lastKeyboardEventHeightAbsoluteRef.current === 0;
             if (shouldReleaseKeyboardLift) {
@@ -752,6 +859,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         keyboardHeightLive,
         keyboardProgress,
         recomputeStaticLayout,
+        retentionEpochValue,
     ]);
 
     const setComposerInputFocused = React.useCallback((focused: boolean) => {
