@@ -421,6 +421,50 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         expect(hook.getCurrent().bottomInset.value).toBe(34);
     });
 
+    it('keeps the composer docked when a retained settled frame reaches JS after the retention is released', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 267, progress: 1 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+        const releaseRetention = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+
+        // UI thread: the keyboard hides while the lift is retained, so the frames carry 267.
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+
+        // JS thread: the retention is released before the settled frame is processed.
+        act(() => {
+            lagState.keyboardListeners.get('keyboardDidHide')?.();
+            drainOneRunOnJS();
+            releaseRetention?.();
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(34);
+
+        // And a later measurement must not replay the retained height from the record.
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(120);
+        });
+        flushSharedValues();
+        expect(hook.getCurrent().bottomInset.value).toBe(34);
+    });
+
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
     // settles before its writes synchronize'. It claimed to pin the mirror shape (transcript
     // keeps the keyboard-sized gap while the composer docks) and pinned nothing of the kind,
