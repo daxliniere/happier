@@ -34,24 +34,6 @@ function buildPinnedMeterSummaryProperties(value: unknown): Record<string, numbe
     };
 }
 
-function buildQuotaSummaryStrategyProperties(value: unknown): Record<string, number> {
-    const entries = value && typeof value === 'object' && !Array.isArray(value)
-        ? Object.values(value as Record<string, unknown>)
-        : [];
-
-    let primaryCount = 0;
-    let minRemainingCount = 0;
-    for (const strategy of entries) {
-        if (strategy === 'primary') primaryCount += 1;
-        if (strategy === 'min_remaining') minRemainingCount += 1;
-    }
-
-    return {
-        primaryCount,
-        minRemainingCount,
-    };
-}
-
 export const ACCOUNT_CONNECTED_SERVICES_SETTING_DEFINITIONS = defineSettingDefinitions({
     connectedServicesDefaultProfileByServiceId: {
         schema: z.record(z.string(), z.string()).default({}),
@@ -108,20 +90,6 @@ export const ACCOUNT_CONNECTED_SERVICES_SETTING_DEFINITIONS = defineSettingDefin
             privacy: 'count_only',
             identityScope: 'person',
             serializeCurrent: objectKeyCount,
-        },
-    },
-    connectedServicesQuotaSummaryStrategyByKey: {
-        schema: z.record(z.string(), z.enum(['primary', 'min_remaining'])).default({}),
-        default: {},
-        description: 'Connected service quota summary strategy per profile, keyed by "serviceId/profileId"',
-        storageScope: 'account',
-        analytics: {
-            trackCurrentState: true,
-            trackChanges: true,
-            valueKind: 'count',
-            privacy: 'count_only',
-            identityScope: 'person',
-            serializeCurrentProperties: buildQuotaSummaryStrategyProperties,
         },
     },
     connectedServicesDefaultAuthByAgentIdV1: {
