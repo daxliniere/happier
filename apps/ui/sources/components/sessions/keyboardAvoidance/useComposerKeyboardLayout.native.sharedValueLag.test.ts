@@ -599,6 +599,52 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         expect(hook.getCurrent().bottomInset.value).toBe(34);
     });
 
+    // Known residual from 0c3cd44 (fixed here): a lift held across a suppression. The hide settles
+    // while a modal suppresses the lift, so the worklet's retained substitution reads the
+    // suppression-zeroed height and captures 0. Once the modal closes, the held lift must still stand.
+    it('keeps a held lift when the hide settles under suppression and suppression is then removed', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(
+            (props: { keyboardLiftSuppressed: boolean }) => useComposerKeyboardLayout({
+                keyboardLiftSuppressed: props.keyboardLiftSuppressed,
+                safeAreaBottom: 34,
+            }),
+            { initialProps: { keyboardLiftSuppressed: false } },
+        );
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+        const releaseRetention = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+
+        await hook.rerender({ keyboardLiftSuppressed: true });
+        flushSharedValues();
+
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        await hook.rerender({ keyboardLiftSuppressed: false });
+        flushSharedValues();
+        act(() => {
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+        releaseRetention?.();
+        flushSharedValues();
+    });
+
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
     // settles before its writes synchronize'. It claimed to pin the mirror shape (transcript
     // keeps the keyboard-sized gap while the composer docks) and pinned nothing of the kind,

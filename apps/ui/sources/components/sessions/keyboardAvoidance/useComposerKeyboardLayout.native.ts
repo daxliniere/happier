@@ -83,6 +83,14 @@ function resolveAndroidFinalFrameKeyboardHeight(
     return Math.max(reportedHeight, heightFromScreenY);
 }
 
+// The last non-zero keyboard height seen while a lift can be held. Suppression zeroes the shared
+// keyboard height, so a held lift must not read it to recover the height the hide started from.
+// A closed frame with no retention clears it; a closed frame under retention keeps it.
+function nextKeyboardLastOpenHeight(rawHeight: number, lastOpenHeight: number, liftRetained: boolean): number {
+    'worklet';
+    return rawHeight > 0 || !liftRetained ? rawHeight : lastOpenHeight;
+}
+
 function resolveKeyboardHeightWithinScaffold(keyboardHeight: number, layoutBottomInset: number): number {
     'worklet';
     return Math.max(0, keyboardHeight - Math.max(0, layoutBottomInset));
@@ -160,6 +168,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     const isComposerInputFocused = useSharedValue(false);
     const keyboardHeightForInset = useSharedValue(0);
     const keyboardHeightAbsolute = useSharedValue(0);
+    const keyboardLastOpenHeight = useSharedValue(0);
     const keyboardHeightLive = useSharedValue(0);
     const keyboardProgress = useSharedValue(0);
     const listBottomInset = useSharedValue(resolveListBottomInset({
@@ -528,6 +537,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             const nextProgress = typeof event.progress === 'number' && Number.isFinite(event.progress)
                 ? Math.max(0, event.progress)
                 : 0;
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                nextHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const shouldRetainOpenKeyboardStartFrame = shouldRetainAndroidZeroProgressStartFrame
                 && !isKeyboardLiftSuppressed.value
                 && nextHeight === 0
@@ -589,6 +603,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             const rawAbsoluteLiveHeight = eventReportsClosedFrame
                 ? 0
                 : Math.max(eventHeight, reanimatedHeight);
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                rawAbsoluteLiveHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const absoluteLiveHeight = !keyboardLiftIsSuppressed
                 && isKeyboardLiftRetained.value
                 && rawAbsoluteLiveHeight === 0
@@ -638,6 +657,11 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             const interactiveDismissActive = !keyboardLiftIsSuppressed;
             isInteractiveDismissActive.value = interactiveDismissActive;
             const eventHeight = Math.max(0, Math.abs(event.height));
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                eventHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const liveHeight = !keyboardLiftIsSuppressed
                 && isKeyboardLiftRetained.value
                 && eventHeight === 0
@@ -684,11 +708,14 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             if (shouldIgnoreKeyboardFrame(ignoreKeyboardFramesUntilComposerFocus, isComposerInputFocused)) return;
             isInteractiveDismissActive.value = false;
             const nextHeight = Math.max(0, Math.abs(event.height));
-            const retainedHeight = !isKeyboardLiftSuppressed.value
-                && isKeyboardLiftRetained.value
-                && nextHeight === 0
-                ? keyboardHeightAbsolute.value
+            const retainedHeight = isKeyboardLiftRetained.value && nextHeight === 0
+                ? keyboardLastOpenHeight.value
                 : nextHeight;
+            keyboardLastOpenHeight.value = nextKeyboardLastOpenHeight(
+                nextHeight,
+                keyboardLastOpenHeight.value,
+                isKeyboardLiftRetained.value,
+            );
             const absoluteHeight = isKeyboardLiftSuppressed.value ? 0 : retainedHeight;
             keyboardHeightAbsolute.value = absoluteHeight;
             const effectiveHeight = isKeyboardLiftSuppressed.value
@@ -730,6 +757,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         keyboardAnimation.height,
         notifyAvailablePanelHeight,
         notifyListBottomInset,
+        keyboardLastOpenHeight,
         retentionEpochValue,
         scaffoldMeasuredHeight,
         shouldRetainAndroidZeroProgressStartFrame,
