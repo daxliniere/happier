@@ -10,6 +10,11 @@ import { ProviderUsageStripContent } from './ProviderUsageStrip';
 
 // These presentation tests have no signed-in account or refresh in progress.
 vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+// Native boundary: no SafeAreaProvider exists in a render test. Keep the real context exports.
+vi.mock('react-native-safe-area-context', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('react-native-safe-area-context')>()),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 
 // SVG is a native rendering boundary; the actual rings, popup and quota projection stay real.
 vi.mock('react-native-svg', () => ({

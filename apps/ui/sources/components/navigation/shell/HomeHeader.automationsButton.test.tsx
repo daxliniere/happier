@@ -9,6 +9,7 @@ import { installNavigationShellCommonModuleMocks } from './navigationShellTestHe
 
 // The authenticated header contains usage; no remote account is needed for these controls.
 vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => ({ credentials: null }) }));
+vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 
 const routerPushSpy = vi.hoisted(() => vi.fn());
 
