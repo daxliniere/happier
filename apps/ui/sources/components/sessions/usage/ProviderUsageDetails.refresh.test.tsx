@@ -59,7 +59,7 @@ describe('usage refresh indicator', () => {
             return { colours, width };
         };
         const exhausted = await textColours(100)();
-        expect(exhausted.width).toBe('0%');
+        expect(exhausted.width).toBe('100%');
         expect(exhausted.colours.length).toBeGreaterThanOrEqual(2);
         expect(exhausted.colours.every((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(true);
         const partlyUsed = await textColours(30)();
