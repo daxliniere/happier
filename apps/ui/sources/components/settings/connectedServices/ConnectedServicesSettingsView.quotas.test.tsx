@@ -52,7 +52,6 @@ function createDefaultSettings() {
   connectedServicesDefaultProfileByServiceId: { anthropic: 'work' },
   connectedServicesProfileLabelByKey: {},
   connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-  connectedServicesQuotaSummaryStrategyByKey: {},
   };
 }
 
@@ -176,7 +175,6 @@ describe('ConnectedServicesSettingsView quotas', () => {
       connectedServicesDefaultProfileByServiceId: { anthropic: 'work' },
       connectedServicesProfileLabelByKey: {},
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly', 'daily'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
     });
 
     const secretBytes = new Uint8Array(32).fill(3);

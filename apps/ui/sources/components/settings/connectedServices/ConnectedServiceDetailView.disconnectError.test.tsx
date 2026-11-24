@@ -85,7 +85,6 @@ vi.mock('@/sync/store/hooks', async () => {
       connectedServicesDefaultProfileByServiceId: { 'claude-subscription': 'work' },
       connectedServicesProfileLabelByKey: {},
       connectedServicesQuotaPinnedMeterIdsByKey: {},
-      connectedServicesQuotaSummaryStrategyByKey: {},
     }),
   };
 });

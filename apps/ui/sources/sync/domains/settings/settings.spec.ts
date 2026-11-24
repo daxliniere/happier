@@ -539,6 +539,16 @@ describe('settings', () => {
             expect((parsed as any).featureToggles).toEqual({});
         });
 
+        it('drops the retired quota summary strategy while preserving other unknown account settings', () => {
+            const parsed = settingsParse({
+                connectedServicesQuotaSummaryStrategyByKey: { 'openai-codex/work': 'primary' },
+                futureAccountSetting: 'kept',
+            });
+
+            expect(parsed).not.toHaveProperty('connectedServicesQuotaSummaryStrategyByKey');
+            expect(parsed).toHaveProperty('futureAccountSetting', 'kept');
+        });
+
         it('drops accidentally account-scoped session MRU order while preserving other unknown account settings', () => {
             const parsed = settingsParse({
                 sessionMruOrderV1: ['server-a:session-a'],
@@ -1317,7 +1327,6 @@ describe('settings', () => {
             expect((settingsDefaults as any).connectedServicesDefaultProfileByServiceId).toEqual({});
             expect((settingsDefaults as any).connectedServicesProfileLabelByKey).toEqual({});
             expect((settingsDefaults as any).connectedServicesQuotaPinnedMeterIdsByKey).toEqual({});
-            expect((settingsDefaults as any).connectedServicesQuotaSummaryStrategyByKey).toEqual({});
             expect(settingsDefaults.connectedServicesDefaultAuthByAgentIdV1).toEqual({
                 v: 1,
                 bindingsByAgentId: {},

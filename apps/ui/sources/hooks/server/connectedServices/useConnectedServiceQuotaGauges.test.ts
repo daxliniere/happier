@@ -17,7 +17,6 @@ let currentCredentials: Readonly<{ token: string; secret: string }> = stableCred
 
 const useSettingsSpy = vi.fn(() => ({
   connectedServicesQuotaPinnedMeterIdsByKey: {},
-  connectedServicesQuotaSummaryStrategyByKey: {},
   connectedServicesProfileLabelByKey: {},
   connectedServicesDefaultProfileByServiceId: {},
 }));
@@ -113,7 +112,6 @@ describe('useConnectedServiceQuotaGauges fetching', () => {
 
     useSettingsSpy.mockReturnValue({
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesDefaultProfileByServiceId: {},
     });
@@ -161,7 +159,6 @@ describe('useConnectedServiceQuotaGauges fetching', () => {
 
     useSettingsSpy.mockReturnValue({
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesDefaultProfileByServiceId: {},
     });
@@ -219,7 +216,6 @@ describe('useConnectedServiceQuotaGauges fetching', () => {
 
     useSettingsSpy.mockReturnValue({
       connectedServicesQuotaPinnedMeterIdsByKey: {},
-      connectedServicesQuotaSummaryStrategyByKey: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesDefaultProfileByServiceId: {},
     });
@@ -241,7 +237,6 @@ describe('useConnectedServiceQuotaGauges fetching', () => {
 
     useSettingsSpy.mockReturnValue({
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesDefaultProfileByServiceId: {},
     });
@@ -291,7 +286,6 @@ describe('useConnectedServiceQuotaGauges fetching', () => {
 
     useSettingsSpy.mockReturnValue({
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesDefaultProfileByServiceId: {},
     });
@@ -313,7 +307,6 @@ describe('useConnectedServiceQuotaGauges fetching', () => {
 
     useSettingsSpy.mockReturnValue({
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesDefaultProfileByServiceId: {},
     });

@@ -65,7 +65,6 @@ const settingsState = vi.hoisted(() => ({
         connectedServicesDefaultProfileByServiceId: { 'openai-codex': 'work' } as Record<string, string>,
         connectedServicesProfileLabelByKey: {} as Record<string, string>,
         connectedServicesQuotaPinnedMeterIdsByKey: {},
-        connectedServicesQuotaSummaryStrategyByKey: {},
         connectedServicesCollapsedItemKeysV1: {} as Record<string, boolean>,
     },
 }));
@@ -284,7 +283,6 @@ describe('ConnectedServiceDetailView pools segment', () => {
             connectedServicesDefaultProfileByServiceId: { 'openai-codex': 'work' },
             connectedServicesProfileLabelByKey: {},
             connectedServicesQuotaPinnedMeterIdsByKey: {},
-            connectedServicesQuotaSummaryStrategyByKey: {},
             connectedServicesCollapsedItemKeysV1: {},
         };
         profileState.current = createProfileSnapshot([

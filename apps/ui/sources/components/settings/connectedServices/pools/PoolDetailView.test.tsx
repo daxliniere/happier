@@ -85,7 +85,6 @@ const settingsState = vi.hoisted(() => ({
         connectedServicesDefaultProfileByServiceId: { 'openai-codex': 'work' },
         connectedServicesProfileLabelByKey: {} as Record<string, string>,
         connectedServicesQuotaPinnedMeterIdsByKey: {},
-        connectedServicesQuotaSummaryStrategyByKey: {},
     },
 }));
 
@@ -450,7 +449,6 @@ beforeEach(() => {
         connectedServicesDefaultProfileByServiceId: { 'openai-codex': 'work' },
         connectedServicesProfileLabelByKey: {},
         connectedServicesQuotaPinnedMeterIdsByKey: {},
-        connectedServicesQuotaSummaryStrategyByKey: {},
     };
     profileState.current = {
         connectedServicesV2: [

@@ -36,6 +36,7 @@ export const DROPPED_ACCOUNT_SETTINGS_KEYS = new Set<string>([
     'expInboxFriends',
     'experimentalFeatureToggles',
     'sessionMruOrderV1',
+    'connectedServicesQuotaSummaryStrategyByKey',
     'transcriptMessageTimestampsEnabled',
 ]);
 
