@@ -21,6 +21,7 @@ import {
 const IGNORED_UNTRANSLATED_KEYS = new Set([
     // Composer chip tooltips: words that are legitimately identical across several locales.
     'agentInput.chipTooltips.checkout',
+    'agentInput.chipTooltips.machine',
     'agentInput.chipTooltips.engine',
     'agentInput.chipTooltips.mode',
     'agentInput.chipTooltips.server',
