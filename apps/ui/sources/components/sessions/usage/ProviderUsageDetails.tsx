@@ -8,6 +8,7 @@ import { Text } from '@/components/ui/text/Text';
 import { Typography } from '@/constants/Typography';
 import { useNowMs } from '@/hooks/time/useNowMs';
 import { t } from '@/text';
+import { useSetting } from '@/sync/domains/state/storage';
 import {
     resolveConnectedServiceQuotaMeterDetailLabel,
     type ConnectedServiceQuotaGaugeViewModel,
@@ -65,6 +66,9 @@ export function ProviderUsageDetails(props: Readonly<{
     recoveryCreditActionPending?: boolean;
 }>) {
     const styles = stylesheet;
+    const showSpendMeter = useSetting('showProviderUsageSpendMeter');
+    const meterRows = showSpendMeter ? props.viewModel.allMeterRows
+        : props.viewModel.allMeterRows.filter(row => !row.isCreditMeter);
     const title = props.viewModel.providerDisplayName
         ? t('agentInput.providerUsage.titleForProvider', { provider: props.viewModel.providerDisplayName })
         : t('agentInput.providerUsage.title');
@@ -127,7 +131,7 @@ export function ProviderUsageDetails(props: Readonly<{
                     ) : null}
                 </View>
             ) : null}
-            {props.viewModel.allMeterRows.map((row, index) => (
+            {meterRows.map((row, index) => (
                 <View
                     key={row.meterId}
                     testID={`agent-input-provider-usage-meter:${row.meterId}`}

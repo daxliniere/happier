@@ -8440,6 +8440,7 @@ settingsSession: {
               windowDailySubtitle: 'Prefer the daily quota window.',
               windowWeeklyTitle: 'Weekly',
               windowWeeklySubtitle: 'Prefer the weekly quota window.',
+              spendMeterTitle: "Show spend meter in usage popups",
               windowSessionTitle: "Short window",
               windowSessionSubtitle: "Show short quota windows, such as a five-hour allowance.",
               windowPrimaryTitle: 'Primary',

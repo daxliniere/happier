@@ -17,6 +17,7 @@ export const ProviderUsageGaugeSettingsGroup = React.memo(function ProviderUsage
     const { theme } = useUnistyles();
     const enabled = useFeatureEnabled('connectedServices.quotas');
     const [visibility, setVisibility] = useSettingMutable('sessionProviderUsageGaugeMode');
+    const [showSpendMeter, setShowSpendMeter] = useSettingMutable('showProviderUsageSpendMeter');
     const [legacyWindow, setLegacyWindow] = useSettingMutable('sessionProviderUsageGaugeWindowMode');
     const [windows, setWindows] = useSettingMutable('sessionProviderUsageGaugeWindowModes');
     const [numberWindow, setNumberWindow] = useSettingMutable('sessionProviderUsageGaugeNumberWindowMode');
@@ -43,6 +44,14 @@ export const ProviderUsageGaugeSettingsGroup = React.memo(function ProviderUsage
             rightElement={<Switch testID="settings-session-providerUsageGauge-visibility-toggle" value={visible} onValueChange={(next) => setVisibility(next ? 'auto' : 'hidden')} />}
             showChevron={false}
             onPress={() => setVisibility(visible ? 'hidden' : 'auto')}
+        />
+        <Item
+            testID="settings-providerUsageGauge-spend"
+            title={t('settingsSession.providerUsageGauge.spendMeterTitle')}
+            icon={<Icon name="speedometer" size={29} color={theme.colors.accent.blue} />}
+            rightElement={<Switch value={showSpendMeter} onValueChange={setShowSpendMeter} />}
+            showChevron={false}
+            onPress={() => setShowSpendMeter(!showSpendMeter)}
         />
         <MultiSelectField
             testID="settings-session-providerUsageGauge-window-trigger"

@@ -8873,6 +8873,7 @@ settingsSession: {
         windowDailySubtitle: "Prefiere la ventana de cuota diaria.",
         windowWeeklyTitle: "Semanal",
         windowWeeklySubtitle: "Prefiere la ventana de cuota semanal.",
+        spendMeterTitle: "Mostrar el medidor de gasto en los avisos de uso",
         windowSessionTitle: "Ventana corta",
         windowSessionSubtitle: "Mostrar ventanas cortas de cuota, como un límite de cinco horas.",
         windowPrimaryTitle: "Primaria",

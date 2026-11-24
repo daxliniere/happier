@@ -8867,6 +8867,7 @@ settingsSession: {
         windowDailySubtitle: "Preferuj dzienne okno limitu.",
         windowWeeklyTitle: "Tygodniowe",
         windowWeeklySubtitle: "Preferuj tygodniowe okno limitu.",
+        spendMeterTitle: "Pokazuj wskaźnik wydatków w szczegółach użycia",
         windowSessionTitle: "Krótki okres",
         windowSessionSubtitle: "Pokaż krótkie okresy limitów, na przykład pięć godzin.",
         windowPrimaryTitle: "Główne",

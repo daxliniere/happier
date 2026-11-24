@@ -7563,6 +7563,7 @@ settingsSession: {
             windowDailySubtitle: '優先使用每日配額視窗。',
             windowWeeklyTitle: '每週',
             windowWeeklySubtitle: '優先使用每週配額視窗。',
+            spendMeterTitle: "在用量彈出視窗中顯示支出計量條",
             windowSessionTitle: "短期視窗",
             windowSessionSubtitle: "顯示短期配額視窗，例如五小時限額。",
             windowPrimaryTitle: '主要',
