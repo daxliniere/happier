@@ -46,6 +46,7 @@ export type ConnectedServiceQuotaGaugeRing = Readonly<{
 export type ConnectedServiceQuotaGaugeMeterRow = Readonly<{
     meterId: string;
     label: string;
+    isCreditMeter: boolean;
     remainingPct: number | null;
     usedPct: number | null;
     detailRightSemantics: 'remaining';
@@ -386,6 +387,7 @@ function buildMeterRow(
     return {
         meterId: meter.meterId,
         label: meter.label,
+        isCreditMeter: isConnectedServiceQuotaCreditMeter(meter),
         remainingPct,
         usedPct,
         detailRightSemantics: 'remaining',

@@ -8851,6 +8851,7 @@ settingsSession: {
         windowDailySubtitle: "Предпочитать дневное окно квоты.",
         windowWeeklyTitle: "Недельное",
         windowWeeklySubtitle: "Предпочитать недельное окно квоты.",
+        spendMeterTitle: "Показывать индикатор расходов в сведениях об использовании",
         windowSessionTitle: "Короткий период",
         windowSessionSubtitle: "Показывать короткие периоды квоты, например пять часов.",
         windowPrimaryTitle: "Основное",

@@ -9204,6 +9204,7 @@ settingsSession: {
         windowDailySubtitle: "Preferisci la finestra di quota giornaliera.",
         windowWeeklyTitle: "Settimanale",
         windowWeeklySubtitle: "Preferisci la finestra di quota settimanale.",
+        spendMeterTitle: "Mostra l’indicatore di spesa nei dettagli di utilizzo",
         windowSessionTitle: "Finestra breve",
         windowSessionSubtitle: "Mostra finestre brevi di quota, come un limite di cinque ore.",
         windowPrimaryTitle: "Primaria",
