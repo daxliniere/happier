@@ -52,7 +52,7 @@ export function readCurrentAppRuntimeInfo(): CurrentAppRuntimeInfo {
     const forkRelease = toTrimmedString(Constants.expoConfig?.extra?.app?.forkRelease);
 
     return {
-        appVersion: forkVersion ? `${forkVersion}${forkRelease ? ` (${forkRelease})` : ''}`
+        appVersion: forkVersion ? `${forkVersion}${forkRelease && forkRelease !== forkVersion ? ` (${forkRelease})` : ''}`
             : toTrimmedString(Constants.expoConfig?.version),
         nativeApplicationVersion: toTrimmedString(Application.nativeApplicationVersion),
         nativeBuildVersion: toTrimmedString(Application.nativeBuildVersion),

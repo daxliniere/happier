@@ -16,6 +16,13 @@ describe('readCurrentAppRuntimeInfo', () => {
         expect(readCurrentAppRuntimeInfo().appVersion).toBe('0.2.19-fork.23 (rc2)');
         expect(readCurrentAppRuntimeInfo().nativeApplicationVersion).toBe('0.2.19');
     });
+    it('omits the duplicate release suffix when the fork version matches the release', async () => {
+        vi.doMock('expo-constants', () => ({ default: { expoConfig: { version: '0.2.21', extra: { app: { forkVersion: '0.2.21-beta1.4', forkRelease: '0.2.21-beta1.4' } } } } }));
+        vi.doMock('expo-application', () => ({ nativeApplicationVersion: '0.2.21', nativeBuildVersion: null, applicationId: null }));
+        vi.doMock('expo-updates', () => ({ channel: null, updateId: null, runtimeVersion: null, createdAt: null, isEmbeddedLaunch: true }));
+        const { readCurrentAppRuntimeInfo } = await import('./readCurrentAppRuntimeInfo');
+        expect(readCurrentAppRuntimeInfo().appVersion).toBe('0.2.21-beta1.4');
+    });
     it('reads native and OTA runtime details from Expo modules', async () => {
         vi.doMock('expo-constants', () => ({
             default: {

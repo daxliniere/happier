@@ -85,6 +85,7 @@ function viewModel(): ConnectedServiceQuotaGaugeViewModel {
         allMeterRows: [{
             meterId: 'weekly',
             label: 'Weekly',
+            isCreditMeter: false,
             remainingPct: 18,
             usedPct: 82,
             detailRightSemantics: 'remaining',
