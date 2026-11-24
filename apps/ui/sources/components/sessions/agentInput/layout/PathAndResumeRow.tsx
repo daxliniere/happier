@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Pressable, View, type View as RNView } from 'react-native';
 import { ResumeChip } from './ResumeChip';
+import { AgentInputChipTooltip } from '../components/AgentInputChipTooltip';
 import { normalizeNodeForView } from '@/components/ui/rendering/normalizeNodeForView';
 import { Text } from '@/components/ui/text/Text';
 import { Icon } from '@/components/ui/icons/Icon';
@@ -45,56 +46,60 @@ export function PathAndResumeRow(props: PathAndResumeRowProps) {
             <View style={[props.styles.actionButtonsLeft, widthFillStyle]}>
                 {leadingControls}
                 {hasPath ? (
-                    <Pressable
-                        ref={props.pathChipAnchorRef}
-                        testID="agent-input-path-chip"
-                        onPress={props.onPathClick}
-                        hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
-                        style={(p) => ([
-                            props.styles.actionChip,
-                            p.pressed ? props.styles.actionChipPressed : null,
-                            // Keep the path chip readable on mobile: let the row wrap it as a whole instead of
-                            // compressing the text into an icon-only sliver.
-                            { flexShrink: 0, minWidth: 0, maxWidth: '100%' },
-                        ])}
-                    >
-                        {normalizeNodeForView(
-                            <Icon
-                                name="folder"
-                                size={AGENT_INPUT_CHIP_ICON_SIZE_PX}
-                                color={props.iconColor} style={AGENT_INPUT_CHIP_ICON_STYLE} />,
-                        )}
-                        <Text
-                            numberOfLines={1}
-                            ellipsizeMode="middle"
-                            style={[props.styles.actionChipText, { flexShrink: 1 }]}
+                    <AgentInputChipTooltip controlId="path">
+                        <Pressable
+                            ref={props.pathChipAnchorRef}
+                            testID="agent-input-path-chip"
+                            onPress={props.onPathClick}
+                            hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
+                            style={(p) => ([
+                                props.styles.actionChip,
+                                p.pressed ? props.styles.actionChipPressed : null,
+                                // Keep the path chip readable on mobile: let the row wrap it as a whole instead of
+                                // compressing the text into an icon-only sliver.
+                                { flexShrink: 0, minWidth: 0, maxWidth: '100%' },
+                            ])}
                         >
-                            {typeof props.currentPath === 'string' && props.currentPath.length > 0
-                                ? props.currentPath
-                                : props.emptyPathLabel}
-                        </Text>
-                    </Pressable>
+                            {normalizeNodeForView(
+                                <Icon
+                                    name="folder"
+                                    size={AGENT_INPUT_CHIP_ICON_SIZE_PX}
+                                    color={props.iconColor} style={AGENT_INPUT_CHIP_ICON_STYLE} />,
+                            )}
+                            <Text
+                                numberOfLines={1}
+                                ellipsizeMode="middle"
+                                style={[props.styles.actionChipText, { flexShrink: 1 }]}
+                            >
+                                {typeof props.currentPath === 'string' && props.currentPath.length > 0
+                                    ? props.currentPath
+                                    : props.emptyPathLabel}
+                            </Text>
+                        </Pressable>
+                    </AgentInputChipTooltip>
                 ) : null}
 
                 {hasResume ? (
+                    <AgentInputChipTooltip controlId="resume">
                         <ResumeChip
-                        anchorRef={props.resumeChipAnchorRef}
-                        onPress={props.onResumeClick!}
-                        showLabel={props.showChipLabels}
-                        resumeSessionId={props.resumeSessionId}
-                        labelTitle={props.resumeLabelTitle}
-                        labelOptional={props.resumeLabelOptional}
-                        iconColor={props.iconColor}
-                        pressableStyle={(pressed) => ([
-                            props.styles.actionChip,
-                            !props.showChipLabels ? props.styles.actionChipIconOnly : null,
-                            pressed ? props.styles.actionChipPressed : null,
-                            // Prefer wrapping the chip onto a new line over shrinking it to fit the current line.
-                            // Still cap to the row width so extremely long IDs don't overflow horizontally.
-                            { flexShrink: 0, maxWidth: '100%' },
-                        ])}
-                        textStyle={props.styles.actionChipText}
-                    />
+                            anchorRef={props.resumeChipAnchorRef}
+                            onPress={props.onResumeClick!}
+                            showLabel={props.showChipLabels}
+                            resumeSessionId={props.resumeSessionId}
+                            labelTitle={props.resumeLabelTitle}
+                            labelOptional={props.resumeLabelOptional}
+                            iconColor={props.iconColor}
+                            pressableStyle={(pressed) => ([
+                                props.styles.actionChip,
+                                !props.showChipLabels ? props.styles.actionChipIconOnly : null,
+                                pressed ? props.styles.actionChipPressed : null,
+                                // Prefer wrapping the chip onto a new line over shrinking it to fit the current line.
+                                // Still cap to the row width so extremely long IDs don't overflow horizontally.
+                                { flexShrink: 0, maxWidth: '100%' },
+                            ])}
+                            textStyle={props.styles.actionChipText}
+                        />
+                    </AgentInputChipTooltip>
                 ) : null}
             </View>
         </View>

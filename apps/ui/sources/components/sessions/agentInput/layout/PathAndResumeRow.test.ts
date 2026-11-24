@@ -77,11 +77,7 @@ describe('PathAndResumeRow', () => {
         const row = screen.findByTestId('agentInput-pathResumeRow');
         expect(row).toBeTruthy();
 
-        const actionButtonsLeft = toArray(row?.props?.children)[0];
-        const rowChildren = React.Children.toArray(actionButtonsLeft?.props?.children);
-        const pathChipPressable = rowChildren.find((child) => (
-            React.isValidElement(child) && (child.props as any)?.testID === 'agent-input-path-chip'
-        )) as React.ReactElement | undefined;
+        const pathChipPressable = screen.findByTestId('agent-input-path-chip');
         expect(pathChipPressable).toBeTruthy();
 
         const styleFn = (pathChipPressable?.props as any)?.style as ((input: { pressed: boolean }) => unknown) | undefined;
@@ -180,13 +176,11 @@ describe('PathAndResumeRow', () => {
             resumeLabelOptional: 'Resume: Optional',
         }));
 
-        const row = screen.findByTestId('agentInput-pathResumeRow');
-        const actionButtonsLeft = toArray(row?.props?.children)[0];
-        const testIds = React.Children.toArray(actionButtonsLeft?.props?.children)
-            .map((node) => (React.isValidElement(node) ? (node.props as any)?.testID : null))
-            .filter(Boolean) as string[];
+        const testIds = screen.tree.root.findAllByType('Pressable')
+            .map((node) => node.props.testID)
+            .filter(Boolean);
 
-        expect(testIds.slice(0, 2)).toEqual(['agent-input-machine-chip', 'agent-input-path-chip']);
+        expect(testIds).toEqual(['agent-input-machine-chip', 'agent-input-path-chip', 'agent-input-resume-chip']);
     });
 
     it('forwards the shared anchor refs to the visible wrap-row path and resume chips', async () => {

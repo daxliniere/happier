@@ -31,6 +31,9 @@ function resolveChipTooltipLabel(controlId: AgentInputControlId): string | null 
         case 'windowsRemoteSessionMode': return t('agentInput.chipTooltips.windowsRemoteSessionMode');
         case 'providerOption': return t('agentInput.chipTooltips.providerOption');
         case 'shortcuts': return t('agentInput.chipTooltips.shortcuts');
+        case 'machine': return t('agentInput.chipTooltips.machine');
+        case 'path': return t('agentInput.chipTooltips.path');
+        case 'resume': return t('agentInput.chipTooltips.resume');
         default: return null;
     }
 }
@@ -47,7 +50,7 @@ function AgentInputChipTooltipWeb(props: Readonly<{ label: string; children: Rea
     } as Record<string, unknown>;
     return (
         <>
-            <View ref={anchorRef} {...webProps}>
+            <View ref={anchorRef} style={{ minWidth: 0, maxWidth: '100%' }} {...webProps}>
                 {props.children}
             </View>
             {hovered ? (

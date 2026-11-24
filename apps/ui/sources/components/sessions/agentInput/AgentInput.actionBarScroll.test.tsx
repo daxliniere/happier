@@ -275,7 +275,7 @@ describe('AgentInput (action bar scroll layout)', () => {
         act(() => tree!.unmount());
     });
 
-    it('keeps the primary scroll row content padded with the right gutter for fades', async () => {
+    it('keeps the right clearance and scrolls when the wheel is over it', async () => {
         vi.resetModules();
         vi.clearAllMocks();
         await mockWebPlatform();
@@ -285,8 +285,8 @@ describe('AgentInput (action bar scroll layout)', () => {
 
         const { AgentInput } = await import('./AgentInput');
 
-        let tree: renderer.ReactTestRenderer;
-        tree = (await renderScreen(<AgentInput
+        const scrollNode = { scrollLeft: 0 };
+        const screen = await renderScreen(<AgentInput
                     value=""
                     placeholder="Type"
                     onChangeText={() => {}}
@@ -298,7 +298,10 @@ describe('AgentInput (action bar scroll layout)', () => {
                     resumeSessionId="s2"
                     autocompleteKinds={[]}
                     autocompleteSuggestions={async () => []}
-                />)).tree;
+                />, {
+            createNodeMock: (element) => element.type === 'ScrollView' ? scrollNode : null,
+        });
+        const { tree } = screen;
 
         const scrollView = getActionBarScrollView(tree!, 0);
         expect(typeof scrollView?.props?.onContentSizeChange).toBe('function');
@@ -310,7 +313,12 @@ describe('AgentInput (action bar scroll layout)', () => {
         expect(typeof style.paddingRight).toBe('number');
         expect((style.paddingRight as number) > 6).toBe(true);
 
-        act(() => tree!.unmount());
+        const blocker = screen.findByTestId('agent-input-scroll-right-blocker');
+        expect(blocker).toBeTruthy();
+        act(() => blocker?.props.onWheel?.({ deltaX: 0, deltaY: 40 }));
+        expect(scrollNode.scrollLeft).toBe(40);
+
+        act(() => tree.unmount());
     });
 
     it('keeps primary chips in the first scroll row and machine/path/resume in the second', async () => {
@@ -371,6 +379,22 @@ describe('AgentInput (action bar scroll layout)', () => {
             'agent-input-path-chip',
             'agent-input-resume-chip',
         ]);
+
+        const { DeferredAnchoredTooltip } = await import('@/components/ui/overlays/DeferredAnchoredTooltip');
+        for (const [testID, label] of [
+            ['agent-input-machine-chip', 'agentInput.chipTooltips.machine'],
+            ['agent-input-path-chip', 'agentInput.chipTooltips.path'],
+            ['agent-input-resume-chip', 'agentInput.chipTooltips.resume'],
+        ]) {
+            const chip = getActionBarScrollView(tree!, 1).findAllByProps({ testID }).at(-1);
+            let anchor = chip?.parent;
+            while (anchor && typeof anchor.props.onMouseEnter !== 'function') anchor = anchor.parent;
+            expect(anchor, `hover anchor for ${testID}`).toBeTruthy();
+            act(() => anchor?.props.onMouseEnter());
+            expect(tree!.root.findByType(DeferredAnchoredTooltip).props.label).toBe(label);
+            act(() => anchor?.props.onMouseLeave());
+            expect(tree!.root.findAllByType(DeferredAnchoredTooltip)).toHaveLength(0);
+        }
 
         act(() => tree!.unmount());
     });
