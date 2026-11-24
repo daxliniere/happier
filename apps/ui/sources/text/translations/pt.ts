@@ -4008,7 +4008,7 @@ export const pt: TranslationStructure = {
     },
     soundEffects: {
       title: "Efeitos sonoros",
-      footer: "Apenas neste dispositivo. Ficam em silêncio com Não perturbar ou o modo silencioso ativado.",
+      footer: "Apenas neste dispositivo. No Android, fica em silêncio com Não perturbar ativado ou com o toque em silêncio ou vibração. No iOS, o botão de toque/silêncio silencia-o.",
       enabledTitle: "Sons",
       enabledSubtitle: "Tocar um som quando uma sessão muda de estado",
       errorSubtitle: "Quando uma sessão falha",
@@ -4016,6 +4016,8 @@ export const pt: TranslationStructure = {
       attentionSubtitle: "Quando uma sessão precisa de aprovação ou resposta",
       successTitle: "Sucesso",
       successSubtitle: "Quando um turno termina",
+      resumeTitle: "Retomada automática",
+      resumeSubtitle: "Quando uma sessão continua sozinha após um limite de uso",
     },
     desktop: {
       title: 'Notificações de desktop',
