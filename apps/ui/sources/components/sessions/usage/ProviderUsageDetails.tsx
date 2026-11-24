@@ -71,7 +71,7 @@ export function ProviderUsageDetails(props: Readonly<{
     const { theme } = useUnistyles();
     const showSpendMeter = useSetting('showProviderUsageSpendMeter');
     const meterRows = showSpendMeter ? props.viewModel.allMeterRows
-        : props.viewModel.allMeterRows.filter(row => !row.isCreditMeter);
+        : props.viewModel.allMeterRows.filter(row => !row.isSpendMeter);
     const title = props.viewModel.providerDisplayName
         ? t('agentInput.providerUsage.titleForProvider', { provider: props.viewModel.providerDisplayName })
         : t('agentInput.providerUsage.title');

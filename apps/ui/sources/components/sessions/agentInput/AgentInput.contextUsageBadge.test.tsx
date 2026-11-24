@@ -541,7 +541,7 @@ describe('AgentInput (context usage badge)', () => {
                 {
                     meterId: 'weekly',
                     label: 'Weekly',
-                    isCreditMeter: false,
+                    isSpendMeter: false,
                     remainingPct: 18,
                     usedPct: 82,
                     detailRightSemantics: 'remaining',
@@ -647,7 +647,7 @@ describe('AgentInput (context usage badge)', () => {
                 {
                     meterId: 'weekly',
                     label: 'Weekly',
-                    isCreditMeter: false,
+                    isSpendMeter: false,
                     remainingPct: 18,
                     usedPct: 82,
                     detailRightSemantics: 'remaining',

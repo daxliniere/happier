@@ -33,6 +33,8 @@ function gauge(profileId: string, used = 30) {
                     utilizationPct: null, resetsAt: null, status: 'ok', details: {} },
                 { meterId: 'extra_usage', label: 'Spend', used: 0, limit: 100, unit: 'credits',
                     utilizationPct: null, resetsAt: null, status: 'ok', details: {} },
+                { meterId: 'spend', providerLimitId: 'spend_cap', label: 'Spend', used: null, limit: null, unit: 'unknown',
+                    utilizationPct: 0, resetsAt: null, status: 'ok', details: {} },
             ] },
         windowMode: 'most_constrained', nowMs: 1_000, formatter: connectedServiceQuotaGaugeFormatter,
     });
@@ -70,8 +72,10 @@ describe('usage refresh indicator', () => {
         const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work')} />);
         try {
             expect(screen.findByTestId('agent-input-provider-usage-meter:extra_usage')).toBeTruthy();
+            expect(screen.findByTestId('agent-input-provider-usage-meter:spend')).toBeTruthy();
             await act(async () => store.setState({ settings: { ...originalSettings, showProviderUsageSpendMeter: false } }));
             expect(screen.findByTestId('agent-input-provider-usage-meter:extra_usage')).toBeNull();
+            expect(screen.findByTestId('agent-input-provider-usage-meter:spend')).toBeNull();
             expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeTruthy();
         } finally {
             await screen.unmount();
