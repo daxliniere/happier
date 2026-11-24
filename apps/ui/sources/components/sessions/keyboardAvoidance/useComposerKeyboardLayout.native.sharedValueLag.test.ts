@@ -421,9 +421,14 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         expect(hook.getCurrent().bottomInset.value).toBe(34);
     });
 
+    // iOS branch: a hide that arrives while the lift is retained returns early and leaves the
+    // last-event height at the open value, so the release clears nothing. On Android the hide
+    // listener settles the layout to zero itself, which hides this window.
     it('keeps the composer docked when a retained settled frame reaches JS after the retention is released', async () => {
+        lagState.platformOS = 'ios';
         const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
         const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+        const notifiedInsets: number[] = [];
 
         act(() => {
             hook.getCurrent().setComposerMeasuredHeight(137);
@@ -446,23 +451,65 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         flushSharedValues();
         expect(hook.getCurrent().bottomInset.value).toBe(267);
 
-        // JS thread: the retention is released before the settled frame is processed.
+        hook.getCurrent().subscribeListBottomInset?.((height) => {
+            notifiedInsets.push(height);
+        });
+        notifiedInsets.length = 0;
+
+        // JS thread: the hide event and the release are processed before the queued hide frames
+        // reach JS, so the release still sees the open height and clears nothing.
         act(() => {
             lagState.keyboardListeners.get('keyboardDidHide')?.();
-            drainOneRunOnJS();
             releaseRetention?.();
             drainRunOnJS();
         });
         flushSharedValues();
 
         expect(hook.getCurrent().bottomInset.value).toBe(34);
+        // The queued settled frames must not publish their stale retained totals (137 + 267).
+        expect(notifiedInsets[notifiedInsets.length - 1]).toBe(137 + 34);
 
-        // And a later measurement must not replay the retained height from the record.
+        // A later retention while the keyboard is closed must not restore the dropped height.
+        const rereleaseRetention = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+        expect(hook.getCurrent().listBottomInsetAnimated.value).toBe(137 + 34);
+        rereleaseRetention?.();
+        flushSharedValues();
+    });
+
+    it('keeps the lifted geometry when a settled frame reaches JS while the retention is still held', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+
         act(() => {
-            hook.getCurrent().setComposerMeasuredHeight(120);
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 267, progress: 1 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
         });
         flushSharedValues();
-        expect(hook.getCurrent().bottomInset.value).toBe(34);
+        const releaseRetention = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        // Retention is still held when the queued frames arrive: the lifted seat must stand.
+        act(() => {
+            lagState.keyboardListeners.get('keyboardDidHide')?.();
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+        releaseRetention?.();
+        flushSharedValues();
     });
 
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
