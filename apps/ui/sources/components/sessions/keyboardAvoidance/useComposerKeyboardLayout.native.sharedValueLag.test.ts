@@ -561,6 +561,44 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         expect(hook.getCurrent().bottomInset.value).toBe(267);
     });
 
+    // CodeRabbit (3fb2bae): a settled frame captured under a retention that was later released is
+    // stale even when retention has been reacquired by delivery time. Restoring its captured lift
+    // raises the composer over a keyboard that has closed.
+    it('does not restore a captured lift after the retention is released and reacquired before delivery', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 267, progress: 1 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+        const firstRelease = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+
+        // UI thread: the keyboard hides while the lift is held; the settled frame captures 267.
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        // JS thread: the lift is released, then a new retention is taken, before the queued frames drain.
+        act(() => {
+            firstRelease?.();
+            hook.getCurrent().retainKeyboardLift?.();
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(34);
+    });
+
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
     // settles before its writes synchronize'. It claimed to pin the mirror shape (transcript
     // keeps the keyboard-sized gap while the composer docks) and pinned nothing of the kind,
