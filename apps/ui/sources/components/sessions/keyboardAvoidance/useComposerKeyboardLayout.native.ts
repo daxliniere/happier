@@ -60,6 +60,10 @@ type KeyboardFrameState = Readonly<{
     // Set only by `onEnd`: the keyboard has stopped where this frame says. See
     // `applyKeyboardFrameFromUI` for why the settled frame re-runs the recompute on JS.
     settled?: boolean;
+    // Settled frames only: the retention epoch the worklet saw when it captured the frame. Each
+    // release advances the epoch, so a frame captured under an earlier retention is stale even if a
+    // new retention is held by the time it is delivered.
+    retentionEpoch?: number;
 }>;
 
 function resolveAndroidFinalFrameKeyboardHeight(
@@ -174,6 +178,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     const keyboardHeightSubscribersRef = React.useRef(new Set<(height: number) => void>());
     const listBottomInsetSubscribersRef = React.useRef(new Set<(height: number) => void>());
     const keyboardRetentionCountRef = React.useRef(0);
+    const retentionEpochRef = React.useRef(0);
+    const retentionEpochValue = useSharedValue(0);
 
     // JS mirror of the last notified panel height: subscribe replay must not read the shared
     // value (guest-runtime writes are async, so `.value` can lag the last computed height).
@@ -261,7 +267,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         // was released on JS before this settled frame arrived, the substitution is stale: use
         // the keyboard's own settled height, or the frame would re-raise the composer the
         // release just docked.
-        const retentionReleased = frame.settled === true && keyboardRetentionCountRef.current === 0;
+        const retentionReleased = frame.settled === true
+            && (keyboardRetentionCountRef.current === 0 || frame.retentionEpoch !== retentionEpochRef.current);
         // A settled frame's `absoluteHeight` is captured before suppression is applied, so suppression
         // is decided here from the JS record, which is authoritative and current. A frame captured
         // while suppressed would otherwise dock the composer behind an open keyboard once the
@@ -695,6 +702,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             runOnJS(applyKeyboardFrameFromUI)({
                 // Suppression-independent: the JS settled frame applies the current suppression state.
                 absoluteHeight: retainedHeight,
+                retentionEpoch: retentionEpochValue.value,
                 insetHeight: effectiveHeight,
                 interactiveDismissActive: false,
                 lastEventHeight: nextHeight,
@@ -722,6 +730,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         keyboardAnimation.height,
         notifyAvailablePanelHeight,
         notifyListBottomInset,
+        retentionEpochValue,
         scaffoldMeasuredHeight,
         shouldRetainAndroidZeroProgressStartFrame,
     ]);
@@ -772,6 +781,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         return () => {
             if (released) return;
             released = true;
+            retentionEpochRef.current += 1;
+            retentionEpochValue.value = retentionEpochRef.current;
             keyboardRetentionCountRef.current = Math.max(0, keyboardRetentionCountRef.current - 1);
             isKeyboardLiftRetained.value = keyboardRetentionCountRef.current > 0;
             const shouldReleaseKeyboardLift = keyboardRetentionCountRef.current === 0
@@ -801,6 +812,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         keyboardHeightLive,
         keyboardProgress,
         recomputeStaticLayout,
+        retentionEpochValue,
     ]);
 
     const setComposerInputFocused = React.useCallback((focused: boolean) => {
