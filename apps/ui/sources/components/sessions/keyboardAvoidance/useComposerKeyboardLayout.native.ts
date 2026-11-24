@@ -265,19 +265,25 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         const absoluteHeight = retentionReleased
             ? Math.min(frame.absoluteHeight, frame.lastEventHeight)
             : frame.absoluteHeight;
-        const insetHeight = retentionReleased
-            ? Math.min(
-                frame.insetHeight,
-                resolveKeyboardHeightWithinScaffold(absoluteHeight, staticLayoutInputsRef.current.layoutBottomInset),
-            )
-            : frame.insetHeight;
+        const liveHeight = retentionReleased
+            ? resolveKeyboardHeightWithinScaffold(absoluteHeight, staticLayoutInputsRef.current.layoutBottomInset)
+            : frame.liveHeight;
+        const insetHeight = retentionReleased ? liveHeight : frame.insetHeight;
+        if (retentionReleased) {
+            // The release could not clear these: it saw the open height. Every shared value the
+            // UI thread reads for the held lift must follow the reconciled record, or a retention
+            // acquired while the keyboard is closed restores the dropped height.
+            keyboardHeightAbsolute.value = absoluteHeight;
+            keyboardHeightLive.value = liveHeight;
+            keyboardHeightForInset.value = insetHeight;
+        }
         staticLayoutInputsRef.current = {
             ...staticLayoutInputsRef.current,
             isInteractiveDismissActive: frame.interactiveDismissActive,
             keyboardHeightAbsolute: absoluteHeight,
             keyboardHeightForInset: insetHeight,
         };
-        notifyKeyboardHeight(frame.liveHeight);
+        notifyKeyboardHeight(liveHeight);
         // A JS recompute that ran while this frame was still queued used the keyboard state of an
         // earlier frame, and its async writes land on the UI thread AFTER the worklet settled the
         // layout. On Android `keyboardDidHide` arrives as the hide begins, so the hide `onStart`
@@ -289,7 +295,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         if (frame.settled) {
             recomputeStaticLayoutRef.current();
         }
-    }, [notifyKeyboardHeight]);
+    }, [keyboardHeightAbsolute, keyboardHeightForInset, keyboardHeightLive, notifyKeyboardHeight]);
 
     const recomputeStaticLayout = React.useCallback((overrides: Partial<ComposerStaticLayoutInputs> = {}) => {
         // Guest-runtime (JS-thread) shared-value writes are async in Reanimated 4: a read
@@ -675,6 +681,9 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                 : resolveKeyboardHeightWithinScaffold(retainedHeight, layoutBottomInsetValue.value);
             keyboardHeightLive.value = effectiveHeight;
             keyboardHeightForInset.value = effectiveHeight;
+            // Subscribers are notified by the settled recompute in `applyKeyboardFrameFromUI`, which
+            // runs before any stale JS payload from this worklet could land. Notifying here would
+            // publish the retained totals after a release has docked the composer.
             runOnJS(applyKeyboardFrameFromUI)({
                 absoluteHeight,
                 insetHeight: effectiveHeight,
@@ -687,7 +696,6 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             bottomInset.value = Math.max(safeAreaBottomValue.value, effectiveHeight);
             const nextListBottomInset = composerHeight.value + Math.max(safeAreaBottomValue.value, effectiveHeight);
             listBottomInset.value = nextListBottomInset;
-            runOnJS(notifyListBottomInset)(nextListBottomInset);
             const effectiveViewportHeight = resolveMeasuredViewportHeight(scaffoldMeasuredHeight.value, viewportHeight.value);
             const effectiveHeaderHeight = resolveMeasuredHeaderHeight(scaffoldMeasuredHeight.value, headerHeightValue.value);
             const nextAvailablePanelHeight = clampAvailablePanelHeightToMax(Math.max(
@@ -698,7 +706,6 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                     - (keyboardHeightAbsolute.value > 0 ? 0 : layoutBottomInsetValue.value),
             ), availablePanelMaxHeightValue.value);
             availablePanelHeight.value = nextAvailablePanelHeight;
-            runOnJS(notifyAvailablePanelHeight)(nextAvailablePanelHeight);
         },
     }, [
         applyKeyboardFrameFromUI,
