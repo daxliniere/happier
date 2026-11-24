@@ -2926,6 +2926,8 @@ export const es: TranslationStructure = {
         `${percent} restante · se restablece en ${reset}`,
       usageCount: ({ used, limit }: { used: number; limit: number }) =>
         `${used}/${limit} usado`,
+      addToComposer: ({ label }: { label: string }) => `Añadir ${label} a los indicadores de uso del compositor`,
+      removeFromComposer: ({ label }: { label: string }) => `Quitar ${label} de los indicadores de uso del compositor`,
       duration: {
         now: "ahora",
         outdated: "desactualizado",

@@ -2783,6 +2783,8 @@ export const ca: TranslationStructure = {
             remaining: ({ percent }: { percent: string }) => `${percent} restant`,
             remainingWithReset: ({ percent, reset }: { percent: string; reset: string }) => `${percent} restant · es reinicia d'aquí a ${reset}`,
             usageCount: ({ used, limit }: { used: number; limit: number }) => `${used}/${limit} utilitzat`,
+            addToComposer: ({ label }: { label: string }) => `Afegeix ${label} als indicadors d'ús del compositor`,
+            removeFromComposer: ({ label }: { label: string }) => `Treu ${label} dels indicadors d'ús del compositor`,
             duration: {
                 now: 'ara',
                 outdated: 'obsolet',
