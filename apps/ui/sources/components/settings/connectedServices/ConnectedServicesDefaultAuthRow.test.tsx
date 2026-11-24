@@ -40,11 +40,10 @@ installConnectedServicesCommonModuleMocks({
     },
 });
 
-vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaBadges', () => {
+vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaGauges', () => {
     // One object, like the real memoised hook, so the picker's model is not rebuilt per render.
     const noGauges = {};
     return {
-        useConnectedServiceQuotaBadges: () => ({}),
         useConnectedServiceQuotaGauges: () => noGauges,
     };
 });

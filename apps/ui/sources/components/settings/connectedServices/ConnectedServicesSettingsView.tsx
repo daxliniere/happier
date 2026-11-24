@@ -26,8 +26,8 @@ import {
 import { useFeatureEnabled } from '@/hooks/server/useFeatureEnabled';
 import { useServerFeaturesRuntimeSnapshot } from '@/sync/domains/features/featureDecisionRuntime';
 import { supportsConnectedServiceOperation } from '@happier-dev/protocol';
-import { ConnectedServiceQuotaBadgesView } from '@/components/settings/connectedServices/ConnectedServiceQuotaBadgesView';
-import { useConnectedServiceQuotaBadges } from '@/hooks/server/connectedServices/useConnectedServiceQuotaBadges';
+import { ProviderUsageRing } from '@/components/sessions/usage/ProviderUsageRing';
+import { useConnectedServiceQuotaGauges } from '@/hooks/server/connectedServices/useConnectedServiceQuotaGauges';
 import { connectedServiceProfileKey, resolveConnectedServiceDefaultProfileId } from '@/sync/domains/connectedServices/connectedServiceProfilePreferences';
 import { resolveConnectedServiceBrandIconXml } from '@/agents/registry/resolveConnectedServiceBrandIconXml';
 import { deriveAccountHealth, type AccountHealth } from '@/sync/domains/connectedServices/deriveAccountHealth';
@@ -44,6 +44,8 @@ import { SettingsHeaderAddButton } from '../navigation/SettingsHeaderAddButton';
 import { Icon } from '@/components/ui/icons/Icon';
 
 const BRAND_ICON_SIZE = 24;
+// Stable while connected services are off, so the gauges hook keeps its result.
+const EMPTY_PROFILES: ReadonlyArray<Readonly<{ serviceId: string; profileId: string }>> = [];
 
 const stylesheet = StyleSheet.create((theme) => ({
     iconBox: {
@@ -69,8 +71,8 @@ const HEALTH_SEVERITY_RANK: Readonly<Record<AccountHealth, number>> = {
 
 /**
  * Derive a provider row's health as the worst-of the credential statuses across
- * its profiles. Quota capacity is left out here — the index already surfaces
- * pinned-meter badges and does not mount per-account quota snapshots — so the
+ * its profiles. Quota capacity is left out here — the index already shows the
+ * default account's usage rings — so the
  * provider dot reflects connection health (reuses the canonical
  * `deriveAccountHealth` owner so the index never diverges from the detail view).
  */
@@ -147,7 +149,7 @@ export const ConnectedServicesSettingsView = React.memo(function ConnectedServic
     return next;
   }, [allServiceIds, services, settings.connectedServicesDefaultProfileByServiceId]);
 
-  const quotaBadgesByKey = useConnectedServiceQuotaBadges(connectedServicesEnabled ? quotaRequestedProfiles : []);
+  const quotaGaugesByKey = useConnectedServiceQuotaGauges(connectedServicesEnabled ? quotaRequestedProfiles : EMPTY_PROFILES);
 
   const openServiceDetail = React.useCallback((serviceId: ConnectedServiceId, label: string, connectCommand: string) => {
     if (!supportsConnectedServiceOperation(readyFeatures, serviceId)) return;
@@ -180,7 +182,7 @@ export const ConnectedServicesSettingsView = React.memo(function ConnectedServic
         defaultProfileByServiceId: settings.connectedServicesDefaultProfileByServiceId,
       });
       const quotaKey = effectiveProfileId ? connectedServiceProfileKey({ serviceId, profileId: effectiveProfileId }) : '';
-      const badges = quotaKey ? (quotaBadgesByKey[quotaKey] ?? []) : [];
+      const gauge = quotaKey ? quotaGaugesByKey[quotaKey] ?? null : null;
       const subtitle =
         connected.length > 0
           ? t('connectedServices.list.connectedCount', { count: connected.length })
@@ -189,14 +191,14 @@ export const ConnectedServicesSettingsView = React.memo(function ConnectedServic
             : t('connectedServices.list.notConnected');
       // A provider with no profiles at all is "not connected" — neutral, sorted last.
       const health: AccountHealth = profiles.length > 0 ? deriveProviderRowHealth(profiles) : 'healthy';
-      return { serviceId, entry, label, badges, subtitle, health, hasProfiles: profiles.length > 0 };
+      return { serviceId, entry, label, gauge, subtitle, health, hasProfiles: profiles.length > 0 };
     })
     .sort((a, b) => {
       const rank = HEALTH_SEVERITY_RANK[a.health] - HEALTH_SEVERITY_RANK[b.health];
       if (rank !== 0) return rank;
       return a.label.localeCompare(b.label);
     }),
-  [allServiceIds, services, settings.connectedServicesDefaultProfileByServiceId, quotaBadgesByKey]);
+  [allServiceIds, services, settings.connectedServicesDefaultProfileByServiceId, quotaGaugesByKey]);
 
   // Header-right "+": start the connect/add flow by picking a provider to open
   // (the per-provider add-account flow lives on the [serviceId] detail screen).
@@ -268,7 +270,7 @@ export const ConnectedServicesSettingsView = React.memo(function ConnectedServic
         ) : null}
 
         {serviceRows.map((row) => {
-          const { serviceId, entry, label, badges, subtitle, health, hasProfiles } = row;
+          const { serviceId, entry, label, gauge, subtitle, health, hasProfiles } = row;
           const brandXml = resolveConnectedServiceBrandIconXml(serviceId, theme);
           const leadingIcon = (
             <View style={styles.iconBox}>
@@ -292,7 +294,8 @@ export const ConnectedServicesSettingsView = React.memo(function ConnectedServic
               title={label}
               subtitle={subtitle}
               leftElement={leadingIcon}
-              rightElement={badges.length > 0 ? <ConnectedServiceQuotaBadgesView badges={badges} /> : undefined}
+              // The same coloured usage rings as the composer, for the provider's default account.
+              rightElement={gauge ? <ProviderUsageRing gauge={gauge} /> : undefined}
               onPress={() => openServiceDetail(serviceId, label, entry.connectCommand)}
             />
           );

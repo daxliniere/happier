@@ -30,21 +30,15 @@ vi.mock('@expo/vector-icons', () => ({
     Ionicons: createPassThroughComponent('Ionicons'),
 }));
 vi.mock('@/text', () => createTextModuleMock({ translate: (key) => key }));
-// The real hook returns a `React.useMemo` result, so it keeps its identity while
-// its inputs do; a mock minting a fresh object per render would fake churn the
-// production boundary never produces.
-const EMPTY_QUOTA_BADGES: Record<string, Array<{ meterId: string; text: string }>> = {};
 // Quota snapshots are fetched from the server; tests supply each account's usage gauge directly.
+// The real hook returns a `React.useMemo` result, so it keeps its identity while its inputs do;
+// a mock minting a fresh object per render would fake churn the production boundary never produces.
 const quotaGauges = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
-vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaBadges', () => ({
-    useConnectedServiceQuotaBadges: () => EMPTY_QUOTA_BADGES,
+vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaGauges', () => ({
     useConnectedServiceQuotaGauges: () => quotaGauges.current,
 }));
 vi.mock('@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName', () => ({
     resolveConnectedServiceDisplayName: (serviceId: string) => serviceId,
-}));
-vi.mock('@/components/settings/connectedServices/ConnectedServiceQuotaBadgesView', () => ({
-    ConnectedServiceQuotaBadgesView: createPassThroughComponent('ConnectedServiceQuotaBadgesView'),
 }));
 vi.mock('@/components/ui/rendering/normalizeNodeForView', () => ({
     normalizeNodeForView: (node: React.ReactNode) => node,
