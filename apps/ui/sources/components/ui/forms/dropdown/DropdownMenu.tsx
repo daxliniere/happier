@@ -257,6 +257,11 @@ export function DropdownMenu(props: DropdownMenuProps) {
         itemId: string;
         anchorRef: React.RefObject<unknown>;
     } | null>(null);
+    const submenuIntentRef = React.useRef<string | null>(null);
+    const closeSubmenu = React.useCallback(() => {
+        submenuIntentRef.current = null;
+        setActiveSubmenu(null);
+    }, []);
 
     const rowVariant: SelectableRowVariant = props.variant ?? 'slim';
     const resolvedTriggerDensity = useResolvedItemDensity(props.itemTrigger?.itemProps?.density);
@@ -365,10 +370,8 @@ export function DropdownMenu(props: DropdownMenuProps) {
         return props.items.find((item) => item.id === activeSubmenu.itemId) ?? null;
     }, [activeSubmenu, props.items]);
     React.useEffect(() => {
-        if (!props.open && activeSubmenu) {
-            setActiveSubmenu(null);
-        }
-    }, [activeSubmenu, props.open]);
+        if (!props.open) closeSubmenu();
+    }, [closeSubmenu, props.open]);
 
     const triggerNode = React.useMemo(() => {
         if (props.itemTrigger) {
@@ -462,8 +465,10 @@ export function DropdownMenu(props: DropdownMenuProps) {
     }, [props.open]);
     const handleResultsSelectionChange = React.useCallback((index: number) => {
         setSwatchHighlightVisible(true);
+        const hoveredItemId = filteredCategories.flatMap((category) => category.items)[index]?.id;
+        if (submenuIntentRef.current !== hoveredItemId) closeSubmenu();
         setSelectedIndex(index);
-    }, [setSelectedIndex]);
+    }, [closeSubmenu, filteredCategories, setSelectedIndex]);
 
     const resultScroll = useScrollRectIntoViewRegistry({
         activeKey: selectedIndex >= 0 ? String(selectedIndex) : null,
@@ -536,6 +541,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
         if (!item?.submenu || item.disabled) return;
         // Intent signal for the submenu's owner; hover may repeat it, so owners keep it idempotent.
         item.submenu.onOpen?.();
+        submenuIntentRef.current = itemId;
         const openFromAnchor = () => {
             setActiveSubmenu({ itemId, anchorRef: itemAnchorRef });
         };
@@ -544,6 +550,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
             return;
         }
         const retryWhenAnchorSettles = (attempt: number) => {
+            if (submenuIntentRef.current !== itemId) return;
             if (isSubmenuAnchorReady(itemAnchorRef)) {
                 openFromAnchor();
                 return;
@@ -556,7 +563,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
             setTimeout(() => retryWhenAnchorSettles(attempt + 1), 0);
         };
         retryWhenAnchorSettles(0);
-    }, [props.items]);
+    }, [isSubmenuAnchorReady, props.items]);
     const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingHoverIdRef = React.useRef<string | null>(null);
     const clearHoverTimer = React.useCallback(() => {
@@ -575,9 +582,9 @@ export function DropdownMenu(props: DropdownMenuProps) {
         if (!activeSubmenuIdRef.current) return;
         hoverTimerRef.current = setTimeout(() => {
             hoverTimerRef.current = null;
-            setActiveSubmenu(null);
+            closeSubmenu();
         }, SUBMENU_HOVER_CLOSE_GRACE_MS);
-    }, [clearHoverTimer]);
+    }, [clearHoverTimer, closeSubmenu]);
     // The pointer rests on a row: open its submenu after a dwell, or close another open one after the
     // grace period. Entering the open submenu cancels either, which lets diagonal travel reach it.
     const handleHoverItem = React.useCallback((item: SelectableMenuItem, anchorRef: React.RefObject<unknown>) => {
@@ -621,9 +628,9 @@ export function DropdownMenu(props: DropdownMenuProps) {
             props.onSelect(itemId);
             return;
         }
-        setActiveSubmenu(null);
+        closeSubmenu();
         commitSelection(itemId);
-    }, [activeSubmenuItem, commitSelection, props]);
+    }, [activeSubmenuItem, closeSubmenu, commitSelection, props]);
 
     const overlayArrowCfg = React.useMemo((): Omit<Exclude<FloatingOverlayArrow, boolean>, 'placement'> | null => {
         const arrow = props.overlayArrow;
@@ -763,7 +770,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
                             <DropdownMenu
                                 open={true}
                                 onOpenChange={(next) => {
-                                    if (!next) setActiveSubmenu(null);
+                                    if (!next) closeSubmenu();
                                 }}
                                 items={activeSubmenuItem.submenu.items}
                                 onSelect={handleSubmenuSelect}
@@ -783,7 +790,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
                                 itemRowProps={props.itemRowProps}
                                 showCategoryTitles={props.showCategoryTitles}
                                 allowEmptySelection={props.allowEmptySelection}
-                                onKeyboardBack={() => setActiveSubmenu(null)}
+                                onKeyboardBack={() => closeSubmenu()}
                                 onSurfacePointerChange={handleSubmenuSurfacePointerChange}
                             />
                         ) : null}
