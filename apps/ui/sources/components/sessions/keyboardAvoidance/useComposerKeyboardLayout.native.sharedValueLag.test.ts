@@ -38,7 +38,22 @@ const lagState = vi.hoisted(() => ({
     keyboardListeners: new Map<string, (event?: { endCoordinates?: { height?: number; screenY?: number } }) => void>(),
     laggingValues: [] as Array<{ commit: () => void }>,
     platformOS: 'android' as 'android' | 'ios',
+    // When set, `runOnJS` queues the call instead of running it, modelling a JS thread that is
+    // behind the UI thread: worklet frames reach JS later, in order, interleaved with whatever
+    // else the JS queue already holds.
+    deferRunOnJS: false,
+    pendingRunOnJS: [] as Array<() => void>,
 }));
+
+function drainOneRunOnJS(): void {
+    lagState.pendingRunOnJS.shift()?.();
+}
+
+function drainRunOnJS(): void {
+    while (lagState.pendingRunOnJS.length > 0) {
+        drainOneRunOnJS();
+    }
+}
 
 function flushSharedValues(): void {
     for (const value of lagState.laggingValues) {
@@ -86,7 +101,13 @@ vi.mock('react-native-keyboard-controller', () => ({
 vi.mock('react-native-reanimated', async () => {
     const React = await import('react');
     return {
-        runOnJS: (callback: (...args: readonly unknown[]) => void) => callback,
+        runOnJS: (callback: (...args: readonly unknown[]) => void) => (...args: readonly unknown[]) => {
+            if (!lagState.deferRunOnJS) {
+                callback(...args);
+                return;
+            }
+            lagState.pendingRunOnJS.push(() => callback(...args));
+        },
         useSharedValue: <T,>(initial: T) => {
             const ref = React.useRef<{ value: T } | null>(null);
             if (ref.current === null) {
@@ -130,6 +151,8 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         lagState.keyboardListeners.clear();
         lagState.laggingValues.length = 0;
         lagState.platformOS = 'android';
+        lagState.deferRunOnJS = false;
+        lagState.pendingRunOnJS.length = 0;
     });
 
     afterEach(() => {
@@ -351,6 +374,51 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
 
         expect(hook.getCurrent().bottomInset.value).toBe(34);
         expect(hook.getCurrent().listBottomInsetAnimated.value).toBe(120 + 34);
+    });
+
+    // Reported 2026-11-24 on Android with several sessions streaming: the keyboard closes and the
+    // composer stays at the keyboard-raised seat over the transcript. On Android `keyboardDidHide`
+    // reaches JS as the hide begins, while the hide frames' `runOnJS` crossings queue up behind a
+    // stalled JS thread. The `onStart` frame carries the retained open height, so a composer
+    // measurement processed between it and the `onEnd` frame recomputes from a keyboard-raised
+    // record. That JS write lands on the UI thread after `onEnd` docked the composer, and nothing
+    // later re-seats it: the settled hide was already handled.
+    it('re-seats the composer when the settled hide frame reaches JS after a stale recompute', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 267, progress: 1 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+
+        // UI thread: the whole hide animation runs and its writes commit.
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onMove?.({ height: 120, progress: 0.45 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+        expect(hook.getCurrent().bottomInset.value).toBe(34);
+
+        // JS thread catches up: the hide event first, then the queued frames, with a composer
+        // measurement (the status line changing while sessions stream) between them.
+        act(() => {
+            lagState.keyboardListeners.get('keyboardDidHide')?.();
+            drainOneRunOnJS();
+            hook.getCurrent().setComposerMeasuredHeight(120);
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(34);
     });
 
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
