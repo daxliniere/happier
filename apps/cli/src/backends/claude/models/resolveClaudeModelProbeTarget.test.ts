@@ -2,12 +2,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ConnectedServiceCredentialRecordV1 } from '@happier-dev/protocol';
 
 import type { ConnectedServiceAuthGroupApi, ConnectedServiceCredentialApi } from '@/api/connectedServices/connectedServiceCredentialApi';
 import type { Credentials } from '@/persistence';
+import { logger } from '@/ui/logger';
 import { resolveClaudeModelProbeTarget } from './resolveClaudeModelProbeTarget';
 
 const credentials: Credentials = {
@@ -203,5 +204,17 @@ describe('resolveClaudeModelProbeTarget', () => {
       baseUrl: 'https://api.deepseek.com/anthropic',
       credential: { kind: 'bearer', value: 'deepseek-token' },
     });
+  });
+
+  it('names the reason when no model discovery target can be resolved', async () => {
+    const warn = vi.spyOn(logger, 'warnFile').mockImplementation(() => {});
+    const target = await resolveClaudeModelProbeTarget({ timeoutMs: 5_000,
+      processEnv: { ANTHROPIC_BASE_URL: 'not a url', ANTHROPIC_AUTH_TOKEN: 'secret-gateway-token' },
+    });
+    expect(target).toBeNull();
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain('invalid-base-url');
+    expect(logged).not.toContain('secret-gateway-token');
+    warn.mockRestore();
   });
 });

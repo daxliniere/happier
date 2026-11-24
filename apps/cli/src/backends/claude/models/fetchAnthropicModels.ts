@@ -1,4 +1,5 @@
 import { withCatalogProbeLifecycle, type CatalogProbeLifecycle } from '@/capabilities/probes/catalogProbeLifecycle';
+import { logModelProbeFailure } from '@/capabilities/probes/modelProbeDiagnostics';
 import { resolveClaudeCodeUserAgent } from '@/backends/claude/utils/claudeCodeUserAgent';
 
 export const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
@@ -175,7 +176,12 @@ export async function fetchAnthropicModels(
   }
 
   const modelsUrl = resolveAnthropicModelsUrl(params.baseUrl);
-  if (!modelsUrl) return null;
+  if (!modelsUrl) {
+    logModelProbeFailure({ scope: 'claude', reason: 'invalid-base-url', signal: params.signal });
+    return null;
+  }
+  // Host only: the path and query carry no diagnostic value and a configured URL may embed userinfo.
+  const host = new URL(modelsUrl).host;
 
   try {
     return await withCatalogProbeLifecycle(params, async ({ signal }) => {
@@ -185,12 +191,20 @@ export async function fetchAnthropicModels(
         signal,
         redirect: 'error',
       });
-      if (!response.ok) return null;
+      if (!response.ok) {
+        logModelProbeFailure({ scope: 'claude', reason: 'models-api-rejected-request', details: { status: response.status, host }, signal: params.signal });
+        return null;
+      }
       const body: unknown = await response.json();
       signal.throwIfAborted();
-      return parseAnthropicModelsResponse(body);
+      const entries = parseAnthropicModelsResponse(body);
+      if (entries === null) {
+        logModelProbeFailure({ scope: 'claude', reason: 'models-api-unrecognized-response', details: { host }, signal: params.signal });
+      }
+      return entries;
     });
-  } catch {
+  } catch (error) {
+    logModelProbeFailure({ scope: 'claude', reason: 'models-api-request-failed', details: { host }, error, signal: params.signal });
     return null;
   }
 }

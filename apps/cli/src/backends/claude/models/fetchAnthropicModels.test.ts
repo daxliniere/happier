@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { logger } from '@/ui/logger';
+
 import { fetchAnthropicModels, parseAnthropicModelsResponse } from './fetchAnthropicModels';
 
 describe('parseAnthropicModelsResponse', () => {
@@ -192,5 +194,37 @@ describe('fetchAnthropicModels', () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
     expect(result).toBeNull();
+  });
+
+  describe('failure diagnostics', () => {
+    it('logs the HTTP status of a rejected request without logging the credential', async () => {
+      const warn = vi.spyOn(logger, 'warnFile').mockImplementation(() => {});
+      const fetchImpl = vi.fn(async () => new Response('{"error":"unauthorized"}', { status: 401 }));
+      await expect(fetchAnthropicModels({ accessToken: 'secret-oauth-token', timeoutMs: 1_000,
+        fetchImpl: fetchImpl as unknown as typeof fetch })).resolves.toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+      const logged = JSON.stringify(warn.mock.calls[0]);
+      expect(logged).toContain('401');
+      expect(logged).not.toContain('secret-oauth-token');
+      warn.mockRestore();
+    });
+
+    it('logs a network failure with its cause', async () => {
+      const warn = vi.spyOn(logger, 'warnFile').mockImplementation(() => {});
+      const fetchImpl = vi.fn(async () => { throw new TypeError('fetch failed'); });
+      await expect(fetchAnthropicModels({ apiKey: 'sk-ant-key', timeoutMs: 1_000,
+        fetchImpl: fetchImpl as unknown as typeof fetch })).resolves.toBeNull();
+      expect(JSON.stringify(warn.mock.calls[0])).toContain('fetch failed');
+      warn.mockRestore();
+    });
+
+    it('does not report a caller cancellation as a failure', async () => {
+      const warn = vi.spyOn(logger, 'warnFile').mockImplementation(() => {});
+      const controller = new AbortController();
+      const fetchImpl = vi.fn<typeof fetch>(async () => { controller.abort(); return okResponse(); });
+      await fetchAnthropicModels({ apiKey: 'key', timeoutMs: 1_000, signal: controller.signal, fetchImpl });
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 });

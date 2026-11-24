@@ -16,6 +16,7 @@ import { resolveProfileForAgent } from '@/settings/profiles/resolveProfileForAge
 import { resolveConfiguredClaudeConfigDir } from '@/backends/claude/utils/resolveConfiguredClaudeConfigDir';
 import { resolveClaudeSettingSources } from '@/backends/claude/utils/resolveClaudeSettingSources';
 import type { CatalogProbeLifecycle, RegisterNativeCatalogCleanup } from '@/capabilities/probes/catalogProbeLifecycle';
+import { logModelProbeFailure } from '@/capabilities/probes/modelProbeDiagnostics';
 import { DEFAULT_ANTHROPIC_BASE_URL } from './fetchAnthropicModels';
 import { readClaudeApiKeyHelperCredential } from './readClaudeApiKeyHelperCredential';
 
@@ -182,11 +183,16 @@ export async function resolveClaudeModelProbeTarget(
   params: ResolveClaudeModelProbeTargetParams,
 ): Promise<ClaudeModelProbeTarget | null> {
   params.signal?.throwIfAborted();
+  // No target means discovery degrades to the static catalog, so the reason is logged where it is known.
+  const fail = (reason: string, error?: unknown): null => {
+    logModelProbeFailure({ scope: 'claude', reason, error, signal: params.signal });
+    return null;
+  };
   const processEnv = params.processEnv ?? process.env;
   let effectiveEnv: NodeJS.ProcessEnv = { ...processEnv };
   const profileId = readNonBlankString(params.profileId);
   if (profileId) {
-    if (!params.credentials || !params.accountSettings) return null;
+    if (!params.credentials || !params.accountSettings) return fail('profile-requires-account-credentials');
     try {
       const { customProfiles } = readProfilesFromAccountSettings(params.accountSettings);
       const profile = resolveProfileForAgent({ agentId: 'claude', query: profileId, customProfiles });
@@ -200,17 +206,17 @@ export async function resolveClaudeModelProbeTarget(
         startedBy: 'daemon',
       });
       effectiveEnv = { ...processEnv, ...overlay.envOverlayExpanded };
-    } catch {
-      return null;
+    } catch (error) {
+      return fail('profile-environment-failed', error);
     }
   }
 
   const baseUrl = normalizeExplicitBaseUrl(effectiveEnv);
-  if (baseUrl === 'invalid') return null;
+  if (baseUrl === 'invalid') return fail('invalid-base-url');
 
   const binding = resolveClaudeProbeBinding(params.connectedServices);
   if (binding) {
-    if (!params.credentials) return null;
+    if (!params.credentials) return fail('connected-service-requires-account-credentials');
     try {
       const api = (params.createCredentialApi ?? createConnectedServiceCredentialApi)(params.credentials);
       const credential = await resolveConnectedCredential({
@@ -219,10 +225,10 @@ export async function resolveClaudeModelProbeTarget(
         api,
         nowMs: (params.nowMs ?? Date.now)(),
       });
-      if (!credential) return null;
+      if (!credential) return fail('connected-service-credential-unavailable');
       return { baseUrl, credential, cacheIdentity: targetCacheIdentity(baseUrl, credential) };
-    } catch {
-      return null;
+    } catch (error) {
+      return fail('connected-service-credential-failed', error);
     }
   }
 
@@ -243,7 +249,7 @@ export async function resolveClaudeModelProbeTarget(
       signal: params.signal,
       onNativeCleanup: params.onNativeCleanup,
     });
-    if (helperKey.status === 'failed') return null;
+    if (helperKey.status === 'failed') return fail('api-key-helper-failed');
     if (helperKey.status === 'ok') {
       const credential = { kind: 'api_key_helper' as const, value: helperKey.value };
       return { baseUrl, credential, cacheIdentity: targetCacheIdentity(baseUrl, credential) };
@@ -257,17 +263,17 @@ export async function resolveClaudeModelProbeTarget(
 
   // Never pair a native saved subscription token with an explicitly configured third-party
   // endpoint. With the default endpoint, reading the native credential mirrors Claude Code login.
-  if (baseUrl !== null) return null;
+  if (baseUrl !== null) return fail('explicit-base-url-without-credential');
   try {
     const native = await readClaudeCodeNativeCredential({
       claudeConfigDir: resolveConfiguredClaudeConfigDir({ env: effectiveEnv }),
       signal: params.signal,
     });
     const accessToken = readNonBlankString(native?.payload.claudeAiOauth.accessToken);
-    if (!accessToken) return null;
+    if (!accessToken) return fail('native-credential-missing');
     const credential = { kind: 'bearer' as const, value: accessToken };
     return { baseUrl: null, credential, cacheIdentity: targetCacheIdentity(null, credential) };
-  } catch {
-    return null;
+  } catch (error) {
+    return fail('native-credential-failed', error);
   }
 }

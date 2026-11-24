@@ -14,6 +14,7 @@ import type { Credentials } from '@/persistence';
 import { validateCatalogAcpProbeSpawn } from './validateCatalogAcpProbeSpawn';
 import { createConfiguredAcpProbeBackend } from './createConfiguredAcpProbeBackend';
 import { buildAgentProbeCacheKey } from './buildAgentProbeCacheKey';
+import { logModelProbeFailure } from './modelProbeDiagnostics';
 import { resolveAgentProbeVariant } from './resolveAgentProbeVariant';
 import { spawn } from 'node:child_process';
 import { z } from 'zod';
@@ -494,7 +495,10 @@ export async function probeAgentModelsBestEffort(params: {
   });
   const entry = AGENTS[params.agentId];
   const preflightModelsAdapter = entry?.getPreflightSessionControlsProbeAdapter
-    ? await entry.getPreflightSessionControlsProbeAdapter().catch(() => null)
+    ? await entry.getPreflightSessionControlsProbeAdapter().catch((error: unknown) => {
+      logModelProbeFailure({ scope: params.agentId, reason: 'preflight adapter failed to load', error, signal: params.signal });
+      return null;
+    })
     : null;
   const usesProviderOwnedCache = preflightModelsAdapter?.modelProbeCachePolicy === 'provider-owned';
 
@@ -508,7 +512,17 @@ export async function probeAgentModelsBestEffort(params: {
     if (!params.bypassCache && !usesProviderOwnedCache && cached2?.kind === 'success' && agentModelsProbeCache.isFresh(cached2, nowMs2)) return cached2.value;
 
     const fallback = buildStatic(params.agentId);
-    const failedResult = (): ProbedAgentModelsResult => {
+    // Every degradation to the last known or static list passes through here, so this is where the
+    // cause is recorded. A provider-reported refresh error (the cause is logged by the provider) uses
+    // the same call.
+    const failedResult = (stage: string, error?: unknown): ProbedAgentModelsResult => {
+      logModelProbeFailure({
+        scope: params.agentId,
+        reason: `refresh failed (${stage})`,
+        details: { keptLastDynamicList: cached2?.kind === 'success' && cached2.value.source === 'dynamic' },
+        error,
+        signal: params.signal,
+      });
       const lastGood = cached2?.kind === 'success' && cached2.value.source === 'dynamic' ? cached2.value : fallback;
       const result: ProbedAgentModelsResult = { ...lastGood, refreshError: true, cacheable: false };
       if (!usesProviderOwnedCache) {
@@ -542,7 +556,11 @@ export async function probeAgentModelsBestEffort(params: {
         const ownedBackend = configuredBackend;
         params.onNativeCleanup?.(() => ownedBackend.dispose());
         params.signal?.throwIfAborted();
-        const models = await probeModelsFromAcpBackend({ backend: configuredBackend, timeoutMs, modelConfigOptionId: modelConfig.acpModelConfigOptionId }).catch(() => null);
+        let configuredProbeError: unknown;
+        const models = await probeModelsFromAcpBackend({ backend: configuredBackend, timeoutMs, modelConfigOptionId: modelConfig.acpModelConfigOptionId }).catch((error: unknown) => {
+          configuredProbeError = error;
+          return null;
+        });
         if (models) {
           const res: ProbedAgentModelsResult = { ...fallback, availableModels: models, source: 'dynamic', observedAt: Date.now() };
           if (!usesProviderOwnedCache) {
@@ -550,10 +568,10 @@ export async function probeAgentModelsBestEffort(params: {
           }
           return res;
         }
-        return failedResult();
+        return failedResult('configured ACP probe', configuredProbeError);
       }
-    } catch {
-      return failedResult();
+    } catch (error) {
+      return failedResult('configured ACP setup', error);
     } finally {
       if (configuredBackend) {
         await configuredBackend.dispose().catch(() => {});
@@ -562,6 +580,7 @@ export async function probeAgentModelsBestEffort(params: {
 
     if (preflightModelsAdapter?.probeModelsRaw) {
       let provenance: { observedAt?: number; refreshError?: boolean; source?: 'dynamic' | 'static' } = {};
+      let rawProbeError: unknown;
       const probePreflightModelsOnce = async (): Promise<ProbedAgentModel[] | null> => {
         const modelsRaw = await preflightModelsAdapter.probeModelsRaw!({
           backendTarget: params.backendTarget,
@@ -576,7 +595,10 @@ export async function probeAgentModelsBestEffort(params: {
           credentials: params.credentials ?? null,
           connectedServices: params.connectedServices ?? null,
           processEnv: params.processEnv,
-        }).catch(() => null);
+        }).catch((error: unknown) => {
+          rawProbeError = error;
+          return null;
+        });
         const envelope = ProbeModelsObservationSchema.safeParse(modelsRaw);
         if (envelope.success) {
           provenance = {
@@ -598,7 +620,7 @@ export async function probeAgentModelsBestEffort(params: {
       if (models) {
         if (provenance.source === 'static' && provenance.refreshError
           && cached2?.kind === 'success' && cached2.value.source === 'dynamic') {
-          return failedResult();
+          return failedResult('provider reported a refresh error');
         }
         const res: ProbedAgentModelsResult = {
           ...fallback, availableModels: models, source: 'dynamic',
@@ -613,7 +635,7 @@ export async function probeAgentModelsBestEffort(params: {
       }
       // A raw hook owns the provider's complete discovery and any runtime-specific
       // fallback. Failure must not silently start a second catalog observation.
-      return failedResult();
+      return failedResult('preflight probe returned no models', rawProbeError);
     }
 
     // Prefer lightweight CLI preflight probes when the provider offers a `models` command.
@@ -630,7 +652,10 @@ export async function probeAgentModelsBestEffort(params: {
         cwd,
         timeoutMs,
         processEnv: params.processEnv,
-      }).catch(() => null);
+      }).catch((error: unknown) => {
+        logModelProbeFailure({ scope: params.agentId, reason: 'models command failed', error, signal: params.signal });
+        return null;
+      });
       if (models) {
         const res: ProbedAgentModelsResult = { ...fallback, availableModels: models, source: 'dynamic', observedAt: Date.now() };
         if (!usesProviderOwnedCache) {
@@ -641,12 +666,12 @@ export async function probeAgentModelsBestEffort(params: {
     }
 
     if (!entry?.getAcpBackendFactory) {
-      return failedResult();
+      return failedResult('no ACP backend available for discovery');
     }
 
     const spawnValidation = await validateCatalogAcpProbeSpawn(params.agentId, { processEnv: params.processEnv, cwd });
     if (!spawnValidation.ok) {
-      return failedResult();
+      return failedResult('ACP spawn validation failed');
     }
 
     const permissionHandler: AcpPermissionHandler = {
@@ -674,9 +699,13 @@ export async function probeAgentModelsBestEffort(params: {
       params.onNativeCleanup?.(() => ownedBackend.dispose());
       params.signal?.throwIfAborted();
 
-      const models = await probeModelsFromAcpBackend({ backend, timeoutMs, modelConfigOptionId: modelConfig.acpModelConfigOptionId }).catch(() => null);
+      let acpProbeError: unknown;
+      const models = await probeModelsFromAcpBackend({ backend, timeoutMs, modelConfigOptionId: modelConfig.acpModelConfigOptionId }).catch((error: unknown) => {
+        acpProbeError = error;
+        return null;
+      });
       if (!models) {
-        return failedResult();
+        return failedResult('ACP probe returned no models', acpProbeError);
       }
 
       const res: ProbedAgentModelsResult = { ...fallback, availableModels: models, source: 'dynamic', observedAt: Date.now() };
@@ -684,8 +713,8 @@ export async function probeAgentModelsBestEffort(params: {
         agentModelsProbeCache.setSuccess(cacheKey, res, { nowMs: nowMs2, ttlMs: PROBE_MODELS_SUCCESS_TTL_MS });
       }
       return res;
-    } catch {
-      return failedResult();
+    } catch (error) {
+      return failedResult('ACP probe setup', error);
     } finally {
       if (backend) {
         await backend.dispose().catch(() => {});

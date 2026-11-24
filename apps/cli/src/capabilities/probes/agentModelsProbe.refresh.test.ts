@@ -20,6 +20,7 @@ vi.mock('node:child_process', async importOriginal => ({
   },
 }));
 
+import { logger } from '@/ui/logger';
 import { probeAgentModelsBestEffort, resetAgentModelsProbeCacheForTests } from './agentModelsProbe';
 
 beforeEach(() => { resetAgentModelsProbeCacheForTests(); boundary.model = 'old'; boundary.fail = false; boundary.probes = 0; });
@@ -51,4 +52,15 @@ it('reports policy-disabled Claude discovery as intentional static success', asy
   });
   expect(result).toMatchObject({ source: 'static', refreshError: false });
   expect(result.availableModels.length).toBeGreaterThan(1);
+});
+
+it('logs why a refresh failed instead of dropping the failure', async () => {
+  const warn = vi.spyOn(logger, 'warnFile').mockImplementation(() => {});
+  boundary.fail = true;
+  const result = await probeAgentModelsBestEffort({ agentId: 'kilo', cwd: process.cwd(), timeoutMs: 250, bypassCache: true });
+  expect(result.refreshError).toBe(true);
+  const logged = JSON.stringify(warn.mock.calls);
+  expect(logged).toContain('kilo');
+  expect(logged).toContain('refresh');
+  warn.mockRestore();
 });
