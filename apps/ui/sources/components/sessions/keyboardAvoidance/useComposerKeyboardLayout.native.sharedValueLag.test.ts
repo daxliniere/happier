@@ -520,6 +520,47 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         flushSharedValues();
     });
 
+    // CodeRabbit (0c3cd44): a settled frame captured while the lift was suppressed carries a
+    // zeroed height even though the raw settle was open. If suppression is removed before the frame
+    // reaches JS, the frame must not dock the composer behind the open keyboard.
+    it('keeps the open keyboard lift when suppression is removed before the settled frame reaches JS', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(
+            (props: { keyboardLiftSuppressed: boolean }) => useComposerKeyboardLayout({
+                keyboardLiftSuppressed: props.keyboardLiftSuppressed,
+                safeAreaBottom: 34,
+            }),
+            { initialProps: { keyboardLiftSuppressed: false } },
+        );
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+
+        // A modal suppresses the lift; the UI thread settles the keyboard while it is suppressed.
+        await hook.rerender({ keyboardLiftSuppressed: true });
+        flushSharedValues();
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+        });
+        flushSharedValues();
+
+        // The modal closes before the queued settled frame is processed.
+        await hook.rerender({ keyboardLiftSuppressed: false });
+        flushSharedValues();
+        act(() => {
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+    });
+
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
     // settles before its writes synchronize'. It claimed to pin the mirror shape (transcript
     // keeps the keyboard-sized gap while the composer docks) and pinned nothing of the kind,
