@@ -6,8 +6,8 @@ import { RELEASED_CONNECTED_SERVICE_IDS, type ConnectedServiceId } from '@happie
 import { getMachineConnectedServiceAuthSupportedServiceIds } from '@/sync/ops/connectedServiceAuthSupport';
 
 import { resolveConnectedServiceDisplayName } from '@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName';
-import { ConnectedServiceQuotaBadgesView } from '@/components/settings/connectedServices/ConnectedServiceQuotaBadgesView';
-import { useConnectedServiceQuotaBadges } from '@/hooks/server/connectedServices/useConnectedServiceQuotaBadges';
+import { ProviderUsageRing } from '@/components/sessions/usage/ProviderUsageRing';
+import { useConnectedServiceQuotaGauges } from '@/hooks/server/connectedServices/useConnectedServiceQuotaGauges';
 import { normalizeNodeForView } from '@/components/ui/rendering/normalizeNodeForView';
 import { StatusPill } from '@/components/ui/selectionList/accessories/StatusPill';
 import { SelectionList, resolvePopoverSelectionListHeightBehavior } from '@/components/ui/selectionList';
@@ -109,7 +109,7 @@ export function NewSessionConnectedServicesSelectionContent(props: NewSessionCon
         return next;
     }, [props.profileOptionsByServiceId, props.supportedServiceIds]);
 
-    const quotaBadgesByKey = useConnectedServiceQuotaBadges(requestedProfiles);
+    const quotaGaugesByKey = useConnectedServiceQuotaGauges(requestedProfiles);
 
     // The row handlers are BEHAVIOUR, not data, so they are held in a ref and
     // invoked through stable wrappers instead of being memo dependencies.
@@ -160,14 +160,15 @@ export function NewSessionConnectedServicesSelectionContent(props: NewSessionCon
             accountGroupOptionsByServiceId: props.accountGroupOptionsByServiceId,
             bindingsByServiceId,
             defaultProfileIdByServiceId: props.defaultProfileIdByServiceId,
-            quotaBadgesByKey,
+            quotaUsageByKey: quotaGaugesByKey,
             setBindingForService,
             onOpenSettings: openSettings,
             translate: t,
             resolveServiceTitle: (serviceId) => resolveConnectedServiceDisplayName(serviceId as ConnectedServiceId, t),
             renderSelectionIcon: ({ selected, variant }) => <SelectionStateIcon selected={selected} variant={variant} />,
             renderSettingsIcon: () => <SettingsActionIcon />,
-            renderQuotaBadges: (badges) => <ConnectedServiceQuotaBadgesView badges={badges} />,
+            // The same coloured usage rings as the composer and the sessions pane.
+            renderQuotaUsage: (gauge) => <ProviderUsageRing gauge={gauge} />,
             renderNeedsReauthPill: () => (
                 <StatusPill
                     variant="stale"
@@ -190,7 +191,7 @@ export function NewSessionConnectedServicesSelectionContent(props: NewSessionCon
         // freeze availability. Each host supplies it as a memoised callback.
         resolveOptionAvailability,
         props.supportedServiceIds,
-        quotaBadgesByKey,
+        quotaGaugesByKey,
         reconnectProfile,
         setBindingForService,
     ]);

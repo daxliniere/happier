@@ -86,19 +86,12 @@ describe('buildAccountSettingsSnapshot', () => {
                 'anthropic/work': ['weekly', 'monthly'],
                 'openai-codex/personal': ['tokens'],
             },
-            connectedServicesQuotaSummaryStrategyByKey: {
-                'anthropic/work': 'primary',
-                'openai-codex/personal': 'min_remaining',
-                'openai-codex/work': 'primary',
-            },
         });
 
         expect(snapshot.properties.acct_setting__connectedServicesDefaultProfileByServiceId).toBe(2);
         expect(snapshot.properties.acct_setting__connectedServicesProfileLabelByKey).toBe(3);
         expect(snapshot.properties.acct_setting__connectedServicesQuotaPinnedMeterIdsByKey__profilesWithPinsCount).toBe(2);
         expect(snapshot.properties.acct_setting__connectedServicesQuotaPinnedMeterIdsByKey__totalPinnedMeterCount).toBe(3);
-        expect(snapshot.properties.acct_setting__connectedServicesQuotaSummaryStrategyByKey__primaryCount).toBe(2);
-        expect(snapshot.properties.acct_setting__connectedServicesQuotaSummaryStrategyByKey__minRemainingCount).toBe(1);
     });
 
     it('tracks server selection group summaries through canonical analytics serializers', () => {

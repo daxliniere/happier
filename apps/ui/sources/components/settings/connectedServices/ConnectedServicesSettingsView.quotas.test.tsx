@@ -52,7 +52,6 @@ function createDefaultSettings() {
   connectedServicesDefaultProfileByServiceId: { anthropic: 'work' },
   connectedServicesProfileLabelByKey: {},
   connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly'] },
-  connectedServicesQuotaSummaryStrategyByKey: {},
   };
 }
 
@@ -81,6 +80,7 @@ vi.mock('@/sync/store/hooks', () => ({
     ],
   }),
   useSettings: () => useSettingsSpy(),
+  useSetting: (name: string) => (name === 'coloredUsageRings' ? true : undefined),
   useLocalSetting: () => 1,
   useSettingMutable: (name: string) => [
     name === 'connectedServicesProviderStateSharingSettingsV1'
@@ -169,13 +169,12 @@ describe('ConnectedServicesSettingsView quotas', () => {
     };
   });
 
-  it('shows quota badges on service rows when pinned meters exist', async () => {
+  it('shows the default account\'s usage rings on its provider row', async () => {
     useFeatureEnabledSpy.mockReturnValue(true);
     useSettingsSpy.mockReturnValue({
       connectedServicesDefaultProfileByServiceId: { anthropic: 'work' },
       connectedServicesProfileLabelByKey: {},
       connectedServicesQuotaPinnedMeterIdsByKey: { 'anthropic/work': ['weekly', 'daily'] },
-      connectedServicesQuotaSummaryStrategyByKey: {},
     });
 
     const secretBytes = new Uint8Array(32).fill(3);
@@ -229,8 +228,13 @@ describe('ConnectedServicesSettingsView quotas', () => {
 
     await flushHookEffects({ cycles: 4, turns: 1 });
 
-    expect(tree.findAll((n) => n.props?.children === 'Weekly 18%')).not.toHaveLength(0);
-    expect(tree.findAll((n) => n.props?.children === 'Daily 40%')).not.toHaveLength(0);
+    const { ProviderUsageRing } = await import('@/components/sessions/usage/ProviderUsageRing');
+    const rings = tree.root.findAllByType(ProviderUsageRing);
+    expect(rings).toHaveLength(1);
+    // The most constrained pinned limit (weekly, 18% left) leads, with daily (40% left) as a second ring.
+    const gauge = rings[0]!.props.gauge;
+    expect(gauge.remainingPct).toBe(18);
+    expect(gauge.usageRings.map((ring: { meterId: string }) => ring.meterId)).toEqual(expect.arrayContaining(['weekly', 'daily']));
   });
 
   it('renders the brand mark and a derived health dot on provider rows (not key-outline)', async () => {

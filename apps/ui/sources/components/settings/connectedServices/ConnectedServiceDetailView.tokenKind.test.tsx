@@ -81,7 +81,6 @@ vi.mock('@/sync/store/hooks', async () => {
       connectedServicesDefaultProfileByServiceId: {},
       connectedServicesProfileLabelByKey: {},
       connectedServicesQuotaPinnedMeterIdsByKey: {},
-      connectedServicesQuotaSummaryStrategyByKey: {},
     }),
   };
 });

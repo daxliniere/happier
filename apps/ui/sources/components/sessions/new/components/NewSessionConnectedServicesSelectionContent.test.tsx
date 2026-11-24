@@ -30,18 +30,15 @@ vi.mock('@expo/vector-icons', () => ({
     Ionicons: createPassThroughComponent('Ionicons'),
 }));
 vi.mock('@/text', () => createTextModuleMock({ translate: (key) => key }));
-// The real hook returns a `React.useMemo` result, so it keeps its identity while
-// its inputs do; a mock minting a fresh object per render would fake churn the
-// production boundary never produces.
-const EMPTY_QUOTA_BADGES: Record<string, Array<{ meterId: string; text: string }>> = {};
-vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaBadges', () => ({
-    useConnectedServiceQuotaBadges: () => EMPTY_QUOTA_BADGES,
+// Quota snapshots are fetched from the server; tests supply each account's usage gauge directly.
+// The real hook returns a `React.useMemo` result, so it keeps its identity while its inputs do;
+// a mock minting a fresh object per render would fake churn the production boundary never produces.
+const quotaGauges = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaGauges', () => ({
+    useConnectedServiceQuotaGauges: () => quotaGauges.current,
 }));
 vi.mock('@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName', () => ({
     resolveConnectedServiceDisplayName: (serviceId: string) => serviceId,
-}));
-vi.mock('@/components/settings/connectedServices/ConnectedServiceQuotaBadgesView', () => ({
-    ConnectedServiceQuotaBadgesView: createPassThroughComponent('ConnectedServiceQuotaBadgesView'),
 }));
 vi.mock('@/components/ui/rendering/normalizeNodeForView', () => ({
     normalizeNodeForView: (node: React.ReactNode) => node,
@@ -59,6 +56,37 @@ vi.mock('@/components/ui/selectionList', async (importOriginal) => {
 });
 
 describe('NewSessionConnectedServicesSelectionContent', () => {
+    it('shows each account\'s usage as the coloured usage rings, not a percentage pill', async () => {
+        const { NewSessionConnectedServicesSelectionContent } = await import('./NewSessionConnectedServicesSelectionContent');
+        const { ProviderUsageRing } = await import('@/components/sessions/usage/ProviderUsageRing');
+        const workGauge = { ringValueLabel: '81' };
+        quotaGauges.current = { 'anthropic/work': workGauge };
+        capturedSelectionLists.length = 0;
+        try {
+            await renderScreen(<NewSessionConnectedServicesSelectionContent
+                supportedServiceIds={['anthropic']}
+                profileOptionsByServiceId={{ anthropic: [
+                    { profileId: 'work', status: 'connected', kind: 'oauth' },
+                    { profileId: 'home', status: 'connected', kind: 'oauth' },
+                ] }}
+                bindingsByServiceId={{}}
+                setBindingForService={() => {}}
+                onOpenSettings={() => {}}
+                maxHeight={420}
+            />);
+        } finally {
+            quotaGauges.current = {};
+        }
+        const section = capturedSelectionLists.at(-1)?.rootStep.sections[0];
+        if (!section || section.kind !== 'static') throw new Error('Expected connected account choices');
+        const accessoryOf = (profileId: string) => section.options
+            .find((option) => option.id.endsWith(`:profile:${profileId}`))?.rightAccessory as React.ReactElement | undefined;
+        expect(accessoryOf('work')?.type).toBe(ProviderUsageRing);
+        expect((accessoryOf('work')?.props as { gauge?: unknown }).gauge).toBe(workGauge);
+        // An account without readable usage shows nothing rather than an empty pill.
+        expect(accessoryOf('home')).toBeUndefined();
+    });
+
     it.each([
         { result: { ok: false, error: { code: 'unsupported-method' } }, disabled: true },
         { result: { ok: true, result: { supportedServiceIds: [null, 'antigravity'] } }, disabled: true },

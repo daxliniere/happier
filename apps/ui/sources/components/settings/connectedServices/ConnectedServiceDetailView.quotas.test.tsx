@@ -132,7 +132,6 @@ vi.mock('@/sync/store/hooks', async () => {
       connectedServicesDefaultProfileByServiceId: { 'openai-codex': 'work' },
       connectedServicesProfileLabelByKey: {},
       connectedServicesQuotaPinnedMeterIdsByKey: {},
-      connectedServicesQuotaSummaryStrategyByKey: {},
     }),
   };
 });

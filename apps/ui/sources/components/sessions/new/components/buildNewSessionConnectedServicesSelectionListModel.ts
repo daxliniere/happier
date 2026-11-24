@@ -23,11 +23,6 @@ import {
     resolveConnectedServiceAccountGroupViableProfileId,
 } from '@/components/sessions/new/modules/connectedServicesNewSessionBindings';
 
-export type ConnectedServicesSelectionListBadge = Readonly<{
-    meterId: string;
-    text: string;
-}>;
-
 export type ConnectedServicesSelectionOptionAvailability = Readonly<{
     disabled?: boolean;
     subtitle?: string;
@@ -60,20 +55,22 @@ export type NewSessionConnectedServicesSelectionListModel = Readonly<{
     selectedOptionId: string | null;
 }>;
 
-export type BuildNewSessionConnectedServicesSelectionListModelParams = Readonly<{
+/** `TUsage` is each account's usage as the host shows it (for example its usage gauge). */
+export type BuildNewSessionConnectedServicesSelectionListModelParams<TUsage = unknown> = Readonly<{
     supportedServiceIds: ReadonlyArray<string>;
     profileOptionsByServiceId: ConnectedServicesProfileOptionsByServiceId;
     accountGroupOptionsByServiceId?: Readonly<Record<string, ReadonlyArray<ConnectedServicesAccountGroupOption> | undefined>>;
     bindingsByServiceId: Readonly<Record<string, ConnectedServicesServiceBinding | undefined>>;
     defaultProfileIdByServiceId?: Readonly<Record<string, string | undefined>>;
-    quotaBadgesByKey: Readonly<Record<string, ReadonlyArray<ConnectedServicesSelectionListBadge> | undefined>>;
+    /** Usage per connected profile key; an account without an entry shows no usage. */
+    quotaUsageByKey: Readonly<Record<string, TUsage | undefined>>;
     setBindingForService: (serviceId: string, binding: ConnectedServicesServiceBinding) => void;
     onOpenSettings: (serviceId: string) => void;
     translate: (key: ConnectedServicesSelectionListTranslationKey) => string;
     resolveServiceTitle: (serviceId: string) => string;
     renderSelectionIcon: (params: Readonly<{ selected: boolean; variant?: ConnectedServicesSelectionIconVariant }>) => React.ReactNode;
     renderSettingsIcon: () => React.ReactNode;
-    renderQuotaBadges: (badges: ReadonlyArray<ConnectedServicesSelectionListBadge>) => React.ReactNode;
+    renderQuotaUsage: (usage: TUsage) => React.ReactNode;
     renderNeedsReauthPill: () => React.ReactNode;
     onReconnectProfile?: (serviceId: string, profileId: string) => void;
     resolveOptionAvailability?: (params: Readonly<{
@@ -166,8 +163,8 @@ function resolveServiceOptionAccessibilityLabel(params: Readonly<{
     return `${serviceTitle} · ${optionLabel}`;
 }
 
-function resolveAvailability(params: Readonly<{
-    rootParams: BuildNewSessionConnectedServicesSelectionListModelParams;
+function resolveAvailability<TUsage>(params: Readonly<{
+    rootParams: BuildNewSessionConnectedServicesSelectionListModelParams<TUsage>;
     serviceId: string;
     optionId: string;
     binding: ConnectedServicesServiceBinding;
@@ -179,8 +176,8 @@ function resolveAvailability(params: Readonly<{
     }) ?? {};
 }
 
-export function buildNewSessionConnectedServicesSelectionListModel(
-    params: BuildNewSessionConnectedServicesSelectionListModelParams,
+export function buildNewSessionConnectedServicesSelectionListModel<TUsage>(
+    params: BuildNewSessionConnectedServicesSelectionListModelParams<TUsage>,
 ): NewSessionConnectedServicesSelectionListModel {
     let firstSelectedOptionId: string | null = null;
     const sections: SelectionListSectionDescriptor[] = params.supportedServiceIds.map((serviceId) => {
@@ -227,9 +224,9 @@ export function buildNewSessionConnectedServicesSelectionListModel(
             if (!groupId) continue;
             const selected = selectedGroup?.groupId === groupId;
             const optionId = createConnectedServiceGroupOptionId(serviceId, groupId);
-            const quotaBadges = fallbackProfileId
-                ? params.quotaBadgesByKey[connectedServiceProfileKey({ serviceId, profileId: fallbackProfileId })] ?? []
-                : [];
+            const quotaUsage = fallbackProfileId
+                ? params.quotaUsageByKey[connectedServiceProfileKey({ serviceId, profileId: fallbackProfileId })]
+                : undefined;
             const optionBinding = {
                 source: 'connected',
                 selection: 'group',
@@ -257,9 +254,7 @@ export function buildNewSessionConnectedServicesSelectionListModel(
                     variant: availability.disabled || group.status !== 'ready' || !fallbackProfileId ? 'warning' : 'default',
                 }),
                 disabled: availability.disabled === true || group.status !== 'ready' || !fallbackProfileId,
-                rightAccessory: quotaBadges.length > 0
-                    ? params.renderQuotaBadges(quotaBadges)
-                    : undefined,
+                rightAccessory: quotaUsage !== undefined ? params.renderQuotaUsage(quotaUsage) : undefined,
                 onSelect: () => params.setBindingForService(serviceId, {
                     source: 'connected',
                     selection: 'group',
@@ -282,7 +277,7 @@ export function buildNewSessionConnectedServicesSelectionListModel(
             });
             if (selected && firstSelectedOptionId === null) firstSelectedOptionId = optionId;
             const profileKey = connectedServiceProfileKey({ serviceId, profileId });
-            const quotaBadges = params.quotaBadgesByKey[profileKey] ?? [];
+            const quotaUsage = params.quotaUsageByKey[profileKey];
             const label = resolveProfileTitle(option);
 
             options.push({
@@ -295,9 +290,7 @@ export function buildNewSessionConnectedServicesSelectionListModel(
                     variant: availability.disabled || option.status !== 'connected' ? 'warning' : 'default',
                 }),
                 disabled: availability.disabled === true,
-                rightAccessory: quotaBadges.length > 0
-                    ? params.renderQuotaBadges(quotaBadges)
-                    : undefined,
+                rightAccessory: quotaUsage !== undefined ? params.renderQuotaUsage(quotaUsage) : undefined,
                 onSelect: () => params.setBindingForService(serviceId, { source: 'connected', selection: 'profile', profileId }),
             });
         }

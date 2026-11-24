@@ -93,8 +93,11 @@ vi.mock('@/components/ui/lists/Item', () => ({
     Item: (props: any) => React.createElement('Item', props),
 }));
 
-vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaBadges', () => ({
-    useConnectedServiceQuotaBadges: () => ({}),
+// Quota snapshots are fetched from the server; tests supply each account's usage gauge directly.
+// One object per test, like the real memoised hook, so models are not rebuilt per render.
+const quotaGauges = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+vi.mock('@/hooks/server/connectedServices/useConnectedServiceQuotaGauges', () => ({
+    useConnectedServiceQuotaGauges: () => quotaGauges.current,
 }));
 
 async function openCodexDefaultAuthPicker(tree: ReactTestRenderer): Promise<ReactTestRenderer> {
@@ -222,6 +225,22 @@ describe('ConnectedServicesSettingsView', () => {
         const items = screen.tree.findAllByType('Item' as any);
         expect(items.length).toBeGreaterThan(0);
         expect(screen.getTextContent()).not.toContain('connectedServices.list.empty');
+    });
+
+    it('shows the default account\'s usage as the coloured usage rings on its provider row', async () => {
+        useFeatureEnabledSpy.mockReturnValue(true);
+        const workGauge = { ringValueLabel: '81' };
+        quotaGauges.current = { 'openai-codex/work': workGauge };
+        try {
+            const { ConnectedServicesSettingsView } = await import('./ConnectedServicesSettingsView');
+            const { ProviderUsageRing } = await import('@/components/sessions/usage/ProviderUsageRing');
+            const screen = await renderScreen(React.createElement(ConnectedServicesSettingsView));
+            const row = screen.tree.findAllByType('Item' as any).find((node) => node.props?.subtitle === '1 connected');
+            expect(row?.props?.rightElement?.type).toBe(ProviderUsageRing);
+            expect(row?.props?.rightElement?.props?.gauge).toBe(workGauge);
+        } finally {
+            quotaGauges.current = {};
+        }
     });
 
     it('counts retryable refresh-failure profiles as connected on the provider summary row', async () => {
