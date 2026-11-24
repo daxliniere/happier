@@ -257,11 +257,25 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
 
     const applyKeyboardFrameFromUI = React.useCallback((frame: KeyboardFrameState) => {
         lastKeyboardEventHeightAbsoluteRef.current = frame.lastEventHeight;
+        // `onEnd` substitutes the held lift only while retention is held. If the last retention
+        // was released on JS before this settled frame arrived, the substitution is stale: use
+        // the keyboard's own settled height, or the frame would re-raise the composer the
+        // release just docked.
+        const retentionReleased = frame.settled === true && keyboardRetentionCountRef.current === 0;
+        const absoluteHeight = retentionReleased
+            ? Math.min(frame.absoluteHeight, frame.lastEventHeight)
+            : frame.absoluteHeight;
+        const insetHeight = retentionReleased
+            ? Math.min(
+                frame.insetHeight,
+                resolveKeyboardHeightWithinScaffold(absoluteHeight, staticLayoutInputsRef.current.layoutBottomInset),
+            )
+            : frame.insetHeight;
         staticLayoutInputsRef.current = {
             ...staticLayoutInputsRef.current,
             isInteractiveDismissActive: frame.interactiveDismissActive,
-            keyboardHeightAbsolute: frame.absoluteHeight,
-            keyboardHeightForInset: frame.insetHeight,
+            keyboardHeightAbsolute: absoluteHeight,
+            keyboardHeightForInset: insetHeight,
         };
         notifyKeyboardHeight(frame.liveHeight);
         // A JS recompute that ran while this frame was still queued used the keyboard state of an
