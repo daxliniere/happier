@@ -57,6 +57,9 @@ type KeyboardFrameState = Readonly<{
     interactiveDismissActive: boolean;
     lastEventHeight: number;
     liveHeight: number;
+    // Set only by `onEnd`: the keyboard has stopped where this frame says. See
+    // `applyKeyboardFrameFromUI` for why the settled frame re-runs the recompute on JS.
+    settled?: boolean;
 }>;
 
 function resolveAndroidFinalFrameKeyboardHeight(
@@ -248,6 +251,9 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     // release reads it to decide whether the keyboard is genuinely gone, and a stale read there
     // holds the composer at the retained lift for good.
     const lastKeyboardEventHeightAbsoluteRef = React.useRef(0);
+    // `recomputeStaticLayout` is declared below `applyKeyboardFrameFromUI`; the settled-frame
+    // path reaches it through this ref, assigned once the recompute exists.
+    const recomputeStaticLayoutRef = React.useRef<() => void>(() => {});
 
     const applyKeyboardFrameFromUI = React.useCallback((frame: KeyboardFrameState) => {
         lastKeyboardEventHeightAbsoluteRef.current = frame.lastEventHeight;
@@ -258,6 +264,17 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             keyboardHeightForInset: frame.insetHeight,
         };
         notifyKeyboardHeight(frame.liveHeight);
+        // A JS recompute that ran while this frame was still queued used the keyboard state of an
+        // earlier frame, and its async writes land on the UI thread AFTER the worklet settled the
+        // layout. On Android `keyboardDidHide` arrives as the hide begins, so the hide `onStart`
+        // frame (which retains the open height) can reach JS after it; a composer or scaffold
+        // measurement in that window re-seats the composer at the keyboard-raised offset over the
+        // transcript, with nothing left to correct it. Reported 2026-11-24 with several sessions
+        // streaming. Re-running the recompute when the settled frame reaches JS makes the last JS
+        // write match the settled keyboard; it re-asserts the values `onEnd` already wrote.
+        if (frame.settled) {
+            recomputeStaticLayoutRef.current();
+        }
     }, [notifyKeyboardHeight]);
 
     const recomputeStaticLayout = React.useCallback((overrides: Partial<ComposerStaticLayoutInputs> = {}) => {
@@ -321,6 +338,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         notifyListBottomInset,
         notifyAvailablePanelHeight,
     ]);
+    recomputeStaticLayoutRef.current = recomputeStaticLayout;
 
     // The settled keyboard height reported by the platform's own hide/show event. This is the
     // authority on where the keyboard ended up, so it writes the record and then runs the one
@@ -649,6 +667,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
                 interactiveDismissActive: false,
                 lastEventHeight: nextHeight,
                 liveHeight: effectiveHeight,
+                settled: true,
             });
             keyboardProgress.value = isKeyboardLiftSuppressed.value ? 0 : event.progress;
             bottomInset.value = Math.max(safeAreaBottomValue.value, effectiveHeight);
