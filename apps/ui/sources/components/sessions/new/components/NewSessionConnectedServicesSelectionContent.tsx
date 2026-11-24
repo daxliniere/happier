@@ -7,7 +7,7 @@ import { getMachineConnectedServiceAuthSupportedServiceIds } from '@/sync/ops/co
 
 import { resolveConnectedServiceDisplayName } from '@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName';
 import { ProviderUsageRing } from '@/components/sessions/usage/ProviderUsageRing';
-import { useConnectedServiceQuotaGauges } from '@/hooks/server/connectedServices/useConnectedServiceQuotaBadges';
+import { useConnectedServiceQuotaGauges } from '@/hooks/server/connectedServices/useConnectedServiceQuotaGauges';
 import { normalizeNodeForView } from '@/components/ui/rendering/normalizeNodeForView';
 import { StatusPill } from '@/components/ui/selectionList/accessories/StatusPill';
 import { SelectionList, resolvePopoverSelectionListHeightBehavior } from '@/components/ui/selectionList';

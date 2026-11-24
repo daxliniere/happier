@@ -68,7 +68,7 @@ beforeEach(() => {
   currentCredentials = stableCredentials;
 });
 
-describe('useConnectedServiceQuotaBadges', () => {
+describe('useConnectedServiceQuotaGauges fetching', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     const { __resetConnectedServiceQuotaSnapshotStore } = await import('@/sync/domains/connectedServices/connectedServiceQuotaSnapshotStore');
@@ -77,7 +77,7 @@ describe('useConnectedServiceQuotaBadges', () => {
     __resetProviderAccountUsageSnapshotCache();
   });
 
-  it('returns badges for pinned meters after snapshot fetch', async () => {
+  it('returns the usage gauge for a sealed snapshot after fetch', async () => {
     useFeatureEnabledSpy.mockReturnValue(true);
     fetchAccountEncryptionModeSpy.mockResolvedValue({ mode: 'e2ee', updatedAt: 0 });
 
@@ -123,13 +123,13 @@ describe('useConnectedServiceQuotaBadges', () => {
       metadata: { fetchedAt: snapshot.fetchedAt, staleAfterMs: snapshot.staleAfterMs, status: 'ok' },
     });
 
-    const { useConnectedServiceQuotaBadges } = await import('./useConnectedServiceQuotaBadges');
-    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaBadges([
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
+    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaGauges([
       { serviceId: 'anthropic', profileId: 'work' },
     ]));
 
     const last = seen.at(-1) ?? {};
-    expect(last['anthropic/work']?.map((b) => b.text)).toContain('18%');
+    expect(last['anthropic/work']?.remainingPct).toBe(18);
   });
 
   it('supports plaintext quotas in plaintext accounts', async () => {
@@ -168,16 +168,16 @@ describe('useConnectedServiceQuotaBadges', () => {
 
     getConnectedServiceQuotaSnapshotPlainSpy.mockResolvedValue(snapshot);
 
-    const { useConnectedServiceQuotaBadges } = await import('./useConnectedServiceQuotaBadges');
-    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaBadges([
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
+    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaGauges([
       { serviceId: 'anthropic', profileId: 'work' },
     ]));
 
     const last = seen.at(-1) ?? {};
-    expect(last['anthropic/work']?.map((b) => b.text)).toContain('18%');
+    expect(last['anthropic/work']?.remainingPct).toBe(18);
   });
 
-  it('requests visible profiles and shows a default quota summary without pinned meters', async () => {
+  it('requests visible profiles and shows the most constrained limit without pinned meters', async () => {
     useFeatureEnabledSpy.mockReturnValue(true);
     fetchAccountEncryptionModeSpy.mockResolvedValue({ mode: 'plain', updatedAt: 0 });
 
@@ -225,17 +225,17 @@ describe('useConnectedServiceQuotaBadges', () => {
     });
     getConnectedServiceQuotaSnapshotPlainSpy.mockResolvedValue(snapshot);
 
-    const { useConnectedServiceQuotaBadges } = await import('./useConnectedServiceQuotaBadges');
-    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaBadges([
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
+    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaGauges([
       { serviceId: 'anthropic', profileId: 'work' },
     ]));
 
     const last = seen.at(-1) ?? {};
     expect(getConnectedServiceQuotaSnapshotPlainSpy).toHaveBeenCalledTimes(1);
-    expect(last['anthropic/work']).toEqual([{ meterId: 'weekly', text: '8%' }]);
+    expect(last['anthropic/work']?.remainingPct).toBe(8);
   });
 
-  it('keeps pinned badge placeholders after a connected-service quota miss', async () => {
+  it('shows no usage after a connected-service quota miss', async () => {
     useFeatureEnabledSpy.mockReturnValue(true);
     fetchAccountEncryptionModeSpy.mockResolvedValue({ mode: 'e2ee', updatedAt: 0 });
 
@@ -248,10 +248,10 @@ describe('useConnectedServiceQuotaBadges', () => {
 
     getConnectedServiceQuotaSnapshotSealedSpy.mockResolvedValue(null);
 
-    const { useConnectedServiceQuotaBadges } = await import('./useConnectedServiceQuotaBadges');
-    const seen: ReturnType<typeof useConnectedServiceQuotaBadges>[] = [];
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
+    const seen: ReturnType<typeof useConnectedServiceQuotaGauges>[] = [];
     const hook = await renderHook(() => {
-      const value = useConnectedServiceQuotaBadges([
+      const value = useConnectedServiceQuotaGauges([
         { serviceId: 'anthropic', profileId: 'work' },
       ]);
       React.useEffect(() => {
@@ -264,12 +264,12 @@ describe('useConnectedServiceQuotaBadges', () => {
 
     expect(getConnectedServiceQuotaSnapshotSealedSpy).toHaveBeenCalledTimes(1);
     const last = seen.at(-1) ?? {};
-    expect(last['anthropic/work']).toEqual([{ meterId: 'weekly', text: '—' }]);
+    expect(last['anthropic/work']).toBeUndefined();
     await hook.unmount();
     await flushHookEffects({ cycles: 1, turns: 1 });
   });
 
-  it('shows usage badges for an unknown/empty credential status (fails OPEN, single predicate)', async () => {
+  it('shows usage for an unknown/empty credential status (fails OPEN, single predicate)', async () => {
     // Folded onto shouldHideQuotaForCredentialStatus: an unrecognized status is not
     // an explicit needs_reauth, so it must NOT blank the badges (fail-open for
     // display). The old fail-closed derivation suppressed these — regression guard.
@@ -297,17 +297,17 @@ describe('useConnectedServiceQuotaBadges', () => {
     });
     getConnectedServiceQuotaSnapshotPlainSpy.mockResolvedValue(snapshot);
 
-    const { useConnectedServiceQuotaBadges } = await import('./useConnectedServiceQuotaBadges');
-    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaBadges([
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
+    const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaGauges([
       { serviceId: 'anthropic', profileId: 'work', credentialHealthStatus: 'mystery-status' },
     ]));
 
     expect(getConnectedServiceQuotaSnapshotPlainSpy).toHaveBeenCalledTimes(1);
     const last = seen.at(-1) ?? {};
-    expect(last['anthropic/work']?.map((b) => b.text)).toContain('18%');
+    expect(last['anthropic/work']?.remainingPct).toBe(18);
   });
 
-  it('suppresses badges and does not poll when credential health is not usable', async () => {
+  it('shows no usage and does not poll when credential health is not usable', async () => {
     useFeatureEnabledSpy.mockReturnValue(true);
     fetchAccountEncryptionModeSpy.mockResolvedValue({ mode: 'plain', updatedAt: 0 });
 
@@ -318,15 +318,15 @@ describe('useConnectedServiceQuotaBadges', () => {
       connectedServicesDefaultProfileByServiceId: {},
     });
 
-    const { useConnectedServiceQuotaBadges } = await import('./useConnectedServiceQuotaBadges');
-    const hook = await renderHook(() => useConnectedServiceQuotaBadges([
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
+    const hook = await renderHook(() => useConnectedServiceQuotaGauges([
       { serviceId: 'anthropic', profileId: 'work', credentialHealthStatus: 'needs_reauth' },
     ]));
 
     await flushHookEffects({ cycles: 2, turns: 1 });
 
     expect(getConnectedServiceQuotaSnapshotPlainSpy).not.toHaveBeenCalled();
-    expect(hook.getCurrent()['anthropic/work']).toEqual([]);
+    expect(hook.getCurrent()['anthropic/work']).toBeUndefined();
     await hook.unmount();
   });
 });
@@ -344,7 +344,7 @@ describe('useConnectedServiceQuotaGauges', () => {
       })
     ));
 
-    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaBadges');
+    const { useConnectedServiceQuotaGauges } = await import('./useConnectedServiceQuotaGauges');
     const seen = await renderHookAndCollectValues(() => useConnectedServiceQuotaGauges([
       { serviceId: 'anthropic', profileId: 'work' },
       { serviceId: 'anthropic', profileId: 'expired', credentialHealthStatus: 'needs_reauth' },
