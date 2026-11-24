@@ -468,6 +468,12 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         expect(hook.getCurrent().bottomInset.value).toBe(34);
         // The queued settled frames must not publish their stale retained totals (137 + 267).
         expect(notifiedInsets[notifiedInsets.length - 1]).toBe(137 + 34);
+        // A subscriber arriving now must replay the corrected total, not the retained one.
+        const replayed: number[] = [];
+        hook.getCurrent().subscribeListBottomInset?.((height) => {
+            replayed.push(height);
+        });
+        expect(replayed[replayed.length - 1]).toBe(137 + 34);
 
         // A later retention while the keyboard is closed must not restore the dropped height.
         const rereleaseRetention = hook.getCurrent().retainKeyboardLift?.();
@@ -508,6 +514,8 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         flushSharedValues();
 
         expect(hook.getCurrent().bottomInset.value).toBe(267);
+        // The transcript inset must follow the lifted composer once the hide frames settle.
+        expect(hook.getCurrent().listBottomInsetAnimated.value).toBe(137 + 267);
         releaseRetention?.();
         flushSharedValues();
     });

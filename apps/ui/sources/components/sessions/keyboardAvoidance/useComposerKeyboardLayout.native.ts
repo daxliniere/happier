@@ -265,14 +265,16 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         const absoluteHeight = retentionReleased
             ? Math.min(frame.absoluteHeight, frame.lastEventHeight)
             : frame.absoluteHeight;
-        const liveHeight = retentionReleased
+        const liveHeight = frame.settled
             ? resolveKeyboardHeightWithinScaffold(absoluteHeight, staticLayoutInputsRef.current.layoutBottomInset)
             : frame.liveHeight;
-        const insetHeight = retentionReleased ? liveHeight : frame.insetHeight;
-        if (retentionReleased) {
-            // The release could not clear these: it saw the open height. Every shared value the
-            // UI thread reads for the held lift must follow the reconciled record, or a retention
-            // acquired while the keyboard is closed restores the dropped height.
+        const insetHeight = frame.settled ? liveHeight : frame.insetHeight;
+        if (frame.settled) {
+            // The settled frame is the authority on where the keyboard ended up, so the shared values
+            // the UI thread reads for the lift must follow the reconciled record. A release cannot
+            // clear them when it saw the open height, and a hide listener that cleared them on JS
+            // leaves a held lift reading zero; either way a later retention would restore the wrong
+            // height.
             keyboardHeightAbsolute.value = absoluteHeight;
             keyboardHeightLive.value = liveHeight;
             keyboardHeightForInset.value = insetHeight;
