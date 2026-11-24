@@ -8435,6 +8435,7 @@ settingsSession: {
               windowDailySubtitle: 'Préfère la fenêtre de quota quotidienne.',
               windowWeeklyTitle: 'Hebdomadaire',
               windowWeeklySubtitle: 'Préfère la fenêtre de quota hebdomadaire.',
+              spendMeterTitle: "Afficher la jauge de dépenses dans les détails d’utilisation",
               windowSessionTitle: "Fenêtre courte",
               windowSessionSubtitle: "Afficher les fenêtres courtes, comme une limite de cinq heures.",
               windowPrimaryTitle: 'Principale',

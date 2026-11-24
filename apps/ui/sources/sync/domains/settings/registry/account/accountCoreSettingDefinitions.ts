@@ -423,6 +423,12 @@ export const ACCOUNT_CORE_SETTING_DEFINITIONS = defineSettingDefinitions({
         storageScope: 'account',
         analytics: { trackCurrentState: true, trackChanges: true, valueKind: 'enum', privacy: 'safe', identityScope: 'person' },
     },
+    showProviderUsageSpendMeter: {
+        schema: z.boolean(),
+        default: true,
+        description: 'Show provider credit and spend meters in usage popups',
+        storageScope: 'account',
+    },
     sessionProviderUsageGaugeWindowMode: {
         schema: z.enum(QUOTA_GAUGE_WINDOW_MODES),
         default: 'most_constrained',

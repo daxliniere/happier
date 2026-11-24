@@ -9162,6 +9162,7 @@ settingsSession: {
         windowDailySubtitle: "日次クォータ期間を優先します。",
         windowWeeklyTitle: "週次",
         windowWeeklySubtitle: "週次クォータ期間を優先します。",
+        spendMeterTitle: "使用状況のポップアップに支出メーターを表示",
         windowSessionTitle: "短い期間",
         windowSessionSubtitle: "5時間の上限など、短い期間の使用制限を表示します。",
         windowPrimaryTitle: "プライマリ",

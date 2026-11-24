@@ -8674,6 +8674,7 @@ settingsSession: {
       windowDailySubtitle: "优先使用每日配额窗口。",
       windowWeeklyTitle: "每周",
       windowWeeklySubtitle: "优先使用每周配额窗口。",
+      spendMeterTitle: "在用量弹窗中显示支出计量条",
       windowSessionTitle: "短期窗口",
       windowSessionSubtitle: "显示短期配额窗口，例如五小时限额。",
       windowPrimaryTitle: "主要",

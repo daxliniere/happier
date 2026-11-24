@@ -8448,6 +8448,7 @@ settingsSession: {
               windowDailySubtitle: 'Das tägliche Kontingentfenster bevorzugen.',
               windowWeeklyTitle: 'Wöchentlich',
               windowWeeklySubtitle: 'Das wöchentliche Kontingentfenster bevorzugen.',
+              spendMeterTitle: "Ausgabenanzeige in Nutzungsdetails anzeigen",
               windowSessionTitle: "Kurzes Zeitfenster",
               windowSessionSubtitle: "Kurze Kontingentfenster anzeigen, zum Beispiel fünf Stunden.",
               windowPrimaryTitle: 'Primär',

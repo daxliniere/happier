@@ -11,6 +11,7 @@ import { ProviderUsageDetails } from './ProviderUsageDetails';
 import { ActivitySpinner } from '@/components/ui/feedback/ActivitySpinner';
 import { StyleSheet } from 'react-native';
 import { lightTheme } from '@/theme';
+import { getStorage } from '@/sync/domains/state/storageStore';
 
 const auth = vi.hoisted(() => ({ credentials: { token: 'test', secret: 'test' } }));
 vi.mock('@/auth/context/AuthContext', () => ({ useAuth: () => auth }));
@@ -27,8 +28,12 @@ function gauge(profileId: string, used = 30) {
     const result = computeConnectedServiceQuotaGaugeViewModel({
         snapshot: { v: 1, serviceId: 'openai-codex', profileId, fetchedAt: 1_000, staleAfterMs: 60_000,
             planLabel: null, accountLabel: null,
-            meters: [{ meterId: 'weekly', label: 'Weekly', used, limit: 100, unit: 'count',
-                utilizationPct: null, resetsAt: null, status: 'ok', details: {} }] },
+            meters: [
+                { meterId: 'weekly', label: 'Weekly', used, limit: 100, unit: 'count',
+                    utilizationPct: null, resetsAt: null, status: 'ok', details: {} },
+                { meterId: 'extra_usage', label: 'Spend', used: 0, limit: 100, unit: 'credits',
+                    utilizationPct: null, resetsAt: null, status: 'ok', details: {} },
+            ] },
         windowMode: 'most_constrained', nowMs: 1_000, formatter: connectedServiceQuotaGaugeFormatter,
     });
     if (!result) throw new Error('Expected usage');
@@ -57,6 +62,21 @@ describe('usage refresh indicator', () => {
         expect(exhausted.colours.every((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(true);
         const partlyUsed = await textColours(30)();
         expect(partlyUsed.colours.some((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(false);
+    });
+
+    it('hides the spend row when requested and keeps the included allowance visible', async () => {
+        const store = getStorage();
+        const originalSettings = store.getState().settings;
+        const screen = await renderScreen(<ProviderUsageDetails viewModel={gauge('work')} />);
+        try {
+            expect(screen.findByTestId('agent-input-provider-usage-meter:extra_usage')).toBeTruthy();
+            await act(async () => store.setState({ settings: { ...originalSettings, showProviderUsageSpendMeter: false } }));
+            expect(screen.findByTestId('agent-input-provider-usage-meter:extra_usage')).toBeNull();
+            expect(screen.findByTestId('agent-input-provider-usage-meter:weekly')).toBeTruthy();
+        } finally {
+            await screen.unmount();
+            store.setState({ settings: originalSettings });
+        }
     });
 
     it('keeps a partly used quota as a remaining-first bar', async () => {

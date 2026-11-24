@@ -9025,6 +9025,7 @@ settingsSession: {
         windowDailySubtitle: "Prefere a janela de cota diária.",
         windowWeeklyTitle: "Semanal",
         windowWeeklySubtitle: "Prefere a janela de cota semanal.",
+        spendMeterTitle: "Mostrar o medidor de gastos nos detalhes de utilização",
         windowSessionTitle: "Janela curta",
         windowSessionSubtitle: "Mostrar janelas curtas de cota, como um limite de cinco horas.",
         windowPrimaryTitle: "Primária",

@@ -8452,6 +8452,7 @@ settingsSession: {
               windowDailySubtitle: 'Prefereix la finestra de quota diària.',
               windowWeeklyTitle: 'Setmanal',
               windowWeeklySubtitle: 'Prefereix la finestra de quota setmanal.',
+              spendMeterTitle: "Mostra el mesurador de despesa a les finestres d’ús",
               windowSessionTitle: "Finestra curta",
               windowSessionSubtitle: "Mostra finestres curtes de quota, com un límit de cinc hores.",
               windowPrimaryTitle: 'Primària',
