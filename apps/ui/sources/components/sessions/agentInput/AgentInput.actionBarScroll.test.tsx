@@ -394,6 +394,16 @@ describe('AgentInput (action bar scroll layout)', () => {
             expect(tree!.root.findByType(DeferredAnchoredTooltip).props.label).toBe(label);
             act(() => anchor?.props.onMouseLeave());
             expect(tree!.root.findAllByType(DeferredAnchoredTooltip)).toHaveLength(0);
+
+            act(() => anchor?.props.onFocus?.({ target: { matches: () => true } }));
+            expect(tree!.root.findByType(DeferredAnchoredTooltip).props.label).toBe(label);
+            act(() => anchor?.props.onBlur());
+            expect(tree!.root.findAllByType(DeferredAnchoredTooltip)).toHaveLength(0);
+
+            act(() => anchor?.props.onMouseEnter());
+            act(() => anchor?.props.onMouseDown());
+            act(() => anchor?.props.onFocus({ target: { matches: () => false } }));
+            expect(tree!.root.findAllByType(DeferredAnchoredTooltip)).toHaveLength(0);
         }
 
         act(() => tree!.unmount());

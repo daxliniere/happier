@@ -40,27 +40,34 @@ function resolveChipTooltipLabel(controlId: AgentInputControlId): string | null 
 
 function AgentInputChipTooltipWeb(props: Readonly<{ label: string; children: React.ReactNode }>) {
     const anchorRef = React.useRef<View>(null);
-    const [hovered, setHovered] = React.useState(false);
-    // Web-only mouse props are not part of the native View type.
+    const [activation, setActivation] = React.useState<'hover' | 'focus' | null>(null);
+    // React Native Web forwards these events from the chip to its anchor View.
     const webProps = {
-        onMouseEnter: () => setHovered(true),
-        onMouseLeave: () => setHovered(false),
+        onMouseEnter: () => setActivation((current) => current ?? 'hover'),
+        onMouseLeave: () => setActivation((current) => current === 'hover' ? null : current),
+        onFocus: (event: React.FocusEvent<HTMLElement>) => {
+            if (event.target.matches(':focus-visible')) setActivation('focus');
+        },
+        onBlur: () => setActivation(null),
         // Opening a picker should not leave the tooltip sitting on top of it.
-        onMouseDown: () => setHovered(false),
+        onMouseDown: () => setActivation(null),
+        onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+            if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') setActivation(null);
+        },
     } as Record<string, unknown>;
     return (
         <>
             <View ref={anchorRef} style={{ minWidth: 0, maxWidth: '100%' }} {...webProps}>
                 {props.children}
             </View>
-            {hovered ? (
+            {activation ? (
                 <DeferredAnchoredTooltip activationKey="chip" anchorRef={anchorRef} label={props.label} placement="top" />
             ) : null}
         </>
     );
 }
 
-/** Hover tooltip for a composer chip on web; renders the chip untouched everywhere else. */
+/** Tooltip on hover or keyboard focus for a composer chip on web. */
 export function AgentInputChipTooltip(props: Readonly<{ controlId: AgentInputControlId; children: React.ReactNode }>) {
     if (Platform.OS !== 'web') return <>{props.children}</>;
     const label = resolveChipTooltipLabel(props.controlId);
