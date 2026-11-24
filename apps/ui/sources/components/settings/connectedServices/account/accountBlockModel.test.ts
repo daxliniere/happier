@@ -26,7 +26,7 @@ function meterRow(overrides: Partial<ConnectedServiceQuotaGaugeMeterRow>): Conne
         resetLabel: null,
         tone: 'neutral',
         ...overrides,
-        isCreditMeter: overrides.isCreditMeter ?? false,
+        isSpendMeter: overrides.isSpendMeter ?? false,
     };
 }
 

@@ -46,7 +46,7 @@ export type ConnectedServiceQuotaGaugeRing = Readonly<{
 export type ConnectedServiceQuotaGaugeMeterRow = Readonly<{
     meterId: string;
     label: string;
-    isCreditMeter: boolean;
+    isSpendMeter: boolean;
     remainingPct: number | null;
     usedPct: number | null;
     detailRightSemantics: 'remaining';
@@ -387,7 +387,10 @@ function buildMeterRow(
     return {
         meterId: meter.meterId,
         label: meter.label,
-        isCreditMeter: isConnectedServiceQuotaCreditMeter(meter),
+        // Claude can report its spend cap separately from pay-as-you-go credit balances.
+        isSpendMeter: isConnectedServiceQuotaCreditMeter(meter)
+            || meter.providerLimitId === 'spend_cap'
+            || meter.meterId === 'spend',
         remainingPct,
         usedPct,
         detailRightSemantics: 'remaining',
