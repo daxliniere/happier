@@ -4260,6 +4260,7 @@ export const pt: TranslationStructure = {
     selectProvider: "Escolha um provedor",
     showAll: "Mostrar todos os modelos",
     hideOutdated: "Ocultar desatualizados",
+    refreshFailed: "A última atualização falhou. Mostrando os últimos modelos conhecidos.",
     hideById: "Ocultar um modelo pelo ID",
     exactId: "Digite o ID exato do modelo usado por este provedor.",
     empty: "Não há modelos para exibir.",

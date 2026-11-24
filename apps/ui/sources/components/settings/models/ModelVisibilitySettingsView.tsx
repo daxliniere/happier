@@ -27,9 +27,11 @@ import { Modal } from '@/modal';
 import {
     buildModelVisibilityRows,
     collectObservedModelOptionsForProvider,
+    groupModelVisibilityRows,
     selectOutdatedModelIds,
     setModelHidden,
     type HiddenModelSelectionV1,
+    type ModelVisibilityGroup,
 } from '@/sync/domains/models/modelVisibility';
 import { getActiveServerSnapshot } from '@/sync/domains/server/serverRuntime';
 import { readNonBlankSessionControlIdentifier } from '@/sync/domains/sessionControl/opaqueIdentifiers';
@@ -45,10 +47,8 @@ const EMPTY_MODELS = Object.freeze([]);
 const EMPTY_SESSIONS = Object.freeze([]);
 const EMPTY_CONTEXTS: readonly Readonly<{ contextKey: string; context: NewSessionCapabilityProbeContext | null }>[] = Object.freeze([]);
 
-type VisibilityRow = ReturnType<typeof buildModelVisibilityRows>[number];
-
-function modelRowKey(row: VisibilityRow) {
-    return row.modelId;
+function modelRowKey(group: ModelVisibilityGroup) {
+    return group.modelIds[0] ?? group.modelLabel;
 }
 
 /**
@@ -159,37 +159,47 @@ export function ModelVisibilitySettingsView() {
     }, [contextModels, hiddenModels, modelOptions, observedModels, provider, providerKey]);
     const outdatedModelIds = React.useMemo(() => selectOutdatedModelIds(allRows.map((row) => ({ value: row.modelId })))
         .filter((modelId) => allRows.some((row) => row.modelId === modelId && !row.hidden)), [allRows]);
+    const groups = React.useMemo(() => groupModelVisibilityRows(allRows), [allRows]);
+    const outdatedGroups = React.useMemo(
+        () => groups.filter((group) => group.modelIds.some((modelId) => outdatedModelIds.includes(modelId))),
+        [groups, outdatedModelIds],
+    );
     const rows = React.useMemo(() => {
         const search = query.trim().toLowerCase();
-        if (!search) return allRows;
-        return allRows.filter(({ modelId, modelLabel }) => modelId.toLowerCase().includes(search) || modelLabel.toLowerCase().includes(search));
-    }, [allRows, query]);
+        if (!search) return groups;
+        return groups.filter(({ modelIds, modelLabel }) => modelLabel.toLowerCase().includes(search)
+            || modelIds.some((modelId) => modelId.toLowerCase().includes(search)));
+    }, [groups, query]);
 
-    const changeVisibility = React.useCallback((model: Pick<HiddenModelSelectionV1, 'modelId' | 'modelLabel'>, hidden: boolean) => {
-        const current = getStorage().getState().settings.hiddenModelSelectionsV1;
-        updateHiddenModels(setModelHidden(current, { ...model, backendTargetKey: providerKey, backendLabel: providerLabel }, hidden));
+    const changeVisibility = React.useCallback((models: readonly Pick<HiddenModelSelectionV1, 'modelId' | 'modelLabel'>[], hidden: boolean) => {
+        let current = getStorage().getState().settings.hiddenModelSelectionsV1;
+        for (const model of models) {
+            current = setModelHidden(current, { ...model, backendTargetKey: providerKey, backendLabel: providerLabel }, hidden);
+        }
+        updateHiddenModels(current);
     }, [providerKey, providerLabel, updateHiddenModels]);
 
     const hideOutdated = React.useCallback(() => {
-        let current = getStorage().getState().settings.hiddenModelSelectionsV1;
-        for (const row of allRows) {
-            if (!outdatedModelIds.includes(row.modelId)) continue;
-            current = setModelHidden(current, { backendTargetKey: providerKey, backendLabel: providerLabel, modelId: row.modelId, modelLabel: row.modelLabel }, true);
-        }
-        updateHiddenModels(current);
-    }, [allRows, outdatedModelIds, providerKey, providerLabel, updateHiddenModels]);
+        changeVisibility(
+            outdatedGroups.flatMap((group) => group.modelIds.map((modelId) => ({ modelId, modelLabel: group.modelLabel }))),
+            true,
+        );
+    }, [changeVisibility, outdatedGroups]);
 
-    const renderRow = React.useCallback(({ item }: { item: VisibilityRow }) => (
+    const renderRow = React.useCallback(({ item }: { item: ModelVisibilityGroup }) => (
         <Item
             title={item.modelLabel}
-            subtitle={item.modelLabel === item.modelId ? undefined : item.modelId}
+            subtitle={item.modelIds.length === 1 && item.modelIds[0] === item.modelLabel ? undefined : item.modelIds.join(', ')}
             showChevron={false}
             rightElement={(
                 <Switch
-                    testID={`model-visibility-switch:${item.modelId}`}
+                    testID={`model-visibility-switch:${item.modelIds[0]}`}
                     accessibilityLabel={t('modelVisibility.showModel', { model: item.modelLabel })}
                     value={!item.hidden}
-                    onValueChange={(visible) => changeVisibility({ modelId: item.modelId, modelLabel: item.modelLabel }, !visible)}
+                    onValueChange={(visible) => changeVisibility(
+                        item.modelIds.map((modelId) => ({ modelId, modelLabel: item.modelLabel })),
+                        !visible,
+                    )}
                 />
             )}
         />
@@ -269,7 +279,7 @@ export function ModelVisibilitySettingsView() {
                                 <Item
                                     testID="model-visibility-refresh"
                                     title={t('modelPickerOverlay.refreshModelsA11y')}
-                                    subtitle={probe.phase === 'idle' ? (probe.error ? t('errors.unknownError') : undefined) : t(
+                                    subtitle={probe.phase === 'idle' ? (probe.error ? t('modelVisibility.refreshFailed') : undefined) : t(
                                         probe.phase === 'loading' ? 'modelPickerOverlay.loadingModelsA11y' : 'modelPickerOverlay.refreshingModelsA11y',
                                     )}
                                     onPress={probe.onRefresh}
@@ -286,7 +296,7 @@ export function ModelVisibilitySettingsView() {
                                         const modelId = readNonBlankSessionControlIdentifier(raw);
                                         if (modelId && modelId !== 'default') {
                                             const model = modelOptions.find((option) => option.value === modelId);
-                                            changeVisibility({ modelId, modelLabel: model?.label }, true);
+                                            changeVisibility([{ modelId, modelLabel: model?.label }], true);
                                             setQuery('');
                                         }
                                     })(), { tag: 'ModelVisibilitySettingsView.hideById' })}
@@ -296,7 +306,7 @@ export function ModelVisibilitySettingsView() {
                             <Item
                                 testID="model-visibility-hide-outdated"
                                 title={t('modelVisibility.hideOutdated')}
-                                disabled={outdatedModelIds.length === 0}
+                                disabled={outdatedGroups.length === 0}
                                 onPress={hideOutdated}
                                 showChevron={false}
                             />

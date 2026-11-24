@@ -3854,6 +3854,7 @@ export const fr: TranslationStructure = {
         selectProvider: "Choisir un fournisseur",
         showAll: "Afficher tous les modèles",
         hideOutdated: "Masquer les anciens",
+        refreshFailed: "La dernière actualisation a échoué. Affichage des derniers modèles connus.",
         hideById: "Masquer un modèle par ID",
         exactId: "Saisissez l’identifiant exact du modèle utilisé par ce fournisseur.",
         empty: "Aucun modèle à afficher.",

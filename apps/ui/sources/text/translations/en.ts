@@ -3855,6 +3855,7 @@ export const en = {
         selectProvider: "Choose a provider",
         showAll: "Show all models",
         hideOutdated: "Hide outdated",
+        refreshFailed: "Last refresh failed. Showing the last known models.",
         hideById: "Hide a model by ID",
         exactId: "Enter the exact model ID used by this provider.",
         empty: "No models to show.",

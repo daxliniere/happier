@@ -129,3 +129,39 @@ export function selectOutdatedModelIds(models: readonly Readonly<{ value: string
         .filter((entry) => compareVersions(entry.version, newestByFamily.get(entry.family) ?? entry.version) < 0)
         .map((entry) => entry.id);
 }
+
+export type ModelVisibilityGroup = Readonly<{
+    modelLabel: string;
+    modelIds: readonly string[];
+    /** True only when every id in the group is hidden. */
+    hidden: boolean;
+}>;
+
+function areRelatedModelIds(left: string, right: string): boolean {
+    return left.includes(right) || right.includes(left);
+}
+
+/**
+ * One row per model rather than per id. A provider can list the same model as a floating alias
+ * (`haiku`), a full id (`claude-haiku-5-5`) and a pinned snapshot (`claude-haiku-4-5-20251001`).
+ * Ids are grouped only when they share a label and one id contains the other, so two unrelated
+ * models that happen to share a display name (`openai/gpt-5` and `azure/gpt-5`) stay separate.
+ * The rule uses only what the provider reports, so it covers models that do not exist yet.
+ */
+export function groupModelVisibilityRows(
+    rows: readonly Readonly<{ modelId: string; modelLabel: string; hidden: boolean }>[],
+): readonly ModelVisibilityGroup[] {
+    const groups: { modelLabel: string; labelKey: string; rows: Readonly<{ modelId: string; hidden: boolean }>[] }[] = [];
+    for (const row of rows) {
+        const labelKey = row.modelLabel.trim().toLowerCase();
+        const group = groups.find((candidate) => candidate.labelKey === labelKey
+            && candidate.rows.some((member) => areRelatedModelIds(member.modelId, row.modelId)));
+        if (group) group.rows.push(row);
+        else groups.push({ modelLabel: row.modelLabel, labelKey, rows: [row] });
+    }
+    return groups.map((group) => ({
+        modelLabel: group.modelLabel,
+        modelIds: group.rows.map((member) => member.modelId),
+        hidden: group.rows.every((member) => member.hidden),
+    }));
+}

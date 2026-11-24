@@ -3941,6 +3941,7 @@ export const ca: TranslationStructure = {
         selectProvider: "Tria un proveïdor",
         showAll: "Mostra tots els models",
         hideOutdated: "Amaga els obsolets",
+        refreshFailed: "L'última actualització ha fallat. Es mostren els últims models coneguts.",
         hideById: "Amaga un model per ID",
         exactId: "Introdueix l’ID exacte del model que fa servir aquest proveïdor.",
         empty: "No hi ha models per mostrar.",

@@ -5,11 +5,30 @@ import {
     collectObservedModelOptionsForProvider,
     filterVisibleModelOptions,
     getHiddenModelIds,
+    groupModelVisibilityRows,
     selectOutdatedModelIds,
     setModelHidden,
 } from './modelVisibility';
 
 describe('model visibility', () => {
+    it('groups one model listed under related ids but never merges unrelated ids that share a label', () => {
+        const row = (modelId: string, modelLabel: string, hidden = false) => ({ modelId, modelLabel, hidden });
+        const groups = groupModelVisibilityRows([
+            row('claude-opus-5-5', 'Opus 5.5'),
+            row('claude-haiku-4-5', 'Haiku 4.5', true),
+            row('opus', 'Opus 5.5', true),
+            row('claude-haiku-4-5-20251001', 'Haiku 4.5', true),
+            row('openai/gpt-5', 'GPT-5'),
+            row('azure/gpt-5', 'GPT-5'),
+        ]);
+        expect(groups.map((group) => ({ label: group.modelLabel, ids: group.modelIds, hidden: group.hidden }))).toEqual([
+            { label: 'Opus 5.5', ids: ['claude-opus-5-5', 'opus'], hidden: false },
+            { label: 'Haiku 4.5', ids: ['claude-haiku-4-5', 'claude-haiku-4-5-20251001'], hidden: true },
+            { label: 'GPT-5', ids: ['openai/gpt-5'], hidden: false },
+            { label: 'GPT-5', ids: ['azure/gpt-5'], hidden: false },
+        ]);
+    });
+
     it('hides every older version of a model family and keeps the newest', () => {
         const models = [
             { value: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
