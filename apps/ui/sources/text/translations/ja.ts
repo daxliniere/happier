@@ -4187,6 +4187,8 @@ localTailscale: {
     },
     soundEffects: {
       title: "効果音",
+      volumeTitle: "音量",
+      none: "（なし）",
       footer: "このデバイスのみ。Android ではおやすみモード中、または着信音がサイレントかバイブのときは鳴りません。iOS では着信/サイレントスイッチで消音されます。",
       enabledTitle: "サウンド",
       enabledSubtitle: "セッションの状態が変わったときに音を鳴らす",
