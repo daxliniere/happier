@@ -645,6 +645,43 @@ describe('useComposerKeyboardLayout native (guest-runtime shared-value write lag
         flushSharedValues();
     });
 
+    // CodeRabbit (25a49de): two overlapping retentions. Releasing one must not advance the epoch,
+    // or a settled frame captured under both is treated as released while a retention is still held.
+    it('keeps a held lift when one of two overlapping retentions is released before a settled frame drains', async () => {
+        const { useComposerKeyboardLayout } = await import('./useComposerKeyboardLayout.native');
+        const hook = await renderHook(() => useComposerKeyboardLayout({ safeAreaBottom: 34 }));
+
+        act(() => {
+            hook.getCurrent().setComposerMeasuredHeight(137);
+        });
+        act(() => {
+            lagState.keyboardHandlers?.onEnd?.({ height: 267, progress: 1 });
+            lagState.keyboardListeners.get('keyboardDidShow')?.({ endCoordinates: { height: 267 } });
+        });
+        flushSharedValues();
+        const releaseFirst = hook.getCurrent().retainKeyboardLift?.();
+        const releaseSecond = hook.getCurrent().retainKeyboardLift?.();
+        flushSharedValues();
+
+        lagState.deferRunOnJS = true;
+        act(() => {
+            lagState.keyboardHandlers?.onStart?.({ height: 0, progress: 0 });
+            lagState.keyboardHandlers?.onEnd?.({ height: 0, progress: 0 });
+        });
+        flushSharedValues();
+
+        act(() => {
+            lagState.keyboardListeners.get('keyboardDidHide')?.();
+            releaseFirst?.();
+            drainRunOnJS();
+        });
+        flushSharedValues();
+
+        expect(hook.getCurrent().bottomInset.value).toBe(267);
+        releaseSecond?.();
+        flushSharedValues();
+    });
+
     // DELETED 2026-08-09: 'notifies the docked transcript inset when an interactive dismiss
     // settles before its writes synchronize'. It claimed to pin the mirror shape (transcript
     // keeps the keyboard-sized gap while the composer docks) and pinned nothing of the kind,

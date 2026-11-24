@@ -809,10 +809,13 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         return () => {
             if (released) return;
             released = true;
-            retentionEpochRef.current += 1;
-            retentionEpochValue.value = retentionEpochRef.current;
             keyboardRetentionCountRef.current = Math.max(0, keyboardRetentionCountRef.current - 1);
             isKeyboardLiftRetained.value = keyboardRetentionCountRef.current > 0;
+            if (keyboardRetentionCountRef.current === 0) {
+                // Only a full release ends the held lift; an overlapping retention keeps its frames current.
+                retentionEpochRef.current += 1;
+                retentionEpochValue.value = retentionEpochRef.current;
+            }
             const shouldReleaseKeyboardLift = keyboardRetentionCountRef.current === 0
                 && lastKeyboardEventHeightAbsoluteRef.current === 0;
             if (shouldReleaseKeyboardLift) {
