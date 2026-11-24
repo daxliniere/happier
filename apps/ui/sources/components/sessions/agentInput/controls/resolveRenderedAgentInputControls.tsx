@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import type { AgentInputControlId } from './agentInputControlTypes';
+import { AgentInputChipTooltip } from '../components/AgentInputChipTooltip';
 import { resolveAgentInputControlLines } from './resolveAgentInputControlLines';
 
 type ControlNodesById = Partial<Record<AgentInputControlId, ReadonlyArray<React.ReactNode>>>;
@@ -29,7 +30,9 @@ export function resolveRenderedAgentInputControls(params: Readonly<{
     });
 
     const resolveControlNodes = (ids: readonly AgentInputControlId[]) =>
-        ids.flatMap((controlId) => controlNodesById[controlId] ?? []);
+        ids.flatMap((controlId) => (controlNodesById[controlId] ?? []).map((node, index) => (
+            <AgentInputChipTooltip key={`${controlId}:${index}`} controlId={controlId}>{node}</AgentInputChipTooltip>
+        )));
 
     const secondaryLeadingControls = resolveControlNodes(
         controlLines.secondary.filter((controlId) => controlId !== 'path' && controlId !== 'resume'),

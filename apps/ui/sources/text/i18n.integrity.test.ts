@@ -19,6 +19,13 @@ import {
 } from '../../tools/i18n/translationAudit';
 
 const IGNORED_UNTRANSLATED_KEYS = new Set([
+    // Composer chip tooltips: words that are legitimately identical across several locales.
+    'agentInput.chipTooltips.checkout',
+    'agentInput.chipTooltips.machine',
+    'agentInput.chipTooltips.engine',
+    'agentInput.chipTooltips.mode',
+    'agentInput.chipTooltips.server',
+    'agentInput.chipTooltips.connectedServices',
     'promptLibrary.supportingFilePathPlaceholder',
     'files.sourceControlOperations.update.remotes.namePlaceholder',
     'settingsSession.handoff.includeIgnoredMode.globsPlaceholder',

@@ -8,10 +8,12 @@ import { useScrollEdgeFades } from '@/components/ui/scroll/useScrollEdgeFades';
 import { attachActionBarMouseDragScroll } from './attachActionBarMouseDragScroll';
 
 const ACTION_BAR_SCROLL_END_GUTTER_WIDTH = 24;
+// Solid, click-absorbing strip under the right scroll caret so chips scrolled beneath it stay clear and unclickable.
+const ACTION_BAR_SCROLL_RIGHT_BLOCKER_WIDTH = 32;
 
 const ScrollViewWithWheel = ScrollView as unknown as React.ComponentType<
     React.ComponentPropsWithRef<typeof ScrollView> & {
-        onWheel?: any;
+        onWheel?: React.WheelEventHandler;
     }
 >;
 
@@ -153,6 +155,17 @@ export function AgentInputScrollableChipRow(props: AgentInputScrollableChipRowPr
         };
     }, [getScrollNode, reportWebScroll]);
 
+    const handleWheel = React.useCallback<React.WheelEventHandler>((event) => {
+        if (Platform.OS !== 'web') return;
+        const node = getScrollNode();
+        if (!node) return;
+        const { deltaX, deltaY } = event;
+        const delta = Math.abs(deltaY) >= Math.abs(deltaX) ? deltaY : deltaX;
+        if (!delta) return;
+        node.scrollLeft += delta;
+        reportWebScroll(node);
+    }, [getScrollNode, reportWebScroll]);
+
     const canScroll = fades.canScrollX;
     const showFadeLeft = canScroll && fades.visibility.left;
     const showFadeRight = canScroll && fades.visibility.right;
@@ -167,19 +180,7 @@ export function AgentInputScrollableChipRow(props: AgentInputScrollableChipRowPr
                 alwaysBounceHorizontal={false}
                 directionalLockEnabled
                 keyboardShouldPersistTaps="handled"
-                onWheel={(event: any) => {
-                    if (Platform.OS !== 'web') return;
-                    const node = getScrollNode() as any;
-                    if (!node) return;
-                    const nativeEvent = event?.nativeEvent ?? event;
-                    const deltaX = typeof nativeEvent?.deltaX === 'number' ? nativeEvent.deltaX : 0;
-                    const deltaY = typeof nativeEvent?.deltaY === 'number' ? nativeEvent.deltaY : 0;
-                    const delta = Math.abs(deltaY) >= Math.abs(deltaX) ? deltaY : deltaX;
-                    if (!delta) return;
-                    const before = node.scrollLeft ?? 0;
-                    node.scrollLeft = before + delta;
-                    reportWebScroll(node);
-                }}
+                onWheel={handleWheel}
                 onLayout={fades.onViewportLayout}
                 onContentSizeChange={(width: number, height: number) => {
                     fades.onContentSizeChange(
@@ -215,6 +216,14 @@ export function AgentInputScrollableChipRow(props: AgentInputScrollableChipRowPr
                     {props.children}
                 </View>
             </ScrollViewWithWheel>
+            {showFadeRight ? (
+                <View
+                    testID="agent-input-scroll-right-blocker"
+                    // Absorbs clicks, but wheel input over the strip must still scroll the row.
+                    {...(Platform.OS === 'web' ? { onWheel: handleWheel } : {})}
+                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: ACTION_BAR_SCROLL_RIGHT_BLOCKER_WIDTH, zIndex: 1 }}
+                />
+            ) : null}
             <ScrollEdgeFades
                 color={props.fadeColor}
                 size={24}
