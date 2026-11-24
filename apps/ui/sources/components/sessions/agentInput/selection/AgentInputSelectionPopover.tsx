@@ -12,6 +12,7 @@ export type AgentInputSelectionPopoverProps = Readonly<{
     maxHeightCap?: number;
     maxWidthCap?: number;
     placement?: 'top' | 'bottom';
+    closeOnOutsideScroll?: boolean;
     outsidePointerEventsMode?: PopoverOutsidePointerEventsMode;
     children: (args: Readonly<{ maxHeight: number }>) => React.ReactNode;
 }>;
@@ -44,6 +45,7 @@ export function AgentInputSelectionPopover(props: AgentInputSelectionPopoverProp
             maxWidthCap={props.maxWidthCap}
             edgePadding={popoverLayout.edgePadding}
             closeOnAnchorPress={false}
+            closeOnOutsideScroll={props.closeOnOutsideScroll}
             // IMPORTANT:
             // Do not force portaling to `document.body`. In Expo Router web modals, Radix focus/pointer
             // management will block interaction with inputs rendered outside the modal subtree.

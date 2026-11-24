@@ -21,6 +21,7 @@ export type AgentInputChipPickerPopoverProps = Readonly<{
     detailPaneHeaderAccessory?: React.ReactNode;
     maxHeightCap?: number;
     maxWidthCap?: number;
+    closeOnOutsideScroll?: boolean;
     outsidePointerEventsMode?: PopoverOutsidePointerEventsMode;
 }>;
 
@@ -32,6 +33,7 @@ export function AgentInputChipPickerPopover(props: AgentInputChipPickerPopoverPr
             boundaryRef={props.boundaryRef}
             maxHeightCap={props.maxHeightCap ?? 420}
             maxWidthCap={props.maxWidthCap ?? 720}
+            closeOnOutsideScroll={props.closeOnOutsideScroll}
             outsidePointerEventsMode={props.outsidePointerEventsMode}
             onRequestClose={props.onRequestClose}
         >

@@ -157,7 +157,13 @@ test.describe('UI e2e: armed Agent composer alignment', () => {
       await expect(page.getByTestId('model-picker-overlay-option:claude-fixture-work')).toContainText('Fixture Claude Work', { timeout: scenarioTimeoutMs });
       expect(providerHttp.requests().some((request) => request.path.startsWith('/v1/models'))).toBe(true);
       await page.getByTestId('model-picker-overlay-option:claude-fixture-work').click();
-      await page.keyboard.press('Escape');
+      const picker = page.getByTestId('agent-input-chip-picker-popover');
+      await expect(picker).toBeVisible();
+      // The transcript can scroll to keep the latest message in view while the composer changes.
+      await page.getByTestId('agent-content-scroll-region').dispatchEvent('scroll');
+      await expect(picker).toBeVisible();
+      await picker.getByTestId('agent-input-chip-picker.done').click();
+      await expect(picker).toBeHidden();
       await expect(page.getByTestId('agent-input-agent-chip')).toContainText('Fixture Claude Work');
       await expect(authChip).toHaveAttribute('data-auth-source', 'connected');
       await expect(authChip).toContainText('Work');
