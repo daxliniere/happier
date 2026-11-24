@@ -8597,6 +8597,8 @@ settingsSession: {
 	        title: 'Список сессий',
 	        footer: 'Настройте, что показывается в каждой строке сессии.',
 	        tagsTitle: 'Теги сессии',
+	        directDeleteTitle: 'Удаление в меню сеанса',
+	        directDeleteSubtitle: 'Показывать удаление в меню сеанса. Всегда требуется подтверждение.',
 	        tagsEnabledSubtitle: 'Управление тегами отображается в списке',
 	        tagsDisabledSubtitle: 'Управление тегами скрыто',
          agentActivityCountTitle: 'Счётчик агентов в строках',

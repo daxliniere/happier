@@ -38,6 +38,7 @@ export function listVisibleSessionActionIds(params: Readonly<{
      * Read by menus only while open; the colour action's whole gate is decided here.
      */
     sessionAppearancesSupported?: boolean;
+    directDeleteEnabled?: boolean;
 }>): SessionActionId[] {
     const { target, surface } = params;
     const ids: SessionActionId[] = [];
@@ -85,7 +86,11 @@ export function listVisibleSessionActionIds(params: Readonly<{
         ids.push(SESSION_ACTION_UNARCHIVE_ID);
     }
 
-    if (surface !== 'selectionActionBar' && (target.canDelete || target.canStopAndDelete)) {
+    const canShowDelete = target.canDelete || target.canStopAndDelete;
+    const directDeleteAllowed = surface === 'rowMenu' || surface === 'nativeContextMenu'
+        ? params.directDeleteEnabled === true && target.isOwnedByCurrentUser
+        : true;
+    if (surface !== 'selectionActionBar' && canShowDelete && directDeleteAllowed) {
         ids.push(SESSION_ACTION_DELETE_ID);
     }
 

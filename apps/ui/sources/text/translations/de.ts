@@ -8166,6 +8166,8 @@ settingsSession: {
 	              title: 'Session-Liste',
 	              footer: 'Aussehen und Verhalten der Session-Liste in der Seitenleiste.',
 	              tagsTitle: 'Session-Tags',
+	              directDeleteTitle: 'Löschen im Sitzungsmenü',
+	              directDeleteSubtitle: 'Löschen im Sitzungsmenü anzeigen. Eine Bestätigung ist immer erforderlich.',
 	              tagsEnabledSubtitle: 'Tag-Steuerung in der Session-Liste sichtbar',
 	              tagsDisabledSubtitle: 'Tag-Steuerung ausgeblendet',
                agentActivityCountTitle: 'Agent-Anzahl in Zeilen',

@@ -8950,6 +8950,8 @@ settingsSession: {
 	          title: 'Elenco sessioni',
 	          footer: 'Personalizza cosa appare in ogni riga della sessione.',
 	          tagsTitle: 'Tag della sessione',
+	          directDeleteTitle: 'Elimina nel menu della sessione',
+	          directDeleteSubtitle: 'Mostra Elimina nel menu della sessione. La conferma è sempre richiesta.',
 	          tagsEnabledSubtitle: "Controlli tag visibili nell'elenco sessioni",
 	          tagsDisabledSubtitle: 'Controlli tag nascosti',
            agentActivityCountTitle: 'Conteggio agenti nelle righe',

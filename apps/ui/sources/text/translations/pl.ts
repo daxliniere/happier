@@ -8613,6 +8613,8 @@ settingsSession: {
 	          title: 'Lista sesji',
 	          footer: 'Dostosuj, co jest widoczne w wierszu sesji.',
 	          tagsTitle: 'Tagi sesji',
+	          directDeleteTitle: 'Usuwanie w menu sesji',
+	          directDeleteSubtitle: 'Pokazuj Usuń w menu sesji. Potwierdzenie jest zawsze wymagane.',
 	          tagsEnabledSubtitle: 'Kontrolki tagów widoczne na liście sesji',
 	          tagsDisabledSubtitle: 'Kontrolki tagów ukryte',
            agentActivityCountTitle: 'Liczba agentów w wierszach',

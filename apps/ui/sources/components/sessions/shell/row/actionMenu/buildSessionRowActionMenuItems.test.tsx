@@ -63,6 +63,7 @@ describe('buildSessionRowMoreMenuItems', () => {
             target,
             iconColor: '#999',
             canMoveToFolder: true,
+            directDeleteEnabled: true,
         });
 
         expect(items.map((item) => item.id)).toEqual([
@@ -108,6 +109,7 @@ describe('buildSessionRowMoreMenuItems', () => {
             target,
             iconColor: '#999',
             canMoveToFolder: false,
+            directDeleteEnabled: true,
             leadingItems: [
                 { id: 'session.copyDebugInformation', title: 'Copy information' },
             ],
@@ -155,6 +157,7 @@ describe('buildSessionRowMoreMenuItems', () => {
             target,
             iconColor: '#999',
             canMoveToFolder: false,
+            directDeleteEnabled: true,
             reminderPresets: [
                 { rule: { kind: 'relative_day', daysAhead: 1, minuteOfDay: 14 * 60 } },
             ],

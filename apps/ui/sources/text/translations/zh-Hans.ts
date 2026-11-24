@@ -8365,6 +8365,8 @@ settingsSession: {
 	        title: '会话列表',
 	        footer: '自定义会话列表每行显示的内容。',
 	        tagsTitle: '会话标签',
+	        directDeleteTitle: '在会话菜单中显示删除',
+	        directDeleteSubtitle: '在会话菜单中显示删除。始终需要确认。',
 	        tagsEnabledSubtitle: '在会话列表中显示标签控件',
 	        tagsDisabledSubtitle: '隐藏标签控件',
          agentActivityCountTitle: '列表行中的代理数量',

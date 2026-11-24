@@ -8153,6 +8153,8 @@ settingsSession: {
 	              title: 'Liste des sessions',
 	              footer: 'Apparence et comportement de la liste des sessions dans la barre latérale.',
 	              tagsTitle: 'Tags de session',
+	              directDeleteTitle: 'Supprimer dans le menu de session',
+	              directDeleteSubtitle: 'Afficher Supprimer dans le menu de session. Une confirmation est toujours requise.',
 	              tagsEnabledSubtitle: 'Contrôles de tags visibles dans la liste des sessions',
 	              tagsDisabledSubtitle: 'Contrôles de tags masqués',
                agentActivityCountTitle: 'Nombre d’agents dans les lignes',

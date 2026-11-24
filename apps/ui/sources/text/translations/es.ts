@@ -8601,6 +8601,8 @@ settingsSession: {
 	          title: 'Lista de sesiones',
 	          footer: 'Personaliza lo que aparece en cada fila de sesión.',
 	          tagsTitle: 'Etiquetas de sesión',
+	          directDeleteTitle: 'Eliminar en el menú de sesión',
+	          directDeleteSubtitle: 'Mostrar Eliminar en el menú de sesión. Siempre se requiere confirmación.',
 	          tagsEnabledSubtitle: 'Controles de etiquetas visibles en la lista de sesiones',
 	          tagsDisabledSubtitle: 'Controles de etiquetas ocultos',
            agentActivityCountTitle: 'Recuento de agentes en las filas',

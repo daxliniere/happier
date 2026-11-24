@@ -39,7 +39,7 @@ import {
     resolveSessionAttentionReminderSelection,
     SESSION_ATTENTION_REMINDER_MENU_ID,
 } from './sessionAttentionReminderAction';
-import { useSettingMutable } from '@/sync/domains/state/storage';
+import { useSetting, useSettingMutable } from '@/sync/domains/state/storage';
 import {
     resolveSessionReminderPresetRule,
     sessionReminderPresetRuleKey,
@@ -135,6 +135,7 @@ export function useSessionRowActionMenu(params: Readonly<{
     closeMenus?: () => void;
 }>): SessionRowActionMenuState {
     const target = params.target;
+    const directDeleteEnabled = useSetting('sessionListDirectDeleteEnabled');
     const [customColorPickerLoading, setCustomColorPickerLoading] = React.useState(false);
     const appearanceMenu = React.useMemo(
         () => (params.appearance ? { ...params.appearance, customPickerLoading: customColorPickerLoading } : null),
@@ -237,6 +238,7 @@ export function useSessionRowActionMenu(params: Readonly<{
             leadingItems: params.leadingMenuItems,
             trailingItems: params.trailingMenuItems,
             canMoveToFolder: typeof params.onMoveToFolder === 'function',
+            directDeleteEnabled,
             canMoveToProject: typeof params.onMoveToProject === 'function',
             reminderPresets,
             reminder: params.reminder,
@@ -261,6 +263,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         return items;
     }, [
         appearanceMenu,
+        directDeleteEnabled,
         params.iconColor,
         params.isNativeMobile,
         params.leadingMenuItems,

@@ -8871,6 +8871,8 @@ settingsSession: {
 	        title: 'セッション一覧',
 	        footer: '各セッション行に表示する内容をカスタマイズします。',
 	        tagsTitle: 'セッションタグ',
+	        directDeleteTitle: 'セッションメニューに削除を表示',
+	        directDeleteSubtitle: 'セッションメニューに削除を表示します。必ず確認が必要です。',
 	        tagsEnabledSubtitle: 'セッション一覧にタグ操作を表示',
 	        tagsDisabledSubtitle: 'タグ操作を非表示',
          agentActivityCountTitle: '行にエージェント数を表示',

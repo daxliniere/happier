@@ -7339,6 +7339,8 @@ settingsSession: {
 	              title: '工作階段列表',
 	              footer: '工作階段側邊欄列表的外觀與行為。',
 	              tagsTitle: '工作階段標籤',
+	              directDeleteTitle: '在工作階段選單中顯示刪除',
+	              directDeleteSubtitle: '在工作階段選單中顯示刪除。一定需要確認。',
 	              tagsEnabledSubtitle: '在工作階段列表中顯示標籤控制項',
 	              tagsDisabledSubtitle: '隱藏標籤控制項',
                agentActivityCountTitle: '清單列中的代理數量',

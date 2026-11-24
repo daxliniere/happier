@@ -8163,6 +8163,8 @@ settingsSession: {
 	                title: 'Llista de sessions',
 	                footer: 'Personalitza què apareix a cada fila de sessió.',
 	                tagsTitle: 'Etiquetes de sessió',
+	                directDeleteTitle: 'Suprimeix al menú de sessió',
+	                directDeleteSubtitle: 'Mostra Suprimeix al menú de sessió. Sempre cal confirmar.',
 	                tagsEnabledSubtitle: 'Controls d\'etiquetes visibles a la llista de sessions',
 	                tagsDisabledSubtitle: 'Controls d\'etiquetes ocults',
                  agentActivityCountTitle: 'Recompte d’agents a les files',

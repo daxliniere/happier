@@ -8731,6 +8731,8 @@ settingsSession: {
 	          title: 'Lista de sessões',
 	          footer: 'Personalize o que aparece em cada linha de sessão.',
 	          tagsTitle: 'Tags da sessão',
+	          directDeleteTitle: 'Excluir no menu da sessão',
+	          directDeleteSubtitle: 'Mostrar Excluir no menu da sessão. A confirmação é sempre necessária.',
 	          tagsEnabledSubtitle: 'Controles de tags visíveis na lista de sessões',
 	          tagsDisabledSubtitle: 'Controles de tags ocultos',
            agentActivityCountTitle: 'Contagem de agentes nas linhas',
