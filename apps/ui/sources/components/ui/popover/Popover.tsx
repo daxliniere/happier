@@ -2,7 +2,7 @@ import * as React from 'react';
 import { usePathname } from 'expo-router';
 import { Keyboard, Platform, View, type StyleProp, type ViewProps, type ViewStyle, useWindowDimensions } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
-import { SafeAreaFrameContext, SafeAreaInsetsContext } from 'react-native-safe-area-context';
+import { SafeAreaFrameContext, SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePopoverBoundaryRef } from './PopoverBoundary';
 import { usePopoverScrollSourceRef } from './PopoverScrollSource';
 import { requireRadixDismissableLayer } from '@/utils/web/radixCjs';
@@ -285,7 +285,9 @@ export function Popover(props: PopoverWithBackdrop | PopoverWithoutBackdrop) {
     const boundaryRef = boundaryRefProp === undefined ? boundaryFromContext : boundaryRefProp;
     const followScrollRef = followScrollRefProp === undefined ? scrollSourceFromContext : followScrollRefProp;
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-    const safeAreaInsets = React.useContext(SafeAreaInsetsContext);
+    // Use hook as primary source (always available on native), context as fallback
+    const hookSafeAreaInsets = Platform.OS !== 'web' ? useSafeAreaInsets() : null;
+    const safeAreaInsets = hookSafeAreaInsets ?? React.useContext(SafeAreaInsetsContext);
     const safeAreaFrame = React.useContext(SafeAreaFrameContext);
     const overlayPortal = useOverlayPortal();
     const modalPortalTarget = useModalPortalTarget();
