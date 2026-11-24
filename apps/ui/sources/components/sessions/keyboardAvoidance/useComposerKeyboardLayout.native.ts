@@ -262,9 +262,15 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         // the keyboard's own settled height, or the frame would re-raise the composer the
         // release just docked.
         const retentionReleased = frame.settled === true && keyboardRetentionCountRef.current === 0;
-        const absoluteHeight = retentionReleased
-            ? Math.min(frame.absoluteHeight, frame.lastEventHeight)
-            : frame.absoluteHeight;
+        // A settled frame's `absoluteHeight` is captured before suppression is applied, so suppression
+        // is decided here from the JS record, which is authoritative and current. A frame captured
+        // while suppressed would otherwise dock the composer behind an open keyboard once the
+        // suppression is removed.
+        const absoluteHeight = frame.settled && staticLayoutInputsRef.current.isKeyboardLiftSuppressed
+            ? 0
+            : retentionReleased
+                ? Math.min(frame.absoluteHeight, frame.lastEventHeight)
+                : frame.absoluteHeight;
         const liveHeight = frame.settled
             ? resolveKeyboardHeightWithinScaffold(absoluteHeight, staticLayoutInputsRef.current.layoutBottomInset)
             : frame.liveHeight;
@@ -687,7 +693,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
             // runs before any stale JS payload from this worklet could land. Notifying here would
             // publish the retained totals after a release has docked the composer.
             runOnJS(applyKeyboardFrameFromUI)({
-                absoluteHeight,
+                // Suppression-independent: the JS settled frame applies the current suppression state.
+                absoluteHeight: retainedHeight,
                 insetHeight: effectiveHeight,
                 interactiveDismissActive: false,
                 lastEventHeight: nextHeight,
