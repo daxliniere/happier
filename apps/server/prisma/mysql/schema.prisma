@@ -613,8 +613,8 @@ model AppLockMailSettings {
 model AppLockAccountLock {
     accountId          String   @id
     kdf                String
-    passwordWrappedKey String
-    deviceWrappedKey   String
+    passwordWrappedKey String @db.LongText
+    deviceWrappedKey   String @db.LongText
     version            Int      @default(1)
     createdAt          DateTime @default(now())
     updatedAt          DateTime @updatedAt

@@ -33,8 +33,8 @@ export const AppLockAccountLockSchema = z.object({
     /** Starts at 1 and increases by one on every re-wrap. */
     version: z.number().int().positive(),
     kdf: AppLockKdfSchema,
-    passwordWrappedKey: z.string().min(1).max(190),
-    deviceWrappedKey: z.string().min(1).max(190),
+    passwordWrappedKey: z.string().min(1).max(256),
+    deviceWrappedKey: z.string().min(1).max(256),
 });
 export type AppLockAccountLock = z.infer<typeof AppLockAccountLockSchema>;
 
@@ -45,8 +45,8 @@ export type AppLockAccountLockResponse = z.infer<typeof AppLockAccountLockRespon
 
 export const AppLockAccountLockPutRequestSchema = z.object({
     kdf: AppLockKdfSchema,
-    passwordWrappedKey: z.string().min(1).max(190),
-    deviceWrappedKey: z.string().min(1).max(190),
+    passwordWrappedKey: z.string().min(1).max(256),
+    deviceWrappedKey: z.string().min(1).max(256),
     /** The version the caller based this key on; `null` creates the account lock and fails if one exists. */
     expectedVersion: z.number().int().positive().nullable(),
 });
