@@ -56,16 +56,45 @@ test('cleanup refuses a corrupt newest completed backup instead of deleting any 
   assert.ok(existsSync(old)); assert.ok(existsSync(newest));
 });
 
+
+// A server archive whose web bundle carries the given embedded fork label (as the real export does).
+function serverArchive(dir, version, label = version) {
+  const top = join(dir, 'stage', 'happier-server-v0.2.20-linux-x64');
+  const web = join(top, 'ui-web/current/_expo/static/js/web');
+  mkdirSync(web, { recursive: true });
+  writeFileSync(join(web, 'index-test.js'),
+    `var a="{\\"app\\":{\\"forkVersion\\":\\"${label}\\",\\"forkRelease\\":\\"${label}\\"}}";`);
+  mkdirSync(join(dir, 'server'), { recursive: true });
+  const archive = join(dir, 'server', 'happier-server-v0.2.20-linux-x64.tar.gz');
+  const made = spawnSync('tar', ['-czf', archive, '-C', join(dir, 'stage'), 'happier-server-v0.2.20-linux-x64']);
+  if (made.status !== 0) throw new Error(String(made.stderr));
+}
+
 test('install reads build-runner version and supplies an exact verified rollback point', t => {
   const f = setup(t);
   const backup = f.complete('full-20261103-120000');
   const output = join(f.root, 'built release');
-  mkdirSync(join(output, 'server'), { recursive: true });
+  mkdirSync(output, { recursive: true });
   mkdirSync(join(output, 'cli'));
+  serverArchive(output, '0.2.20-beta1.4');
   writeFileSync(join(output, 'RESULT.txt'), 'Version: 0.2.20-beta1.4\nSUCCESS\n');
   const result = f.run('install', [output]);
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.equal(readFileSync(f.calls, 'utf8').trim(), `update|${backup}|${output}|0.2.20-beta1.4`);
+});
+
+test('install refuses a server whose web app carries a stale version label, before touching anything', t => {
+  const f = setup(t);
+  f.complete('full-20261103-120000');
+  const output = join(f.root, 'built release');
+  mkdirSync(output, { recursive: true });
+  mkdirSync(join(output, 'cli'));
+  serverArchive(output, '0.2.20-beta1.4', '0.2.19-fork.39');
+  writeFileSync(join(output, 'RESULT.txt'), 'Version: 0.2.20-beta1.4\nSUCCESS\n');
+  const result = f.run('install', [output]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /wrong version label/);
+  assert.equal(existsSync(f.calls), false, 'deployment must not run');
 });
 
 test('rollback rejects a corrupt backup before invoking deployment or services', t => {

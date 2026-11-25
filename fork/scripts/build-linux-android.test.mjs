@@ -19,10 +19,11 @@ function fixture(t) {
     writeFileSync(path, contents, { mode: executable ? 0o755 : 0o644 });
   };
   put(join(repo, 'fork/VERSION'), '0.2.20-fork.32\n');
-  put(join(repo, 'fork/RELEASE'), 'rc4\n');
-  put(join(repo, 'fork/build-version.json'), '{"version":"0.2.20-fork.32","release":"rc4"}');
-  put(join(repo, 'apps/cli/package.json'), '{"happierForkVersion":"0.2.20-fork.32","happierForkRelease":"rc4"}');
+  put(join(repo, 'fork/RELEASE'), '0.2.20-fork.32\n');
+  put(join(repo, 'fork/build-version.json'), '{"version":"0.2.20-fork.32","release":"0.2.20-fork.32"}');
+  put(join(repo, 'apps/cli/package.json'), '{"happierForkVersion":"0.2.20-fork.32","happierForkRelease":"0.2.20-fork.32"}');
   put(join(repo, 'fork/scripts/check-build-version.mjs'), readFileSync(new URL('./check-build-version.mjs', import.meta.url), 'utf8'));
+  put(join(repo, 'fork/scripts/verify-bundle-version.mjs'), readFileSync(new URL('./verify-bundle-version.mjs', import.meta.url), 'utf8'));
   put(join(repo, 'package.json'), '{}');
   put(join(repo, '.gitignore'), 'dist/\nnode_modules/\n');
   mkdirSync(join(repo, 'node_modules'), { recursive: true });
@@ -30,6 +31,7 @@ function fixture(t) {
   put(join(bin, 'yarn'), `#!/usr/bin/env bash
 set -eu
 echo "$*" >> "$CALLS"
+echo "$TMPDIR" >> "$CALLS.tmpdir"
 case "$*" in
   *release:build:binaries:server*)
     [ "\$FAIL_SERVER" != 1 ] || exit 19
@@ -39,14 +41,19 @@ case "$*" in
 esac
 [ "\$STALE_ONLY" != 1 ] || exit 0
 mkdir -p "dist/release-assets/\$dir"
-printf payload > "dist/release-assets/\$dir/\$product-v0.2.17-linux-x64.tar.gz"
+label=\$(cat fork/VERSION); [ "\$STALE_LABEL" != 1 ] || label=0.2.19-fork.39
+stage=\$(mktemp -d); top="\$stage/\$product-v0.2.17-linux-x64"; mkdir -p "\$top/ui-web/current/_expo/static/js/web"
+printf 'var a="{\\\\"app\\\\":{\\\\"forkVersion\\\\":\\\\"%s\\\\",\\\\"forkRelease\\\\":\\\\"%s\\\\"}}";' "\$label" "\$label" > "\$top/ui-web/current/_expo/static/js/web/index-test.js"
+tar -czf "dist/release-assets/\$dir/\$product-v0.2.17-linux-x64.tar.gz" -C "\$stage" "\$product-v0.2.17-linux-x64"
+rm -rf "\$stage"
 (cd "dist/release-assets/\$dir" && sha256sum *.tar.gz > "checksums-\$product-v0.2.17.txt")
 `, true);
   put(join(repo, 'fork/scripts/android-build.sh'), `#!/usr/bin/env bash
 set -eu
 echo android >> "$CALLS"
 mkdir -p "$HAPPIER_FORK_BUILDS_DIR/android-test"
-printf apk > "$HAPPIER_FORK_BUILDS_DIR/android-test/Sadder-debugsigned.apk"
+label=$(cat fork/VERSION); [ "$STALE_LABEL" != 1 ] || label=0.2.19-fork.39
+python3 -I -c 'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1],"w"); z.writestr("assets/app.config", "{\\"extra\\":{\\"app\\":{\\"forkVersion\\":\\"%s\\",\\"forkRelease\\":\\"%s\\"}}}" % (sys.argv[2], sys.argv[2])); z.close()' "$HAPPIER_FORK_BUILDS_DIR/android-test/Sadder-debugsigned.apk" "$label"
 printf aab > "$HAPPIER_FORK_BUILDS_DIR/android-test/Sadder-upload-signed.aab"
 `, true);
   put(join(root, 'jdk/bin/java'), '#!/bin/sh\nexit 0\n', true);
@@ -62,7 +69,7 @@ printf aab > "$HAPPIER_FORK_BUILDS_DIR/android-test/Sadder-upload-signed.aab"
   const run = (extraEnv = {}, args = []) => spawnSync('bash', [runner, '--repo', repo, '--output', output, ...args], {
     encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CALLS: calls,
       JAVA_HOME: join(root, 'jdk'), ANDROID_HOME: join(root, 'sdk'), SADDER_KEY_DIR: join(root, 'keys'),
-      FAIL_SERVER: '0', STALE_ONLY: '0', ...extraEnv },
+      FAIL_SERVER: '0', STALE_ONLY: '0', STALE_LABEL: '0', ...extraEnv },
   });
   return { repo, output, calls, bin, put, run };
 }
@@ -141,4 +148,24 @@ test('detached launch preserves the selected checkout and output as separate arg
   assert.equal(args[args.indexOf('--repo') + 1], f.repo);
   assert.equal(args[args.indexOf('--output') + 1], f.output);
   assert.ok(!existsSync(f.output));
+});
+
+test('a stale version label in the web app or the APK fails the whole build instead of shipping', t => {
+  const f = fixture(t);
+  const result = f.run({ STALE_LABEL: '1' });
+  assert.notEqual(result.status, 0);
+  const summary = readFileSync(join(f.output, 'RESULT.txt'), 'utf8');
+  assert.match(summary, /server: FAILED embedded version label check/);
+  assert.match(summary, /android: FAILED embedded version label check/);
+  assert.match(summary, /\nFAILED\n/);
+});
+
+test('every build gets its own bundler cache directory and removes it afterwards', t => {
+  const f = fixture(t);
+  const result = f.run();
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const dirs = [...new Set(readFileSync(`${f.calls}.tmpdir`, 'utf8').trim().split('\n'))];
+  assert.equal(dirs.length, 1);
+  assert.match(dirs[0], /dist\/fork-cache\/build-tmp\./);
+  assert.equal(existsSync(dirs[0]), false, 'the per-build temp dir must be removed');
 });

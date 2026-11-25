@@ -13,6 +13,9 @@ const errors = [];
 if (!version || !release) {
   errors.push('fork/VERSION and fork/RELEASE must both be non-empty');
 }
+if (version && release && version !== release) {
+  errors.push('fork/RELEASE must equal fork/VERSION (the label shows one number; a different release text is drift)');
+}
 if (generated.version !== version || generated.release !== release) {
   errors.push('fork/build-version.json must match fork/VERSION and fork/RELEASE');
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# CT100-compatible counterpart to bump-version.ps1. RELEASE names the base release;
-# both it and the new fork build version are copied into generated CLI metadata.
+# CT100-compatible counterpart to bump-version.ps1. The fork build version and RELEASE are always
+# set to the same value and copied into generated CLI metadata.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
@@ -13,9 +13,11 @@ fi
 prefix="${BASH_REMATCH[1]}"
 number="${BASH_REMATCH[2]}"
 next="${prefix}$((10#$number + 1))"
-base_release="$(<"$root/fork/RELEASE")"
+# The release label always equals the new build version, so the two can never drift apart.
+base_release="$next"
 
 printf '%s\n' "$next" > "$version_file"
+printf '%s\n' "$next" > "$root/fork/RELEASE"
 node - "$root" "$next" "$base_release" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');

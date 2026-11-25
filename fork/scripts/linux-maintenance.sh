@@ -58,6 +58,12 @@ if [[ "$action" == install ]]; then
   fi
   [[ "$version" =~ ^0\.2\.[0-9]+-(fork\.[0-9]+|beta[0-9]+\.[0-9]+)$ ]] || die 'Supply VERSION for a legacy release-assets folder'
   [[ -d "$release/server" && -d "$release/cli" ]] || die 'Build folder needs server/ and cli/'
+  # Never install a web app whose embedded fork label differs from the version being installed
+  # (beta1.4 served 0.2.19-fork.39). Checked before anything is stopped or replaced.
+  server_archives=("$release"/server/happier-server-v*-linux-x64.tar.gz)
+  [[ ${#server_archives[@]} == 1 && -f "${server_archives[0]}" ]] || die 'Build folder needs exactly one server archive'
+  node "$(dirname "${BASH_SOURCE[0]}")/verify-bundle-version.mjs" --expect-version "$version" \
+    --server-archive "${server_archives[0]}" || die 'Server web app carries the wrong version label; rebuild with a clean bundler cache'
   confirm "Install $version from $release? The relay and daemon will restart."
 elif [[ "$action" == rollback ]]; then
   ((${#positional[@]} <= 1)) || die 'Give at most one backup directory'

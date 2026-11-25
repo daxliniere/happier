@@ -45,6 +45,13 @@ for tool in git node yarn sha256sum flock find tar gzip realpath sort xargs; do 
 [[ "$(git -C "$repo" rev-parse --show-toplevel)" == "$repo" ]] || die "--repo must be a checkout root"
 version=$(cat "$repo/fork/VERSION")
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$repo/dist/fork-cache}"
+# Metro caches the embedded app config by code, not by what app.config.js computed, and its default
+# cache (/tmp/metro-cache) is shared by every worktree on this machine. A reused entry shipped the
+# 0.2.19-fork.39 label in the beta1.4 web app. Give every build its own temp dir, hence its own cache.
+mkdir -p "$repo/dist/fork-cache"
+build_tmp=$(mktemp -d "$repo/dist/fork-cache/build-tmp.XXXXXX")
+export TMPDIR="$build_tmp"
+trap 'rm -rf -- "$build_tmp"' EXIT
 [[ "$version" =~ ^0\.2\.[0-9]+-(fork\.[0-9]+|beta[0-9]+\.[0-9]+)$ ]] || die "Invalid fork/VERSION: $version"
 node "$repo/fork/scripts/check-build-version.mjs" "$repo"
 [[ -z "$(git -C "$repo" status --porcelain --untracked-files=normal)" ]] || die "Checkout has uncommitted work. Integrate/commit it before a release build."
@@ -93,7 +100,7 @@ mkdir -p "$output/logs"
 summary="$output/RESULT.txt"
 printf 'RUNNING\nSource: %s\nVersion: %s\nCommit: %s\nStarted: %s\n' \
   "$repo" "$version" "$(git rev-parse HEAD)" "$(date -Is)" > "$summary"
-trap 'rc=$?; if ((rc != 0)); then printf "\nFAILED or interrupted (exit %s)\n" "$rc" >> "$summary"; fi' EXIT
+trap 'rc=$?; rm -rf -- "$build_tmp"; if ((rc != 0)); then printf "\nFAILED or interrupted (exit %s)\n" "$rc" >> "$summary"; fi' EXIT
 failed=0
 stage() {
   local name=$1 rc=0; shift
@@ -136,6 +143,11 @@ if [[ "$only" != android ]]; then
         printf '%s: FAILED artifact freshness/checksum verification\n' "$component" | tee -a "$summary"
         failed=1
       fi
+      if [[ "$component" == server ]] && ! node "$repo/fork/scripts/verify-bundle-version.mjs" --repo "$repo" \
+        --server-archive "$output"/server/happier-server-v*-linux-x64.tar.gz >> "$output/logs/$component.log" 2>&1; then
+        printf 'server: FAILED embedded version label check (see %s)\n' "$output/logs/$component.log" | tee -a "$summary"
+        failed=1
+      fi
     else failed=1; fi
   done
 fi
@@ -150,6 +162,10 @@ if [[ "$only" != linux ]]; then
       ! "$apksigner" verify "${apks[0]}" >> "$output/logs/android.log" 2>&1 ||
       ! jarsigner -verify "${aabs[0]}" >> "$output/logs/android.log" 2>&1; then
       echo 'android: FAILED artifact/signature verification' | tee -a "$summary"; failed=1
+    fi
+    if [[ -s "${apks[0]:-}" ]] && ! node "$repo/fork/scripts/verify-bundle-version.mjs" --repo "$repo" \
+      --apk "${apks[0]}" >> "$output/logs/android.log" 2>&1; then
+      echo 'android: FAILED embedded version label check' | tee -a "$summary"; failed=1
     fi
   else failed=1; fi
 fi
