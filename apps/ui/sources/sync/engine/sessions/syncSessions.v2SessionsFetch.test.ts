@@ -4509,9 +4509,20 @@ describe('fetchAndApplySessions (/v2/sessions snapshot)', () => {
         const request = vi.fn(async () => jsonResponse({ sessions: rows, nextCursor: null, hasNext: false }));
         const harness = createEncryptionHarness();
         const lateDecrypt = createDeferred<{ decrypted: string }>();
+        const siblingDecryptStarted = createDeferred<void>();
+        let siblingDecryptFinished = false;
         harness.decryptMetadata.mockImplementation(async (_version: number, value: string) => {
-            if (value === 'metadata-s_failed_required') throw new Error('decrypt failed');
-            if (value === 'metadata-s_still_hydrating') return await lateDecrypt.promise;
+            if (value === 'metadata-s_failed_required') {
+                // Fail only once the sibling row is already inside its decrypt.
+                await siblingDecryptStarted.promise;
+                throw new Error('decrypt failed');
+            }
+            if (value === 'metadata-s_still_hydrating') {
+                siblingDecryptStarted.resolve();
+                const decrypted = await lateDecrypt.promise;
+                siblingDecryptFinished = true;
+                return decrypted;
+            }
             return { decrypted: value };
         });
         const failedFetchApplied: string[] = [];
@@ -4549,7 +4560,9 @@ describe('fetchAndApplySessions (/v2/sessions snapshot)', () => {
         });
 
         lateDecrypt.resolve({ decrypted: 'metadata-s_still_hydrating' });
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await expect.poll(() => siblingDecryptFinished).toBe(true);
+        // Let the apply batcher's delayed flush run before checking nothing was applied.
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(failedFetchApplied).not.toContain('s_still_hydrating');
     });
