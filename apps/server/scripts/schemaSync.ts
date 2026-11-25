@@ -134,6 +134,8 @@ function generateProviderSchemaFromPostgres(
 	        body = body.replace(/^(\s*tagKey\s+String\b)(?![^\n]*@db\.)/gm, "$1 @db.LongText");
 	        body = body.replace(/^(\s*scopeKey\s+String\b)(?![^\n]*@db\.)/gm, "$1 @db.LongText");
 	        body = body.replace(/^(\s*itemKey\s+String\b)(?![^\n]*@db\.)/gm, "$1 @db.LongText");
+	        body = body.replace(/^(\s*passwordWrappedKey\s+String\b)(?![^\n]*@db\.)/gm, "$1 @db.LongText");
+	        body = body.replace(/^(\s*deviceWrappedKey\s+String\b)(?![^\n]*@db\.)/gm, "$1 @db.LongText");
 	        body = body.replace(/^(\s*displayDbValue\s+String\??)(?![^\n]*@db\.)/gm, "$1 @db.LongText");
 	        body = body.replace(/^(\s*(?:folderHash|tagHash|scopeHash|itemHash)\s+String\b)(?![^\n]*@db\.)/gm, "$1 @db.VarChar(71)");
 	        body = body.replace(/^(\s*parentHash\s+String\?)(?![^\n]*@db\.)/gm, "$1 @db.VarChar(71)");

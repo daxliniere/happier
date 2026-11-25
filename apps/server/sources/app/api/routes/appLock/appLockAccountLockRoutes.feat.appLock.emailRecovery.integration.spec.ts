@@ -77,6 +77,16 @@ describe("app lock account lock routes (integration)", () => {
         });
     });
 
+    it("accepts wrapped keys at their real length", async () => {
+        // A wrapped 32-byte key as the client produces it is 200 base64 characters.
+        const real = "A".repeat(200);
+        const userId = await createAccount("pk-account-lock-real-length");
+        await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
+            expect((await put(app, userId, null, real)).statusCode).toBe(200);
+            expect((await get(app, userId)).json().lock.passwordWrappedKey).toBe(real);
+        });
+    });
+
     it("applies concurrent re-wraps from the same version exactly once", async () => {
         const userId = await createAccount("pk-account-lock-race");
         await withAuthenticatedTestApp(appLockRecoveryRoutes, async (app) => {
