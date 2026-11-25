@@ -4472,6 +4472,7 @@ describe('fetchAndApplySessions (/v2/sessions snapshot)', () => {
             sessionListCursor: pageTwoCursor,
             request: pageTwoRequest,
             applySessions: vi.fn(),
+            applySessionListRenderables: vi.fn(),
             repairInvalidReadStateV1: async () => {},
             log: { log: () => {} },
         });
@@ -4486,6 +4487,7 @@ describe('fetchAndApplySessions (/v2/sessions snapshot)', () => {
             sessionListCursor: pageThreeCursor,
             request: pageThreeRequest,
             applySessions: vi.fn(),
+            applySessionListRenderables: vi.fn(),
             repairInvalidReadStateV1: async () => {},
             log: { log: () => {} },
         });
@@ -4497,6 +4499,59 @@ describe('fetchAndApplySessions (/v2/sessions snapshot)', () => {
 
         expect(sessionDataKeys.get('s_page_two')).toEqual(new Uint8Array([2, 2]));
         expect(sessionDataKeys.get('s_page_three')).toEqual(new Uint8Array([3, 3]));
+    });
+
+    it('lets a same-page retry stop rows still hydrating after a failed fetch', async () => {
+        const rows = [
+            buildSessionRow({ id: 's_failed_required' }),
+            buildSessionRow({ id: 's_still_hydrating' }),
+        ];
+        const request = vi.fn(async () => jsonResponse({ sessions: rows, nextCursor: null, hasNext: false }));
+        const harness = createEncryptionHarness();
+        const lateDecrypt = createDeferred<{ decrypted: string }>();
+        harness.decryptMetadata.mockImplementation(async (_version: number, value: string) => {
+            if (value === 'metadata-s_failed_required') throw new Error('decrypt failed');
+            if (value === 'metadata-s_still_hydrating') return await lateDecrypt.promise;
+            return { decrypted: value };
+        });
+        const failedFetchApplied: string[] = [];
+
+        const failedFetch = fetchAndApplySessions({
+            serverId: 'server-retry',
+            credentials: { token: 't', secret: 's' },
+            encryption: harness.encryption,
+            sessionDataKeys: new Map(),
+            request,
+            requiredHydrationSessionIds: ['s_failed_required'],
+            awaitSessionListHydration: true,
+            sessionListBackgroundHydrationConcurrencyLimit: 2,
+            applySessions: (sessions) => {
+                failedFetchApplied.push(...sessions.map((session) => session.id));
+            },
+            applySessionListRenderables: vi.fn(),
+            repairInvalidReadStateV1: async () => {},
+            log: { log: () => {} },
+        });
+        await expect(failedFetch).rejects.toThrow();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        harness.decryptMetadata.mockImplementation(async (_version: number, value: string) => ({ decrypted: value }));
+        await fetchAndApplySessions({
+            serverId: 'server-retry',
+            credentials: { token: 't', secret: 's' },
+            encryption: harness.encryption,
+            sessionDataKeys: new Map(),
+            request,
+            applySessions: vi.fn(),
+            applySessionListRenderables: vi.fn(),
+            repairInvalidReadStateV1: async () => {},
+            log: { log: () => {} },
+        });
+
+        lateDecrypt.resolve({ decrypted: 'metadata-s_still_hydrating' });
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(failedFetchApplied).not.toContain('s_still_hydrating');
     });
 
     it('aborts inactive session-list data-key hydration before queued native work dispatches', async () => {
