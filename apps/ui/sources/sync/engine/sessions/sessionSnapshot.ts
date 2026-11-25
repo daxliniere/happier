@@ -117,7 +117,11 @@ function normalizeSessionListAbortKey(params: Readonly<{
 }>): string {
     const serverId = String(params.serverId ?? '').trim() || NO_SERVER_ID_ABORT_KEY;
     const sessionListPath = String(params.sessionListPath ?? '').trim() || DEFAULT_SESSION_LIST_PATH;
-    return `${serverId}\u0000${sessionListPath}\u0000${params.sessionListScope ?? 'account'}`;
+    // The starting cursor is part of the key: a newer fetch of the same page supersedes the older
+    // one, but appending the next page must not cancel the previous page's unfinished hydration,
+    // because those rows are not fetched again and would stay unhydrated.
+    const sessionListCursor = String(params.sessionListCursor ?? '').trim();
+    return `${serverId}\u0000${sessionListPath}\u0000${params.sessionListScope ?? 'account'}\u0000${sessionListCursor}`;
 }
 
 function createSessionListDataKeyHydrationAbortController(params: Readonly<{
@@ -125,19 +129,39 @@ function createSessionListDataKeyHydrationAbortController(params: Readonly<{
     serverId?: string | null;
     sessionListPath?: string;
     sessionListScope?: 'account' | 'required';
-}>): AbortController {
+    sessionListCursor?: string | null;
+}>): SessionListDataKeyHydrationLease {
     let controllers = activeSessionListDataKeyHydrationControllers.get(params.encryption);
     if (!controllers) {
         controllers = new Map();
         activeSessionListDataKeyHydrationControllers.set(params.encryption, controllers);
     }
+    const activeControllers = controllers;
 
     const key = normalizeSessionListAbortKey(params);
-    controllers.get(key)?.abort();
+    activeControllers.get(key)?.abort();
     const controller = new AbortController();
-    controllers.set(key, controller);
-    return controller;
+    activeControllers.set(key, controller);
+    return {
+        controller,
+        // Cursor-keyed entries would otherwise accumulate one per appended page.
+        release: () => {
+            if (activeControllers.get(key) === controller) {
+                activeControllers.delete(key);
+            }
+        },
+    };
 }
+
+type SessionListDataKeyHydrationLease = Readonly<{
+    controller: AbortController;
+    release: () => void;
+}>;
+
+type SessionListFetchLifetime = {
+    lease: SessionListDataKeyHydrationLease | null;
+    backgroundHydration: Promise<unknown> | null;
+};
 
 function buildSessionListInitialPath(params: {
     includeActiveRows: boolean;
@@ -1264,7 +1288,38 @@ function scheduleReadStateRepair(params: {
     });
 }
 
-export async function fetchAndApplySessions(params: {
+export async function fetchAndApplySessions(
+    params: Parameters<typeof fetchAndApplySessionsOnce>[0],
+): Promise<SessionListFetchResult> {
+    const lifetime: SessionListFetchLifetime = { lease: null, backgroundHydration: null };
+    let fetchFailed = true;
+    try {
+        const result = await fetchAndApplySessionsOnce(params, lifetime);
+        fetchFailed = false;
+        return result;
+    } finally {
+        const lease = lifetime.lease;
+        if (lease) {
+            // A failed run can leave hydration workers suspended (the task runner rejects on the
+            // first failure). Abort before releasing so those workers stop and a retry of the same
+            // page is not raced by them.
+            const abortAndRelease = () => {
+                lease.controller.abort();
+                lease.release();
+            };
+            const background = lifetime.backgroundHydration;
+            if (background) {
+                void background.then(fetchFailed ? abortAndRelease : lease.release, abortAndRelease);
+            } else if (fetchFailed) {
+                abortAndRelease();
+            } else {
+                lease.release();
+            }
+        }
+    }
+}
+
+async function fetchAndApplySessionsOnce(params: {
     sessionListPath?: string;
     serverUrl?: string;
     sessionListScope?: 'account' | 'required';
@@ -1309,7 +1364,7 @@ export async function fetchAndApplySessions(params: {
     repairInvalidReadStateV1: (params: { sessionId: string; sessionSeqUpperBound: number }) => Promise<void>;
     log: { log: (message: string) => void };
     clientEncryptionRequirement?: ClientEncryptionRequirement;
-}): Promise<SessionListFetchResult> {
+}, lifetime: SessionListFetchLifetime): Promise<SessionListFetchResult> {
     const { credentials, encryption, sessionDataKeys, applySessions, repairInvalidReadStateV1 } = params;
     const requiredOnly = params.sessionListScope === 'required';
     const awaitSessionListHydration = requiredOnly || params.awaitSessionListHydration === true;
@@ -1333,12 +1388,15 @@ export async function fetchAndApplySessions(params: {
     ));
     const backgroundHydrationYield = params.sessionListBackgroundHydrationYield
         ?? (() => yieldToSessionListBackgroundHydration(params.sessionListBackgroundHydrationYieldDelayMs ?? 0));
-    const dataKeyHydrationAbortController = createSessionListDataKeyHydrationAbortController({
+    const dataKeyHydrationLease = createSessionListDataKeyHydrationAbortController({
         encryption,
         serverId: params.serverId,
         sessionListPath: params.sessionListPath,
         sessionListScope: params.sessionListScope,
+        sessionListCursor: requiredOnly ? null : params.sessionListCursor ?? null,
     });
+    lifetime.lease = dataKeyHydrationLease;
+    const dataKeyHydrationAbortController = dataKeyHydrationLease.controller;
     const rawShouldContinue = params.shouldContinue ?? (() => true);
     const shouldContinue = () => {
         if (dataKeyHydrationAbortController.signal.aborted) return false;
@@ -1955,6 +2013,7 @@ export async function fetchAndApplySessions(params: {
                     return results;
                 },
             );
+            lifetime.backgroundHydration = hydrationPromise;
             const logBackgroundHydrationError = (error: unknown): void => {
                 console.error('[sessionsSnapshot] Background hydration failed', error);
             };
