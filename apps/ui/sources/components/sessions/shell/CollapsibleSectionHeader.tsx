@@ -7,11 +7,20 @@ import type { SessionListViewItem } from '@/sync/domains/state/storage';
 import { isSessionListPrimaryHeaderKind } from './sessionListPrimaryHeader';
 import { Icon } from '@/components/ui/icons/Icon';
 
+const SECTION_HEADER_TOP_PADDING = 14;
+
 const stylesheet = StyleSheet.create((theme) => ({
     headerSection: {
         backgroundColor: theme.colors.background.canvas,
         paddingHorizontal: 24,
-        paddingTop: 14,
+        paddingTop: SECTION_HEADER_TOP_PADDING,
+    },
+    inactiveDivider: {
+        height: 5,
+        borderRadius: 3,
+        marginHorizontal: 16,
+        marginBottom: SECTION_HEADER_TOP_PADDING,
+        backgroundColor: theme.colors.border.strong,
     },
     headerText: {
         fontSize: 13,
@@ -78,6 +87,7 @@ export const CollapsibleSectionHeader = React.memo(function CollapsibleSectionHe
             onHoverIn={isWeb ? () => setIsHovered(true) : undefined}
             onHoverOut={isWeb ? () => setIsHovered(false) : undefined}
         >
+            {props.headerKind === 'inactive' && <View style={styles.inactiveDivider} />}
             <View style={styles.headerRow}>
                 <View style={styles.headerLabelRow}>
                     <Eyebrow style={isPrimaryHeader ? styles.headerText : styles.groupHeaderTitle}>{props.title}</Eyebrow>
