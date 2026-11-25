@@ -34,6 +34,7 @@ import { useTrackScreens } from '@/track/useTrackScreens';
 import { ShareIntakeRuntime } from '@/components/sessions/new/shareIntake/ShareIntakeRuntime';
 import { RealtimeProvider } from '@/realtime/RealtimeProvider';
 import { FaviconPermissionIndicator } from '@/components/web/FaviconPermissionIndicator';
+import { SessionDocumentTitle } from '@/components/web/SessionDocumentTitle';
 import { CommandPaletteProvider } from '@/components/appShell/commandPalette/CommandPaletteProvider';
 import { StatusBarProvider } from '@/components/ui/layout/StatusBarProvider';
 import { ThemeProfileRuntimeSync } from '@/theme/profiles/ThemeProfileRuntimeSync';
@@ -856,6 +857,9 @@ function RootAppShell(props: Readonly<{
 
     const shellContent = (
         <View style={{ flex: 1, position: 'relative' }}>
+            {Platform.OS === 'web' && typeof document !== 'undefined' && !isAuxiliaryWindow ? (
+                <SessionDocumentTitle enabled={auth.isAuthenticated && !props.isAppLocked} />
+            ) : null}
             <ActionOperationRuntime enabled={auth.isAuthenticated && !isAuxiliaryWindow} />
             <AppLockAccountSyncRuntime enabled={auth.isAuthenticated && !isAuxiliaryWindow} />
             <UpdateFactsBackgroundRuntime enabled={auth.isAuthenticated && !isAuxiliaryWindow} />
