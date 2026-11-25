@@ -159,7 +159,7 @@ type SessionListDataKeyHydrationLease = Readonly<{
 }>;
 
 type SessionListFetchLifetime = {
-    release: (() => void) | null;
+    lease: SessionListDataKeyHydrationLease | null;
     backgroundHydration: Promise<unknown> | null;
 };
 
@@ -1291,16 +1291,29 @@ function scheduleReadStateRepair(params: {
 export async function fetchAndApplySessions(
     params: Parameters<typeof fetchAndApplySessionsOnce>[0],
 ): Promise<SessionListFetchResult> {
-    const lifetime: SessionListFetchLifetime = { release: null, backgroundHydration: null };
+    const lifetime: SessionListFetchLifetime = { lease: null, backgroundHydration: null };
+    let fetchFailed = true;
     try {
-        return await fetchAndApplySessionsOnce(params, lifetime);
+        const result = await fetchAndApplySessionsOnce(params, lifetime);
+        fetchFailed = false;
+        return result;
     } finally {
-        const release = lifetime.release;
-        if (release) {
-            if (lifetime.backgroundHydration) {
-                void lifetime.backgroundHydration.then(release, release);
+        const lease = lifetime.lease;
+        if (lease) {
+            // A failed run can leave hydration workers suspended (the task runner rejects on the
+            // first failure). Abort before releasing so those workers stop and a retry of the same
+            // page is not raced by them.
+            const abortAndRelease = () => {
+                lease.controller.abort();
+                lease.release();
+            };
+            const background = lifetime.backgroundHydration;
+            if (background) {
+                void background.then(fetchFailed ? abortAndRelease : lease.release, abortAndRelease);
+            } else if (fetchFailed) {
+                abortAndRelease();
             } else {
-                release();
+                lease.release();
             }
         }
     }
@@ -1382,7 +1395,7 @@ async function fetchAndApplySessionsOnce(params: {
         sessionListScope: params.sessionListScope,
         sessionListCursor: requiredOnly ? null : params.sessionListCursor ?? null,
     });
-    lifetime.release = dataKeyHydrationLease.release;
+    lifetime.lease = dataKeyHydrationLease;
     const dataKeyHydrationAbortController = dataKeyHydrationLease.controller;
     const rawShouldContinue = params.shouldContinue ?? (() => true);
     const shouldContinue = () => {
