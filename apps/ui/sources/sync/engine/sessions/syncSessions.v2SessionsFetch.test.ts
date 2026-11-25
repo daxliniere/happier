@@ -4431,6 +4431,74 @@ describe('fetchAndApplySessions (/v2/sessions snapshot)', () => {
         ], { serverId: 'server-superseded' });
     });
 
+    it('keeps hydrating an appended page when the next page is appended', async () => {
+        const pageTwoCursor = encodeV2SessionListCursorV1('s_page_one_last');
+        const pageThreeCursor = encodeV2SessionListCursorV1('s_page_two_last');
+        const pageTwoRequest = vi.fn(async () =>
+            jsonResponse({
+                sessions: [
+                    buildSessionRow({ id: 's_page_two', dataEncryptionKey: 'page-two-envelope' }),
+                ],
+                nextCursor: pageThreeCursor,
+                hasNext: true,
+            }),
+        );
+        const pageThreeRequest = vi.fn(async () =>
+            jsonResponse({
+                sessions: [
+                    buildSessionRow({ id: 's_page_three', dataEncryptionKey: 'page-three-envelope' }),
+                ],
+                nextCursor: null,
+                hasNext: false,
+            }),
+        );
+        const { encryption, decryptEncryptionKeys } = createEncryptionHarness();
+        const pageTwoDecrypt = createDeferred<Array<Uint8Array | null>>();
+        const signals: Array<AbortSignal | null> = [];
+        decryptEncryptionKeys.mockImplementation(async (values: readonly string[], scope?: { signal?: AbortSignal }) => {
+            signals.push(scope?.signal ?? null);
+            if (values[0] === 'page-two-envelope') {
+                return await pageTwoDecrypt.promise;
+            }
+            return [new Uint8Array([3, 3])];
+        });
+        const sessionDataKeys = new Map<string, Uint8Array>();
+
+        const pageTwoFetch = fetchAndApplySessions({
+            serverId: 'server-append',
+            credentials: { token: 't', secret: 's' },
+            encryption,
+            sessionDataKeys,
+            sessionListCursor: pageTwoCursor,
+            request: pageTwoRequest,
+            applySessions: vi.fn(),
+            repairInvalidReadStateV1: async () => {},
+            log: { log: () => {} },
+        });
+
+        await expect.poll(() => signals.length).toBe(1);
+
+        const pageThreeFetch = fetchAndApplySessions({
+            serverId: 'server-append',
+            credentials: { token: 't', secret: 's' },
+            encryption,
+            sessionDataKeys,
+            sessionListCursor: pageThreeCursor,
+            request: pageThreeRequest,
+            applySessions: vi.fn(),
+            repairInvalidReadStateV1: async () => {},
+            log: { log: () => {} },
+        });
+        await pageThreeFetch;
+
+        expect(signals[0]?.aborted).toBe(false);
+        pageTwoDecrypt.resolve([new Uint8Array([2, 2])]);
+        await pageTwoFetch;
+
+        expect(sessionDataKeys.get('s_page_two')).toEqual(new Uint8Array([2, 2]));
+        expect(sessionDataKeys.get('s_page_three')).toEqual(new Uint8Array([3, 3]));
+    });
+
     it('aborts inactive session-list data-key hydration before queued native work dispatches', async () => {
         const encryption = await Encryption.create(new Uint8Array(32).fill(4));
         const firstDataKey = new Uint8Array(32).fill(10);
