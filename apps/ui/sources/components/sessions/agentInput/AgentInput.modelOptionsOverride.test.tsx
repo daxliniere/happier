@@ -136,8 +136,8 @@ vi.mock('@/agents/catalog/catalog', async (importOriginal) => {
         ...actual,
         getAgentIconSource: () => null,
         getAgentIconSvgXml: (agentId: string) => (
-            agentId === 'codex' || agentId === 'pi' || agentId === 'opencode'
-                ? '<svg viewBox="0 0 16 16"><path fill="#111111" d="M8 0 16 8 8 16 0 8Z" /></svg>'
+            agentId === 'codex' || agentId === 'pi' || agentId === 'opencode' || agentId === 'claude'
+                ? `<svg viewBox="0 0 16 16" id="${agentId}"><path fill="#111111" d="M8 0 16 8 8 16 0 8Z" /></svg>`
                 : null
         ),
         getAgentIconTintColor: () => undefined,
@@ -331,7 +331,11 @@ describe('AgentInput (modelOptionsOverride)', () => {
             sessionContinuationEnabled: true,
             metadata,
             modelMode: newModel,
-            modelOptionsOverride: [{ value: newModel, label: 'New Model', description: '' }],
+            onModelModeChange: () => {},
+            modelOptionsOverride: [
+                { value: oldModel, label: 'Current Model', description: '' },
+                { value: newModel, label: 'New Model', description: '' },
+            ],
             sendMenuModes: ['agent_queue', 'server_pending', 'interrupt'],
             autocompleteKinds: [],
             autocompleteSuggestions: async () => [],
@@ -340,6 +344,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
         const send = screen.findByTestId('session-composer-send');
         expect(send?.props.disabled).toBe(false);
         expect(send?.props.accessibilityLabel).toBe('Continue with New Model');
+        expect(findTestInstanceByTypeContainingText(screen.findByTestId('agent-input-agent-chip')!, 'Text', 'Current Model')).toBeTruthy();
         await screen.pressByTestIdAsync('session-composer-send');
         expect(onSend).toHaveBeenCalledWith({
             inputTextOverride: 'common.continue',
@@ -372,6 +377,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
         });
         expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel)
             .not.toBe('Continue with New Model');
+        expect(findTestInstanceByTypeContainingText(screen.findByTestId('agent-input-agent-chip')!, 'Text', 'Current Model')).toBeTruthy();
 
         await act(async () => {
             screen.tree.update(<AgentInput {...props} sessionContinuationEnabled={false} />);
@@ -386,6 +392,57 @@ describe('AgentInput (modelOptionsOverride)', () => {
         });
         expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel)
             .not.toBe('Continue with New Model');
+        expect(findTestInstanceByTypeContainingText(screen.findByTestId('agent-input-agent-chip')!, 'Text', 'New Model')).toBeTruthy();
+    });
+
+    it('keeps the source provider and model on the badge until an armed provider switch is confirmed', async () => {
+        const onSend = vi.fn();
+        const sourceMetadata = {
+            path: '/tmp', host: 'host', flavor: 'codex',
+            sessionAppliedModelV1: { v: 1, provider: 'codex', modelId: 'source-model', updatedAt: 1 },
+        } as const;
+        const props: React.ComponentProps<typeof AgentInput> = {
+            sessionId: 'session-1',
+            value: '',
+            placeholder: 'Type',
+            onChangeText: () => {},
+            onSend,
+            agentType: 'codex',
+            metadata: sourceMetadata,
+            onAgentClick: () => {},
+            modelMode: 'source-model',
+            onModelModeChange: () => {},
+            modelOptionsOverride: [
+                { value: 'source-model', label: 'Source Model', description: '' },
+                { value: 'target-model', label: 'Target Model', description: '' },
+            ],
+            autocompleteKinds: [],
+            autocompleteSuggestions: async () => [],
+        };
+        const armed = <AgentInput {...props} armedContinuationTarget={{
+            agentId: 'claude', label: 'Claude', modelLabel: 'Target Model',
+        }} />;
+        const screen = await renderScreen(armed);
+        const assertBadge = (provider: string, label: string) => {
+            const chip = screen.findByTestId('agent-input-agent-chip')!;
+            expect(screen.findByTestId('agent-input-agent-chip-logo')?.props.xml).toContain(`id="${provider}"`);
+            expect(findTestInstanceByTypeContainingText(chip, 'Text', label)).toBeTruthy();
+        };
+
+        expect(screen.findByTestId('session-composer-send')?.props.accessibilityLabel).toBe('Continue with Claude');
+        assertBadge('codex', 'Source Model');
+        await screen.pressByTestIdAsync('session-composer-send');
+        expect(onSend).toHaveBeenCalledOnce();
+        assertBadge('codex', 'Source Model');
+        await screen.update(<AgentInput {...props} />);
+        assertBadge('codex', 'Source Model');
+
+        await screen.update(<AgentInput {...props} agentType="claude" modelMode="target-model" metadata={{
+            ...sourceMetadata,
+            flavor: 'claude',
+            sessionAppliedModelV1: { v: 1, provider: 'claude', modelId: 'target-model', updatedAt: 2 },
+        }} />);
+        assertBadge('claude', 'Target Model');
     });
 
     it('offers to continue under a newly applied account with an empty draft', async () => {
@@ -1709,6 +1766,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
 
         try {
             const screen = await renderScreen(React.createElement(AgentInput, {
+                        sessionId: 'session-1',
                         value: 'hello',
                         placeholder: 'placeholder',
                         onChangeText: () => {},
@@ -1718,13 +1776,23 @@ describe('AgentInput (modelOptionsOverride)', () => {
                         agentType: 'codex',
                         permissionMode: 'default',
                         onPermissionModeChange: () => {},
-                        modelMode: 'session-model',
+                        modelMode: 'pending-model',
                         onModelModeChange: () => {},
+                        modelOptionsOverride: [
+                            { value: 'default', label: 'Default (from session)', description: '' },
+                            { value: 'session-model', label: 'Session Model', description: '' },
+                            { value: 'pending-model', label: 'Pending Model', description: '' },
+                        ],
                         metadata: {
+                            path: '/repo',
+                            host: 'host',
+                            flavor: 'codex',
+                            sessionAppliedModelV1: { v: 1, provider: 'codex', modelId: 'session-model', updatedAt: 1 },
                             sessionModelsV1: {
                                 provider: 'codex',
                                 availableModels: [
                                     { id: 'session-model', name: 'Session Model' },
+                                    { id: 'pending-model', name: 'Pending Model' },
                                 ],
                             },
                         },
@@ -1743,7 +1811,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
             expect(screen.findByTestId('agent-input-action-menu-overlay')).toBeNull();
             expect(screen.findByTestId('agent-input-chip-picker-popover')).toBeTruthy();
             expect(lastPopoverProps?.anchorRef).toBe(screen.findByTestId('agent-input-action-menu-button')!.props.ref);
-            expect((lastModelPickerOverlayProps?.options ?? []).map((o: any) => o.value)).toEqual(['default', 'session-model']);
+            expect((lastModelPickerOverlayProps?.options ?? []).map((o: any) => o.value)).toEqual(['default', 'session-model', 'pending-model']);
         } finally {
             mockAgentInputActionBarLayout = 'wrap';
         }

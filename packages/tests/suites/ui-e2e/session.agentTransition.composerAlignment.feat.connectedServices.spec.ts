@@ -147,6 +147,8 @@ test.describe('UI e2e: armed Agent composer alignment', () => {
       await expect(authChip).toHaveAttribute('data-auth-source', 'native');
       const usageBadge = page.getByTestId('agent-input-provider-usage-badge');
       await expect(usageBadge).toBeVisible({ timeout: scenarioTimeoutMs });
+      const engineBadge = page.getByTestId('agent-input-agent-chip');
+      await expect(engineBadge).toHaveText(/^gpt-5\.4$/i);
       const sourceUsageLabel = await usageBadge.getAttribute('aria-label');
       if (!sourceUsageLabel) throw new Error('missing source provider usage accessibility label');
 
@@ -164,7 +166,7 @@ test.describe('UI e2e: armed Agent composer alignment', () => {
       await expect(picker).toBeVisible();
       await picker.getByTestId('agent-input-chip-picker.done').click();
       await expect(picker).toBeHidden();
-      await expect(page.getByTestId('agent-input-agent-chip')).toContainText('Fixture Claude Work');
+      await expect(engineBadge).toHaveText(/^gpt-5\.4$/i);
       await expect(authChip).toHaveAttribute('data-auth-source', 'connected');
       await expect(authChip).toContainText('Work');
       await authChip.click();
@@ -195,6 +197,7 @@ test.describe('UI e2e: armed Agent composer alignment', () => {
       expect(credentials.claudeAiOauth).not.toHaveProperty('refreshToken');
       await expect(page.getByText('FAKE_CLAUDE_OK_1', { exact: true })).toBeVisible({ timeout: scenarioTimeoutMs });
       await expect(composer).toHaveValue('', { timeout: scenarioTimeoutMs });
+      await expect(engineBadge).toHaveText(/^(?:Fixture Claude Work|claude-fixture-work)$/, { timeout: scenarioTimeoutMs });
       await expect(page.getByText(targetText, { exact: true })).toBeVisible({ timeout: scenarioTimeoutMs });
       expect(new URL(page.url()).pathname).toBe(sessionPath);
     } catch (error) {
