@@ -59,11 +59,12 @@ describe('usage refresh indicator', () => {
             return { colours, width };
         };
         const exhausted = await textColours(100)();
-        expect(exhausted.width).toBe('100%');
+        expect(exhausted.width).toBe('0%');
         expect(exhausted.colours.length).toBeGreaterThanOrEqual(2);
         expect(exhausted.colours.every((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(true);
-        const partlyUsed = await textColours(30)();
-        expect(partlyUsed.colours.some((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(false);
+        const reset = await textColours(0)();
+        expect(reset.width).toBe('100%');
+        expect(reset.colours.some((colour) => colour === lightTheme.colors.state.danger.foreground)).toBe(false);
     });
 
     it('hides the spend row when requested and keeps the included allowance visible', async () => {

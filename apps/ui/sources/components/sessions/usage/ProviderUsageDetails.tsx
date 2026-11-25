@@ -161,7 +161,7 @@ export function ProviderUsageDetails(props: Readonly<{
                         remainingPct={row.remainingPct}
                         // Remaining-first fill, matching the "% left" label: an exhausted limit has an
                         // empty bar, and its name and figures turn red instead.
-                        fillFraction={row.remainingPct <= 0 ? 1 : row.remainingPct / 100}
+                        fillFraction={row.remainingPct / 100}
                         height={5}
                     /> : null}
                     {row.usedLimitLabel ? (
