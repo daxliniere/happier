@@ -10140,6 +10140,7 @@ settingsSession: {
     },
 
     navigation: {
+        sessionDocumentTitle: ({ name }: { name: string }) => `Happier - ${name}`,
         // Navigation titles and screen headers
         connectTerminal: 'Connect Terminal',
         linkNewDevice: 'Link New Device',

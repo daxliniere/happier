@@ -10108,6 +10108,7 @@ settingsSession: {
     },
 
     navigation: {
+        sessionDocumentTitle: ({ name }: { name: string }) => `Happier - ${name}`,
         // Navigation titles and screen headers
         connectTerminal: 'Terminal verbinden',
         linkNewDevice: 'Neues Gerät verknüpfen',

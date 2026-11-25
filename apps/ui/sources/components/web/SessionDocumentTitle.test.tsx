@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createSessionFixture, renderScreen, standardCleanup } from '@/dev/testkit';
+import { buildSessionListRenderableFromSession } from '@/sync/domains/session/listing/sessionListRenderable';
 import { storage } from '@/sync/domains/state/storageStore';
 import { SessionDocumentTitle } from './SessionDocumentTitle';
 
@@ -28,13 +29,21 @@ it('tracks the active session name as it loads, changes, and leaves the foregrou
     document.title = 'Happier (preview)';
     route.segments = ['(app)', 'session', '[id]'];
     route.params = { id: 'alpha', serverId: 'server-a' };
-    storage.setState({ sessions: {} });
+    storage.setState({ sessions: {}, sessionListRenderables: {}, sessionListViewDataByServerId: {} });
     const screen = await renderScreen(<SessionDocumentTitle enabled />);
     expect(document.title).toBe('Happier (preview)');
 
     const metadata = { path: '/project', host: 'host', machineId: 'machine', name: 'Alpha' };
     const alpha = { ...createSessionFixture({ id: 'alpha', metadata }), serverId: 'server-a' };
     const beta = createSessionFixture({ id: 'beta', metadata: { ...metadata, name: 'Beta' } });
+    const cachedAlpha = buildSessionListRenderableFromSession(alpha);
+    await React.act(async () => storage.setState({
+        sessionListViewDataByServerId: {
+            'server-a': [{ type: 'session', serverId: 'server-a', session: cachedAlpha }],
+        },
+    }));
+    expect(document.title).toBe('Happier - Alpha');
+
     await React.act(async () => storage.setState({ sessions: { alpha, beta } }));
     expect(document.title).toBe('Happier - Alpha');
 
