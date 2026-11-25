@@ -20,7 +20,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 3,
         marginHorizontal: 16,
         marginBottom: SECTION_HEADER_TOP_PADDING,
-        backgroundColor: theme.colors.text.secondary,
+        backgroundColor: theme.colors.border.strong,
     },
     headerText: {
         fontSize: 13,
