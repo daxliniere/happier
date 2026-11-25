@@ -48,8 +48,8 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$repo/dist/fork-cache}"
 # Metro caches the embedded app config by code, not by what app.config.js computed, and its default
 # cache (/tmp/metro-cache) is shared by every worktree on this machine. A reused entry shipped the
 # 0.2.19-fork.39 label in the beta1.4 web app. Give every build its own temp dir, hence its own cache.
-mkdir -p "$repo/dist/fork-cache"
-build_tmp=$(mktemp -d "$repo/dist/fork-cache/build-tmp.XXXXXX")
+# Keep this path SHORT: tsx creates a Unix socket under TMPDIR and socket paths are capped at 108 bytes.
+build_tmp=$(mktemp -d /tmp/fork-build.XXXXXX)
 export TMPDIR="$build_tmp"
 trap 'rm -rf -- "$build_tmp"' EXIT
 [[ "$version" =~ ^0\.2\.[0-9]+-(fork\.[0-9]+|beta[0-9]+\.[0-9]+)$ ]] || die "Invalid fork/VERSION: $version"

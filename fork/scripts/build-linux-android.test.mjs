@@ -166,6 +166,8 @@ test('every build gets its own bundler cache directory and removes it afterwards
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const dirs = [...new Set(readFileSync(`${f.calls}.tmpdir`, 'utf8').trim().split('\n'))];
   assert.equal(dirs.length, 1);
-  assert.match(dirs[0], /dist\/fork-cache\/build-tmp\./);
+  assert.match(dirs[0], /fork-build\./);
+  // tsx puts a Unix socket under TMPDIR; socket paths are limited to 108 bytes, and a checkout path is long.
+  assert.ok(dirs[0].length <= 40, `temp dir path is too long for a Unix socket: ${dirs[0]}`);
   assert.equal(existsSync(dirs[0]), false, 'the per-build temp dir must be removed');
 });
