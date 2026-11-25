@@ -10319,6 +10319,7 @@ settingsSession: {
   },
 
   navigation: {
+      sessionDocumentTitle: ({ name }: { name: string }) => `Happier - ${name}`,
     // Navigation titles and screen headers
     connectTerminal: "连接终端",
     linkNewDevice: "链接新设备",

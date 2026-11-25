@@ -57,6 +57,7 @@ test.describe('ui e2e: session multi-pane URL sync', () => {
       env: {
         ...process.env,
         EXPO_PUBLIC_DEBUG: '1',
+        EXPO_PUBLIC_HAPPIER_SERVER_URL: server.baseUrl,
         EXPO_PUBLIC_HAPPY_SERVER_URL: server.baseUrl,
         EXPO_PUBLIC_HAPPY_STORAGE_SCOPE: `e2e-${run.runId}`,
       },
@@ -108,16 +109,33 @@ test.describe('ui e2e: session multi-pane URL sync', () => {
     const sessionId = await spawnSessionFromDaemon({ daemon, directory: testDir });
     const sessionUrl = `${uiBaseUrl}/session/${sessionId}`;
 
-    const otherSessionId = await spawnSessionFromDaemon({ daemon, directory: testDir });
+    const otherSessionDir = resolve(join(testDir, 'other-session'));
+    await mkdir(otherSessionDir, { recursive: true });
+    const otherSessionId = await spawnSessionFromDaemon({ daemon, directory: otherSessionDir });
     await page.getByTestId('nav-settings').click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/settings');
+    const settingsTitle = await page.title();
+    const sessionTitles = new Map([
+      [sessionId, 'Happier - t1-url-sync'],
+      [otherSessionId, 'Happier - other-session'],
+    ]);
     const expectSession = async (id: string) => {
       await expect.poll(() => new URL(page.url()).pathname).toBe(`/session/${id}`);
+      await expect(page).toHaveTitle(sessionTitles.get(id)!);
     };
     await page.getByTestId(`session-list-item-${sessionId}`).click();
     await expectSession(sessionId);
     await page.getByTestId(`session-list-item-${otherSessionId}`).click();
     await expectSession(otherSessionId);
+    const browser = await page.context().newCDPSession(page);
+    try {
+      await expect.poll(async () => {
+        const { entries, currentIndex } = await browser.send('Page.getNavigationHistory');
+        return entries.slice(currentIndex - 2, currentIndex + 1).map(entry => entry.title);
+      }).toEqual([settingsTitle, sessionTitles.get(sessionId), sessionTitles.get(otherSessionId)]);
+    } finally {
+      await browser.detach();
+    }
     await page.getByTestId('sidebar-back-button').click();
     await expectSession(sessionId);
     await page.getByTestId('sidebar-forward-button').click();

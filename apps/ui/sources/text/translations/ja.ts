@@ -10917,6 +10917,7 @@ settingsSession: {
   },
 
   navigation: {
+      sessionDocumentTitle: ({ name }: { name: string }) => `Happier - ${name}`,
     // Navigation titles and screen headers
     connectTerminal: "ターミナルを接続",
     linkNewDevice: "新しいデバイスをリンク",
