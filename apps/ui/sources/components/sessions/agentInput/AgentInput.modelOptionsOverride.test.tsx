@@ -1779,6 +1779,7 @@ describe('AgentInput (modelOptionsOverride)', () => {
                         modelMode: 'pending-model',
                         onModelModeChange: () => {},
                         modelOptionsOverride: [
+                            { value: 'default', label: 'Default (from session)', description: '' },
                             { value: 'session-model', label: 'Session Model', description: '' },
                             { value: 'pending-model', label: 'Pending Model', description: '' },
                         ],
