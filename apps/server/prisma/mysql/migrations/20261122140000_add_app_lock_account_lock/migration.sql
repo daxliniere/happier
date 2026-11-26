@@ -2,8 +2,8 @@
 CREATE TABLE `AppLockAccountLock` (
     `accountId` VARCHAR(191) NOT NULL,
     `kdf` VARCHAR(191) NOT NULL,
-    `passwordWrappedKey` LONGTEXT NOT NULL,
-    `deviceWrappedKey` LONGTEXT NOT NULL,
+    `passwordWrappedKey` VARCHAR(191) NOT NULL,
+    `deviceWrappedKey` VARCHAR(191) NOT NULL,
     `version` INTEGER NOT NULL DEFAULT 1,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
