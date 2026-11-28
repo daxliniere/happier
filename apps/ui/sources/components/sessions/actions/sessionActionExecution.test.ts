@@ -33,7 +33,7 @@ import {
     SESSION_ACTION_STOP_ID,
     SESSION_ACTION_UNARCHIVE_ID,
 } from './sessionActionIds';
-import { executeSessionAction } from './sessionActionExecution';
+import { confirmSessionStop, executeSessionAction } from './sessionActionExecution';
 import { executeSessionBulkAction, SESSION_BULK_ACTION_IDS } from './sessionBulkActionExecution';
 import { isSessionArchivePending, stopSessionAndMaybeArchive } from '../sessionStopArchiveFlow';
 import { createDeferred } from '@/dev/testkit';
@@ -133,6 +133,16 @@ describe('delete eligibility at execution', () => {
         expect(stop).not.toHaveBeenCalled();
         expect(request.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(0);
         expect(storage.getState().sessions[session.id]).toBe(session);
+    });
+
+    it('skips the stop confirmation only when the primary modifier was held', async () => {
+        vi.mocked(Modal.confirm).mockClear();
+        await expect(confirmSessionStop({ primaryModifier: true })).resolves.toBe(true);
+        expect(Modal.confirm).not.toHaveBeenCalled();
+
+        vi.mocked(Modal.confirm).mockResolvedValueOnce(false);
+        await expect(confirmSessionStop({ primaryModifier: false })).resolves.toBe(false);
+        expect(Modal.confirm).toHaveBeenCalledTimes(1);
     });
 
     it('names the session in the delete confirmation', async () => {

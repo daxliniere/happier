@@ -8,6 +8,7 @@ import { sync } from '@/sync/sync';
 import { canSteerUserMessageNow, supportsInFlightSteerUserMessage } from '@/sync/domains/session/control/submitMode';
 import { getPendingMaterializingKey, getPendingMessageSendPresentation, sendPendingMessageWithIntent } from './pendingMessageSendActions';
 import { Modal } from '@/modal';
+import { isPrimaryModifierPressEvent } from '@/keyboard/pressModifiers';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { useLayoutMaxWidth } from '@/components/ui/layout/layout';
 import { Text } from '@/components/ui/text/Text';
@@ -387,14 +388,14 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
         }
     }, [canReorderPendingMessages, props.pendingMessages, props.sessionId]);
 
-    const handleRemove = React.useCallback(async (pendingId: string) => {
+    const handleRemove = React.useCallback(async (pendingId: string, primaryModifier = false) => {
         if (removeActionInFlightRef.current[pendingId]) return;
         removeActionInFlightRef.current = { ...removeActionInFlightRef.current, [pendingId]: true };
         try {
-            const confirmed = await Modal.confirm(
+            const confirmed = await confirmPendingRemoval(
+                primaryModifier,
                 t('session.pendingMessages.removeConfirm.title'),
                 t('session.pendingMessages.removeConfirm.body'),
-                { confirmText: t('common.remove'), destructive: true },
             );
             if (!confirmed) return;
             try {
@@ -441,12 +442,12 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
         }
     }, [setPendingMaterializing]);
 
-    const handleRemoveDelivery = React.useCallback(async (message: PendingMessage) => {
+    const handleRemoveDelivery = React.useCallback(async (message: PendingMessage, primaryModifier = false) => {
         await runPendingDeliveryAction(message, async () => {
-            const confirmed = await Modal.confirm(
+            const confirmed = await confirmPendingRemoval(
+                primaryModifier,
                 t('session.pendingMessages.removeConfirm.title'),
                 t('session.pendingMessages.removeConfirm.body'),
-                { confirmText: t('common.remove'), destructive: true },
             );
             if (!confirmed) return;
             try {
@@ -464,13 +465,14 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
         && topPendingVisualState
         && canRemovePendingMessage(topPendingMessage, topPendingVisualState)
     );
-    const handleRemoveTopPendingMessage = React.useCallback(() => {
+    const handleRemoveTopPendingMessage = React.useCallback((pressEvent?: unknown) => {
+        const primaryModifier = isPrimaryModifierPressEvent(pressEvent);
         if (!topPendingMessage || !topPendingVisualState || !canRemoveTopPendingMessage) return;
         if (hasPendingDeliveryResolutionState(topPendingVisualState)) {
-            void handleRemoveDelivery(topPendingMessage);
+            void handleRemoveDelivery(topPendingMessage, primaryModifier);
             return;
         }
-        void handleRemove(topPendingMessage.id);
+        void handleRemove(topPendingMessage.id, primaryModifier);
     }, [canRemoveTopPendingMessage, handleRemove, handleRemoveDelivery, topPendingMessage, topPendingVisualState]);
 
     const handleRetrySend = React.useCallback(async (message: PendingMessage) => {
@@ -559,11 +561,11 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
         }
     }, [props.sessionId]);
 
-    const handleRemoveDiscarded = React.useCallback(async (pendingId: string) => {
-        const confirmed = await Modal.confirm(
+    const handleRemoveDiscarded = React.useCallback(async (pendingId: string, primaryModifier = false) => {
+        const confirmed = await confirmPendingRemoval(
+            primaryModifier,
             t('session.pendingMessages.discarded.removeConfirm.title'),
             t('session.pendingMessages.discarded.removeConfirm.body'),
-            { confirmText: t('common.remove'), destructive: true },
         );
         if (!confirmed) return;
         try {
@@ -749,16 +751,16 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
                     }
                 }}
                 items={menuItems}
-                onSelect={async (itemId) => {
+                onSelect={async (itemId, selection) => {
                     setOpenMenuKey(null);
                     if (itemId === 'copy') await copyPendingMessageText(message);
                     if (itemId === 'continueWaiting') return;
                     if (itemId === 'edit') await handleEdit(message);
                     if (itemId === 'remove') {
                         if (usesDeliveryResolutionActions) {
-                            await handleRemoveDelivery(message);
+                            await handleRemoveDelivery(message, selection.primaryModifier);
                         } else {
-                            await handleRemove(message.id);
+                            await handleRemove(message.id, selection.primaryModifier);
                         }
                     }
                     if (itemId === 'retrySend') await handleRetrySend(message);
@@ -1007,7 +1009,7 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
                                         testID={`pendingMessages.remove:${message.id}`}
                                         accessibilityLabel={t('common.remove')}
                                         icon="trash"
-                                        onPress={() => handleRemoveDelivery(message)}
+                                        onPress={(event) => handleRemoveDelivery(message, isPrimaryModifierPressEvent(event))}
                                         tone="destructive"
                                         disabled={deliveryActionBusy}
                                     />
@@ -1017,7 +1019,7 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
                                         testID={`pendingMessages.remove:${message.id}`}
                                         accessibilityLabel={t('common.remove')}
                                         icon="trash"
-                                        onPress={() => handleRemove(message.id)}
+                                        onPress={(event) => handleRemove(message.id, isPrimaryModifierPressEvent(event))}
                                         tone="destructive"
                                         disabled={deliveryActionBusy}
                                     />
@@ -1035,7 +1037,7 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
                                         testID={`pendingMessages.remove:${message.id}`}
                                         accessibilityLabel={t('common.remove')}
                                         icon="trash"
-                                        onPress={() => handleRemove(message.id)}
+                                        onPress={(event) => handleRemove(message.id, isPrimaryModifierPressEvent(event))}
                                         tone="destructive"
                                     />
                                 ) : null}
@@ -1149,11 +1151,11 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
                     }
                 }}
                 items={menuItems}
-                onSelect={async (itemId) => {
+                onSelect={async (itemId, selection) => {
                     setOpenMenuKey(null);
                     if (itemId === 'copy') await copyPendingMessageText(message);
                     if (itemId === 'requeue') await handleRequeueDiscarded(message.id);
-                    if (itemId === 'remove') await handleRemoveDiscarded(message.id);
+                    if (itemId === 'remove') await handleRemoveDiscarded(message.id, selection.primaryModifier);
                     if (itemId === 'steerNow') await handleSteerDiscardedNow(message);
                     if (itemId === 'sendNow') await handleSendDiscardedNow(message);
                 }}
@@ -1233,7 +1235,7 @@ export function PendingMessagesTranscriptBlock(props: Readonly<{
                                     testID={`pendingMessages.discarded.remove:${message.id}`}
                                     accessibilityLabel={t('common.remove')}
                                     icon="trash"
-                                    onPress={() => handleRemoveDiscarded(message.id)}
+                                    onPress={(event) => handleRemoveDiscarded(message.id, isPrimaryModifierPressEvent(event))}
                                     tone="destructive"
                                 />
                                 {canSteerNow ? (
@@ -1499,9 +1501,19 @@ const PendingMessageCopyAction = React.memo(function PendingMessageCopyAction(pr
     );
 });
 
+/** Ctrl+click (Cmd+click on macOS) removes a queued message without the confirmation prompt. */
+async function confirmPendingRemoval(
+    primaryModifier: boolean,
+    title: string,
+    body: string,
+): Promise<boolean> {
+    if (primaryModifier) return true;
+    return await Modal.confirm(title, body, { confirmText: t('common.remove'), destructive: true });
+}
+
 function IconAction(props: {
     icon: IconName;
-    onPress: () => void;
+    onPress: (event?: unknown) => void;
     accessibilityLabel: string;
     testID?: string;
     tone?: 'default' | 'destructive' | 'success';

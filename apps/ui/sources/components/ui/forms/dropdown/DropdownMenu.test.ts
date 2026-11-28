@@ -276,7 +276,7 @@ describe('DropdownMenu', () => {
         expect(onOpenChange).toHaveBeenCalledWith(false);
         expect(onSelect).not.toHaveBeenCalled();
         act(() => scheduled.shift()?.(0));
-        expect(onSelect).toHaveBeenCalledWith('a');
+        expect(onSelect).toHaveBeenCalledWith('a', { primaryModifier: false });
     });
 
     it('commits a closing menu selection after the selection press has completed', async () => {
@@ -360,7 +360,7 @@ describe('DropdownMenu', () => {
         await act(async () => {
             await new Promise<void>((resolve) => setTimeout(resolve, 120));
         });
-        expect(onSelect).toHaveBeenCalledWith('open-modal');
+        expect(onSelect).toHaveBeenCalledWith('open-modal', { primaryModifier: false });
     });
 
     it('does not let the timeout fallback overtake an available animation frame', async () => {
@@ -391,7 +391,7 @@ describe('DropdownMenu', () => {
             expect(onSelect).not.toHaveBeenCalled();
 
             act(() => scheduled.shift()?.(0));
-            expect(onSelect).toHaveBeenCalledWith('open-modal');
+            expect(onSelect).toHaveBeenCalledWith('open-modal', { primaryModifier: false });
         } finally {
             vi.useRealTimers();
         }
@@ -416,7 +416,7 @@ describe('DropdownMenu', () => {
             selectableResults?.props?.onPressItem?.({ id: 'a' });
         });
 
-        expect(onSelect).toHaveBeenCalledWith('a');
+        expect(onSelect).toHaveBeenCalledWith('a', { primaryModifier: false });
         expect(onOpenChange).not.toHaveBeenCalledWith(false);
     });
 
@@ -475,7 +475,7 @@ describe('DropdownMenu', () => {
         expect(onOpenChange).toHaveBeenCalledWith(false);
         expect(onSelect).not.toHaveBeenCalled();
         act(() => scheduled.shift()?.(1));
-        expect(onSelect).toHaveBeenCalledWith('move-to-folder:root');
+        expect(onSelect).toHaveBeenCalledWith('move-to-folder:root', { primaryModifier: false });
     });
 
     describe('submenu hover intent', () => {
@@ -616,7 +616,7 @@ describe('DropdownMenu', () => {
         act(() => {
             results[1]?.props?.onPressItem?.({ id: 'color:custom-picker' });
         });
-        expect(onSelect).toHaveBeenCalledWith('color:custom-picker');
+        expect(onSelect).toHaveBeenCalledWith('color:custom-picker', { primaryModifier: false });
         expect(onOpenChange).not.toHaveBeenCalledWith(false);
         expect(screen.findAllByType('SelectableMenuResults' as any)).toHaveLength(2);
     });

@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { isPrimaryModifierHeld, isPrimaryModifierPressEvent } from '@/keyboard/pressModifiers';
 import { resolveKeyboardPlatform } from '@/keyboard/runtime';
 import type { KeyboardPlatform } from '@/keyboard/types';
 import type { NewSessionDraftEntryMode } from '@/sync/domains/settings/registry/account/accountSessionCreationSettingDefinitions';
@@ -58,24 +59,14 @@ export function shouldForceFreshNewSessionEntry(params: Readonly<{
     metaKey: boolean;
     ctrlKey: boolean;
 }>): boolean {
-    return params.platform === 'macos' ? params.metaKey : params.ctrlKey;
+    return isPrimaryModifierHeld(params);
 }
 
 export function shouldForceFreshNewSessionEntryFromPressEvent(
     event?: unknown,
     platform: KeyboardPlatform = resolveKeyboardPlatform(),
 ): boolean {
-    const eventRecord = event && typeof event === 'object'
-        ? event as Readonly<Record<string, unknown>>
-        : null;
-    const nativeEvent = eventRecord?.nativeEvent && typeof eventRecord.nativeEvent === 'object'
-        ? eventRecord.nativeEvent as Readonly<Record<string, unknown>>
-        : null;
-    return shouldForceFreshNewSessionEntry({
-        platform,
-        metaKey: eventRecord?.metaKey === true || nativeEvent?.metaKey === true,
-        ctrlKey: eventRecord?.ctrlKey === true || nativeEvent?.ctrlKey === true,
-    });
+    return isPrimaryModifierPressEvent(event, platform);
 }
 
 export function useResolveNewSessionOrdinaryEntryRoute(): (
