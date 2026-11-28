@@ -2,6 +2,11 @@ import * as React from 'react';
 import type { StyleProp, TextStyle } from 'react-native';
 import { Platform, View } from 'react-native';
 
+import { CopiedPill } from '@/components/ui/copy/CopiedPill';
+import { useTemporaryCopyFeedback } from '@/components/ui/copy/useTemporaryCopyFeedback';
+import { t } from '@/text';
+import { setClipboardStringSafe } from '@/utils/ui/clipboard';
+
 import type { Option, OptionLongPressHandler } from '../MarkdownBlockView';
 import type { MarkdownSelectionAction, MarkdownSourceRange, MarkdownSourceRangeAction, MarkdownSourceRangeLayoutObserver } from '../MarkdownView';
 import { usePreparedStreamingMarkdown, type MarkdownStreamingMode } from '../streaming/usePreparedStreamingMarkdown';
@@ -189,10 +194,50 @@ export const MarkdownViewRenderer = React.memo((props: MarkdownViewRendererProps
                     </MarkdownCodeBlockWrapKeyProvider>
                 ))}
             </View>
+            {Platform.OS === 'web' ? <MarkdownInlineCodeCopy contentRef={contentRef} /> : null}
             {staticRenderPlaceholder.visible ? <StaticMarkdownRenderPlaceholder /> : null}
         </View>
     );
 });
+
+function MarkdownInlineCodeCopy({ contentRef }: Readonly<{ contentRef: React.RefObject<View | null> }>) {
+    const { copiedKey, markCopied } = useTemporaryCopyFeedback();
+    const [copiedTop, setCopiedTop] = React.useState(0);
+
+    React.useEffect(() => {
+        const content = contentRef.current as unknown as HTMLElement | null;
+        if (!content?.addEventListener) return;
+
+        // RN Web's View does not forward an onDoubleClick prop.
+        const copyInlineCode = (event: MouseEvent) => {
+            if (!(event.target instanceof Element)) return;
+            const code = event.target.closest('code, [data-markdown-inline-code]');
+            if (!code || !content.contains(code) || code.closest('pre, a, button, [role="button"]')) return;
+            const text = code.textContent;
+            if (!text) return;
+
+            const top = code.getBoundingClientRect().top - content.getBoundingClientRect().top;
+            event.stopPropagation();
+            void setClipboardStringSafe(text).then((copied) => {
+                if (!copied || !content.isConnected) return;
+                setCopiedTop(top);
+                markCopied();
+            });
+        };
+
+        content.addEventListener('dblclick', copyInlineCode);
+        return () => content.removeEventListener('dblclick', copyInlineCode);
+    }, [contentRef, markCopied]);
+
+    return copiedKey === null ? null : (
+        <CopiedPill
+            visible
+            label={`${t('common.copied')}!`}
+            testID="markdown-inline-code-copied"
+            style={[styles.copyFeedback, { top: copiedTop }]}
+        />
+    );
+}
 
 const styles = {
     root: {
@@ -200,5 +245,9 @@ const styles = {
     },
     content: {
         width: '100%' as const,
+    },
+    copyFeedback: {
+        position: 'absolute' as const,
+        right: 0,
     },
 };

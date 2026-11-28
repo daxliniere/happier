@@ -86,7 +86,8 @@ export const MarkdownSpansView = React.memo((props: MarkdownSpansViewProps) => {
                 }
 
                 const spanStyle = [props.baseStyle, span.styles.map(resolveSpanStyle)];
-                if (props.streamingReveal === true && !span.styles.includes('code')) {
+                const isCode = span.styles.includes('code');
+                if (props.streamingReveal === true && !isCode) {
                     return (
                         <StreamingTextReveal
                             key={index}
@@ -104,6 +105,7 @@ export const MarkdownSpansView = React.memo((props: MarkdownSpansViewProps) => {
                         key={index}
                         selectable={inlineTextSelectable}
                         style={spanStyle}
+                        {...(Platform.OS === 'web' && isCode ? { dataSet: { markdownInlineCode: 'true' } } : {})}
                     >
                         {span.text}
                     </Text>
