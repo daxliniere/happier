@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { resolveBuiltInAgentTitle } from '@/agents/backendCatalog/getResolvedBackendCatalogEntries';
+
 import {
     getSettingsBreadcrumbs,
     getSettingsStackScreenDefinitions,
@@ -46,7 +48,7 @@ describe('settingsRouteRegistry', () => {
             ],
             'settings',
         );
-        expect(crumbs).toEqual([
+        expect(resolveSettingsBreadcrumbs(crumbs, undefined)).toEqual([
             { title: 'settings.title', href: '/settings' },
             { title: 'settings.connectedServices', href: '/settings/connected-services' },
             { title: 'connectedServices.providerStateSharing.title' },
@@ -64,11 +66,11 @@ describe('settingsRouteRegistry', () => {
             ],
             'prompts',
         );
-        expect(crumbs).toEqual([
+        expect(resolveSettingsBreadcrumbs(crumbs, { id: 'doc-1' })).toEqual([
             { title: 'settings.title', href: '/settings' },
             { title: 'settings.prompts', href: '/settings/prompts' },
             { title: 'promptLibrary.prompts', href: '/settings/prompts/docs' },
-            { title: 'promptLibrary.editPrompt', href: '/settings/prompts/docs/[id]' },
+            { title: 'promptLibrary.editPrompt', href: '/settings/prompts/docs/doc-1' },
             { title: 'promptLibrary.externalAssetsExportTitle' },
         ]);
     });
@@ -93,15 +95,19 @@ describe('settingsRouteRegistry', () => {
 
     it('keeps the parent link when a detail screen shares its parent title', () => {
         const definitions = getSettingsStackScreenDefinitions((key) => key);
-        expect(definitions.find((entry) => entry.name === 'actions/[actionId]')?.breadcrumbs).toEqual([
+        const shown = (name: string, params?: Record<string, string>) => resolveSettingsBreadcrumbs(
+            definitions.find((entry) => entry.name === name)?.breadcrumbs ?? [],
+            params,
+        );
+        expect(shown('actions/[actionId]', { actionId: 'a1' })).toEqual([
             { title: 'settings.title', href: '/settings' },
             { title: 'common.actions', href: '/settings/actions' },
         ]);
-        expect(definitions.find((entry) => entry.name === 'actions')?.breadcrumbs).toEqual([
+        expect(shown('actions')).toEqual([
             { title: 'settings.title', href: '/settings' },
             { title: 'common.actions' },
         ]);
-        expect(definitions.find((entry) => entry.name === 'index')?.breadcrumbs).toEqual([
+        expect(shown('index')).toEqual([
             { title: 'settings.title' },
         ]);
     });
@@ -137,5 +143,16 @@ describe('settingsRouteRegistry', () => {
             { title: 'connectedServices.serviceNames.claudeSubscription' },
         ]);
         expect(typeof definitions.find((entry) => entry.name === 'connected-services/oauth')?.routeOptions).toBe('function');
+    });
+
+    it('names a provider detail screen after its provider and links back to AI backends', () => {
+        const definition = getSettingsStackScreenDefinitions((key) => key)
+            .find((entry) => entry.name === 'providers/[providerId]');
+
+        expect(resolveSettingsBreadcrumbs(definition?.breadcrumbs ?? [], { providerId: 'devin' })).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'settingsProviders.title', href: '/settings/providers' },
+            { title: resolveBuiltInAgentTitle('devin') },
+        ]);
     });
 });

@@ -33,7 +33,8 @@ export const SettingsBreadcrumbHeaderTitle = React.memo((props: Readonly<{
                                 testID={`settings-breadcrumb-${index}`}
                                 accessibilityRole="link"
                                 accessibilityLabel={crumb.title}
-                                onPress={() => router.navigate(href as never)}
+                                // Going up pops back to that level (or replaces this screen with it when it is not in the stack).
+                                onPress={() => router.dismissTo(href as never)}
                                 hitSlop={8}
                                 style={({ pressed }) => [styles.crumb, pressed && styles.crumbPressed]}
                             >

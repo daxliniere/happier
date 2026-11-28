@@ -3,6 +3,7 @@ import type { NativeStackNavigationOptions } from '@react-navigation/native-stac
 
 import { ConnectedServiceIdSchema } from '@happier-dev/protocol';
 
+import { resolveBuiltInAgentTitle } from '@/agents/backendCatalog/getResolvedBackendCatalogEntries';
 import { resolveConnectedServiceDisplayName } from '@/components/settings/connectedServices/model/resolveConnectedServiceDisplayName';
 import type { TranslationKeyNoParams } from '@/text';
 
@@ -15,7 +16,7 @@ export type SettingsStackScope = 'settings' | 'prompts';
 export type SettingsStackScreenDefinition = Readonly<{
     name: string;
     options: NativeStackNavigationOptions;
-    /** Breadcrumb trail for titled screens; links may hold `[param]` segments to resolve per route. */
+    /** Unresolved breadcrumb trail for titled screens (see `resolveSettingsBreadcrumbs`). */
     breadcrumbs?: readonly SettingsBreadcrumb[];
     /** Present when the breadcrumbs depend on route params: builds the screen options for a route's params. */
     routeOptions?: (params: SettingsRouteParams) => NativeStackNavigationOptions;
@@ -62,15 +63,36 @@ function resolveSettingsBreadcrumbHref(href: string, params: SettingsRouteParams
     return resolvable ? resolved : undefined;
 }
 
-/** Fills `[param]` segments of each crumb link from the current route; a link whose params are missing becomes plain text. */
+/**
+ * Turns a screen's breadcrumb trail into what its header shows for the current route:
+ * - titles and `[param]` links are filled from the route params (a link whose params are missing becomes plain text);
+ * - a level that shares its title with the next one collapses into one crumb that keeps the upper level's link;
+ * - the last crumb is the current screen and never links to itself. When the current screen collapsed into an
+ *   upper level at another route (e.g. an Action detail under "Actions"), that upper level keeps its link.
+ */
 export function resolveSettingsBreadcrumbs(
     breadcrumbs: readonly SettingsBreadcrumb[],
     params: SettingsRouteParams,
 ): readonly SettingsBreadcrumb[] {
-    return breadcrumbs.map((crumb) => {
-        const title = crumb.resolveTitle?.(params) ?? crumb.title;
-        const href = crumb.href ? resolveSettingsBreadcrumbHref(crumb.href, params) : undefined;
-        return href ? { title, href } : { title };
+    const resolved = breadcrumbs.map((crumb) => ({
+        title: crumb.resolveTitle?.(params) ?? crumb.title,
+        href: crumb.href ? resolveSettingsBreadcrumbHref(crumb.href, params) : undefined,
+    }));
+    const collapsed: { title: string; href?: string; absorbsCurrent?: boolean; currentHref?: string }[] = [];
+    resolved.forEach((crumb, index) => {
+        const previous = collapsed[collapsed.length - 1];
+        if (previous && previous.title === crumb.title) {
+            if (index === resolved.length - 1) {
+                previous.absorbsCurrent = true;
+                previous.currentHref = crumb.href;
+            }
+            return;
+        }
+        collapsed.push({ ...crumb });
+    });
+    return collapsed.map((crumb, index) => {
+        const linksElsewhere = index < collapsed.length - 1 || (crumb.absorbsCurrent === true && crumb.currentHref !== crumb.href);
+        return linksElsewhere && crumb.href ? { title: crumb.title, href: crumb.href } : { title: crumb.title };
     });
 }
 
@@ -97,13 +119,14 @@ function getSettingsParentRouteName(
     return undefined;
 }
 
+/** The full trail from Settings to the screen, unresolved: see `resolveSettingsBreadcrumbs` for what the header shows. */
 export function getSettingsBreadcrumbs(
     t: Translate,
     name: string,
     definitions: readonly SettingsRouteChromeDefinition[],
     scope: SettingsStackScope,
 ): readonly SettingsBreadcrumb[] {
-    const crumbs: { title: string; href: string; resolveTitle?: SettingsBreadcrumb['resolveTitle'] }[] = [
+    const crumbs: SettingsBreadcrumb[] = [
         { title: t('settings.title'), href: '/settings' },
     ];
     if (scope === 'prompts') crumbs.push({ title: t('settings.prompts'), href: '/settings/prompts' });
@@ -127,28 +150,7 @@ export function getSettingsBreadcrumbs(
         });
     }
 
-    // A parent that shares its title with the next level collapses into one crumb that keeps the parent's link.
-    const deduped: (typeof crumbs[number] & { absorbedCurrentHref?: string })[] = [];
-    crumbs.forEach((crumb, index) => {
-        const previous = deduped[deduped.length - 1];
-        if (previous && previous.title === crumb.title) {
-            if (index === crumbs.length - 1) previous.absorbedCurrentHref = crumb.href;
-            return;
-        }
-        deduped.push({ ...crumb });
-    });
-    const withTitle = (crumb: (typeof deduped)[number], href?: string): SettingsBreadcrumb => ({
-        title: crumb.title,
-        ...(href ? { href } : {}),
-        ...(crumb.resolveTitle ? { resolveTitle: crumb.resolveTitle } : {}),
-    });
-    // The last crumb is the current screen: show it, but never as a link to itself. When the current screen
-    // collapsed into a parent at another route (e.g. an Action detail under "Actions"), keep the parent's link.
-    return deduped.map((crumb, index) => {
-        if (index < deduped.length - 1) return withTitle(crumb, crumb.href);
-        const linksElsewhere = crumb.absorbedCurrentHref !== undefined && crumb.absorbedCurrentHref !== crumb.href;
-        return withTitle(crumb, linksElsewhere ? crumb.href : undefined);
-    });
+    return crumbs;
 }
 
 type SettingsRouteChromeDefinition = Readonly<{
@@ -161,6 +163,11 @@ type SettingsRouteChromeDefinition = Readonly<{
     headerBackTitleKey?: TranslationKeyNoParams;
     headerShown?: boolean;
 }>;
+
+function providerTitle(params: SettingsRouteParams): string | undefined {
+    const providerId = params?.providerId;
+    return typeof providerId === 'string' ? resolveBuiltInAgentTitle(providerId) ?? undefined : undefined;
+}
 
 function connectedServiceTitle(params: SettingsRouteParams, t: Translate): string | undefined {
     const parsed = ConnectedServiceIdSchema.safeParse(params?.serviceId);
@@ -231,7 +238,7 @@ const SETTINGS_ROUTE_CHROME_DEFINITIONS: readonly SettingsRouteChromeDefinition[
     { name: 'prompts/templates', titleKey: 'promptLibrary.templates' },
     { name: 'prompts/templates/[id]', titleKey: 'promptLibrary.editTemplate' },
     { name: 'prompts/templates/new', titleKey: 'promptLibrary.newTemplate' },
-    { name: 'providers/[providerId]', titleKey: 'settingsProviders.title' },
+    { name: 'providers/[providerId]', titleKey: 'settingsProviders.title', titleFromParams: providerTitle },
     { name: 'providers/index', titleKey: 'settingsProviders.title' },
     { name: 'report-issue', titleKey: 'settings.reportIssue' },
     { name: 'secrets', titleKey: 'settings.secrets' },

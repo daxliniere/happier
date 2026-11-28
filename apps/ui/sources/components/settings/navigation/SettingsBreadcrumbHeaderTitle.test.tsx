@@ -8,11 +8,11 @@ import { SettingsBreadcrumbHeaderTitle } from './SettingsBreadcrumbHeaderTitle';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const routerState = vi.hoisted(() => ({ navigate: vi.fn() }));
+const routerState = vi.hoisted(() => ({ dismissTo: vi.fn() }));
 
 vi.mock('expo-router', async () => {
     const { createExpoRouterMock } = await import('@/dev/testkit/mocks/router');
-    return createExpoRouterMock({ router: { navigate: routerState.navigate } }).module;
+    return createExpoRouterMock({ router: { dismissTo: routerState.dismissTo } }).module;
 });
 
 vi.mock('react-native-unistyles', async () => {
@@ -27,14 +27,14 @@ const breadcrumbs: readonly SettingsBreadcrumb[] = [
 ];
 
 describe('SettingsBreadcrumbHeaderTitle', () => {
-    it('opens the pressed upper level and leaves the current screen unlinked', async () => {
+    it('goes back up to the pressed level and leaves the current screen unlinked', async () => {
         const screen = await renderScreen(<SettingsBreadcrumbHeaderTitle breadcrumbs={breadcrumbs} />);
 
         screen.pressByTestId('settings-breadcrumb-1');
-        expect(routerState.navigate).toHaveBeenCalledWith('/settings/connected-services');
+        expect(routerState.dismissTo).toHaveBeenCalledWith('/settings/connected-services');
 
         screen.pressByTestId('settings-breadcrumb-0');
-        expect(routerState.navigate).toHaveBeenLastCalledWith('/settings');
+        expect(routerState.dismissTo).toHaveBeenLastCalledWith('/settings');
 
         expect(screen.findByTestId('settings-breadcrumb-2')).toBeTruthy();
         expect(screen.findByTestId('settings-breadcrumb-2')?.props.onPress).toBeUndefined();
