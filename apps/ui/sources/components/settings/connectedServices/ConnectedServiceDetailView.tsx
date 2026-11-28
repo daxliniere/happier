@@ -485,7 +485,6 @@ export const ConnectedServiceDetailView = React.memo(function ConnectedServiceDe
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      headerTitle: serviceLabel,
       headerRight: canAdd
         ? () => (
           <SettingsHeaderAddButton
@@ -498,7 +497,7 @@ export const ConnectedServiceDetailView = React.memo(function ConnectedServiceDe
         )
         : undefined,
     });
-  }, [activeSegment, canAdd, handleHeaderAdd, navigation, serviceLabel]);
+  }, [activeSegment, canAdd, handleHeaderAdd, navigation]);
 
   if (!connectedServicesEnabled) {
     return (

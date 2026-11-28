@@ -7,7 +7,12 @@ import { createAppStackScreenOptions } from '@/components/navigation/createAppSt
 import { composeAppStackScreenLayout } from '@/components/navigation/appStackScreenLayout';
 import { NavigatorSafeAreaBleed } from '@/components/navigation/safeArea/HorizontalSafeArea';
 import { ItemSubtitleWrappingContext } from '@/components/ui/lists/Item';
-import { getSettingsStackScreenDefinitions, type SettingsStackScope } from './settingsRouteRegistry';
+import {
+    getSettingsStackScreenDefinitions,
+    type SettingsRouteParams,
+    type SettingsStackScope,
+    type SettingsStackScreenDefinition,
+} from './settingsRouteRegistry';
 import { t } from '@/text';
 import { isRunningOnMac } from '@/utils/platform/platform';
 
@@ -33,11 +38,18 @@ export function SettingsStack({ scope = 'settings', screenLayout }: Readonly<{
                         <Stack.Screen
                             key={definition.name}
                             name={definition.name}
-                            options={definition.options}
+                            options={getSettingsScreenOptions(definition)}
                         />
                     ))}
                 </Stack>
             </NavigatorSafeAreaBleed>
         </ItemSubtitleWrappingContext.Provider>
     );
+}
+
+/** Screens whose breadcrumbs depend on route params (service names, the prompt editor link) build options per route. */
+function getSettingsScreenOptions(definition: SettingsStackScreenDefinition) {
+    const routeOptions = definition.routeOptions;
+    if (!routeOptions) return definition.options;
+    return ({ route }: { route: { params?: object } }) => routeOptions(route.params as SettingsRouteParams);
 }

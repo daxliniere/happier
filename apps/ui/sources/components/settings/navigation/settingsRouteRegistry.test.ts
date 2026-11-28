@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSettingsBreadcrumbs, getSettingsStackScreenDefinitions } from './settingsRouteRegistry';
+import { resolveBuiltInAgentTitle } from '@/agents/backendCatalog/getResolvedBackendCatalogEntries';
+
+import {
+    getSettingsBreadcrumbs,
+    getSettingsStackScreenDefinitions,
+    resolveSettingsBreadcrumbs,
+} from './settingsRouteRegistry';
 
 describe('settingsRouteRegistry', () => {
     it('gives the prompts navigator ownership of its screen headers', () => {
@@ -42,14 +48,14 @@ describe('settingsRouteRegistry', () => {
             ],
             'settings',
         );
-        expect(crumbs).toEqual([
+        expect(resolveSettingsBreadcrumbs(crumbs, undefined)).toEqual([
             { title: 'settings.title', href: '/settings' },
             { title: 'settings.connectedServices', href: '/settings/connected-services' },
             { title: 'connectedServices.providerStateSharing.title' },
         ]);
     });
 
-    it('roots prompts breadcrumbs under the prompts navigator and skips routes that need params', () => {
+    it('roots prompts breadcrumbs under the prompts navigator and templates parents that need params', () => {
         const crumbs = getSettingsBreadcrumbs(
             (key) => key,
             'docs/[id]/export',
@@ -60,12 +66,93 @@ describe('settingsRouteRegistry', () => {
             ],
             'prompts',
         );
-        expect(crumbs).toEqual([
+        expect(resolveSettingsBreadcrumbs(crumbs, { id: 'doc-1' })).toEqual([
             { title: 'settings.title', href: '/settings' },
             { title: 'settings.prompts', href: '/settings/prompts' },
             { title: 'promptLibrary.prompts', href: '/settings/prompts/docs' },
-            { title: 'promptLibrary.editPrompt' },
+            { title: 'promptLibrary.editPrompt', href: '/settings/prompts/docs/doc-1' },
             { title: 'promptLibrary.externalAssetsExportTitle' },
+        ]);
+    });
+
+    it('fills parent links from route params and leaves them plain when params are missing', () => {
+        const crumbs = [
+            { title: 'Prompts', href: '/settings/prompts/docs' },
+            { title: 'Edit prompt', href: '/settings/prompts/docs/[id]' },
+            { title: 'Export' },
+        ];
+        expect(resolveSettingsBreadcrumbs(crumbs, { id: 'a b/c' })).toEqual([
+            { title: 'Prompts', href: '/settings/prompts/docs' },
+            { title: 'Edit prompt', href: '/settings/prompts/docs/a%20b%2Fc' },
+            { title: 'Export' },
+        ]);
+        expect(resolveSettingsBreadcrumbs(crumbs, undefined)).toEqual([
+            { title: 'Prompts', href: '/settings/prompts/docs' },
+            { title: 'Edit prompt' },
+            { title: 'Export' },
+        ]);
+    });
+
+    it('keeps the parent link when a detail screen shares its parent title', () => {
+        const definitions = getSettingsStackScreenDefinitions((key) => key);
+        const shown = (name: string, params?: Record<string, string>) => resolveSettingsBreadcrumbs(
+            definitions.find((entry) => entry.name === name)?.breadcrumbs ?? [],
+            params,
+        );
+        expect(shown('actions/[actionId]', { actionId: 'a1' })).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'common.actions', href: '/settings/actions' },
+        ]);
+        expect(shown('actions')).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'common.actions' },
+        ]);
+        expect(shown('index')).toEqual([
+            { title: 'settings.title' },
+        ]);
+    });
+
+    it('follows the navigation parent for screens registered outside their parent route', () => {
+        const definitions = getSettingsStackScreenDefinitions((key) => key);
+        const trail = (name: string) => definitions.find((entry) => entry.name === name)?.breadcrumbs
+            ?.map((crumb) => crumb.title);
+
+        expect(trail('model-visibility')).toEqual(['settings.title', 'settingsProviders.title', 'modelVisibility.title']);
+        expect(trail('acp-backend')).toEqual(['settings.title', 'settingsProviders.title', 'settings.acpCatalogBackendEditorTitle']);
+        expect(trail('language')).toEqual(['settings.title', 'settings.appearance', 'settingsLanguage.currentLanguage']);
+        expect(trail('mcp-server')).toEqual(['settings.title', 'settings.mcpServers', 'settings.mcpServersEditorTitle']);
+        expect(trail('diagnosis')).toEqual(['settings.title', 'settings.systemStatus', 'diagnosis.title']);
+    });
+
+    it('nests connected-service sub-screens under the named service', () => {
+        const definitions = getSettingsStackScreenDefinitions((key) => key);
+        const resolved = (name: string) => resolveSettingsBreadcrumbs(
+            definitions.find((entry) => entry.name === name)?.breadcrumbs ?? [],
+            { serviceId: 'claude-subscription', profileId: 'work' },
+        );
+
+        expect(resolved('connected-services/profile')).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'settings.connectedServices', href: '/settings/connected-services' },
+            { title: 'connectedServices.serviceNames.claudeSubscription', href: '/settings/connected-services/claude-subscription' },
+            { title: 'connectedServices.profile.profileId' },
+        ]);
+        expect(resolved('connected-services/[serviceId]')).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'settings.connectedServices', href: '/settings/connected-services' },
+            { title: 'connectedServices.serviceNames.claudeSubscription' },
+        ]);
+        expect(typeof definitions.find((entry) => entry.name === 'connected-services/oauth')?.routeOptions).toBe('function');
+    });
+
+    it('names a provider detail screen after its provider and links back to AI backends', () => {
+        const definition = getSettingsStackScreenDefinitions((key) => key)
+            .find((entry) => entry.name === 'providers/[providerId]');
+
+        expect(resolveSettingsBreadcrumbs(definition?.breadcrumbs ?? [], { providerId: 'devin' })).toEqual([
+            { title: 'settings.title', href: '/settings' },
+            { title: 'settingsProviders.title', href: '/settings/providers' },
+            { title: resolveBuiltInAgentTitle('devin') },
         ]);
     });
 });
