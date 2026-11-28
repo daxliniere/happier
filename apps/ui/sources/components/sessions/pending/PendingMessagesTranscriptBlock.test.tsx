@@ -218,8 +218,8 @@ vi.mock('@/components/ui/forms/dropdown/DropdownMenu', () => ({
                     accessibilityRole: 'button',
                     accessibilityLabel: item.title,
                     disabled: item.disabled,
-                    onPress: () => {
-                        if (!item.disabled) props.onSelect(item.id);
+                    onPress: (event?: { primaryModifier?: boolean }) => {
+                        if (!item.disabled) props.onSelect(item.id, { primaryModifier: event?.primaryModifier === true });
                     },
                 },
                 item.title,
@@ -1307,6 +1307,32 @@ describe('PendingMessagesTranscriptBlock', () => {
 
         expect(modalConfirm).not.toHaveBeenCalled();
         expect(deleteDiscardedPendingMessage).toHaveBeenCalledWith('s1', 'd1');
+    });
+
+    it.each([
+        { primaryModifier: true, confirms: false },
+        { primaryModifier: false, confirms: true },
+    ])('removes from the message menu (primary modifier: $primaryModifier)', async ({ primaryModifier, confirms }) => {
+        const PendingMessagesTranscriptBlock = await loadPendingMessagesTranscriptBlock();
+        modalConfirm.mockResolvedValueOnce(true);
+        deletePendingMessage.mockResolvedValueOnce(undefined);
+        const screen = await renderScreen(React.createElement(PendingMessagesTranscriptBlock, {
+                sessionId: 's1',
+                pendingMessages: [{ id: 'p1', text: 'hello', displayText: undefined, createdAt: 0, updatedAt: 0, localId: 'p1', rawRecord: {} }],
+                discardedMessages: [],
+            }));
+
+        await act(async () => {
+            invokeTestInstanceHandler(screen.findByTestId('pendingMessages.message:p1')!, 'onPress', { nativeEvent: { pageX: 1, pageY: 1 } });
+        });
+        const remove = screen.root.findAll((node: any) => node.type === 'DropdownMenuItem' && node.props.accessibilityLabel === t('common.remove'))[0];
+        expect(remove).toBeTruthy();
+        await act(async () => {
+            await remove.props.onPress({ primaryModifier });
+        });
+
+        expect(modalConfirm).toHaveBeenCalledTimes(confirms ? 1 : 0);
+        expect(deletePendingMessage).toHaveBeenCalledWith('s1', 'p1');
     });
 
     it('ignores duplicate remove presses while the confirmation is unresolved', async () => {

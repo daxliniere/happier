@@ -1,6 +1,7 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { act } from 'react-test-renderer';
 import { createSessionFixture, renderScreen } from '@/dev/testkit';
 import type { Session } from '@/sync/domains/state/storageTypes';
 import {
@@ -173,5 +174,44 @@ describe('session info lifecycle actions', () => {
 
         expect(screen.findByTestId('sessionInfo.stopSession')).toBeNull();
         expect(Boolean(screen.findByTestId('sessionInfo.deleteSession'))).toBe(deleteVisible);
+    });
+    describe('Ctrl+click on Stop', () => {
+        let confirm: any;
+        const servable = {
+            v: 1 as const,
+            attachmentId: 'attachment-servable',
+            state: 'servable' as const,
+            observedAt: 124,
+        };
+
+        async function renderStopItem() {
+            testState.session = createOwnedSessionWithTerminalControl(servable);
+            const { Modal } = await import('@/modal');
+            confirm = vi.mocked(Modal.confirm);
+            confirm.mockReset();
+            confirm.mockResolvedValue(false);
+            const { default: SessionInfoRoute } = await import('@/app/(app)/session/[id]/info');
+            const screen = await renderScreen(<SessionInfoRoute />);
+            return screen.findByTestId('sessionInfo.stopSession') as any;
+        }
+
+        it('skips the confirmation for a pointer press with the primary modifier held', async () => {
+            const stop = await renderStopItem();
+            await act(async () => {
+                stop.props.onMouseDownCapture({ ctrlKey: true, metaKey: true });
+                await stop.props.onPress();
+            });
+            expect(confirm).not.toHaveBeenCalled();
+        });
+
+        it('still confirms a keyboard activation after a cancelled modified pointer press', async () => {
+            const stop = await renderStopItem();
+            await act(async () => {
+                stop.props.onMouseDownCapture({ ctrlKey: true, metaKey: true });
+                stop.props.onKeyDown({ key: 'Enter' });
+                await stop.props.onPress();
+            });
+            expect(confirm).toHaveBeenCalledTimes(1);
+        });
     });
 });

@@ -849,9 +849,14 @@ function SessionInfoContent({ session, sessionServerId, sourceMachineIdForHandof
     const [stoppingSession, performStop] = useHappyAction(handleStopAndMaybeArchive);
 
     // Item.onPress carries no event, so the web mouse-down that starts the click records the modifier.
+    // A pointer press cancelled outside the row leaves it set; any key press clears it, so keyboard
+    // activation always confirms.
     const stopPressPrimaryModifierRef = React.useRef(false);
     const handleStopSessionMouseDownCapture = useCallback((event: unknown) => {
         stopPressPrimaryModifierRef.current = isPrimaryModifierPressEvent(event);
+    }, []);
+    const handleStopSessionKeyDown = useCallback(() => {
+        stopPressPrimaryModifierRef.current = false;
     }, []);
     const handleStopSession = useCallback(async () => {
         const primaryModifier = stopPressPrimaryModifierRef.current;
@@ -1209,6 +1214,7 @@ function SessionInfoContent({ session, sessionServerId, sourceMachineIdForHandof
                             {...stopInfoItemProps}
                             onPress={handleStopSession}
                             onMouseDownCapture={handleStopSessionMouseDownCapture}
+                            onKeyDown={handleStopSessionKeyDown}
                             loading={stoppingSession}
                             disabled={archivePending}
                         />
