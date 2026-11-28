@@ -222,7 +222,12 @@ async function runStopArchiveFlow(params: Readonly<{
     });
 }
 
-export async function confirmSessionStop(): Promise<boolean> {
+/**
+ * Ctrl+click (Cmd+click on macOS) on a Stop session control skips this prompt: stopping is
+ * recoverable. Archive-with-stop and Delete keep their confirmations.
+ */
+export async function confirmSessionStop(selection?: Readonly<{ primaryModifier: boolean }>): Promise<boolean> {
+    if (selection?.primaryModifier === true) return true;
     return await Modal.confirm(t('sessionInfo.stopSession'), t('sessionInfo.stopSessionConfirm'), {
         cancelText: t('common.cancel'),
         confirmText: t('sessionInfo.stopSession'),

@@ -436,7 +436,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
       open={open}
       onOpenChange={setOpen}
       items={actions}
-      onSelect={(actionId) => {
+      onSelect={(actionId, selection) => {
         if (actionId.startsWith(`${SESSION_ACTION_SET_APPEARANCE_COLOR_ID}:`)) {
           // Custom color… keeps the menu open while the picker loads; the choice closes it when ready.
           fireAndForget((async () => {
@@ -613,7 +613,7 @@ function SessionHeaderActionMenuInner(props: SessionHeaderActionMenuProps) {
           fireAndForget((async () => {
             const isArchive = actionId === SESSION_ACTION_ARCHIVE_ID;
             if (!isArchive) {
-              if (!await confirmSessionStop()) return;
+              if (!await confirmSessionStop(selection)) return;
             }
             try {
               await executeSessionAction({

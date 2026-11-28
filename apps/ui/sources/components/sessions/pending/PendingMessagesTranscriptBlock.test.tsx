@@ -49,6 +49,7 @@ const dismissPendingDelivery = vi.fn();
 const sendPendingDeliveryAsNew = vi.fn();
 const sessionAbort = vi.fn();
 const modalConfirm = vi.fn();
+const deleteDiscardedPendingMessage = vi.fn();
 const modalAlert = vi.fn();
 const modalPrompt = vi.fn();
 const reorderPendingMessages = vi.fn();
@@ -141,7 +142,7 @@ vi.mock('@/sync/sync', () => ({
         sendPendingDeliveryAsNew: (...args: any[]) => sendPendingDeliveryAsNew(...args),
         updatePendingMessage: vi.fn(),
         restoreDiscardedPendingMessage: vi.fn(),
-        deleteDiscardedPendingMessage: vi.fn(),
+        deleteDiscardedPendingMessage: (...args: any[]) => deleteDiscardedPendingMessage(...args),
         fetchPendingMessages: vi.fn(),
         reorderPendingMessages: (...args: any[]) => reorderPendingMessages(...args),
     },
@@ -269,6 +270,7 @@ describe('PendingMessagesTranscriptBlock', () => {
         sendPendingDeliveryAsNew.mockReset();
         sessionAbort.mockReset();
         modalConfirm.mockReset();
+        deleteDiscardedPendingMessage.mockReset();
         modalAlert.mockReset();
         reorderPendingMessages.mockReset();
         actionExecute.mockReset();
@@ -1264,6 +1266,47 @@ describe('PendingMessagesTranscriptBlock', () => {
         expect(screen.findByTestId('pendingMessages.discardDelivery:p1')).toBeNull();
         expect(deletePendingMessage).not.toHaveBeenCalled();
         expect(discardPendingMessage).not.toHaveBeenCalled();
+    });
+
+    it('removes a queued message without confirmation when the primary modifier is held', async () => {
+        const PendingMessagesTranscriptBlock = await loadPendingMessagesTranscriptBlock();
+        deletePendingMessage.mockResolvedValueOnce(undefined);
+        const screen = await renderScreen(React.createElement(PendingMessagesTranscriptBlock, {
+                sessionId: 's1',
+                pendingMessages: [{ id: 'p1', text: 'hello', displayText: undefined, createdAt: 0, updatedAt: 0, localId: 'p1', rawRecord: {} }],
+                discardedMessages: [],
+            }));
+
+        await hoverPendingMessageRow(screen, 'p1');
+        const remove = screen.findByTestId('pendingMessages.remove:p1');
+
+        await act(async () => {
+            invokeTestInstanceHandler(remove, 'onPress', { nativeEvent: { ctrlKey: true, metaKey: true } }, 'pendingMessages.remove:p1');
+            await Promise.resolve();
+        });
+
+        expect(modalConfirm).not.toHaveBeenCalled();
+        expect(deletePendingMessage).toHaveBeenCalledWith('s1', 'p1');
+    });
+
+    it('removes a discarded message without confirmation when the primary modifier is held', async () => {
+        const PendingMessagesTranscriptBlock = await loadPendingMessagesTranscriptBlock();
+        const screen = await renderScreen(React.createElement(PendingMessagesTranscriptBlock, {
+                sessionId: 's1',
+                pendingMessages: [],
+                discardedMessages: [{ id: 'd1', text: 'old', displayText: undefined, createdAt: 0, updatedAt: 0, discardedAt: 0, discardedReason: 'manual', localId: 'd1', rawRecord: {} }],
+            }));
+
+        await hoverDiscardedMessageRow(screen, 'd1');
+        const remove = screen.findByTestId('pendingMessages.discarded.remove:d1');
+
+        await act(async () => {
+            invokeTestInstanceHandler(remove, 'onPress', { ctrlKey: true, metaKey: true }, 'pendingMessages.discarded.remove:d1');
+            await Promise.resolve();
+        });
+
+        expect(modalConfirm).not.toHaveBeenCalled();
+        expect(deleteDiscardedPendingMessage).toHaveBeenCalledWith('s1', 'd1');
     });
 
     it('ignores duplicate remove presses while the confirmation is unresolved', async () => {

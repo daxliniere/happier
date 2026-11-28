@@ -69,6 +69,7 @@ import { createSessionActionTarget } from '@/components/sessions/actions/session
 import { useSessionAttentionStandingInputs } from '@/hooks/session/useSessionAttentionStandingInputs';
 import { resolveSessionAttentionStanding } from '@/sync/domains/session/organization/attentionStanding';
 import { confirmSessionStop, executeSessionAction } from '@/components/sessions/actions/sessionActionExecution';
+import { isPrimaryModifierPressEvent } from '@/keyboard/pressModifiers';
 import {
     SESSION_ACTION_ARCHIVE_ID,
     SESSION_ACTION_DELETE_ID,
@@ -847,8 +848,15 @@ function SessionInfoContent({ session, sessionServerId, sourceMachineIdForHandof
     }, [handleExitAfterSessionMutation, hideInactiveSessions, sessionActionTarget]);
     const [stoppingSession, performStop] = useHappyAction(handleStopAndMaybeArchive);
 
+    // Item.onPress carries no event, so the web mouse-down that starts the click records the modifier.
+    const stopPressPrimaryModifierRef = React.useRef(false);
+    const handleStopSessionMouseDownCapture = useCallback((event: unknown) => {
+        stopPressPrimaryModifierRef.current = isPrimaryModifierPressEvent(event);
+    }, []);
     const handleStopSession = useCallback(async () => {
-        if (!await confirmSessionStop()) return;
+        const primaryModifier = stopPressPrimaryModifierRef.current;
+        stopPressPrimaryModifierRef.current = false;
+        if (!await confirmSessionStop({ primaryModifier })) return;
         await performStop();
     }, [performStop]);
 
@@ -1200,6 +1208,7 @@ function SessionInfoContent({ session, sessionServerId, sourceMachineIdForHandof
                         <Item
                             {...stopInfoItemProps}
                             onPress={handleStopSession}
+                            onMouseDownCapture={handleStopSessionMouseDownCapture}
                             loading={stoppingSession}
                             disabled={archivePending}
                         />

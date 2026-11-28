@@ -19,6 +19,7 @@ import { useHasHardwareKeyboard } from '@/hooks/ui/useHasHardwareKeyboard';
 import { useScrollRectIntoViewRegistry } from '@/components/ui/scroll/useScrollRectIntoView';
 import { Icon } from '@/components/ui/icons/Icon';
 import { ActivitySpinner, iconMatchedSpinnerSize } from '@/components/ui/feedback/ActivitySpinner';
+import { isPrimaryModifierPressEvent } from '@/keyboard/pressModifiers';
 
 const DROPDOWN_ACTION_FRAME_FALLBACK_MS = 100;
 /**
@@ -118,6 +119,13 @@ export type DropdownMenuItemTriggerConfig = Readonly<{
     >;
 }>;
 
+/** How an item was chosen. A pointer press with Ctrl (Cmd on macOS) held reports `primaryModifier`. */
+export type DropdownMenuSelection = Readonly<{
+    primaryModifier: boolean;
+}>;
+
+const PLAIN_DROPDOWN_SELECTION: DropdownMenuSelection = Object.freeze({ primaryModifier: false });
+
 export type DropdownMenuProps = Readonly<{
     /**
      * The trigger element.
@@ -142,7 +150,7 @@ export type DropdownMenuProps = Readonly<{
     onOpenChange: (next: boolean) => void;
 
     items: ReadonlyArray<DropdownMenuItem>;
-    onSelect: (itemId: string) => void;
+    onSelect: (itemId: string, selection: DropdownMenuSelection) => void;
     /** When false, selecting an item does not close the popover (useful for multi-select menus). */
     closeOnSelect?: boolean;
     /**
@@ -482,13 +490,13 @@ export function DropdownMenu(props: DropdownMenuProps) {
         props.onOpenChange(false);
         schedule(() => props.onCreateItem?.(query), DROPDOWN_ACTION_FRAME_FALLBACK_MS);
     }, [props, schedule, searchQuery]);
-    const commitSelection = React.useCallback((itemId: string) => {
+    const commitSelection = React.useCallback((itemId: string, selection: DropdownMenuSelection = PLAIN_DROPDOWN_SELECTION) => {
         if (!closeOnSelect || props.items.some((item) => item.id === itemId && item.keepMenuOpen)) {
-            props.onSelect(itemId);
+            props.onSelect(itemId, selection);
             return;
         }
         props.onOpenChange(false);
-        schedule(() => props.onSelect(itemId), DROPDOWN_ACTION_FRAME_FALLBACK_MS);
+        schedule(() => props.onSelect(itemId, selection), DROPDOWN_ACTION_FRAME_FALLBACK_MS);
     }, [closeOnSelect, props, schedule]);
 
     const dispatchMenuKey = (key: string) => {
@@ -615,21 +623,21 @@ export function DropdownMenu(props: DropdownMenuProps) {
         else scheduleSubmenuClose();
     }, [clearHoverTimer, scheduleSubmenuClose]);
 
-    const handlePressMenuItem = React.useCallback((item: SelectableMenuItem) => {
+    const handlePressMenuItem = React.useCallback((item: SelectableMenuItem, pressEvent?: unknown) => {
         if (item.id === CREATE_ITEM_ID) {
             handleCreate();
             return;
         }
         if (item.hasSubmenu) return;
-        commitSelection(item.id);
+        commitSelection(item.id, isPrimaryModifierPressEvent(pressEvent) ? { primaryModifier: true } : PLAIN_DROPDOWN_SELECTION);
     }, [commitSelection, handleCreate]);
-    const handleSubmenuSelect = React.useCallback((itemId: string) => {
+    const handleSubmenuSelect = React.useCallback((itemId: string, selection: DropdownMenuSelection) => {
         if (activeSubmenuItem?.submenu?.items.some((item) => item.id === itemId && item.keepMenuOpen)) {
-            props.onSelect(itemId);
+            props.onSelect(itemId, selection);
             return;
         }
         closeSubmenu();
-        commitSelection(itemId);
+        commitSelection(itemId, selection);
     }, [activeSubmenuItem, closeSubmenu, commitSelection, props]);
 
     const overlayArrowCfg = React.useMemo((): Omit<Exclude<FloatingOverlayArrow, boolean>, 'placement'> | null => {
@@ -750,9 +758,7 @@ export function DropdownMenu(props: DropdownMenuProps) {
                                     selectedIndex={selectedIndex}
                                     onSelectionChange={handleResultsSelectionChange}
                                     swatchHighlightVisible={swatchHighlightVisible}
-                                    onPressItem={(item) => {
-                                        handlePressMenuItem(item);
-                                    }}
+                                    onPressItem={handlePressMenuItem}
                                     onOpenSubmenu={handleOpenSubmenu}
                                     onHoverItem={handleHoverItem}
                                     rowVariant={rowVariant}

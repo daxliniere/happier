@@ -75,6 +75,42 @@ vi.mock('@/components/ui/text/Text', () => {
 });
 
 describe('SelectableMenuResults (web mouse down activation)', () => {
+    it('forwards the activating mouse event so callers can read held modifiers', async () => {
+        const { SelectableMenuResults } = await import('./SelectableMenuResults');
+        const onPressItem = vi.fn();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+
+        try {
+            await act(async () => {
+                root.render(
+                    <SelectableMenuResults
+                        categories={[{ id: 'general', title: 'General', items: [{ id: 'stop', title: 'Stop' }] }]}
+                        selectedIndex={0}
+                        onSelectionChange={() => {}}
+                        onPressItem={onPressItem}
+                        rowVariant="slim"
+                    />,
+                );
+            });
+
+            await act(async () => {
+                container.querySelector('button')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, ctrlKey: true }));
+            });
+
+            expect(onPressItem).toHaveBeenCalledWith(
+                expect.objectContaining({ id: 'stop' }),
+                expect.objectContaining({ ctrlKey: true }),
+            );
+        } finally {
+            await act(async () => {
+                root.unmount();
+            });
+            container.remove();
+        }
+    });
+
     it('activates a menu item on mouse down before the follow-up click and does not double-fire', async () => {
         const { SelectableMenuResults } = await import('./SelectableMenuResults');
         const onPressItem = vi.fn();
@@ -109,7 +145,7 @@ describe('SelectableMenuResults (web mouse down activation)', () => {
             });
 
             expect(onPressItem).toHaveBeenCalledTimes(1);
-            expect(onPressItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'upload' }));
+            expect(onPressItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'upload' }), expect.anything());
 
             await act(async () => {
                 button!.click();
@@ -160,7 +196,7 @@ describe('SelectableMenuResults (web mouse down activation)', () => {
             });
 
             expect(onPressItem).toHaveBeenCalledTimes(1);
-            expect(onPressItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'upload' }));
+            expect(onPressItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'upload' }), expect.anything());
 
             await act(async () => {
                 (option as HTMLButtonElement).click();

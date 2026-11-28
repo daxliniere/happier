@@ -198,7 +198,8 @@ export function SelectableMenuResults(props: {
     categories: ReadonlyArray<SelectableMenuCategory>;
     selectedIndex: number;
     onSelectionChange: (index: number) => void;
-    onPressItem: (item: SelectableMenuItem) => void;
+    /** `pressEvent` is the activating pointer event when there is one, so callers can read held modifiers. */
+    onPressItem: (item: SelectableMenuItem, pressEvent?: unknown) => void;
     onOpenSubmenu?: (itemId: string, anchorRef: React.RefObject<unknown>) => void;
     /** The pointer rests on a row (mouse/pen); the menu decides whether its submenu opens or closes. */
     onHoverItem?: (item: SelectableMenuItem, anchorRef: React.RefObject<unknown>) => void;
@@ -239,9 +240,9 @@ export function SelectableMenuResults(props: {
         props.onOpenSubmenu?.(item.id, anchorRef);
         return true;
     }, [props]);
-    const handleMouseDownActivatedPress = React.useCallback((item: SelectableMenuItem) => {
+    const handleMouseDownActivatedPress = React.useCallback((item: SelectableMenuItem, pressEvent: unknown) => {
         mouseDownActivatedItemIdRef.current = String(item.id);
-        props.onPressItem(item);
+        props.onPressItem(item, pressEvent);
     }, [props.onPressItem]);
     const handlePressItem = React.useCallback((item: SelectableMenuItem) => {
         const itemId = String(item.id);
@@ -294,7 +295,7 @@ export function SelectableMenuResults(props: {
                                 activationEvent.preventDefault?.();
                                 activationEvent.stopPropagation?.();
                                 if (handleOpenSubmenu(item, rowAnchorRef as React.RefObject<unknown>)) return;
-                                handleMouseDownActivatedPress(item);
+                                handleMouseDownActivatedPress(item, event);
                             })
                             : undefined;
                     // Hover reports every row; the menu owns the intent (dwell, sibling close, grace).

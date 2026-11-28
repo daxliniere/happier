@@ -5,7 +5,7 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useHappyAction } from '@/hooks/ui/useHappyAction';
 import { HappyError } from '@/utils/errors/errors';
-import type { DropdownMenuItem } from '@/components/ui/forms/dropdown/DropdownMenu';
+import type { DropdownMenuItem, DropdownMenuSelection } from '@/components/ui/forms/dropdown/DropdownMenu';
 import { confirmSessionStop, executeSessionAction } from '@/components/sessions/actions/sessionActionExecution';
 import {
     SESSION_ACTION_ARCHIVE_ID,
@@ -175,8 +175,8 @@ export function useSessionRowActionMenu(params: Readonly<{
         });
     });
 
-    const confirmStopSession = React.useCallback(async () => {
-        if (!await confirmSessionStop()) return;
+    const confirmStopSession = React.useCallback(async (selection?: DropdownMenuSelection) => {
+        if (!await confirmSessionStop(selection)) return;
         performStopMutation();
     }, [performStopMutation]);
 
@@ -283,7 +283,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         [params.leadingMenuItems, params.trailingMenuItems],
     );
 
-    const handleMoreMenuSelect = React.useCallback(async (itemId: string) => {
+    const handleMoreMenuSelect = React.useCallback(async (itemId: string, selection?: DropdownMenuSelection) => {
         if (itemId === SESSION_PROJECT_MOVE_MENU_ID) {
             params.onMoveToProject?.();
             return;
@@ -368,7 +368,7 @@ export function useSessionRowActionMenu(params: Readonly<{
                 await handleRenameSession();
                 break;
             case SESSION_ACTION_STOP_ID:
-                await confirmStopSession();
+                await confirmStopSession(selection);
                 break;
             case SESSION_ACTION_ARCHIVE_ID:
                 await confirmArchiveSession();
@@ -439,7 +439,7 @@ export function useSessionRowActionMenu(params: Readonly<{
         target.isPinned,
     ]);
 
-    const handleContextMenuSelect = React.useCallback((itemId: string) => {
+    const handleContextMenuSelect = React.useCallback((itemId: string, selection?: DropdownMenuSelection) => {
         if (itemId === SESSION_PROJECT_MOVE_MENU_ID) {
             params.onMoveToProject?.();
             return;
@@ -465,11 +465,11 @@ export function useSessionRowActionMenu(params: Readonly<{
         }
         // An item that loads first keeps the menu open; its owner closes it when ready.
         if (findMenuItem(contextMenuItems, itemId)?.keepMenuOpen) {
-            void handleMoreMenuSelect(itemId);
+            void handleMoreMenuSelect(itemId, selection);
             return;
         }
         params.setContextMenuOpen(false);
-        void handleMoreMenuSelect(itemId);
+        void handleMoreMenuSelect(itemId, selection);
     }, [contextMenuItems, handleMoreMenuSelect, params, target]);
 
     return {
