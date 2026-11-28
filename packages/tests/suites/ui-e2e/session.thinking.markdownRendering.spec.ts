@@ -168,5 +168,11 @@ test.describe('ui e2e: thinking markdown rendering', () => {
     const surroundingStyle = await readComputedStylesForLocator(surrounding);
     expect(codeStyle.fontSize).toBe(surroundingStyle.fontSize);
     expect(codeStyle.color).toBe(surroundingStyle.color);
+
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await inlineCode.dblclick();
+    await expect(body.getByTestId('markdown-inline-code-copied')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('git diff');
+    await expect(body.getByTestId('markdown-inline-code-copied')).toBeHidden();
   });
 });
